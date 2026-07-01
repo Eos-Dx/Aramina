@@ -23,19 +23,40 @@ cd eosproduct_onboarding_bundle
 ./install.sh
 ```
 
+Windows PowerShell:
+
+```powershell
+tar -xzf eosproduct_onboarding_bundle.tar.gz
+cd eosproduct_onboarding_bundle
+.\install.ps1
+```
+
 The installer asks before running tests or launching notebooks. If tests are
 accepted, XRD-preprocessing and Aramis tests run together in a separate Terminal
-window. If notebooks are accepted, Aramis one-to-one and one-to-many notebooks
-open in separate Terminal windows.
+window on macOS/Linux or a separate PowerShell window on Windows. If notebooks
+are accepted, Aramis one-to-one and one-to-many notebooks open in separate
+Terminal/PowerShell windows.
 
-If git clone/update succeeds, installer uses latest pushed repositories. If git
-is unavailable or clone fails, installer uses the bundled repository fallback.
+If git clone/update succeeds, installer uses pinned product refs:
+
+```text
+XRD-preprocessing: v0.1.6-beta
+Aramis: 0.1.3-beta
+container: feat/v0_3-eoscan-session-container
+```
+
+If git is unavailable or clone fails, installer uses the bundled repository
+fallback.
 
 If `conda` is not installed, the installer asks to install Miniforge into:
 
 ```text
 ~/miniforge3
 ```
+
+If `git` is not installed, the installer asks to install it. On macOS/Linux,
+`install.sh` tries Homebrew, Apple Command Line Tools, or apt where available.
+On Windows, `install.ps1` tries `winget install Git.Git`.
 
 Default target:
 
@@ -51,10 +72,22 @@ Manual test commands:
 ./run_tests.sh ~/dev/eosproduct all
 ```
 
+Windows:
+
+```powershell
+.\run_tests.ps1 -TargetRoot "$HOME\dev\eosproduct" -Mode all
+```
+
 Manual notebook command:
 
 ```bash
 ./run_aramis_notebooks.sh ~/dev/eosproduct
+```
+
+Windows:
+
+```powershell
+.\run_aramis_notebooks.ps1 -TargetRoot "$HOME\dev\eosproduct"
 ```
 
 Notebook behavior:

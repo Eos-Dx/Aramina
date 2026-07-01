@@ -46,25 +46,26 @@ copy_or_update_repo() {
   local url="$2"
   local target="$3"
   local required_path="${4:-}"
-  local branch="${5:-}"
+  local ref="${5:-}"
   local fallback="${BUNDLE_DIR}/repos/${name}"
   if [[ "${USE_GIT}" == "yes" ]]; then
     if [[ -d "${target}/.git" ]]; then
-      if [[ -n "${branch}" ]]; then
-        git -C "${target}" fetch origin "${branch}" || {
-          echo "Git fetch failed for ${name}; keeping existing checkout."
-        }
-        git -C "${target}" checkout "${branch}" || git -C "${target}" checkout -B "${branch}" "origin/${branch}" || {
+      git -C "${target}" fetch --tags origin || {
+        echo "Git fetch failed for ${name}; keeping existing checkout."
+      }
+      if [[ -n "${ref}" ]]; then
+        git -C "${target}" checkout "${ref}" || git -C "${target}" checkout -B "${ref}" "origin/${ref}" || {
           echo "Git checkout failed for ${name}; keeping existing checkout."
         }
+      else
+        git -C "${target}" pull --ff-only || {
+          echo "Git update failed for ${name}; keeping existing checkout."
+        }
       fi
-      git -C "${target}" pull --ff-only || {
-        echo "Git update failed for ${name}; keeping existing checkout."
-      }
     else
       rm -rf "${target}"
-      if [[ -n "${branch}" ]]; then
-        git clone --branch "${branch}" "${url}" "${target}" || true
+      if [[ -n "${ref}" ]]; then
+        git clone --branch "${ref}" "${url}" "${target}" || true
       else
         git clone "${url}" "${target}" || true
       fi
@@ -82,6 +83,30 @@ copy_or_update_repo() {
   rm -rf "${target}"
   mkdir -p "$(dirname "${target}")"
   cp -R "${fallback}" "${target}"
+}
+
+ensure_git() {
+  if command -v git >/dev/null 2>&1; then
+    return 0
+  fi
+  if ! ask_yes_no "git not found. Install git if possible?" "y"; then
+    return 1
+  fi
+  if command -v brew >/dev/null 2>&1; then
+    brew install git
+    return 0
+  fi
+  if [[ "$(uname -s)" == "Darwin" ]] && command -v xcode-select >/dev/null 2>&1; then
+    xcode-select --install || true
+    echo "Apple Command Line Tools installer started. Rerun install.sh after it finishes."
+    exit 1
+  fi
+  if command -v apt-get >/dev/null 2>&1; then
+    sudo apt-get update && sudo apt-get install -y git
+    return 0
+  fi
+  echo "Could not install git automatically. Using bundled repository fallback." >&2
+  return 1
 }
 
 run_in_terminal() {
@@ -160,12 +185,13 @@ TARGET_ROOT="$(ask_value "Target root" "${DEFAULT_TARGET}")"
 mkdir -p "${TARGET_ROOT}"
 
 USE_GIT="no"
+ensure_git || true
 if command -v git >/dev/null 2>&1 && ask_yes_no "Use git to clone/update repos?" "y"; then
   USE_GIT="yes"
 fi
 
-copy_or_update_repo "XRD-preprocessing" "https://github.com/Eos-Dx/XRD-preprocessing.git" "${TARGET_ROOT}/XRD-preprocessing" "src/xrd_preprocessing/configs/preprocessing_branch_config_template.yaml"
-copy_or_update_repo "Aramis" "https://github.com/Eos-Dx/Aramis.git" "${TARGET_ROOT}/Aramis" "examples/aramis_dataframe_one_to_one_v0_1.py"
+copy_or_update_repo "XRD-preprocessing" "https://github.com/Eos-Dx/XRD-preprocessing.git" "${TARGET_ROOT}/XRD-preprocessing" "src/xrd_preprocessing/configs/preprocessing_branch_config_template.yaml" "v0.1.6-beta"
+copy_or_update_repo "Aramis" "https://github.com/Eos-Dx/Aramis.git" "${TARGET_ROOT}/Aramis" "examples/aramis_dataframe_one_to_one_v0_1.py" "0.1.3-beta"
 copy_or_update_repo "container" "https://github.com/Eos-Dx/container.git" "${TARGET_ROOT}/container" "pyproject.toml" "feat/v0_3-eoscan-session-container"
 mkdir -p "${TARGET_ROOT}/Bremen"
 

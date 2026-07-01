@@ -1,0 +1,85 @@
+{
+  "h5_path": "/Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/data/product-aramis-data/combined_archive.h5",
+  "csv_source": "/Users/sad/Downloads/26Jun26_missing_sample_thickness_in_Nova_study(in).csv",
+  "backfilled_at": "2026-07-01T08:59:31+00:00",
+  "missing_before": 21,
+  "csv_rows": 21,
+  "csv_numeric_rows": 14,
+  "csv_blank_rows": 7,
+  "backfilled_rows": 14,
+  "missing_after": 7,
+  "missing_after_p1_p2_p3": 7,
+  "audit_csv": "/Users/sad/dev/Aramis/docs/meta/sample_thickness_h5_backfill_2026_07_01.csv",
+  "remaining_missing": [
+    {
+      "started_at": "2025-10-22 11:03:59",
+      "patientId": "Nova_333",
+      "specimenId": "Nova_333_Left",
+      "side": "Left",
+      "specimen_status": "BENIGN",
+      "position": "P3",
+      "session_path": "/calib_20251022_090437/sample_06_20251022_Nova_333_Left",
+      "set_name": "set_002_sample_main"
+    },
+    {
+      "started_at": "2025-10-22 13:40:32",
+      "patientId": "Nova_334",
+      "specimenId": "Nova_334_Right",
+      "side": "Right",
+      "specimen_status": "BENIGN",
+      "position": "P3",
+      "session_path": "/calib_20251022_090437/sample_07_20251022_Nova_334_Right",
+      "set_name": "set_001_sample_main"
+    },
+    {
+      "started_at": "2025-10-22 13:48:03",
+      "patientId": "Nova_334",
+      "specimenId": "Nova_334_Left",
+      "side": "Left",
+      "specimen_status": "BENIGN",
+      "position": "P2",
+      "session_path": "/calib_20251022_090437/sample_08_20251022_Nova_334_Left",
+      "set_name": "set_001_sample_main"
+    },
+    {
+      "started_at": "2025-10-22 13:48:03",
+      "patientId": "Nova_334",
+      "specimenId": "Nova_334_Left",
+      "side": "Left",
+      "specimen_status": "BENIGN",
+      "position": "P3",
+      "session_path": "/calib_20251022_090437/sample_08_20251022_Nova_334_Left",
+      "set_name": "set_002_sample_main"
+    },
+    {
+      "started_at": "2026-03-18 12:41:08",
+      "patientId": "Nova_405",
+      "specimenId": "Nova_405_Right",
+      "side": "Right",
+      "specimen_status": "BENIGN",
+      "position": "P1",
+      "session_path": "/calib_20260318_091322/sample_01_20260318_Nova_405_Right",
+      "set_name": "set_002_sample_main"
+    },
+    {
+      "started_at": "2026-03-18 12:48:41",
+      "patientId": "Nova_405",
+      "specimenId": "Nova_405_Left",
+      "side": "Left",
+      "specimen_status": "BENIGN",
+      "position": "P1",
+      "session_path": "/calib_20260318_091322/sample_02_20260318_Nova_405_Left",
+      "set_name": "set_002_sample_main"
+    },
+    {
+      "started_at": "2026-03-18 14:45:48",
+      "patientId": "Nova_406",
+      "specimenId": "Nova_406_Right",
+      "side": "Right",
+      "specimen_status": "BENIGN",
+      "position": "P1",
+      "session_path": "/calib_20260318_091322/sample_03_20260318_Nova_406_Right",
+      "set_name": "set_002_sample_main"
+    }
+  ]
+}

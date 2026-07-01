@@ -64,6 +64,12 @@ human1_diagnoses_metadata_h5_audit.json
 
 human1_diagnoses_metadata_h5_mismatches.csv
   row-level mismatch table for H5-vs-canonical-metadata review
+
+sample_thickness_h5_backfill_2026_07_01.csv
+  row-level audit of manual H5 sample-thickness backfill from the 26 Jun 2026 CSV
+
+sample_thickness_h5_backfill_2026_07_01.json
+  summary of missing sample thickness before/after H5 backfill and remaining blanks
 ```
 
 ### `aramis_product_versioning.json`
@@ -461,6 +467,41 @@ H5 set name
 
 Use this file to decide which mismatches are harmless normalization differences
 and which require H5 backfill or product-filter changes.
+
+### `sample_thickness_h5_backfill_2026_07_01.csv`
+
+Purpose:
+
+```text
+audit table for manual sample-thickness backfill into combined_archive.h5
+one row per updated H5 measurement set
+records old/new thickness, set_path, patientId, specimenId, side, position
+source CSV: 26Jun26_missing_sample_thickness_in_Nova_study(in).csv
+```
+
+The H5 update writes `thickness_raw_mm` into the affected measurement set attrs.
+`xrd_preprocessing` promotes this to `sample_thickness_mm` when reading the H5.
+
+### `sample_thickness_h5_backfill_2026_07_01.json`
+
+Purpose:
+
+```text
+summary of H5 sample-thickness backfill
+missing rows before update
+CSV rows with numeric thickness
+rows updated
+remaining rows without sample thickness
+```
+
+Current summary:
+
+```text
+missing before: 21
+numeric CSV thickness rows: 14
+backfilled rows: 14
+remaining missing after update: 7
+```
 
 ## Product Rules
 
