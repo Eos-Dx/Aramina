@@ -20,13 +20,21 @@ Rot2: 0
 Rot3: 0
 Wavelength: 1e-10
 """
-COMMON_OUTPUT_COLUMNS = {
+ONE_TO_MANY_OUTPUT_COLUMNS = {
     "age",
+    "azimuthal_mask_pixels",
+    "azimuthal_mask_source",
+    "azimuthal_mode",
+    "azimuthal_npt",
+    "azimuthal_npt_azimuthal",
     "biopsy",
     "birads",
     "breast_density",
+    "calculated_distance",
     "calibrant_thickness_mm",
+    "faulty_pixel_mask",
     "id",
+    "interpolation_q_range",
     "meas_name",
     "measurementDate",
     "measurement_data_source",
@@ -36,21 +44,14 @@ COMMON_OUTPUT_COLUMNS = {
     "patient_specimen_valid",
     "patient_specimen_validity_reason",
     "patient_valid_specimen_count",
-    "ponifile",
     "poni_q_max_nm_inv",
     "position",
     "product_diagnosis",
     "product_status_group",
     "q_range",
-    "q_range_normalization_max",
-    "q_range_normalization_min",
-    "q_range_normalization_statistic",
-    "q_range_normalization_value",
+    "radial_profile_data_raw",
     "radial_profile_data",
-    "radial_profile_nearest_q_nm_inv",
-    "radial_profile_q_delta_nm_inv",
-    "radial_profile_value_at_q",
-    "radial_profile_value_pass",
+    "radial_profile_sigma",
     "sample_biopsy",
     "sample_biopsy_type",
     "sample_height_in",
@@ -61,19 +62,10 @@ COMMON_OUTPUT_COLUMNS = {
     "snr_db",
     "snr_linear",
     "snr_method_used",
-    "snr_min_db",
-    "snr_pass",
-    "specimenId",
     "specimen_measurement_count",
+    "specimenId",
     "specimen_status",
     "started_at",
-    "azimuthal_mask_pixels",
-    "azimuthal_mask_source",
-    "azimuthal_mode",
-    "azimuthal_npt",
-    "azimuthal_npt_azimuthal",
-    "calculated_distance",
-    "interpolation_q_range",
     "thickness_adjusted_distance_m",
     "thickness_adjustment_applied",
     "thickness_adjustment_reliable",
@@ -81,33 +73,42 @@ COMMON_OUTPUT_COLUMNS = {
     "thickness_reference_mm",
     "thickness_reference_source",
 }
-ONE_TO_ONE_OUTPUT_COLUMNS = COMMON_OUTPUT_COLUMNS | {
+ONE_TO_ONE_OUTPUT_COLUMNS = ONE_TO_MANY_OUTPUT_COLUMNS | {
     "one_to_one_pair_type",
+    "patient_valid_specimen_count",
 }
-ONE_TO_MANY_OUTPUT_COLUMNS = COMMON_OUTPUT_COLUMNS
 PAYLOAD_COLUMNS = {
     "measurement_data",
     "raw_data",
     "processed_data",
     "detector_measurements",
-    "faulty_pixel_mask",
-    "radial_profile_data_raw",
-    "radial_profile_sigma",
+    "gfrm_data",
 }
 
 
 def load_synthetic_config(branch: str = "one_to_one") -> dict:
     config_file = {
-        "one_to_one": "aramis_one_to_one_preprocessing_v0_1.yaml",
-        "one_to_many": "aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml",
-        "one_to_many_benign_cancer": "aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml",
-        "one_to_many_benign_cancer_biopsy": "aramis_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml",
+        "one_to_one": "aramis_one_to_one_max_v0_1.yaml",
+        "one_to_one_biopsy": "aramis_one_to_one_biopsy_max_v0_1.yaml",
+        "one_to_many": "aramis_one_to_many_max_v0_1.yaml",
+        "one_to_many_benign_cancer": "aramis_one_to_many_max_v0_1.yaml",
+        "one_to_many_benign_cancer_biopsy": "aramis_one_to_many_biopsy_max_v0_1.yaml",
     }[branch]
     config_path = Path(__file__).parents[1] / "config" / "preprocessing" / config_file
     config = load_preprocessing_config(config_path)
     config["raw_data"]["source"] = "npy"
+    config["raw_data"]["allowed_sources"] = ["gfrm", "npy"]
     config["raw_data"]["h5_dataset_candidates"]["npy"] = ["raw/data"]
-    config["filters"]["accepted_dates"] = ["2026-05-01"]
+    config["pipeline"]["steps"][0] = {
+        "name": "h5_blob_to_df",
+        "transformer": "H5BlobDataFrameTransformer",
+        "params": {
+            "source": {"$ref": "raw_data.source"},
+            "dataset_candidates": {
+                "$ref": "raw_data.h5_dataset_candidates.npy",
+            },
+        },
+    }
     config["snr"]["min_snr_db"] = -100.0
     config["integration"]["q_range_nm_inv"] = [2.0, 23.0]
     config["normalization"]["q_range_nm_inv"] = [6.7, 7.1]

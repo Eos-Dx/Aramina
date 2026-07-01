@@ -46,7 +46,7 @@ Development / validation:
 Current Aramis product config references:
 
 ```text
-xrd_preprocessing.release_tag = v0.1.5-beta
+xrd_preprocessing.release_tag = v0.1.6-beta
 ```
 
 For local development, `environment.yml` installs:
@@ -60,7 +60,7 @@ For local development, `environment.yml` installs:
 For reproducible package metadata, `pyproject.toml` points Aramis to:
 
 ```text
-xrd-preprocessing @ git+https://github.com/Eos-Dx/XRD-preprocessing.git@v0.1.5-beta
+xrd-preprocessing @ git+https://github.com/Eos-Dx/XRD-preprocessing.git@v0.1.6-beta
 ```
 
 Validation commands:

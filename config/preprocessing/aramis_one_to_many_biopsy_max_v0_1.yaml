@@ -1,0 +1,18 @@
+extends:
+- aramis_main_max_v0_1.yaml
+- branches/one_to_many_biopsy_v0_1.yaml
+aramis_preprocessing:
+  name: aramis_one_to_many_biopsy_max
+  version: 0.1
+provenance:
+  status: research draft runnable one_to_many biopsy_only MAX preprocessing config
+  canonical_location: Aramis/config/preprocessing/aramis_one_to_many_biopsy_max_v0_1.yaml
+  base_config: Aramis/config/preprocessing/aramis_main_max_v0_1.yaml
+  used_by:
+  - Aramis/src/aramis/pipelines.py
+  clinical_safety_note: Research draft decision-support preprocessing only; not for
+    autonomous diagnosis.
+io:
+  output_joblib_path: ../../examples/outputs/aramis_one_to_many_benign_cancer_biopsy_dataframe.joblib
+branch_settings:
+  output_columns: []

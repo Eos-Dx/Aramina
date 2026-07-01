@@ -165,12 +165,39 @@ Preprocessing code split:
 
 ```text
 src/aramis/pipelines.py
-  sklearn-style transformers:
+  thin Aramis wrappers:
+    load_preprocessing_config(...)
+    build_pipeline_from_config(...)
     AramisOneToOnePreprocessingPipeline(...).fit_transform(h5_path)
     AramisOneToManyPreprocessingPipeline(...).fit_transform(h5_path)
   run_one_to_one_preprocessing_pipeline(...)
   run_one_to_many_preprocessing_pipeline(...)
-  optional DataFrame joblib export
+  final DataFrame joblib export when requested
+```
+
+Aramis does not hardcode preprocessing transformer order in Python. Runnable
+branch YAMLs extend a shared route:
+
+```text
+config/preprocessing/shared/aramis_pipeline_v0_1.yaml
+```
+
+That route declares `pipeline.steps`. XRD-preprocessing owns the transformer
+registry, `$ref` / `$concat` resolution, and sklearn Pipeline construction.
+Aramis resolves YAML input/output paths, requires `metadata.output_columns`,
+runs the declared pipeline, and writes the final DataFrame joblib.
+
+Runtime call chain:
+
+```text
+python -m aramis preprocess --config <yaml>
+-> aramis.__main__.main
+-> aramis.pipelines.run_preprocessing_from_config
+-> xrd_preprocessing.load_preprocessing_config
+-> xrd_preprocessing.build_pipeline_from_config
+-> YAML-declared XRD transformers
+-> KeepColumnsTransformer(metadata.output_columns + branch_settings.output_columns)
+-> joblib.dump(final_df, io.output_joblib_path)
 ```
 
 Synthetic regression tests:
@@ -193,20 +220,20 @@ conda activate eosproduct
 cd /Users/sad/dev/Aramis
 
 python -m aramis preprocess --config \
-  config/preprocessing/aramis_one_to_one_preprocessing_v0_1.yaml
+  config/preprocessing/aramis_one_to_one_max_v0_1.yaml
 
 python -m aramis preprocess --config \
-  config/preprocessing/aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml
+  config/preprocessing/aramis_one_to_many_max_v0_1.yaml
 ```
 
 Interactive edit mode:
 
 ```bash
 python -m marimo edit examples/aramis_dataframe_one_to_one_v0_1.py -- \
-  --aramis-preprocessing-config-path config/preprocessing/aramis_one_to_one_preprocessing_v0_1.yaml
+  --aramis-preprocessing-config-path config/preprocessing/aramis_one_to_one_max_v0_1.yaml
 
 python -m marimo edit examples/aramis_dataframe_one_to_many_v0_1.py -- \
-  --aramis-preprocessing-config-path config/preprocessing/aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml
+  --aramis-preprocessing-config-path config/preprocessing/aramis_one_to_many_max_v0_1.yaml
 
 python -m marimo edit examples/aramis_one_to_many_product_model_v0_1.py -- \
   --standard-dataframe-joblib-path examples/outputs/aramis_one_to_many_benign_cancer_dataframe.joblib \
@@ -226,15 +253,21 @@ Default output:
 
 ```text
 examples/outputs/aramis_one_to_one_dataframe.joblib
+examples/outputs/aramis_one_to_one_biopsy_dataframe.joblib
 examples/outputs/aramis_one_to_many_benign_cancer_dataframe.joblib
+examples/outputs/aramis_one_to_many_benign_cancer_biopsy_dataframe.joblib
 ```
 
-Biopsy-only one-to-many output is produced by running the same one-to-many
-notebook with:
+Biopsy-only outputs use different cohort rules:
 
 ```text
-config/preprocessing/aramis_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
-examples/outputs/aramis_one_to_many_benign_cancer_biopsy_dataframe.joblib
+one-to-many biopsy:
+  row-level biopsy filter
+  keep only biopsy=True specimen rows
+
+one-to-one biopsy:
+  patient-level biopsy filter
+  keep patients with any biopsy=True row, then keep both breast sides
 ```
 
 Input H5 and output joblib paths are owned by each preprocessing YAML under
@@ -249,24 +282,39 @@ docs/machine_learning_concept.md#data-quality-and-monochromaticity
 Product versioning/config:
 
 ```text
-config/aramis_product_versioning.json
+docs/meta/aramis_product_versioning.json
   Human-1 batch/source-line/calibrant-thickness product versioning
 
-config/aramis_preprocessing_v0_1_config.json
+docs/meta/aramis_preprocessing_v0_1_config.json
   AgBH monochromaticity QC audit artifact
   contains purpose/provenance/selection_contract
   YAML filters.quality_exclusions drives H5-level filtering before GFRM loading
 
-config/preprocessing/aramis_one_to_one_preprocessing_v0_1.yaml
-  commented one-to-one branch preprocessing config
+config/preprocessing/aramis_main_max_v0_1.yaml
+config/preprocessing/aramis_main_min_v0_1.yaml
+  shared non-runnable preprocessing bases
+  compose shared policy, pipeline order, quality exclusions, and output schema
+
+config/preprocessing/shared/aramis_policy_v0_1.yaml
+config/preprocessing/shared/aramis_pipeline_v0_1.yaml
+config/preprocessing/exclusions/agbh_quality_exclusions_v0_1.yaml
+config/preprocessing/outputs/max_output_v0_1.yaml
+config/preprocessing/outputs/min_output_v0_1.yaml
+config/preprocessing/branches/*.yaml
+  readable YAML fragments used by runnable branch configs
+
+config/preprocessing/aramis_one_to_one_max_v0_1.yaml
+config/preprocessing/aramis_one_to_one_biopsy_max_v0_1.yaml
+  one-to-one branch preprocessing configs
   decision unit: patientId
 
-config/preprocessing/aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml
-  commented standard one-to-many BENIGN/CANCER branch preprocessing config
-
-config/preprocessing/aramis_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
-  commented biopsy-only one-to-many BENIGN/CANCER branch preprocessing config
+config/preprocessing/aramis_one_to_many_max_v0_1.yaml
+config/preprocessing/aramis_one_to_many_biopsy_max_v0_1.yaml
+  one-to-many BENIGN/CANCER branch preprocessing configs
   decision unit: specimenId
+
+config/preprocessing/*_min_v0_1.yaml
+  minimal-output versions of the runnable branches
 ```
 
 Reusable preprocessing YAML template/contract lives in:
@@ -279,7 +327,7 @@ XRD-preprocessing/src/xrd_preprocessing/configs/preprocessing_branch_config_temp
 Product metadata README:
 
 ```text
-config/README.md
+docs/meta/README.md
 ```
 
 Run draft notebook:

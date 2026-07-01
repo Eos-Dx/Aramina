@@ -1,0 +1,20 @@
+extends:
+- aramis_main_min_v0_1.yaml
+- branches/one_to_one_biopsy_v0_1.yaml
+aramis_preprocessing:
+  name: aramis_one_to_one_biopsy_min
+  version: 0.1
+provenance:
+  status: research draft runnable one_to_one biopsy_only MIN preprocessing config
+  canonical_location: Aramis/config/preprocessing/aramis_one_to_one_biopsy_min_v0_1.yaml
+  base_config: Aramis/config/preprocessing/aramis_main_min_v0_1.yaml
+  used_by:
+  - Aramis/src/aramis/pipelines.py
+  clinical_safety_note: Research draft decision-support preprocessing only; not for
+    autonomous diagnosis.
+io:
+  output_joblib_path: ../../examples/outputs/aramis_one_to_one_biopsy_minimal_dataframe.joblib
+branch_settings:
+  output_columns:
+  - one_to_one_pair_type
+  - patient_valid_specimen_count

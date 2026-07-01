@@ -1,0 +1,11 @@
+extends:
+- shared/aramis_policy_v0_1.yaml
+- exclusions/agbh_quality_exclusions_v0_1.yaml
+- shared/aramis_pipeline_v0_1.yaml
+- outputs/min_output_v0_1.yaml
+provenance:
+  status: research draft shared MIN preprocessing base; not directly runnable
+  canonical_location: Aramis/config/preprocessing/aramis_main_min_v0_1.yaml
+  template: XRD-preprocessing/src/xrd_preprocessing/configs/preprocessing_branch_config_template.yaml
+  quality_exclusion_source: Aramis/docs/meta/aramis_preprocessing_v0_1_config.json
+  quality_exclusion_reason_doc: Aramis/docs/agbh_quality_exclusions.md

@@ -1,0 +1,70 @@
+xrd_preprocessing:
+  version: local
+  release_tag: v0.1.6-beta
+io:
+  input_h5_path: ../../../data/combined_archive.h5
+raw_data:
+  source: gfrm
+  location: h5_blob
+  allowed_sources:
+  - gfrm
+  h5_dataset_candidates:
+    gfrm:
+    - raw_file
+    - artifacts/gfrm
+filters:
+  measurement_positions:
+  - P1
+  - P2
+  - P3
+  required_q_max_nm_inv: 23.0
+  require_sample_thickness_mm: true
+  require_calibrant_thickness_mm: true
+  calibrant_thickness_range_mm:
+  - 10.0
+  - 40.0
+  thickness:
+    sample:
+      column: sample_thickness_mm
+      require: true
+      min_mm: 0.0
+    calibrant:
+      column: calibrant_thickness_mm
+      require: true
+      min_mm: 10.0
+      max_mm: 40.0
+labels:
+  grouping:
+    BENIGN: BENIGN
+    CANCER: CANCER
+    ATYPICAL: CANCER
+    PRE_CANCEROUS: CANCER
+    NORMAL: NORMAL
+    NA: exclude
+integration:
+  npt: 100
+  q_range_nm_inv:
+  - 2.0
+  - 23.0
+  error_model: poisson
+  thickness_correction:
+    enabled: true
+    sample_thickness_column: sample_thickness_mm
+    calibrant_thickness_column: calibrant_thickness_mm
+    require_sample_thickness: true
+    require_calibrant_thickness: true
+    calibrant_thickness_range_mm:
+    - 10.0
+    - 40.0
+snr:
+  method: poisson
+  min_snr_db: 18.0
+normalization:
+  mode: value
+  statistic: median
+  q_range_nm_inv:
+  - 6.7
+  - 7.1
+profile_gate:
+  q_nm_inv: 14.0
+  min_value: 2.0

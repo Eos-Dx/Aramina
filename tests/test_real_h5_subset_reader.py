@@ -21,7 +21,7 @@ ARAMIS_CONFIG = (
     Path(__file__).parents[1]
     / "config"
     / "preprocessing"
-    / "aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml"
+    / "aramis_one_to_many_max_v0_1.yaml"
 )
 
 
@@ -61,7 +61,7 @@ def test_real_h5_subset_uses_gfrm_reader_and_xrd_transformers():
     binary_df = label_filter.fit_transform(product_df)
 
     session_df = list_h5_sessions(REAL_H5_SUBSET)
-    assert config["xrd_preprocessing"]["release_tag"] == "v0.1.5-beta"
+    assert config["xrd_preprocessing"]["release_tag"] == "v0.1.6-beta"
     assert len(session_df) == 11
     assert session_df["category"].value_counts().to_dict() == {
         "SAMPLE": 10,

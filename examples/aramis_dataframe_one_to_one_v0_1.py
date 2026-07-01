@@ -49,12 +49,14 @@ def _():
     )
     DATA_DIR = CLINICAL_TRIALS_DIR / "data" / "product-aramis-data"
     DEFAULT_ARCHIVE_PATH = DATA_DIR / "combined_archive.h5"
-    DEFAULT_AGBH_CONFIG_PATH = REPO_ROOT / "config" / "aramis_preprocessing_v0_1_config.json"
+    DEFAULT_AGBH_CONFIG_PATH = (
+        REPO_ROOT / "docs" / "meta" / "aramis_preprocessing_v0_1_config.json"
+    )
     DEFAULT_ARAMIS_PREPROCESSING_CONFIG_PATH = (
         REPO_ROOT
         / "config"
         / "preprocessing"
-        / "aramis_one_to_one_preprocessing_v0_1.yaml"
+        / "aramis_one_to_one_max_v0_1.yaml"
     )
     DEFAULT_OUTPUT_JOBLIB_PATH = PRODUCT_DIR / "outputs" / "aramis_one_to_one_dataframe.joblib"
     return (

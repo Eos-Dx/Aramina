@@ -118,7 +118,7 @@ model_dataset_fingerprint
 Product versioning is tracked in:
 
 ```text
-config/aramis_product_versioning.json
+docs/meta/aramis_product_versioning.json
 ```
 
 Conservative K-alpha-only rule:

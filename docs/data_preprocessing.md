@@ -53,7 +53,7 @@ model DataFrame.
 
 6. measurementId/session level:
    read detector data from the source declared in the branch preprocessing YAML
-   allowed source values: gfrm, npy, tiff
+   allowed source values for Aramis v0.1: gfrm
 ```
 
 `calibrant_thickness_mm` is calibrant-generic. Current AgBH data use 10 or 40
@@ -63,9 +63,9 @@ an explicit field and documented safety range.
 Production policy:
 
 ```text
-prefer gfrm when original vendor bytes are available
-use npy/tiff only when explicitly declared in the branch preprocessing YAML
-do not silently mix gfrm, npy, and tiff source types in one product run
+Aramis v0.1 product preprocessing uses gfrm only
+raw_file/artifacts/gfrm are the only product H5 blob candidates
+npy is allowed only in synthetic tests, not in product YAML
 ```
 
 Runtime quality exclusions live in the branch preprocessing YAML:
@@ -104,30 +104,57 @@ The YAML thickness contract is shared by H5 filtering and integration. If the
 filter column and integration column differ, preprocessing must fail instead of
 silently integrating with another thickness attribute.
 
-## Shared Measurement-Level XRD Pipeline
+## Shared YAML-Declared XRD Pipeline
 
-After H5 filtering and `h5_to_df`, both model branches use the same
-measurement-level XRD preprocessing:
+After H5 filtering and `h5_to_df`, all Aramis branches use the same ordered
+XRD-preprocessing transformer route. Cohort-specific steps are enabled or
+disabled from YAML.
 
 ```text
 1. measurementId level:
-   FaultyPixelDetector
+   ProductColumnBuilder
+   create auditable product_status_group / product_diagnosis columns
 
 2. measurementId level:
+   q-range, position, sample-thickness, and calibrant-thickness filters
+
+3. specimenId / patientId level:
+   optional biopsy filters
+   one-to-many biopsy: row-level biopsy == true
+   one-to-one biopsy: patient-level GroupValueFilter, any biopsy == true
+
+4. specimenId / patientId level:
+   ProductStatusGroupFilter
+   optional PairedGroupFilter for one-to-one
+
+5. measurementId level:
+   FaultyPixelDetector
+   output: one `faulty_pixel_mask` column
+
+6. measurementId level:
+   ConstantQRangeTransformer
+
+7. measurementId level:
    AzimuthalIntegration(error_model="poisson")
    use YAML thickness_correction columns
 
-3. measurementId level:
+8. measurementId level:
    SNRTransformer(snr_method="poisson")
 
-4. measurementId level:
+9. measurementId level:
    SNRFilter(min_snr_db=18.0 in current notebooks)
 
-5. measurementId level:
-   QRangeValueNormalizer(q_min=6.7, q_max=7.1, statistic="median")
+10. specimenId / patientId level:
+    PatientSpecimenValidityFilter
 
-6. measurementId level:
-   radial-profile signal gate
+11. measurementId level:
+    QRangeValueNormalizer(q_min=6.7, q_max=7.1, statistic="median")
+
+12. measurementId level:
+    RadialProfileValueFilter
+
+13. output schema:
+    KeepColumnsTransformer(metadata.output_columns + branch_settings.output_columns)
 ```
 
 The historical canonical threshold was 20 dB. Current exploratory Aramis
@@ -143,27 +170,29 @@ does not own preprocessing transformer implementations.
 XRD-preprocessing/src/xrd_preprocessing/config.py
   load_preprocessing_config(...)
 
+XRD-preprocessing/src/xrd_preprocessing/pipeline.py
+  build_pipeline_from_config(...)
+  transformer registry
+  YAML $ref / $concat / enabled handling
+
 XRD-preprocessing/src/xrd_preprocessing/configs/preprocessing_branch_config_template.yaml
   reusable branch-specific preprocessing YAML template/contract
 
-XRD-preprocessing H5SessionSelectorTransformer
-  H5 path -> selected H5 session manifest
-  applies H5-level filters before detector arrays are loaded
-
-XRD-preprocessing H5MeasurementSetAuditTransformer
-  selected H5 session manifest -> H5 stage frames/counts
-  builds metadata-only audit tables without GFRM decode
-
 XRD-preprocessing H5ToDataFrameTransformer
-  selected H5 session manifest -> decoded measurement DataFrame
+  H5 path -> decoded measurement DataFrame
+  applies h5_filters before GFRM frame loading
   materializes only selected SAMPLE/SAMPLE rows
 
-Aramis/config/preprocessing/aramis_one_to_one_preprocessing_v0_1.yaml
-Aramis/config/preprocessing/aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml
-Aramis/config/preprocessing/aramis_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
+Aramis/config/preprocessing/shared/aramis_pipeline_v0_1.yaml
+  single ordered Aramis preprocessing route
+
+Aramis/config/preprocessing/aramis_one_to_one_biopsy_max_v0_1.yaml
+Aramis/config/preprocessing/aramis_one_to_one_max_v0_1.yaml
+Aramis/config/preprocessing/aramis_one_to_many_biopsy_max_v0_1.yaml
+Aramis/config/preprocessing/aramis_one_to_many_max_v0_1.yaml
   concrete Aramis project preprocessing config
-  separate branch configs because one-to-one, standard one-to-many, and
-  biopsy-only one-to-many use different cohort rules
+  separate branch configs because one-to-one, one-to-many, standard, and
+  biopsy-only cohorts use different rules
 
 src/aramis/pipelines.py
   AramisOneToOnePreprocessingPipeline(...).fit_transform(h5_path)
@@ -223,6 +252,22 @@ The command receives only the config path:
 ```text
 python -m aramis preprocess --config Aramis/config/preprocessing/<branch>.yaml
 ```
+
+Execution is YAML-driven:
+
+```text
+aramis.__main__.main
+-> run_preprocessing_from_config(config_path)
+-> load_preprocessing_config(config_path)
+-> build_pipeline_from_config(config)
+-> sklearn Pipeline declared in pipeline.steps
+-> KeepColumnsTransformer(metadata.output_columns + branch_settings.output_columns)
+-> joblib output at io.output_joblib_path
+```
+
+Aramis should not hardcode preprocessing steps. It owns concrete branch YAMLs
+and product paths. XRD-preprocessing owns transformer classes, the transformer
+registry, YAML `$ref` resolution, and pipeline construction.
 
 Prediction draft input:
 
@@ -293,9 +338,10 @@ datasets are finalized.
 Preserve the original `specimen_status`. Write product labels to a separate
 column so label mapping remains auditable.
 
-All scalar H5 metadata should be preserved in every preprocessing DataFrame.
-Biopsy metadata is especially important because it tracks whether the diagnosis
-context is biopsy-associated:
+MAX preprocessing outputs should preserve available non-heavy scalar H5
+metadata. MIN outputs keep only declared model-essential columns. Biopsy
+metadata is especially important because it tracks whether the diagnosis context
+is biopsy-associated:
 
 ```text
 biopsy / sample_biopsy:
@@ -331,11 +377,11 @@ Two one-to-many preprocessing YAMLs are currently defined:
 
 ```text
 standard:
-  Aramis/config/preprocessing/aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml
+  Aramis/config/preprocessing/aramis_one_to_many_max_v0_1.yaml
   no biopsy requirement
 
 biopsy-only:
-  Aramis/config/preprocessing/aramis_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
+  Aramis/config/preprocessing/aramis_one_to_many_biopsy_max_v0_1.yaml
   H5 measurementId/session level: require biopsy == true before GFRM loading
   DataFrame measurementId level: require biopsy == true as a safety check
 ```
@@ -405,22 +451,35 @@ contralateral side:
   may carry NORMAL, BENIGN, CANCER, ATYPICAL, or PRE_CANCEROUS metadata
 ```
 
+Two one-to-one preprocessing YAMLs are currently defined:
+
+```text
+standard:
+  Aramis/config/preprocessing/aramis_one_to_one_max_v0_1.yaml
+  no biopsy requirement
+
+biopsy-only:
+  Aramis/config/preprocessing/aramis_one_to_one_biopsy_max_v0_1.yaml
+  DataFrame patientId level: keep patient if any row has biopsy == true
+  keep both breast sides after patient selection
+```
+
 Preprocessing steps:
 
 ```text
 1. H5 measurementId/session level:
    apply shared AgBH-date, q-range, sample-thickness, and calibrant-thickness filters
 
-2. H5 patientId level:
-   keep biopsy-associated patients with at least one target breast-side status:
-   BENIGN or CANCER
+2. H5 specimenId level:
+   keep BENIGN, CANCER, NORMAL, ATYPICAL, PRE_CANCEROUS
+   exclude NA before frame loading
 
-3. H5 specimenId level:
-   exclude NA specimen rows
-   preserve paired breast context, including NORMAL
-
-4. h5_to_df measurementId level:
+3. h5_to_df measurementId level:
    materialize selected SAMPLE/SAMPLE measurement rows from GFRM
+
+4. DataFrame patientId level, biopsy branch only:
+   keep patients with at least one biopsy == true row
+   do not drop contralateral non-biopsy rows before pair validation
 
 5. DataFrame specimenId level:
    group labels:

@@ -13,9 +13,11 @@ aramis_one_to_many_product_model_v0_1.py
 aramis_final_experimental_model_v0_1.py
 aramis_product_notebook_helpers.py
 preprocess_one_to_one.sh
+preprocess_one_to_one_biopsy.sh
 preprocess_one_to_many.sh
 preprocess_one_to_many_biopsy.sh
 preprocess_one_to_one_minimal.sh
+preprocess_one_to_one_biopsy_minimal.sh
 preprocess_one_to_many_minimal.sh
 preprocess_one_to_many_biopsy_minimal.sh
 preprocess_all.sh
@@ -45,26 +47,30 @@ conda activate eosproduct1
 Preprocess DataFrames directly from YAML:
 
 ```bash
-python -m aramis preprocess --config config/preprocessing/aramis_one_to_one_preprocessing_v0_1.yaml
-python -m aramis preprocess --config config/preprocessing/aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml
-python -m aramis preprocess --config config/preprocessing/aramis_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
+python -m aramis preprocess --config config/preprocessing/aramis_one_to_one_max_v0_1.yaml
+python -m aramis preprocess --config config/preprocessing/aramis_one_to_one_biopsy_max_v0_1.yaml
+python -m aramis preprocess --config config/preprocessing/aramis_one_to_many_max_v0_1.yaml
+python -m aramis preprocess --config config/preprocessing/aramis_one_to_many_biopsy_max_v0_1.yaml
 ```
 
 Minimal joblib exports:
 
 ```bash
-python -m aramis preprocess --config config/preprocessing/aramis_one_to_one_minimal_v0_1.yaml
-python -m aramis preprocess --config config/preprocessing/aramis_one_to_many_benign_cancer_minimal_v0_1.yaml
-python -m aramis preprocess --config config/preprocessing/aramis_one_to_many_benign_cancer_biopsy_minimal_v0_1.yaml
+python -m aramis preprocess --config config/preprocessing/aramis_one_to_one_min_v0_1.yaml
+python -m aramis preprocess --config config/preprocessing/aramis_one_to_one_biopsy_min_v0_1.yaml
+python -m aramis preprocess --config config/preprocessing/aramis_one_to_many_min_v0_1.yaml
+python -m aramis preprocess --config config/preprocessing/aramis_one_to_many_biopsy_min_v0_1.yaml
 ```
 
 Equivalent example scripts:
 
 ```bash
 ./examples/preprocess_one_to_one.sh
+./examples/preprocess_one_to_one_biopsy.sh
 ./examples/preprocess_one_to_many.sh
 ./examples/preprocess_one_to_many_biopsy.sh
 ./examples/preprocess_one_to_one_minimal.sh
+./examples/preprocess_one_to_one_biopsy_minimal.sh
 ./examples/preprocess_one_to_many_minimal.sh
 ./examples/preprocess_one_to_many_biopsy_minimal.sh
 ./examples/preprocess_all.sh
@@ -78,15 +84,46 @@ io:
   output_joblib_path: ../../examples/outputs/aramis_one_to_one_dataframe.joblib
 ```
 
+The preprocessing route is stored once in:
+
+```text
+config/preprocessing/shared/aramis_pipeline_v0_1.yaml
+```
+
+That file defines ordered XRD-preprocessing transformer steps:
+
+```yaml
+pipeline:
+  steps:
+    - name: h5_to_df
+      transformer: H5ToDataFrameTransformer
+      params:
+        data_preference:
+          $ref: raw_data.source
+    - name: keep_columns
+      transformer: KeepColumnsTransformer
+      params:
+        columns:
+          $concat:
+            - $ref: metadata.output_columns
+            - $ref: branch_settings.output_columns
+```
+
+The `transformer` names are XRD-preprocessing transformer registry entries.
+Runnable root YAMLs extend this shared route plus policy, output schema, and
+branch cohort fragments. Aramis reads the YAML, asks XRD-preprocessing to build
+the sklearn Pipeline, and writes only the final DataFrame to
+`io.output_joblib_path`.
+
 Run marimo notebooks:
 
 ```bash
 
 python -m marimo run examples/aramis_dataframe_one_to_one_v0_1.py -- \
-  --aramis-preprocessing-config-path config/preprocessing/aramis_one_to_one_preprocessing_v0_1.yaml
+  --aramis-preprocessing-config-path config/preprocessing/aramis_one_to_one_max_v0_1.yaml
 
 python -m marimo run examples/aramis_dataframe_one_to_many_v0_1.py -- \
-  --aramis-preprocessing-config-path config/preprocessing/aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml
+  --aramis-preprocessing-config-path config/preprocessing/aramis_one_to_many_max_v0_1.yaml
 
 python -m marimo run examples/aramis_one_to_many_logistic_baseline_v0_1.py -- \
   --dataframe-joblib-path examples/outputs/aramis_one_to_many_benign_cancer_dataframe.joblib
@@ -103,7 +140,7 @@ python -m marimo run examples/aramis_final_experimental_model_v0_1.py -- \
 Default Aramis product config:
 
 ```text
-config/aramis_preprocessing_v0_1_config.json
+docs/meta/aramis_preprocessing_v0_1_config.json
 ```
 
 This JSON stores provenance: source preprocessing notebook, generation summary,
@@ -114,19 +151,30 @@ the branch YAML, not passed as command-line paths.
 Default branch preprocessing YAMLs:
 
 ```text
-config/preprocessing/aramis_one_to_one_preprocessing_v0_1.yaml
-config/preprocessing/aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml
-config/preprocessing/aramis_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
+config/preprocessing/aramis_one_to_one_max_v0_1.yaml
+config/preprocessing/aramis_one_to_one_biopsy_max_v0_1.yaml
+config/preprocessing/aramis_one_to_many_max_v0_1.yaml
+config/preprocessing/aramis_one_to_many_biopsy_max_v0_1.yaml
 ```
 
-Each notebook reads its own branch YAML by default. The YAML files are commented
-and describe raw data, metadata, H5 filters, label grouping, thickness
-correction, SNR, normalization, and profile gate settings. Override only when
+Biopsy cohort meaning:
+
+```text
+one-to-many biopsy:
+  row-level biopsy filter
+  keep only biopsy=True specimen rows
+
+one-to-one biopsy:
+  patient-level biopsy filter
+  keep patients with any biopsy=True row, then keep both breast sides
+```
+
+Each notebook reads its own root branch YAML by default. Override only when
 testing a controlled replacement:
 
 ```bash
 python -m marimo run examples/aramis_dataframe_one_to_one_v0_1.py -- \
-  --aramis-preprocessing-config-path /path/to/aramis_one_to_one_preprocessing_v0_1.yaml
+  --aramis-preprocessing-config-path /path/to/aramis_one_to_one_max_v0_1.yaml
 ```
 
 Default output:
@@ -136,7 +184,7 @@ examples/outputs/aramis_one_to_one_dataframe.joblib
 examples/outputs/aramis_one_to_many_benign_cancer_dataframe.joblib
 ```
 
-To keep more columns in preprocessing joblib, edit the branch YAML:
+To keep more columns in preprocessing joblib, edit the output schema YAML:
 
 ```yaml
 metadata:
@@ -151,30 +199,10 @@ normalization:
   save_initial_data: true
 ```
 
-If `metadata.output_columns` is empty, the joblib keeps all scalar/audit columns
-after dropping heavy detector payloads. If it is set, the final joblib contains
-only those columns. Columns listed in `metadata.output_columns` are protected
-from payload-drop, so `radial_profile_data_raw` is kept automatically when it is
-listed there.
-
-```yaml
-metadata:
-  drop_payload_columns: false
-```
-
-This keeps heavy intermediate arrays such as `measurement_data`, `raw_data`,
-and masks. For a smaller debug export, keep only selected profile columns:
-
-```yaml
-metadata:
-  drop_payload_columns: true
-  keep_payload_columns:
-    - radial_profile_data_raw
-    - radial_profile_sigma
-
-normalization:
-  save_initial_data: true
-```
+`metadata.output_columns` is mandatory. The final joblib contains exactly those
+columns, in that order. To keep `radial_profile_data_raw`, set
+`normalization.save_initial_data: true` and list `radial_profile_data_raw` in
+`metadata.output_columns`.
 
 `radial_profile_data` is always the final normalized profile. With
 `save_initial_data: true`, `radial_profile_data_raw` stores the profile before
@@ -184,7 +212,7 @@ Biopsy-only one-to-many output:
 
 ```bash
 python -m marimo run examples/aramis_dataframe_one_to_many_v0_1.py -- \
-  --aramis-preprocessing-config-path config/preprocessing/aramis_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml
+  --aramis-preprocessing-config-path config/preprocessing/aramis_one_to_many_biopsy_max_v0_1.yaml
 ```
 
 The first model notebook starts from the one-to-many joblib and does not reopen

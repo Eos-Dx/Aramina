@@ -13,6 +13,59 @@ diagnosis.
 
 ## Files
 
+This folder contains reference metadata and audit artifacts. Runtime
+preprocessing YAML files live in:
+
+```text
+Aramis/config/preprocessing/
+```
+
+The shared base YAMLs are not directly runnable:
+
+```text
+config/preprocessing/aramis_main_max_v0_1.yaml
+config/preprocessing/aramis_main_min_v0_1.yaml
+```
+
+They compose smaller fragments:
+
+```text
+shared/aramis_policy_v0_1.yaml      GFRM-only product policy
+shared/aramis_pipeline_v0_1.yaml    ordered transformer steps
+exclusions/agbh_quality_exclusions_v0_1.yaml
+outputs/max_output_v0_1.yaml        MAX output schema
+outputs/min_output_v0_1.yaml        MIN output schema
+branches/*.yaml                     cohort rules
+```
+
+Runnable root YAMLs extend one MAIN base and one branch fragment. They define
+only runtime identity, output joblib path, and concrete branch output columns.
+
+Short file map:
+
+```text
+aramis_product_versioning.json
+  controlled Human-1 batch, K-alpha/K-beta, Nova range, and calibrant-thickness metadata
+
+aramis_preprocessing_v0_1_config.json
+  machine-readable AgBH monochromaticity exclusion artifact consumed by preprocessing YAMLs
+
+aramis_agbh_kbeta_batch5_6_exclusion_justification_v0_1.py
+  marimo evidence notebook for AgBH K-beta shoulder review of batches 5 and 6
+
+aramis_agbh_kbeta_helpers.py
+  helper module required by the AgBH K-beta evidence notebook
+
+human1_diagnoses_metadata.json
+  canonical Human-1 clinical metadata normalized from the source Excel workbook
+
+human1_diagnoses_metadata_h5_audit.json
+  audit summary comparing canonical metadata JSON against combined_archive.h5
+
+human1_diagnoses_metadata_h5_mismatches.csv
+  row-level mismatch table for H5-vs-canonical-metadata review
+```
+
 ### `aramis_product_versioning.json`
 
 Purpose:
@@ -31,7 +84,7 @@ product filtering policy
 Use this file when deciding whether a measurement batch is product-usable for a
 K-alpha-only Aramis workflow.
 
-### `preprocessing/aramis_one_to_one_preprocessing_v0_1.yaml`
+### `config/preprocessing/aramis_one_to_one_max_v0_1.yaml`
 
 Purpose:
 
@@ -47,7 +100,30 @@ SNR / normalization / profile-gate parameters
 quality_exclusions by linked AgBH session ID with date fallback
 ```
 
-### `preprocessing/aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml`
+This is the standard one-to-one paired-breast dataset. It keeps paired
+patientId contexts with BENIGN, CANCER, or NORMAL product status groups and
+excludes same-group pairs from the first symmetry-feature training policy.
+
+### `config/preprocessing/aramis_one_to_one_biopsy_max_v0_1.yaml`
+
+Purpose:
+
+```text
+Aramis biopsy-only one-to-one preprocessing config
+decision unit: patientId
+row unit: measurementId
+grouping unit: specimenId
+patient-level biopsy policy
+same paired-breast XRD preprocessing as standard one-to-one
+```
+
+This is the biopsy-associated paired-breast dataset. Biopsy selection is
+patient-level: keep patients with at least one `biopsy == true` row, then keep
+both breast sides for paired symmetry/asymmetry feature generation. Do not use
+row-level biopsy filtering here, because it can remove the contralateral breast
+before `paired_patient_filter`.
+
+### `config/preprocessing/aramis_one_to_many_max_v0_1.yaml`
 
 Purpose:
 
@@ -57,7 +133,7 @@ decision unit: specimenId
 row unit: measurementId
 grouping unit: specimenId
 BENIGN vs CANCER specimen-level policy
-raw detector source policy: gfrm | npy | tiff
+raw detector source policy: gfrm only
 XRD-preprocessing version/tag tracking
 metadata retention policy
 H5-level filter rules
@@ -72,7 +148,7 @@ specimens with `specimen_status` BENIGN, CANCER, ATYPICAL, or PRE_CANCEROUS,
 then maps ATYPICAL/PRE_CANCEROUS to the product CANCER group at `specimenId`
 level.
 
-### `preprocessing/aramis_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml`
+### `config/preprocessing/aramis_one_to_many_biopsy_max_v0_1.yaml`
 
 Purpose:
 
@@ -87,24 +163,25 @@ same XRD preprocessing as standard one-to-many
 
 This is the stricter one-to-many dataset requested for first model work. It
 uses the same branch logic as the standard one-to-many YAML, but additionally
-requires `biopsy == true`. The biopsy filter is applied at H5 metadata level
-before GFRM loading and repeated at DataFrame level as a safety check.
+requires `biopsy == true` at row level. The biopsy filter is applied at H5
+metadata level before GFRM loading and repeated at DataFrame level as a safety
+check.
 
 The rule follows the Human clinical-trial FDA notebook convention where the
 biopsy-only cohort is selected with `biopsy_flag == True`.
 
-### `preprocessing/*_minimal_v0_1.yaml`
+### `config/preprocessing/*_min_v0_1.yaml`
 
 Purpose:
 
 ```text
-compact preprocessing config
-inherits full branch config through local extends
-keeps only metadata.output_columns in final joblib
-uses separate minimal output_joblib_path
+MIN preprocessing config
+extends aramis_main_min_v0_1.yaml
+keeps only essential model columns in final joblib
+uses separate MIN output_joblib_path
 ```
 
-Use minimal YAMLs when a collaborator needs only the final normalized profiles
+Use MIN YAMLs when a collaborator needs only the final normalized profiles
 and basic product metadata:
 
 ```text
@@ -114,6 +191,10 @@ sample and calibrant thickness
 q_range and radial_profile_data
 snr_db and source trace
 ```
+
+For one-to-one rows, `product_status_group` may be BENIGN, CANCER, or NORMAL.
+`product_diagnosis` is binary and may be empty for NORMAL rows. Use
+`product_status_group` and pair metadata for one-to-one symmetry work.
 
 Reusable preprocessing YAML template/contract is owned by XRD-preprocessing:
 
@@ -139,24 +220,17 @@ Current XRD-preprocessing dependency marker:
 
 ```text
 version: local
-release_tag: v0.1.5-beta
+release_tag: v0.1.6-beta
 ```
 
 Raw-data policy:
 
 ```text
-gfrm:
-  preferred production path when original vendor bytes are available
-
-npy:
-  allowed for synthetic tests and declared H5 raw/processed 2D matrices
-
-tiff:
-  declared source option for future H5 blob support
+Aramis v0.1 product preprocessing uses only GFRM vendor bytes from H5 blobs.
+Allowed product source: gfrm.
+Allowed product H5 blob candidates: raw_file, artifacts/gfrm.
+NPY is allowed only in synthetic tests; TIFF is not used in this product version.
 ```
-
-Do not silently mix these source types in one product run. The selected source
-must be declared in the branch YAML and logged with the dataset artifacts.
 
 ### `aramis_preprocessing_v0_1_config.json`
 
@@ -176,7 +250,7 @@ selection_contract explaining how exclusions were produced and consumed
 Canonical location:
 
 ```text
-Aramis/config/aramis_preprocessing_v0_1_config.json
+Aramis/docs/meta/aramis_preprocessing_v0_1_config.json
 ```
 
 The runtime preprocessing configs are the Aramis branch YAML files. Their
@@ -212,6 +286,51 @@ Aramis/examples/aramis_dataframe_one_to_one_v0_1.py
 Aramis/examples/aramis_dataframe_one_to_many_v0_1.py
 Aramis/packaging/eosproduct_bundle/scripts/run_aramis_notebooks.sh
 ```
+
+### `aramis_agbh_kbeta_batch5_6_exclusion_justification_v0_1.py`
+
+Purpose:
+
+```text
+marimo evidence notebook for excluded AgBH-linked session dates
+focused review of AgBH K-beta shoulder behavior in batches 5 and 6
+visual comparison against batch-7 reference-like AgBH profiles
+human-readable justification for exclusion policy updates
+```
+
+This notebook is a meta/provenance artifact, not a runtime preprocessing step.
+Runtime exclusions are still stored in the YAML files under:
+
+```text
+Aramis/config/preprocessing/exclusions/agbh_quality_exclusions_v0_1.yaml
+```
+
+Use this notebook when explaining why particular AgBH calibration sessions or
+fallback dates were excluded from Aramis preprocessing. If the exclusion list is
+changed after reviewing the notebook, update:
+
+```text
+config/preprocessing/exclusions/agbh_quality_exclusions_v0_1.yaml
+docs/agbh_quality_exclusions.md
+docs/meta/aramis_preprocessing_v0_1_config.json
+MLflow preprocessing artifacts for affected runs
+```
+
+### `aramis_agbh_kbeta_helpers.py`
+
+Purpose:
+
+```text
+helper functions for AgBH/K-beta notebook
+technical H5 calibration discovery
+AgBH GFRM integration helpers
+K-beta shoulder metric calculations
+batch-level plots and exported audit tables
+```
+
+This file is kept beside
+`aramis_agbh_kbeta_batch5_6_exclusion_justification_v0_1.py` so the marimo
+notebook can import it directly.
 
 Regeneration rule:
 
@@ -259,7 +378,6 @@ Calibrant thickness rule recorded in JSON:
 before 2026-04-22: 40 mm
 from 2026-04-22: 10 mm
 preferred field: calibrant_thickness_mm
-legacy alias: agbh_thickness_mm only for old backfill compatibility
 ```
 
 ### `human1_diagnoses_metadata.json`

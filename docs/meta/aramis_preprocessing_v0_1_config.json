@@ -9,9 +9,9 @@
     "created_from_notebook": "Clinical_trials/Product/Aramis/Aramis_Preprocessing_v0_1.py",
     "notebook_role": "AgBH calibration review notebook that computes monochromaticity shoulder metric, detector-distance/q-range eligibility, accepted AgBH days, and reference calibrant-thickness metadata.",
     "source_config_export": "Clinical_trials/analysis/aramis_preprocessing_v0_1/aramis_preprocessing_v0_1_config.json",
-    "canonical_location": "Aramis/config/aramis_preprocessing_v0_1_config.json",
+    "canonical_location": "Aramis/docs/meta/aramis_preprocessing_v0_1_config.json",
     "documentation": [
-      "Aramis/config/README.md",
+      "Aramis/docs/meta/README.md",
       "Aramis/docs/data_preprocessing.md",
       "Aramis/examples/README.md"
     ],

@@ -138,7 +138,6 @@
     "calibrant_reference_thickness_policy": {
       "purpose": "Track reference thickness used by the calibration target for thickness-corrected azimuthal integration.",
       "preferred_field": "calibrant_thickness_mm",
-      "legacy_alias": "agbh_thickness_mm",
       "rules": [
         {
           "effective_before": "2026-04-22",
@@ -152,7 +151,7 @@
         }
       ],
       "integration_use": "AzimuthalIntegration(thickness_reference_column=\"calibrant_thickness_mm\")",
-      "container_contract": "H5 must expose standardized calibrant_thickness_mm. Legacy agbh_thickness_mm may be read only for old backfill compatibility."
+      "container_contract": "H5 must expose standardized calibrant_thickness_mm."
     },
     "required_container_fields_to_add": [
       "calibrant_thickness_mm",

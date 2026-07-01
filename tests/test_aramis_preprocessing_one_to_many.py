@@ -6,7 +6,10 @@ import joblib
 import pandas as pd
 import yaml
 
-from aramis.pipelines import AramisOneToManyPreprocessingPipeline
+from aramis.pipelines import (
+    AramisOneToManyPreprocessingPipeline,
+    run_one_to_many_preprocessing_pipeline,
+)
 
 from .synthetic_aramis_h5 import (
     ONE_TO_MANY_OUTPUT_COLUMNS,
@@ -18,22 +21,16 @@ from .synthetic_aramis_h5 import (
 
 def test_one_to_many_pipeline_dataframe_and_joblib_contract(tmp_path: Path):
     h5_path = tmp_path / "known_synthetic_aramis.h5"
-    config_path = tmp_path / "aramis_one_to_many_benign_cancer_preprocessing_v0_1.yaml"
-    joblib_path = tmp_path / "aramis_one_to_many_benign_cancer_dataframe.joblib"
+    config_path = tmp_path / "aramis_one_to_many_max_v0_1.yaml"
     config = load_synthetic_config("one_to_many_benign_cancer")
     config["raw_data"]["h5_dataset_candidates"]["npy"] = ["processed/data"]
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
     write_known_synthetic_h5(h5_path)
 
-    pipeline = AramisOneToManyPreprocessingPipeline(
-        config=config_path,
-        output_joblib_path=joblib_path,
-    )
+    pipeline = AramisOneToManyPreprocessingPipeline(config=config_path)
     df = pipeline.fit_transform(h5_path)
-    loaded = joblib.load(joblib_path)
 
     assert pipeline.fit(h5_path) is pipeline
-    pd.testing.assert_frame_equal(df, loaded)
     assert set(df.columns) == ONE_TO_MANY_OUTPUT_COLUMNS
     assert_common_output_contract(df)
     assert len(df) == 5
@@ -56,7 +53,7 @@ def test_one_to_many_pipeline_dataframe_and_joblib_contract(tmp_path: Path):
 def test_one_to_many_biopsy_pipeline_keeps_only_biopsy_rows(tmp_path: Path):
     h5_path = tmp_path / "known_synthetic_aramis.h5"
     config_path = (
-        tmp_path / "aramis_one_to_many_benign_cancer_biopsy_preprocessing_v0_1.yaml"
+        tmp_path / "aramis_one_to_many_biopsy_max_v0_1.yaml"
     )
     joblib_path = tmp_path / "aramis_one_to_many_benign_cancer_biopsy_dataframe.joblib"
     config = load_synthetic_config("one_to_many_benign_cancer_biopsy")
@@ -64,11 +61,11 @@ def test_one_to_many_biopsy_pipeline_keeps_only_biopsy_rows(tmp_path: Path):
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
     write_known_synthetic_h5(h5_path)
 
-    pipeline = AramisOneToManyPreprocessingPipeline(
-        config=config_path,
+    df = run_one_to_many_preprocessing_pipeline(
+        h5_path,
+        config_path,
         output_joblib_path=joblib_path,
     )
-    df = pipeline.fit_transform(h5_path)
     loaded = joblib.load(joblib_path)
 
     pd.testing.assert_frame_equal(df, loaded)

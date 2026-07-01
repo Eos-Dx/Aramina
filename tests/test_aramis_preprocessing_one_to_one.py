@@ -6,7 +6,10 @@ import joblib
 import pandas as pd
 import yaml
 
-from aramis.pipelines import AramisOneToOnePreprocessingPipeline
+from aramis.pipelines import (
+    AramisOneToOnePreprocessingPipeline,
+    run_one_to_one_preprocessing_pipeline,
+)
 
 from .synthetic_aramis_h5 import (
     ONE_TO_ONE_OUTPUT_COLUMNS,
@@ -18,21 +21,15 @@ from .synthetic_aramis_h5 import (
 
 def test_one_to_one_pipeline_dataframe_and_joblib_contract(tmp_path: Path):
     h5_path = tmp_path / "known_synthetic_aramis.h5"
-    config_path = tmp_path / "aramis_one_to_one_preprocessing_v0_1.yaml"
-    joblib_path = tmp_path / "aramis_one_to_one_dataframe.joblib"
+    config_path = tmp_path / "aramis_one_to_one_max_v0_1.yaml"
     config = load_synthetic_config("one_to_one")
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
     write_known_synthetic_h5(h5_path)
 
-    pipeline = AramisOneToOnePreprocessingPipeline(
-        config=config_path,
-        output_joblib_path=joblib_path,
-    )
+    pipeline = AramisOneToOnePreprocessingPipeline(config=config_path)
     df = pipeline.fit_transform(h5_path)
-    loaded = joblib.load(joblib_path)
 
     assert pipeline.fit(h5_path) is pipeline
-    pd.testing.assert_frame_equal(df, loaded)
     assert set(df.columns) == ONE_TO_ONE_OUTPUT_COLUMNS
     assert_common_output_contract(df)
     assert len(df) == 4
@@ -48,3 +45,40 @@ def test_one_to_one_pipeline_dataframe_and_joblib_contract(tmp_path: Path):
     assert "P4" not in set(df["patientId"])
     assert "P5" not in set(df["patientId"])
     assert set(df["measurement_data_source"]) == {"npy:raw/data"}
+
+
+def test_one_to_one_biopsy_keeps_contralateral_non_biopsy_side(tmp_path: Path):
+    h5_path = tmp_path / "known_synthetic_aramis.h5"
+    config_path = tmp_path / "aramis_one_to_one_biopsy_max_v0_1.yaml"
+    config = load_synthetic_config("one_to_one_biopsy")
+    config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+    write_known_synthetic_h5(h5_path)
+
+    df = AramisOneToOnePreprocessingPipeline(config=config_path).fit_transform(h5_path)
+
+    assert set(df.columns) == ONE_TO_ONE_OUTPUT_COLUMNS
+    assert_common_output_contract(df)
+    assert "P3_LEFT" in set(df["specimenId"])
+    assert set(df[df["patientId"] == "P3"]["biopsy"]) == {False, True}
+    assert set(df[df["patientId"] == "P3"]["product_status_group"]) == {
+        "CANCER",
+        "NORMAL",
+    }
+
+
+def test_one_to_one_wrapper_writes_joblib(tmp_path: Path):
+    h5_path = tmp_path / "known_synthetic_aramis.h5"
+    config_path = tmp_path / "aramis_one_to_one_max_v0_1.yaml"
+    joblib_path = tmp_path / "aramis_one_to_one_dataframe.joblib"
+    config = load_synthetic_config("one_to_one")
+    config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+    write_known_synthetic_h5(h5_path)
+
+    df = run_one_to_one_preprocessing_pipeline(
+        h5_path,
+        config_path,
+        output_joblib_path=joblib_path,
+    )
+    loaded = joblib.load(joblib_path)
+
+    pd.testing.assert_frame_equal(df, loaded)
