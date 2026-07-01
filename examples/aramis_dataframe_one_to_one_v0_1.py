@@ -29,6 +29,7 @@ def _():
         SNRTransformer,
         calibrant_thickness_h5_filters,
         filter_h5_sessions,
+        faulty_pixel_statistics,
         list_h5_measurement_sets,
     )
     from xrd_preprocessing.transformers import (
@@ -81,6 +82,7 @@ def _():
         SNRTransformer,
         calibrant_thickness_h5_filters,
         filter_h5_sessions,
+        faulty_pixel_statistics,
         helpers,
         joblib,
         list_h5_measurement_sets,
@@ -109,6 +111,7 @@ def _(mo):
 def _(
     DEFAULT_AGBH_CONFIG_PATH,
     DEFAULT_ARAMIS_PREPROCESSING_CONFIG_PATH,
+    DEFAULT_ARCHIVE_PATH,
     Path,
     helpers,
     mo,
@@ -131,6 +134,8 @@ def _(
         _aramis_preprocessing_default,
         _preprocessing_config,
     )
+    if not _archive_default.exists() and DEFAULT_ARCHIVE_PATH.exists():
+        _archive_default = DEFAULT_ARCHIVE_PATH
     _default_settings = {
         "archive_path": str(_archive_default),
         "agbh_config_path": str(_agbh_default),
@@ -610,13 +615,13 @@ def _(grouped_df, helpers, mo, pair_filter_stats, paired_context_df):
 
 
 @app.cell(hide_code=True)
-def _(FaultyPixelDetector, paired_context_df):
+def _(FaultyPixelDetector, faulty_pixel_statistics, paired_context_df):
     faulty_detector = FaultyPixelDetector(
         bright_pixel_min_value=500.0,
         exclude_beam_center_radius=0.04,
     )
     faulty_df = faulty_detector.fit_transform(paired_context_df)
-    faulty_stats = faulty_detector.stats_
+    faulty_stats = faulty_pixel_statistics(faulty_df)
     return faulty_df, faulty_stats
 
 
