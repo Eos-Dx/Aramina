@@ -220,8 +220,10 @@ fit_transform(X):
   one-call DataFrame build
 ```
 
-Each pipeline returns the final DataFrame and can write the same DataFrame to a
-`.joblib` file. This is preprocessing output, not a trained classifier.
+Each pipeline returns the final DataFrame and can write a preprocessing artifact
+`.joblib` file. The artifact stores the DataFrame together with the resolved
+YAML config, original YAML text, config path, SHA256, and run metadata. This is
+preprocessing output, not a trained classifier.
 
 ## Product Command Shape
 
@@ -262,8 +264,12 @@ aramis.__main__.main
 -> build_pipeline_from_config(config)
 -> sklearn Pipeline declared in pipeline.steps
 -> KeepColumnsTransformer(metadata.output_columns + branch_settings.output_columns)
--> joblib output at io.output_joblib_path
+-> preprocessing artifact joblib at io.output_joblib_path
 ```
+
+Downstream code should use `xrd_preprocessing.load_preprocessing_dataframe`
+when it needs only the DataFrame. The full joblib object keeps the preprocessing
+lineage needed for audit and reproducibility.
 
 Aramis should not hardcode preprocessing steps. It owns concrete branch YAMLs
 and product paths. XRD-preprocessing owns transformer classes, the transformer
@@ -311,7 +317,7 @@ P5: CANCER with calibrant_thickness_mm=50
 
 The tests verify exact final DataFrame columns, expected patients/specimens,
 label grouping, thickness-correction metadata, dropped heavy detector payloads,
-and joblib roundtrip equality.
+and artifact-joblib roundtrip equality.
 
 ## Label Grouping
 

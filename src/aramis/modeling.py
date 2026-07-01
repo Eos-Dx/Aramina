@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import joblib
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
@@ -20,6 +19,7 @@ from sklearn.metrics import (
 from sklearn.model_selection import GroupKFold, GroupShuffleSplit
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
+from xrd_preprocessing import load_preprocessing_dataframe
 
 
 LABEL_MAP = {"BENIGN": 0, "CANCER": 1}
@@ -77,11 +77,8 @@ class FusionModelComparisonResult:
 
 
 def load_one_to_many_dataframe(path: str | Path) -> pd.DataFrame:
-    """Load one-to-many preprocessing joblib DataFrame."""
-    loaded = joblib.load(Path(path))
-    if not isinstance(loaded, pd.DataFrame):
-        raise TypeError("One-to-many joblib must contain a pandas DataFrame.")
-    return loaded
+    """Load one-to-many preprocessing DataFrame or artifact joblib."""
+    return load_preprocessing_dataframe(Path(path))
 
 
 def summarize_one_to_many_dataframe(df: pd.DataFrame) -> pd.DataFrame:

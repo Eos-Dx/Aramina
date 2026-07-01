@@ -4,7 +4,7 @@ import joblib
 import pandas as pd
 import pytest
 import yaml
-from xrd_preprocessing import build_pipeline_steps_from_config
+from xrd_preprocessing import build_pipeline_steps_from_config, load_preprocessing_dataframe
 from xrd_preprocessing.transformers import H5BlobDataFrameTransformer, KeepColumnsTransformer
 
 from aramis.__main__ import main
@@ -93,8 +93,14 @@ def test_preprocess_cli_reads_input_and_output_from_yaml(tmp_path):
 
     assert exit_code == 0
     assert output_path.exists()
-    df = joblib.load(output_path)
-    assert isinstance(df, pd.DataFrame)
+    artifact = joblib.load(output_path)
+    df = load_preprocessing_dataframe(output_path)
+    assert isinstance(artifact, dict)
+    assert isinstance(artifact["dataframe"], pd.DataFrame)
+    assert artifact["preprocessing_config"]["aramis_preprocessing"]["branch"] == "one_to_many"
+    assert artifact["preprocessing_config_text"]
+    assert artifact["preprocessing_config_sha256"]
+    assert artifact["metadata"]["input_h5_path"].endswith("known_synthetic_aramis.h5")
     assert set(df["product_status_group"]) == {"BENIGN", "CANCER"}
 
 
@@ -123,6 +129,6 @@ def test_preprocess_cli_can_write_minimal_output_columns(tmp_path):
     exit_code = main(["preprocess", "--config", str(config_path)])
 
     assert exit_code == 0
-    df = joblib.load(output_path)
+    df = load_preprocessing_dataframe(output_path)
     assert df.columns.tolist() == output_columns
     assert not df["radial_profile_data_raw"].equals(df["radial_profile_data"])

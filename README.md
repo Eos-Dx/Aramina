@@ -172,7 +172,7 @@ src/aramis/pipelines.py
     AramisOneToManyPreprocessingPipeline(...).fit_transform(h5_path)
   run_one_to_one_preprocessing_pipeline(...)
   run_one_to_many_preprocessing_pipeline(...)
-  final DataFrame joblib export when requested
+  preprocessing artifact joblib export when requested
 ```
 
 Aramis does not hardcode preprocessing transformer order in Python. Runnable
@@ -185,7 +185,7 @@ config/preprocessing/shared/aramis_pipeline_v0_1.yaml
 That route declares `pipeline.steps`. XRD-preprocessing owns the transformer
 registry, `$ref` / `$concat` resolution, and sklearn Pipeline construction.
 Aramis resolves YAML input/output paths, requires `metadata.output_columns`,
-runs the declared pipeline, and writes the final DataFrame joblib.
+runs the declared pipeline, and writes a preprocessing artifact joblib.
 
 Runtime call chain:
 
@@ -197,8 +197,13 @@ python -m aramis preprocess --config <yaml>
 -> xrd_preprocessing.build_pipeline_from_config
 -> YAML-declared XRD transformers
 -> KeepColumnsTransformer(metadata.output_columns + branch_settings.output_columns)
--> joblib.dump(final_df, io.output_joblib_path)
+-> xrd_preprocessing.save_preprocessing_artifact(final_df, io.output_joblib_path)
 ```
+
+The joblib contains `dataframe`, resolved `preprocessing_config`, original
+`preprocessing_config_text`, config path, config SHA256, and run metadata.
+Downstream code should use `xrd_preprocessing.load_preprocessing_dataframe`
+when it needs only the DataFrame.
 
 Synthetic regression tests:
 

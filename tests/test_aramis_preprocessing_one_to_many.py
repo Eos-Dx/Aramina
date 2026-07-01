@@ -5,6 +5,7 @@ from pathlib import Path
 import joblib
 import pandas as pd
 import yaml
+from xrd_preprocessing import load_preprocessing_dataframe
 
 from aramis.pipelines import (
     AramisOneToManyPreprocessingPipeline,
@@ -67,8 +68,14 @@ def test_one_to_many_biopsy_pipeline_keeps_only_biopsy_rows(tmp_path: Path):
         output_joblib_path=joblib_path,
     )
     loaded = joblib.load(joblib_path)
+    loaded_df = load_preprocessing_dataframe(joblib_path)
 
-    pd.testing.assert_frame_equal(df, loaded)
+    assert loaded["kind"] == "xrd_preprocessing_dataframe"
+    assert loaded["preprocessing_config"]["aramis_preprocessing"]["branch"] == "one_to_many"
+    assert loaded["preprocessing_config_text"]
+    assert loaded["preprocessing_config_sha256"]
+    assert loaded["metadata"]["product"] == "Aramis"
+    pd.testing.assert_frame_equal(df, loaded_df)
     assert set(df.columns) == ONE_TO_MANY_OUTPUT_COLUMNS
     assert_common_output_contract(df)
     assert bool(df["biopsy"].all())

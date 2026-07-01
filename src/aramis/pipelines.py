@@ -5,10 +5,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import joblib
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
-from xrd_preprocessing import build_pipeline_from_config, load_preprocessing_config
+import yaml
+from xrd_preprocessing import (
+    build_pipeline_from_config,
+    load_preprocessing_config,
+    save_preprocessing_artifact,
+)
 
 
 class AramisPreprocessingPipeline(TransformerMixin, BaseEstimator):
@@ -25,6 +29,7 @@ class AramisPreprocessingPipeline(TransformerMixin, BaseEstimator):
     def transform(self, X: str | Path) -> pd.DataFrame:
         config = _load_config(self.config)
         _require_output_columns(config)
+        self.config_ = config
         self.pipeline_ = build_pipeline_from_config(config)
         return self.pipeline_.fit_transform(X)
 
@@ -44,8 +49,15 @@ def run_one_to_one_preprocessing_pipeline(
     output_joblib_path: str | Path | None = None,
 ) -> pd.DataFrame:
     """Build the one-to-one paired-breast preprocessing DataFrame."""
-    df = AramisOneToOnePreprocessingPipeline(config=config).fit_transform(h5_path)
-    _write_joblib_if_requested(df, output_joblib_path)
+    pipeline = AramisOneToOnePreprocessingPipeline(config=config)
+    df = pipeline.fit_transform(h5_path)
+    _write_joblib_if_requested(
+        df,
+        output_joblib_path,
+        config_source=config,
+        effective_config=pipeline.config_,
+        input_h5_path=h5_path,
+    )
     return df
 
 
@@ -56,8 +68,15 @@ def run_one_to_many_preprocessing_pipeline(
     output_joblib_path: str | Path | None = None,
 ) -> pd.DataFrame:
     """Build the one-to-many specimen-level preprocessing DataFrame."""
-    df = AramisOneToManyPreprocessingPipeline(config=config).fit_transform(h5_path)
-    _write_joblib_if_requested(df, output_joblib_path)
+    pipeline = AramisOneToManyPreprocessingPipeline(config=config)
+    df = pipeline.fit_transform(h5_path)
+    _write_joblib_if_requested(
+        df,
+        output_joblib_path,
+        config_source=config,
+        effective_config=pipeline.config_,
+        input_h5_path=h5_path,
+    )
     return df
 
 
@@ -104,9 +123,36 @@ def _require_output_columns(config: dict[str, Any]) -> None:
         raise ValueError("Aramis preprocessing config requires metadata.output_columns.")
 
 
-def _write_joblib_if_requested(df: pd.DataFrame, output_joblib_path: str | Path | None) -> None:
+def _write_joblib_if_requested(
+    df: pd.DataFrame,
+    output_joblib_path: str | Path | None,
+    *,
+    config_source: dict[str, Any] | str | Path,
+    effective_config: dict[str, Any],
+    input_h5_path: str | Path,
+) -> None:
     if output_joblib_path is None:
         return
     output_path = Path(output_joblib_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    joblib.dump(df, output_path)
+    config_text, config_path = _config_source_text(config_source)
+    save_preprocessing_artifact(
+        df,
+        output_path,
+        preprocessing_config=effective_config,
+        preprocessing_config_text=config_text,
+        preprocessing_config_path=config_path,
+        metadata={
+            "product": "Aramis",
+            "branch": effective_config.get("aramis_preprocessing", {}).get("branch"),
+            "input_h5_path": str(input_h5_path),
+            "rows": int(len(df)),
+            "columns": int(len(df.columns)),
+        },
+    )
+
+
+def _config_source_text(config_source: dict[str, Any] | str | Path) -> tuple[str, str | None]:
+    if isinstance(config_source, str | Path):
+        path = Path(config_source)
+        return path.read_text(encoding="utf-8"), str(path)
+    return yaml.safe_dump(config_source, sort_keys=False), None

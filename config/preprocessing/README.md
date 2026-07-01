@@ -24,6 +24,10 @@ io.output_joblib_path
 branch_settings.output_columns
 ```
 
+`io.output_joblib_path` receives a preprocessing artifact joblib: it contains
+the final DataFrame plus the resolved YAML config, original YAML text, config
+path, SHA256, and run metadata.
+
 Biopsy branch meaning:
 
 ```text

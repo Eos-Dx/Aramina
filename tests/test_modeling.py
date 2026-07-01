@@ -248,7 +248,7 @@ def test_load_one_to_many_dataframe_rejects_non_dataframe(tmp_path):
 
     joblib.dump({"not": "a dataframe"}, path)
 
-    with pytest.raises(TypeError, match="pandas DataFrame"):
+    with pytest.raises(TypeError, match="Preprocessing joblib"):
         load_one_to_many_dataframe(path)
 
 
