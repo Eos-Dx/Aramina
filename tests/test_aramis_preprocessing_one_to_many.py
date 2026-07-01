@@ -74,7 +74,10 @@ def test_one_to_many_biopsy_pipeline_keeps_only_biopsy_rows(tmp_path: Path):
     assert loaded["preprocessing_config"]["aramis_preprocessing"]["branch"] == "one_to_many"
     assert loaded["preprocessing_config_text"]
     assert loaded["preprocessing_config_sha256"]
-    assert loaded["metadata"]["product"] == "Aramis"
+    assert loaded["metadata"]["branch"] == "one_to_many"
+    assert len(loaded["metadata"]["input_h5_sha256"]) == 64
+    assert loaded["metadata"]["aramis_version"]
+    assert loaded["metadata"]["aramis_git_sha"]
     pd.testing.assert_frame_equal(df, loaded_df)
     assert set(df.columns) == ONE_TO_MANY_OUTPUT_COLUMNS
     assert_common_output_contract(df)

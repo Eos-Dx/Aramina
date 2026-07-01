@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import subprocess
+from hashlib import sha256
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
@@ -134,25 +137,48 @@ def _write_joblib_if_requested(
     if output_joblib_path is None:
         return
     output_path = Path(output_joblib_path)
-    config_text, config_path = _config_source_text(config_source)
+    config_text = _config_source_text(config_source)
     save_preprocessing_artifact(
         df,
         output_path,
         preprocessing_config=effective_config,
         preprocessing_config_text=config_text,
-        preprocessing_config_path=config_path,
         metadata={
-            "product": "Aramis",
             "branch": effective_config.get("aramis_preprocessing", {}).get("branch"),
-            "input_h5_path": str(input_h5_path),
-            "rows": int(len(df)),
-            "columns": int(len(df.columns)),
+            "input_h5_sha256": _file_sha256(input_h5_path),
+            "aramis_version": _aramis_version(),
+            "aramis_git_sha": _aramis_git_sha(),
         },
     )
 
 
-def _config_source_text(config_source: dict[str, Any] | str | Path) -> tuple[str, str | None]:
+def _config_source_text(config_source: dict[str, Any] | str | Path) -> str:
     if isinstance(config_source, str | Path):
         path = Path(config_source)
-        return path.read_text(encoding="utf-8"), str(path)
-    return yaml.safe_dump(config_source, sort_keys=False), None
+        return path.read_text(encoding="utf-8")
+    return yaml.safe_dump(config_source, sort_keys=False)
+
+
+def _file_sha256(path: str | Path) -> str:
+    digest = sha256()
+    with Path(path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _aramis_version() -> str:
+    try:
+        return version("aramis")
+    except PackageNotFoundError:
+        return "unknown"
+
+
+def _aramis_git_sha() -> str:
+    repo_root = Path(__file__).resolve().parents[2]
+    if not (repo_root / ".git").exists():
+        return "unavailable"
+    return subprocess.check_output(
+        ["git", "-C", str(repo_root), "rev-parse", "HEAD"],
+        text=True,
+    ).strip()

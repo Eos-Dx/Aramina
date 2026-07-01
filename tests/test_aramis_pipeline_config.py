@@ -100,7 +100,10 @@ def test_preprocess_cli_reads_input_and_output_from_yaml(tmp_path):
     assert artifact["preprocessing_config"]["aramis_preprocessing"]["branch"] == "one_to_many"
     assert artifact["preprocessing_config_text"]
     assert artifact["preprocessing_config_sha256"]
-    assert artifact["metadata"]["input_h5_path"].endswith("known_synthetic_aramis.h5")
+    assert artifact["metadata"]["branch"] == "one_to_many"
+    assert len(artifact["metadata"]["input_h5_sha256"]) == 64
+    assert artifact["metadata"]["aramis_version"]
+    assert artifact["metadata"]["aramis_git_sha"]
     assert set(df["product_status_group"]) == {"BENIGN", "CANCER"}
 
 

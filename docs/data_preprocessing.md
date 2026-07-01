@@ -222,8 +222,8 @@ fit_transform(X):
 
 Each pipeline returns the final DataFrame and can write a preprocessing artifact
 `.joblib` file. The artifact stores the DataFrame together with the resolved
-YAML config, original YAML text, config path, SHA256, and run metadata. This is
-preprocessing output, not a trained classifier.
+YAML config, original YAML text, config SHA256, H5 SHA256, Aramis version/git
+SHA, and branch. This is preprocessing output, not a trained classifier.
 
 ## Product Command Shape
 

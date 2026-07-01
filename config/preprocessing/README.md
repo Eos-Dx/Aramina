@@ -26,7 +26,7 @@ branch_settings.output_columns
 
 `io.output_joblib_path` receives a preprocessing artifact joblib: it contains
 the final DataFrame plus the resolved YAML config, original YAML text, config
-path, SHA256, and run metadata.
+SHA256, H5 SHA256, Aramis version/git SHA, and branch.
 
 Biopsy branch meaning:
 

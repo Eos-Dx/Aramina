@@ -201,7 +201,8 @@ python -m aramis preprocess --config <yaml>
 ```
 
 The joblib contains `dataframe`, resolved `preprocessing_config`, original
-`preprocessing_config_text`, config path, config SHA256, and run metadata.
+`preprocessing_config_text`, config SHA256, H5 SHA256, Aramis version/git SHA,
+and branch.
 Downstream code should use `xrd_preprocessing.load_preprocessing_dataframe`
 when it needs only the DataFrame.
 

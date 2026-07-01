@@ -87,5 +87,8 @@ def test_one_to_one_wrapper_writes_joblib(tmp_path: Path):
     assert loaded["preprocessing_config"]["aramis_preprocessing"]["branch"] == "one_to_one"
     assert loaded["preprocessing_config_text"]
     assert loaded["preprocessing_config_sha256"]
-    assert loaded["metadata"]["product"] == "Aramis"
+    assert loaded["metadata"]["branch"] == "one_to_one"
+    assert len(loaded["metadata"]["input_h5_sha256"]) == 64
+    assert loaded["metadata"]["aramis_version"]
+    assert loaded["metadata"]["aramis_git_sha"]
     pd.testing.assert_frame_equal(df, loaded_df)
