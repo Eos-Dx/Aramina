@@ -66,6 +66,11 @@ MODES = {
         "n_splits": 50,
         "test_size": 0.20,
     },
+    "patient_70_30_x50": {
+        "mode": "repeated_stratified_shuffle",
+        "n_splits": 50,
+        "test_size": 0.30,
+    },
 }
 
 
@@ -344,9 +349,31 @@ def _write_markdown_summary(summary: pd.DataFrame) -> None:
         "",
         "Model: M1Q only.",
         "",
+        "Metric note: target threshold is selected on train data to target sensitivity 0.95, then applied to held-out patients. Therefore honest test sensitivity is not forced to be 0.95 and can be lower.",
+        "",
         _markdown_table(display),
         "",
         f"Machine-readable table: `{SUMMARY_CSV.relative_to(ROOT)}`",
+        "",
+        "## Current Reading",
+        "",
+        "For honest repeated patient-safe `70/30 x50`, T70 gives the best ROC AUC and specificity in this run, while T100 gives slightly higher sensitivity:",
+        "",
+        "```text",
+        "T70:  ROC AUC 0.620 +/- 0.076, sensitivity 0.609 +/- 0.131, specificity 0.566 +/- 0.096",
+        "T100: ROC AUC 0.615 +/- 0.073, sensitivity 0.654 +/- 0.122, specificity 0.520 +/- 0.108",
+        "T130: ROC AUC 0.576 +/- 0.063, sensitivity 0.644 +/- 0.116, specificity 0.471 +/- 0.120",
+        "```",
+        "",
+        "For honest repeated patient-safe `80/20 x50`, T70 is also best by ROC AUC and specificity:",
+        "",
+        "```text",
+        "T70:  ROC AUC 0.627 +/- 0.078, sensitivity 0.689 +/- 0.145, specificity 0.507 +/- 0.104",
+        "T100: ROC AUC 0.607 +/- 0.078, sensitivity 0.629 +/- 0.126, specificity 0.501 +/- 0.107",
+        "T130: ROC AUC 0.589 +/- 0.075, sensitivity 0.702 +/- 0.122, specificity 0.423 +/- 0.102",
+        "```",
+        "",
+        "Train-all results are optimistic discovery ceilings and should not be used as validation evidence.",
         "",
     ]
     SUMMARY_MD.write_text("\n".join(text), encoding="utf-8")
