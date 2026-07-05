@@ -1,0 +1,32 @@
+training:
+  name: aramis_all_patients_m0_m1_m2
+  version: 0.1
+  branch: one_to_many
+  clinical_stage: exploratory research draft
+  intended_use: exploratory label-policy comparison only; not primary product training
+  role: exploratory_label_policy_comparison
+
+io:
+  input_dataframe_joblib_path: ../../examples/outputs/model_input/aramis_all_patients_model_input_v0_1.joblib
+  output_model_joblib_path: ../../examples/outputs/training/aramis_all_patients_m0_m1_m2_v0_1.joblib
+  output_json_path: ../../examples/outputs/training/aramis_all_patients_m0_m1_m2_v0_1_summary.json
+  output_yaml_path: ../../examples/outputs/training/aramis_all_patients_m0_m1_m2_v0_1_description.yaml
+  prediction_preprocessing_config_path: ../preprocessing/aramis_prediction_patient_model_input_v0_1.yaml
+
+model:
+  type: patient_m0_m1_m2_logistic_set
+  profile_column: radial_profile_data
+  label_column: product_status_group
+  group_column: patientId
+  specimen_column: specimenId
+  side_column: side
+  age_column: age
+  biopsy_column: biopsy
+  lr1_row_policy: all_rows
+  logreg_c: 1.0
+
+evaluation:
+  n_splits: 50
+  test_size: 0.30
+  random_state: 42
+  target_sensitivity: 0.95

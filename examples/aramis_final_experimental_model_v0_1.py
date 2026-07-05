@@ -28,9 +28,15 @@ def _():
     DEFAULT_ONE_TO_MANY_JOBLIB_PATH = (
         PRODUCT_DIR
         / "outputs"
-        / "aramis_one_to_many_benign_cancer_biopsy_dataframe.joblib"
+        / "real_h5_yaml_validation"
+        / "aramis_one_to_many_biopsy_min_v0_1.joblib"
     )
-    DEFAULT_ONE_TO_ONE_JOBLIB_PATH = PRODUCT_DIR / "outputs" / "aramis_one_to_one_dataframe.joblib"
+    DEFAULT_ONE_TO_ONE_JOBLIB_PATH = (
+        PRODUCT_DIR
+        / "outputs"
+        / "real_h5_yaml_validation"
+        / "aramis_one_to_one_biopsy_min_v0_1.joblib"
+    )
     MODEL_COLORS = {
         "M0_one_to_many_only": "#4c78a8",
         "M1_one_to_many_plus_symmetry": "#59a14f",
@@ -43,6 +49,8 @@ def _():
         "F1_bmi_available_only": "#d4a6c8",
         "F2_replicate_available_only": "#c7c7c7",
         "F3_symmetry_plus_bmi_availability": "#8cd17d",
+        "T0_thickness_only": "#ff9da7",
+        "S1_cosine_symmetry_block": "#4e79a7",
         "M3a_plus_age_no_bmi": "#76b7b2",
         "M3b_plus_bmi_no_age": "#edc948",
     }
@@ -58,6 +66,8 @@ def _():
         "F1_bmi_available_only": "F1: BMI flag only",
         "F2_replicate_available_only": "F2: replicate flag only",
         "F3_symmetry_plus_bmi_availability": "F3: symmetry+BMI flags",
+        "T0_thickness_only": "T0: thickness only control",
+        "S1_cosine_symmetry_block": "S1: cosine symmetry block",
         "M3a_plus_age_no_bmi": "M3a: + age, no BMI",
         "M3b_plus_bmi_no_age": "M3b: + BMI, no age",
     }
@@ -85,7 +95,7 @@ def _(mo):
                 "",
                 "Research draft notebook.",
                 "",
-                "Goal: compare first fusion concepts M0-M3 and age/BMI ablations using biopsy-only one-to-many target specimens and paired-breast symmetry features.",
+                "Goal: compare first fusion concepts M0-M3 and ablation controls using biopsy-only one-to-many target specimens and paired-breast symmetry features.",
                 "",
                 "Clinical framing: decision support only. Output is experimental p_cancer behavior and requires radiologist / qualified clinician review.",
                 "",
@@ -164,6 +174,7 @@ def _(
                 f"- LogisticRegression C: `{logreg_c}`",
                 f"- specimen aggregation: `{aggregation}`",
                 f"- target sensitivity threshold: `{target_sensitivity:.2f}`",
+                "- sample thickness: audit/control metadata only; evaluated by `T0_thickness_only`, not used in M0-M3 predictors",
             ]
         )
     )
@@ -246,6 +257,9 @@ def _(feature_table_df, mo):
     _symmetry_available = int(feature_table_df["symmetry_available"].astype(bool).sum())
     _age_available = int(feature_table_df["age_available"].astype(bool).sum())
     _bmi_available = int(feature_table_df["bmi_available"].astype(bool).sum())
+    _thickness_available = int(
+        feature_table_df["sample_thickness_available"].astype(bool).sum()
+    )
     mo.md(
         "\n".join(
             [
@@ -256,6 +270,8 @@ def _(feature_table_df, mo):
                 f"- symmetry unavailable: `{len(feature_table_df) - _symmetry_available}`",
                 f"- age available: `{_age_available}`",
                 f"- BMI available: `{_bmi_available}`",
+                f"- sample thickness available: `{_thickness_available}`",
+                f"- median sample thickness, mm: `{feature_table_df['sample_thickness_mm_mean'].median():.3f}`",
                 f"- median valid target measurements: `{feature_table_df['n_valid_target_measurements'].median():.1f}`",
                 f"- median valid contralateral measurements: `{feature_table_df['n_valid_contralateral_measurements'].median():.1f}`",
             ]

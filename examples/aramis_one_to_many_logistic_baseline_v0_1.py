@@ -74,7 +74,6 @@ def _(DEFAULT_DATAFRAME_JOBLIB_PATH, Path, mo):
         _cli_args.get("random-state") or _cli_args.get("random_state") or 42
     )
     logreg_c = float(_cli_args.get("logreg-c") or _cli_args.get("logreg_c") or 1.0)
-
     mo.md(
         "\n".join(
             [
@@ -86,6 +85,7 @@ def _(DEFAULT_DATAFRAME_JOBLIB_PATH, Path, mo):
                 f"- test size: `{test_size:.2f}`",
                 f"- random state: `{random_state}`",
                 f"- LogisticRegression C: `{logreg_c}`",
+                "- sample thickness: audit/control metadata only; not used as primary predictor",
             ]
         )
     )

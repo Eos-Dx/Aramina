@@ -1,0 +1,7 @@
+dataset,feature_route,result,use_profile,extra_feature_columns,rows,patients,specimens,BENIGN_rows,CANCER_rows,biopsy_true_rows
+standard,profile_only,standard__profile_only,True,[],777,193,275,558,219,493
+standard,thickness_only,standard__thickness_only,False,['sample_thickness_mm'],777,193,275,558,219,493
+standard,profile_plus_thickness,standard__profile_plus_thickness,True,['sample_thickness_mm'],777,193,275,558,219,493
+biopsy_only,profile_only,biopsy_only__profile_only,True,[],493,163,174,277,216,493
+biopsy_only,thickness_only,biopsy_only__thickness_only,False,['sample_thickness_mm'],493,163,174,277,216,493
+biopsy_only,profile_plus_thickness,biopsy_only__profile_plus_thickness,True,['sample_thickness_mm'],493,163,174,277,216,493

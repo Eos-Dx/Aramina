@@ -121,25 +121,44 @@ Planned command-level product interface:
 
 ```text
 python -m aramis preprocess --config /path/to/preprocess.yaml
-python -m aramis training --config /path/to/training.yaml
+python -m aramis train --config /path/to/training.yaml
+python -m aramis run --config /path/to/workflow.yaml
 python -m aramis predict --config /path/to/predict.yaml
 ```
 
 `preprocess` config owns input H5 path, output DataFrame/joblib path, raw-data
 source, H5 quality exclusions, branch rules, and XRD preprocessing parameters.
-`training` config will own dataset paths, split logic, model family, MLflow
-tracking, and trained model output. `predict` config will own one-patient H5
-input, fixed preprocessing/model versions, and JSON/YAML report output.
+`train` config owns dataset paths, split logic, model family, and trained model
+artifact output. `run` config references one preprocessing YAML and one training
+YAML, then executes them as a single preprocess+train workflow. In default
+`memory` mode, `run` still writes the preprocessing joblib footprint but passes
+the fresh DataFrame directly into the training pipeline. `artifact` mode forces
+training to reload the saved preprocessing joblib. `predict` config owns the
+one-patient H5 source, trained model artifact, target-side source, and JSON/YAML
+report output. The trained model artifact stores the prediction preprocessing
+YAML. `predict` can also read a preprocessed DataFrame joblib for tests and
+debugging.
 
 Prediction input contract for the first draft:
 
 ```text
-one H5 container
+one-patient H5 container
 one patient
 two breast-side specimen groups when available
+clinician-supplied target_side or explicit target_side H5 metadata
 output: p_cancer / suggested class for decision support
 requires radiologist review
 ```
+
+Prediction run:
+
+```bash
+python -m aramis predict --config config/prediction/aramis_predict_example_v0_1.yaml
+```
+
+Prediction report keeps risk and reliability separate. `p_cancer` is the
+decision-support risk score. `reliability` describes whether enough valid target
+and contralateral measurements were available.
 
 MLflow is part of the product run because preprocessing defines the dataset.
 
@@ -230,6 +249,12 @@ python -m aramis preprocess --config \
 
 python -m aramis preprocess --config \
   config/preprocessing/aramis_one_to_many_max_v0_1.yaml
+
+python -m aramis train --config \
+  config/training/aramis_one_to_many_logistic_v0_1.yaml
+
+python -m aramis run --config \
+  config/workflows/aramis_biopsy_patients_m2_kfold_v0_1.yaml
 ```
 
 Interactive edit mode:
@@ -240,6 +265,12 @@ python -m marimo edit examples/aramis_dataframe_one_to_one_v0_1.py -- \
 
 python -m marimo edit examples/aramis_dataframe_one_to_many_v0_1.py -- \
   --aramis-preprocessing-config-path config/preprocessing/aramis_one_to_many_max_v0_1.yaml
+
+python -m marimo edit examples/aramis_dataframe_all_patients_v0_1.py -- \
+  --aramis-preprocessing-config-path config/preprocessing/aramis_all_patients_model_input_v0_1.yaml
+
+python -m marimo edit examples/aramis_dataframe_biopsy_patients_v0_1.py -- \
+  --aramis-preprocessing-config-path config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
 
 python -m marimo edit examples/aramis_one_to_many_product_model_v0_1.py -- \
   --standard-dataframe-joblib-path examples/outputs/aramis_one_to_many_benign_cancer_dataframe.joblib \
@@ -262,6 +293,11 @@ examples/outputs/aramis_one_to_one_dataframe.joblib
 examples/outputs/aramis_one_to_one_biopsy_dataframe.joblib
 examples/outputs/aramis_one_to_many_benign_cancer_dataframe.joblib
 examples/outputs/aramis_one_to_many_benign_cancer_biopsy_dataframe.joblib
+examples/outputs/model_input/aramis_all_patients_model_input_v0_1.joblib
+examples/outputs/model_input/aramis_biopsy_patients_model_input_v0_1.joblib
+examples/outputs/training/model_grid/*_model_v0_1.joblib
+examples/outputs/training/model_grid/*_summary.json
+examples/outputs/training/model_grid/*_description.yaml
 ```
 
 Biopsy-only outputs use different cohort rules:

@@ -1,0 +1,26 @@
+extends:
+- shared/aramis_policy_v0_1.yaml
+- exclusions/agbh_quality_exclusions_t130_v0_1.yaml
+- shared/aramis_pipeline_v0_1.yaml
+- outputs/model_input_output_v0_1.yaml
+- branches/one_to_many_all_patients_normal_as_benign_v0_1.yaml
+aramis_preprocessing:
+  name: aramis_all_patients_model_input
+  version: 0.1
+  branch: one_to_many
+  clinical_stage: research draft
+provenance:
+  status: research draft all-patients model-input preprocessing config
+  canonical_location: Aramis/config/preprocessing/aramis_all_patients_model_input_v0_1.yaml
+  cohort_rule: all labelled patients; NORMAL mapped to BENIGN; AgBH t130 monochromaticity exclusions
+  quality_exclusion_reason_doc: Aramis/docs/agbh_quality_exclusions.md
+io:
+  input_h5_path: /Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/data/product-aramis-data/combined_archive.h5
+  output_joblib_path: ../../examples/outputs/model_input/aramis_all_patients_model_input_v0_1.joblib
+experiment:
+  monochromaticity_threshold_factor: 1.3
+  monochromaticity_max_score: 0.00975
+  dataset_policy: all_patients
+  normal_policy: normal_as_benign
+branch_settings:
+  output_columns: []

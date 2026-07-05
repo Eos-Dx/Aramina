@@ -231,15 +231,21 @@ The intended product code is split into three command/config stages:
 
 ```text
 python -m aramis preprocess --config /path/to/preprocess.yaml
-python -m aramis training --config /path/to/training.yaml
+python -m aramis train --config /path/to/training.yaml
+python -m aramis run --config /path/to/workflow.yaml
 python -m aramis predict --config /path/to/predict.yaml
 ```
 
-Current work covers the preprocessing stage. The preprocessing config must be
-self-contained: it defines input H5 path, output DataFrame/joblib path,
-raw-data source, branch rules, quality exclusions, thickness correction, SNR,
-normalization, and payload retention. Training and prediction configs are
-separate future contracts.
+Current work covers preprocessing, training, prediction, and a combined
+preprocess+train workflow. The preprocessing config is self-contained: it
+defines input H5 path, output DataFrame/joblib path, raw-data source, branch
+rules, quality exclusions, thickness correction, SNR, normalization, and payload
+retention. The training config defines the input preprocessing joblib, model
+family, selected model, validation mode, and output artifacts. The workflow
+config references one preprocessing YAML and one training YAML. The prediction
+config defines the one-patient H5 path, trained model joblib, patient id,
+target-side source, and report output paths. The trained model joblib stores the
+prediction preprocessing YAML.
 
 For preprocessing, input and output paths are not command-line data parameters.
 They live in YAML:
@@ -271,19 +277,39 @@ Downstream code should use `xrd_preprocessing.load_preprocessing_dataframe`
 when it needs only the DataFrame. The full joblib object keeps the preprocessing
 lineage needed for audit and reproducibility.
 
+The combined workflow can pass the freshly built DataFrame directly into
+training while still writing the preprocessing joblib footprint:
+
+```text
+python -m aramis run --config /path/to/workflow.yaml
+-> run preprocessing YAML
+-> write preprocessing artifact joblib
+-> pass in-memory DataFrame to training pipeline, when workflow.mode=memory
+-> write model artifact joblib / JSON / YAML
+```
+
+Use `workflow.mode=artifact` when training should explicitly reload the saved
+preprocessing joblib.
+
 Aramis should not hardcode preprocessing steps. It owns concrete branch YAMLs
 and product paths. XRD-preprocessing owns transformer classes, the transformer
 registry, YAML `$ref` resolution, and pipeline construction.
 
-Prediction draft input:
+Prediction v0.1 input:
 
 ```text
-one H5 container
+one-patient H5
+trained Aramis model joblib
+prediction preprocessing YAML stored in model joblib
 one patient
+clinician-supplied target_side or target_side metadata column
 two breast-side specimen groups when available
-fixed preprocessing config and fixed trained model
 machine-readable JSON/YAML output for report generation
 ```
+
+Prediction must not infer `target_side` from diagnosis labels or biopsy
+metadata. In a clinical workflow the suspicious breast side is supplied by the
+clinician-facing config or stored as explicit H5 metadata.
 
 Synthetic tests use one known H5 container with both `raw/data` and
 `processed/data` 2D arrays:

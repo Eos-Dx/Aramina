@@ -1,0 +1,27 @@
+extends:
+- shared/aramis_policy_v0_1.yaml
+- exclusions/agbh_quality_exclusions_t130_v0_1.yaml
+- shared/aramis_pipeline_v0_1.yaml
+- outputs/max_output_v0_1.yaml
+- branches/one_to_many_monochromatic_metadata_pool_v0_1.yaml
+aramis_preprocessing:
+  name: aramis_grid_t130_all_samples_normal_excluded
+  version: 0.1
+  branch: one_to_many
+  clinical_stage: research draft
+provenance:
+  status: research draft threshold-grid dataset
+  monochromaticity_source: Aramis/docs/meta/aramis_preprocessing_v0_1_config.json
+  quality_exclusion_reason_doc: Aramis/docs/agbh_quality_exclusions.md
+experiment:
+  monochromaticity_threshold_factor: 1.3
+  monochromaticity_max_score: 0.00975
+  biopsy_policy: all_samples
+  normal_policy: normal_excluded
+  normal_as_benign: false
+io:
+  input_h5_path: /Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/data/product-aramis-data/combined_archive.h5
+  output_joblib_path: /Users/sad/dev/Aramis/examples/outputs/threshold_grid/datasets/aramis_grid_t130_all_samples_normal_excluded.joblib
+branch_settings:
+  require_biopsy_rows: false
+  output_columns: []

@@ -8,8 +8,14 @@ Files:
 ```text
 aramis_dataframe_one_to_one_v0_1.py
 aramis_dataframe_one_to_many_v0_1.py
+aramis_dataframe_all_patients_v0_1.py
+aramis_dataframe_biopsy_patients_v0_1.py
 aramis_one_to_many_logistic_baseline_v0_1.py
 aramis_one_to_many_product_model_v0_1.py
+aramis_loocv_main_models_experiment.py
+aramis_patient_cv_main_models_experiment.py
+aramis_ka_symmetry_only_experiment.py
+aramis_lr1_profile_plus_ka_symmetry_svm_poly2_train_all.py
 aramis_final_experimental_model_v0_1.py
 aramis_product_notebook_helpers.py
 preprocess_one_to_one.sh
@@ -51,6 +57,13 @@ python -m aramis preprocess --config config/preprocessing/aramis_one_to_one_max_
 python -m aramis preprocess --config config/preprocessing/aramis_one_to_one_biopsy_max_v0_1.yaml
 python -m aramis preprocess --config config/preprocessing/aramis_one_to_many_max_v0_1.yaml
 python -m aramis preprocess --config config/preprocessing/aramis_one_to_many_biopsy_max_v0_1.yaml
+```
+
+Build current model-input DataFrames:
+
+```bash
+python -m aramis preprocess --config config/preprocessing/aramis_all_patients_model_input_v0_1.yaml
+python -m aramis preprocess --config config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
 ```
 
 Minimal joblib exports:
@@ -112,8 +125,26 @@ pipeline:
 The `transformer` names are XRD-preprocessing transformer registry entries.
 Runnable root YAMLs extend this shared route plus policy, output schema, and
 branch cohort fragments. Aramis reads the YAML, asks XRD-preprocessing to build
-the sklearn Pipeline, and writes only the final DataFrame to
-`io.output_joblib_path`.
+the sklearn Pipeline, and writes a preprocessing artifact joblib to
+`io.output_joblib_path`. The artifact stores the final DataFrame plus
+preprocessing YAML text, config SHA256, H5 SHA256, Aramis version/git SHA, and
+branch.
+
+Train model grid entries:
+
+```bash
+python -m aramis train --config config/training/model_grid_v0_1/18_m2_stratified_kfold_biopsy_patients_model_v0_1.yaml
+```
+
+Run preprocess+train workflow:
+
+```bash
+python -m aramis run --config config/workflows/aramis_biopsy_patients_m2_kfold_v0_1.yaml
+```
+
+The default workflow mode is `memory`: preprocessing writes the joblib footprint
+and passes the fresh DataFrame directly into training. Use `mode: artifact` in
+the workflow YAML to force training to reload the saved preprocessing joblib.
 
 Run marimo notebooks:
 
@@ -125,6 +156,12 @@ python -m marimo run examples/aramis_dataframe_one_to_one_v0_1.py -- \
 python -m marimo run examples/aramis_dataframe_one_to_many_v0_1.py -- \
   --aramis-preprocessing-config-path config/preprocessing/aramis_one_to_many_max_v0_1.yaml
 
+python -m marimo run examples/aramis_dataframe_all_patients_v0_1.py -- \
+  --aramis-preprocessing-config-path config/preprocessing/aramis_all_patients_model_input_v0_1.yaml
+
+python -m marimo run examples/aramis_dataframe_biopsy_patients_v0_1.py -- \
+  --aramis-preprocessing-config-path config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
+
 python -m marimo run examples/aramis_one_to_many_logistic_baseline_v0_1.py -- \
   --dataframe-joblib-path examples/outputs/aramis_one_to_many_benign_cancer_dataframe.joblib
 
@@ -135,6 +172,38 @@ python -m marimo run examples/aramis_one_to_many_product_model_v0_1.py -- \
 python -m marimo run examples/aramis_final_experimental_model_v0_1.py -- \
   --one-to-many-joblib-path examples/outputs/aramis_one_to_many_benign_cancer_biopsy_dataframe.joblib \
   --one-to-one-joblib-path examples/outputs/aramis_one_to_one_dataframe.joblib
+```
+
+Run patient-level leave-one-out M0-M3 comparison:
+
+```bash
+cd /Users/sad/dev/Aramis
+conda activate eosproduct
+python examples/aramis_loocv_main_models_experiment.py
+```
+
+Run repeated patient-level CV M0-M3 comparison:
+
+```bash
+cd /Users/sad/dev/Aramis
+conda activate eosproduct
+python examples/aramis_patient_cv_main_models_experiment.py
+```
+
+Run Kubitskii-style symmetry-only experiment:
+
+```bash
+cd /Users/sad/dev/Aramis
+conda activate eosproduct
+python examples/aramis_ka_symmetry_only_experiment.py
+```
+
+Run train-on-all LR1 profile mean plus Kubitskii symmetry SVM-poly2 experiment:
+
+```bash
+cd /Users/sad/dev/Aramis
+conda activate eosproduct
+python examples/aramis_lr1_profile_plus_ka_symmetry_svm_poly2_train_all.py
 ```
 
 Default Aramis product config:
@@ -234,3 +303,14 @@ also includes control ablations for age-only, BMI-only, availability-only,
 single availability flags, M2+age, and M2+BMI. All splits remain patient-safe.
 Missing symmetry is encoded with an explicit availability flag and a zero value,
 not as a biological zero.
+
+Run the current LR1/LR2 patient-safe symmetry experiment from the MAX
+monochromatic metadata pool:
+
+```bash
+python examples/aramis_lr1_lr2_symmetry_patient_split_experiment.py
+```
+
+This experiment excludes `NORMAL` from BENIGN-vs-CANCER target/training rows,
+keeps `NORMAL` in the source pool for contralateral symmetry distances, and
+splits strictly by `patientId`.

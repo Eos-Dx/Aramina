@@ -1,0 +1,4 @@
+mode,side_roc_auc,paired_accuracy
+70/30 x50,0.445 +/- 0.067,0.488 +/- 0.080
+LOOVM,0.430,0.537
+train-all,0.545,0.584

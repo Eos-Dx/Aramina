@@ -472,6 +472,13 @@ def _upper_status(df: pd.DataFrame) -> pd.Series:
     return df["specimen_status"].fillna("").astype(str).str.strip().str.upper()
 
 
+def _boolean_series(values: pd.Series) -> pd.Series:
+    clean = values.astype("object").where(values.notna(), False)
+    if clean.dtype == bool:
+        return clean
+    return clean.astype(str).str.lower().isin(["true", "1", "yes"])
+
+
 def filter_product_status_group(
     df: pd.DataFrame,
     allowed: list[str],
@@ -587,6 +594,8 @@ def build_branch_h5_filters(
     required_q_max_nm_inv: float,
     thickness_settings: dict[str, Any],
     branch: str,
+    normal_as_benign: bool = False,
+    require_biopsy_patient: bool = False,
 ) -> dict[str, Any]:
     date_filter = H5SessionFilter(
         column="started_at",
@@ -624,6 +633,11 @@ def build_branch_h5_filters(
     candidate_session_df = candidate_manifest["session_df"]
     status = _upper_status(candidate_session_df)
     lesion_status_values = [*LABEL_VALUES, "ATYPICAL", "PRE_CANCEROUS"]
+    product_status_values = (
+        [*lesion_status_values, "NORMAL"]
+        if normal_as_benign
+        else lesion_status_values
+    )
     eligible_patient_ids = sorted(
         candidate_session_df.loc[
             status.isin(lesion_status_values),
@@ -649,16 +663,41 @@ def build_branch_h5_filters(
             "BENIGN/CANCER/ATYPICAL/PRE_CANCEROUS breast"
         )
     elif branch == "one_to_many":
-        branch_filters = [
+        branch_filters = []
+        if require_biopsy_patient:
+            biopsy_patient_ids = sorted(
+                candidate_session_df.loc[
+                    _boolean_series(candidate_session_df["biopsy"]),
+                    "patientId",
+                ]
+                .dropna()
+                .astype(str)
+                .unique()
+                .tolist()
+            )
+            branch_filters.append(
+                H5SessionFilter(
+                    column="patientId",
+                    op="in",
+                    values=biopsy_patient_ids,
+                )
+            )
+        branch_filters.append(
             H5SessionFilter(
                 column="specimen_status",
                 op="in",
-                values=lesion_status_values,
+                values=product_status_values,
             )
-        ]
+        )
+        status_text = "/".join(product_status_values)
+        biopsy_text = (
+            "keep patients with at least one biopsy row; "
+            if require_biopsy_patient
+            else ""
+        )
         description = (
-            "keep raw BENIGN/CANCER/ATYPICAL/PRE_CANCEROUS specimen_status at "
-            "H5 level; broad CANCER product labels are formed after h5_to_df"
+            f"{biopsy_text}keep raw {status_text} specimen_status at H5 level; "
+            "product labels are formed after h5_to_df"
         )
     else:
         raise ValueError(f"Unknown Aramis DataFrame branch: {branch}")

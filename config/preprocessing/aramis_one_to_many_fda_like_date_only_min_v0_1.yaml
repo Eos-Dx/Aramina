@@ -1,0 +1,17 @@
+extends:
+- aramis_main_min_v0_1.yaml
+- branches/one_to_many_fda_like_date_only_v0_1.yaml
+aramis_preprocessing:
+  name: aramis_one_to_many_fda_like_date_only_min
+  version: 0.1
+provenance:
+  status: research draft runnable one_to_many FDA-like date-only MIN preprocessing config
+  canonical_location: Aramis/config/preprocessing/aramis_one_to_many_fda_like_date_only_min_v0_1.yaml
+  base_config: Aramis/config/preprocessing/aramis_main_min_v0_1.yaml
+  cohort_rule: biopsy rows only; date >= 2026-01-01; no AgBH monochromaticity exclusions
+  clinical_safety_note: Research draft decision-support preprocessing only; not for autonomous diagnosis.
+io:
+  input_h5_path: /Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/data/product-aramis-data/combined_archive.h5
+  output_joblib_path: ../../examples/outputs/real_h5_yaml_validation/aramis_one_to_many_fda_like_date_only_min_v0_1.joblib
+branch_settings:
+  output_columns: []

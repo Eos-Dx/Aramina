@@ -1,0 +1,16 @@
+{
+  "settings": {
+    "n_splits": 20,
+    "test_size": 0.3,
+    "random_state": 42,
+    "inner_splits": 5,
+    "target_sensitivity": 0.95,
+    "aggregation": "mean",
+    "logreg_c": 1.0
+  },
+  "inputs": {
+    "one_to_many_standard": "examples/outputs/real_h5_yaml_validation/aramis_one_to_many_min_v0_1.joblib",
+    "one_to_many_biopsy": "examples/outputs/real_h5_yaml_validation/aramis_one_to_many_biopsy_min_v0_1.joblib",
+    "one_to_one_biopsy": "examples/outputs/real_h5_yaml_validation/aramis_one_to_one_biopsy_min_v0_1.joblib"
+  }
+}
