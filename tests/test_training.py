@@ -335,6 +335,36 @@ def test_patient_training_evaluation_modes(tmp_path: Path, mode: str):
     assert artifact["metric_summary"]["roc_auc_mean"].between(0.0, 1.0).all()
 
 
+def test_patient_training_repeated_stratified_kfold(tmp_path: Path):
+    input_path = tmp_path / "repeated_kfold.joblib"
+    output_path = tmp_path / "repeated_kfold_model.joblib"
+    config_path = tmp_path / "repeated_kfold.yaml"
+    save_preprocessing_artifact(
+        _patient_training_frame(),
+        input_path,
+        preprocessing_config={"aramis_preprocessing": {"branch": "one_to_many"}},
+        preprocessing_config_text="aramis_preprocessing:\n  branch: one_to_many\n",
+        metadata={"branch": "one_to_many"},
+    )
+    config = _patient_training_config(
+        input_path,
+        output_path,
+        tmp_path,
+        mode="stratified_kfold",
+        selected_models=["M0"],
+    )
+    config["evaluation"]["n_splits"] = 3
+    config["evaluation"]["n_repeats"] = 2
+    config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+
+    exit_code = main(["train", "--config", str(config_path)])
+    artifact = joblib.load(output_path)
+
+    assert exit_code == 0
+    assert len(artifact["split_metrics"]) == 6
+    assert artifact["metric_summary"]["splits"].tolist() == [6]
+
+
 def test_train_rejects_unknown_branch(tmp_path: Path):
     input_path = tmp_path / "preprocessed.joblib"
     output_path = tmp_path / "model.joblib"

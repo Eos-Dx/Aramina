@@ -20,7 +20,11 @@ from sklearn.base import BaseEstimator
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import average_precision_score, confusion_matrix, roc_auc_score
-from sklearn.model_selection import StratifiedKFold, StratifiedShuffleSplit
+from sklearn.model_selection import (
+    RepeatedStratifiedKFold,
+    StratifiedKFold,
+    StratifiedShuffleSplit,
+)
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from xrd_preprocessing import (
@@ -687,6 +691,7 @@ def _evaluate_patient_model_set(
     evaluation_config = config.get("evaluation", {})
     mode = _evaluation_mode(evaluation_config)
     n_splits = int(evaluation_config.get("n_splits", 20))
+    n_repeats = int(evaluation_config.get("n_repeats", 1))
     test_size = float(evaluation_config.get("test_size", 0.30))
     base_features = _patient_feature_table(
         df,
@@ -725,6 +730,7 @@ def _evaluate_patient_model_set(
         base_features=base_features,
         y_patients=y_patients,
         n_splits=n_splits,
+        n_repeats=n_repeats,
         test_size=test_size,
         random_state=random_state,
     )
@@ -901,6 +907,7 @@ def _patient_split_pairs(
     base_features: pd.DataFrame,
     y_patients: np.ndarray,
     n_splits: int,
+    n_repeats: int,
     test_size: float,
     random_state: int,
 ) -> list[tuple[np.ndarray, np.ndarray]]:
@@ -913,6 +920,13 @@ def _patient_split_pairs(
         )
         return list(splitter.split(base_features, y_patients))
     if mode == "stratified_kfold":
+        if n_repeats > 1:
+            splitter = RepeatedStratifiedKFold(
+                n_splits=n_splits,
+                n_repeats=n_repeats,
+                random_state=random_state,
+            )
+            return list(splitter.split(base_features, y_patients))
         splitter = StratifiedKFold(
             n_splits=n_splits,
             shuffle=True,
