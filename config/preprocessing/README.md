@@ -1,37 +1,68 @@
-# Aramis Preprocessing YAML Layout
+# Aramis Preprocessing YAML
 
-Root `aramis_one_to_*_v0_1.yaml` files are runnable configs.
+Status: research draft.
+
+Runnable root YAMLs extend shared fragments from this folder. Aramis passes the
+resolved YAML to `xrd_preprocessing`, which builds the sklearn-style transformer
+pipeline and writes a preprocessing artifact joblib.
+
+Product-clean model-input configs:
+
+```text
+aramis_all_patients_model_input_v0_1.yaml
+aramis_biopsy_patients_model_input_v0_1.yaml
+aramis_prediction_patient_model_input_v0_1.yaml
+```
+
+Current primary training data uses:
+
+```text
+aramis_biopsy_patients_model_input_v0_1.yaml
+```
+
+It keeps patients with at least one biopsy row, includes contralateral breast
+rows for same-patient symmetry features, maps NORMAL to BENIGN, applies AgBH
+T130 monochromaticity exclusions, and outputs only model/audit columns.
+
+Prediction uses:
+
+```text
+aramis_prediction_patient_model_input_v0_1.yaml
+```
+
+This config is stored inside trained model joblibs. `aramis predict` loads it
+from the model artifact, injects the incoming patient H5 path and output path,
+then runs the same preprocessing lineage needed by the model.
+
+Legacy notebook/dataframe examples kept for inspection:
+
+```text
+aramis_one_to_one_max_v0_1.yaml
+aramis_one_to_one_min_v0_1.yaml
+aramis_one_to_one_biopsy_max_v0_1.yaml
+aramis_one_to_one_biopsy_min_v0_1.yaml
+aramis_one_to_many_max_v0_1.yaml
+aramis_one_to_many_min_v0_1.yaml
+aramis_one_to_many_biopsy_max_v0_1.yaml
+aramis_one_to_many_biopsy_min_v0_1.yaml
+```
 
 Shared fragments:
 
 ```text
-shared/aramis_policy_v0_1.yaml      common GFRM-only product policy
-shared/aramis_pipeline_v0_1.yaml    ordered transformer steps
-exclusions/agbh_quality_exclusions_v0_1.yaml  long AgBH exclusion lists
-outputs/max_output_v0_1.yaml        MAX output schema, keep transform columns
-outputs/min_output_v0_1.yaml        MIN output schema, model-essential columns
-branches/*.yaml                     one-to-one/one-to-many cohort rules
+shared/aramis_policy_v0_1.yaml
+shared/aramis_pipeline_v0_1.yaml
+outputs/max_output_v0_1.yaml
+outputs/min_output_v0_1.yaml
+outputs/model_input_output_v0_1.yaml
+outputs/prediction_model_input_output_v0_1.yaml
+branches/*.yaml
+exclusions/agbh_quality_exclusions_v0_1.yaml
+exclusions/agbh_quality_exclusions_t130_v0_1.yaml
 ```
 
-`aramis_main_max_v0_1.yaml` and `aramis_main_min_v0_1.yaml` are shared bases.
-They are not directly runnable because they do not define a branch.
-
-Runnable configs extend one MAIN base plus one branch fragment, then define only:
+Experimental threshold grids and old FDA-like cohorts are archived on branch:
 
 ```text
-aramis_preprocessing.name/version
-io.output_joblib_path
-branch_settings.output_columns
-```
-
-`io.output_joblib_path` receives a preprocessing artifact joblib: it contains
-the final DataFrame plus the resolved YAML config, original YAML text, config
-SHA256, H5 SHA256, Aramis version/git SHA, and branch.
-
-Biopsy branch meaning:
-
-```text
-one-to-many biopsy: row-level biopsy filter; keep only biopsy=True specimens
-one-to-one biopsy: patient-level biopsy filter; keep patients with any biopsy=True row,
-                   then keep both breasts for paired symmetry analysis
+experiment/aramis-v0.1-research-state
 ```

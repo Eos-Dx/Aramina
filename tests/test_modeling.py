@@ -10,11 +10,13 @@ from aramis.modeling import (
     compute_binary_thresholds,
     default_fusion_feature_sets,
     fit_repeated_fusion_logistic_models,
+    fit_repeated_one_to_many_product_feature_ablation_comparison,
     fit_repeated_one_to_many_product_logistic_comparison,
     fit_repeated_one_to_many_product_logistic,
     fit_repeated_one_to_many_logistic,
     fusion_ablation_feature_sets,
     load_one_to_many_dataframe,
+    model_matrix,
     profile_matrix,
     summarize_fusion_results,
     summarize_one_to_many_datasets,
@@ -39,6 +41,7 @@ def _one_to_many_model_frame() -> pd.DataFrame:
                     "product_status_group": label,
                     "radial_profile_data": profile,
                     "q_range": q,
+                    "sample_thickness_mm": 8.0 + measurement_idx * 0.1,
                 }
             )
     return pd.DataFrame(rows)
@@ -65,6 +68,7 @@ def _one_to_one_model_frame() -> pd.DataFrame:
                         "product_status_group": specimen_label,
                         "radial_profile_data": profile,
                         "q_range": q,
+                        "sample_thickness_mm": 8.0 + measurement_idx * 0.1,
                         "side": "Right" if side == "RIGHT" else "Left",
                         "snr_db": 25.0 + measurement_idx,
                         "age": 45 + patient_idx,
@@ -231,6 +235,24 @@ def test_profile_matrix_rejects_non_finite_profiles():
         profile_matrix(df, "radial_profile_data")
 
 
+def test_model_matrix_appends_sample_thickness_feature():
+    df = _one_to_many_model_frame().head(3).copy()
+
+    x = model_matrix(df, "radial_profile_data", ["sample_thickness_mm"])
+
+    assert x.shape == (3, 21)
+    np.testing.assert_allclose(x[:, -1], df["sample_thickness_mm"].to_numpy())
+
+
+def test_model_matrix_can_use_sample_thickness_without_profile():
+    df = _one_to_many_model_frame().head(3).copy()
+
+    x = model_matrix(df, None, ["sample_thickness_mm"])
+
+    assert x.shape == (3, 1)
+    np.testing.assert_allclose(x[:, 0], df["sample_thickness_mm"].to_numpy())
+
+
 def test_compute_binary_thresholds_handles_target_sensitivity():
     thresholds = compute_binary_thresholds(
         np.array([0, 0, 1, 1]),
@@ -281,9 +303,40 @@ def test_fusion_feature_table_and_model_comparison_run_on_shared_splits():
     assert result.feature_table["symmetry_available"].isin([0, 1]).all()
 
 
+def test_one_to_many_feature_ablation_compares_thickness_only_route():
+    df = _one_to_many_model_frame()
+
+    result = fit_repeated_one_to_many_product_feature_ablation_comparison(
+        {"standard": df},
+        {
+            "profile_only": {"use_profile": True, "extra_feature_columns": []},
+            "thickness_only": {
+                "use_profile": False,
+                "extra_feature_columns": ["sample_thickness_mm"],
+            },
+        },
+        n_splits=2,
+        test_size=0.30,
+        random_state=41,
+        inner_splits=3,
+    )
+
+    assert set(result.results) == {
+        "standard__profile_only",
+        "standard__thickness_only",
+    }
+    assert set(result.metric_summary["feature_route"]) == {
+        "profile_only",
+        "thickness_only",
+    }
+    assert result.dataset_summary["extra_feature_columns"].notna().all()
+
+
 def test_fusion_helpers_expose_expected_feature_set_names():
     assert "M0_one_to_many_only" in default_fusion_feature_sets()
+    assert "sample_thickness_mm_mean" not in default_fusion_feature_sets()["M2_plus_quality"]
     assert "A0_age_only" in fusion_ablation_feature_sets()
+    assert "T0_thickness_only" in fusion_ablation_feature_sets()
 
 
 def test_summarize_fusion_results_accepts_precomputed_mean_curves():

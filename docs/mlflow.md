@@ -23,7 +23,7 @@ Example:
 ```text
 EOS H5 v0.3
 ├── Aramis dataset
-│   ├── diagnosis filter
+│   ├── label / status filter
 │   ├── BENIGN vs CANCER labels
 │   └── Aramis classifier
 └── Bremen dataset
@@ -63,7 +63,7 @@ http://127.0.0.1:5000
 Notebook:
 
 ```bash
-marimo run examples/aramis_mlflow_draft.py
+python -m aramis train --config config/training/aramis_v0_1_beta_primary_train.yaml
 ```
 
 Default mode is `dry_run`.
@@ -112,15 +112,17 @@ Output:
 
 ```text
 p_cancer
-diagnosis = BENIGN if p_cancer < 0.5
-diagnosis = CANCER if p_cancer >= 0.5
+suggested_class = BENIGN if p_cancer < threshold
+suggested_class = CANCER if p_cancer >= threshold
+requires radiologist review
 ```
 
 Later output:
 
 ```text
 p_cancer
-diagnosis
+suggested_class
+decision_threshold
 confidence interval
 model version
 preprocessing version

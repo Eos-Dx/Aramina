@@ -83,6 +83,29 @@ def run_one_to_many_preprocessing_pipeline(
     return df
 
 
+def run_preprocessing_artifact_from_config(config_path: str | Path) -> dict[str, Any]:
+    """Run preprocessing and return the written artifact without reloading joblib."""
+    config_path = Path(config_path)
+    config = load_preprocessing_config(config_path)
+    branch = config["aramis_preprocessing"]["branch"]
+    h5_path = _config_path(config, config_path, "input_h5_path")
+    output_joblib_path = _config_path(config, config_path, "output_joblib_path")
+    if branch == "one_to_one":
+        pipeline = AramisOneToOnePreprocessingPipeline(config=config)
+    elif branch == "one_to_many":
+        pipeline = AramisOneToManyPreprocessingPipeline(config=config)
+    else:
+        raise ValueError(f"Unknown Aramis preprocessing branch: {branch}")
+    df = pipeline.fit_transform(h5_path)
+    return _write_joblib_if_requested(
+        df,
+        output_joblib_path,
+        config_source=config,
+        effective_config=pipeline.config_,
+        input_h5_path=h5_path,
+    )
+
+
 def run_preprocessing_from_config(config_path: str | Path) -> pd.DataFrame:
     """Run Aramis preprocessing using only paths stored in YAML."""
     config_path = Path(config_path)
@@ -133,12 +156,12 @@ def _write_joblib_if_requested(
     config_source: dict[str, Any] | str | Path,
     effective_config: dict[str, Any],
     input_h5_path: str | Path,
-) -> None:
+) -> dict[str, Any] | None:
     if output_joblib_path is None:
-        return
+        return None
     output_path = Path(output_joblib_path)
     config_text = _config_source_text(config_source)
-    save_preprocessing_artifact(
+    return save_preprocessing_artifact(
         df,
         output_path,
         preprocessing_config=effective_config,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -107,6 +108,7 @@ def fit_repeated_one_to_many_logistic(
     label_column: str = "product_status_group",
     group_column: str = "patientId",
     logreg_c: float = 1.0,
+    extra_feature_columns: Sequence[str] | None = None,
 ) -> RepeatedLogisticResult:
     """Train LogisticRegression on full normalized profiles over repeated splits.
 
@@ -114,7 +116,7 @@ def fit_repeated_one_to_many_logistic(
     train and test in one split.
     """
     _validate_binary_frame(df, profile_column, label_column, group_column)
-    x = profile_matrix(df, profile_column)
+    x = model_matrix(df, profile_column, extra_feature_columns)
     y = df[label_column].map(LABEL_MAP).astype(int).to_numpy()
     groups = df[group_column].astype(str).to_numpy()
 
@@ -198,6 +200,8 @@ def fit_repeated_one_to_many_product_logistic(
     inner_splits: int = 5,
     target_sensitivity: float = 0.95,
     aggregation: str = "mean",
+    extra_feature_columns: Sequence[str] | None = None,
+    use_profile: bool = True,
 ) -> OneToManyProductLogisticResult:
     """Evaluate one-to-many LogisticRegression as specimen-level product model.
 
@@ -206,7 +210,8 @@ def fit_repeated_one_to_many_product_logistic(
     Test measurement probabilities are aggregated by specimen for final
     split-level evaluation.
     """
-    _validate_binary_frame(df, profile_column, label_column, group_column)
+    matrix_profile_column = profile_column if use_profile else None
+    _validate_binary_frame(df, matrix_profile_column, label_column, group_column)
     _require_columns(df, [specimen_column])
     y = df[label_column].map(LABEL_MAP).astype(int).to_numpy()
     groups = df[group_column].astype(str).to_numpy()
@@ -236,13 +241,20 @@ def fit_repeated_one_to_many_product_logistic(
             logreg_c=logreg_c,
             random_state=random_state + split_id,
             inner_splits=inner_splits,
+            extra_feature_columns=extra_feature_columns,
+            use_profile=use_profile,
         )
         model = _logistic_pipeline(
             logreg_c=logreg_c,
             random_state=random_state + split_id,
         )
-        model.fit(profile_matrix(train_df, profile_column), train_df[label_column].map(LABEL_MAP))
-        test_score = model.predict_proba(profile_matrix(test_df, profile_column))[:, 1]
+        model.fit(
+            model_matrix(train_df, matrix_profile_column, extra_feature_columns),
+            train_df[label_column].map(LABEL_MAP),
+        )
+        test_score = model.predict_proba(
+            model_matrix(test_df, matrix_profile_column, extra_feature_columns)
+        )[:, 1]
 
         train_scored = train_df.copy()
         train_scored["p_cancer_measurement"] = oof_score
@@ -363,6 +375,8 @@ def fit_repeated_one_to_many_product_logistic_comparison(
     inner_splits: int = 5,
     target_sensitivity: float = 0.95,
     aggregation: str = "mean",
+    extra_feature_columns: Sequence[str] | None = None,
+    use_profile: bool = True,
 ) -> OneToManyProductComparisonResult:
     """Run the same one-to-many product model protocol for multiple datasets."""
     results = {
@@ -379,6 +393,8 @@ def fit_repeated_one_to_many_product_logistic_comparison(
             inner_splits=inner_splits,
             target_sensitivity=target_sensitivity,
             aggregation=aggregation,
+            extra_feature_columns=extra_feature_columns,
+            use_profile=use_profile,
         )
         for name, df in datasets.items()
     }
@@ -387,6 +403,76 @@ def fit_repeated_one_to_many_product_logistic_comparison(
     return OneToManyProductComparisonResult(
         results=results,
         dataset_summary=dataset_summary,
+        metric_summary=metric_summary,
+    )
+
+
+def fit_repeated_one_to_many_product_feature_ablation_comparison(
+    datasets: dict[str, pd.DataFrame],
+    feature_routes: dict[str, dict[str, Any]],
+    *,
+    n_splits: int = 20,
+    test_size: float = 0.30,
+    random_state: int = 42,
+    profile_column: str = "radial_profile_data",
+    label_column: str = "product_status_group",
+    group_column: str = "patientId",
+    specimen_column: str = "specimenId",
+    logreg_c: float = 1.0,
+    inner_splits: int = 5,
+    target_sensitivity: float = 0.95,
+    aggregation: str = "mean",
+) -> OneToManyProductComparisonResult:
+    """Compare profile-only, scalar-only, and combined one-to-many routes."""
+    results = {}
+    summary_rows = []
+    for dataset_name, df in datasets.items():
+        base_summary = summarize_one_to_many_dataframe(df).iloc[0].to_dict()
+        if "biopsy" in df.columns:
+            base_summary["biopsy_true_rows"] = int(
+                df["biopsy"].fillna(False).astype(bool).sum()
+            )
+        else:
+            base_summary["biopsy_true_rows"] = np.nan
+        for route_name, route in feature_routes.items():
+            result_name = f"{dataset_name}__{route_name}"
+            use_profile = bool(route.get("use_profile", True))
+            extra_feature_columns = list(route.get("extra_feature_columns", []))
+            results[result_name] = fit_repeated_one_to_many_product_logistic(
+                df,
+                n_splits=n_splits,
+                test_size=test_size,
+                random_state=random_state,
+                profile_column=profile_column,
+                label_column=label_column,
+                group_column=group_column,
+                specimen_column=specimen_column,
+                logreg_c=logreg_c,
+                inner_splits=inner_splits,
+                target_sensitivity=target_sensitivity,
+                aggregation=aggregation,
+                extra_feature_columns=extra_feature_columns,
+                use_profile=use_profile,
+            )
+            summary_rows.append(
+                {
+                    "dataset": dataset_name,
+                    "feature_route": route_name,
+                    "result": result_name,
+                    "use_profile": use_profile,
+                    "extra_feature_columns": extra_feature_columns,
+                    **base_summary,
+                }
+            )
+    metric_summary = summarize_one_to_many_product_results(results)
+    metric_summary[["dataset", "feature_route"]] = metric_summary["dataset"].str.split(
+        "__",
+        n=1,
+        expand=True,
+    )
+    return OneToManyProductComparisonResult(
+        results=results,
+        dataset_summary=pd.DataFrame(summary_rows),
         metric_summary=metric_summary,
     )
 
@@ -494,6 +580,24 @@ def fusion_ablation_feature_sets() -> dict[str, list[str]]:
                 "symmetry_available",
                 "bmi_available",
             ],
+            "T0_thickness_only": [
+                "sample_thickness_mm_mean",
+                "sample_thickness_mm_min",
+                "sample_thickness_available",
+            ],
+            "S1_cosine_symmetry_block": [
+                "logit_p_cancer_one_to_many",
+                "cosine_between_mean_x_available",
+                "cosine_within_target_mean_x_available",
+                "cosine_within_contralateral_mean_x_available",
+                "cosine_asymmetry_score_x_available",
+                "cosine_target_contralateral_centroid_x_available",
+                "cosine_replicate_variability_delta_x_available",
+                "cosine_replicate_variability_ratio_x_available",
+                "symmetry_available",
+                "target_within_available",
+                "contralateral_within_available",
+            ],
             "M3a_plus_age_no_bmi": [
                 "logit_p_cancer_one_to_many",
                 "symmetry_available",
@@ -566,6 +670,19 @@ def build_fusion_feature_table(
                 "snr_db_mean": _numeric_mean(target_df, "snr_db", default=0.0),
                 "snr_db_min": _numeric_min(target_df, "snr_db", default=0.0),
                 "n_valid_target_measurements": int(len(target_df)),
+                "sample_thickness_mm_mean": _numeric_mean(
+                    target_df,
+                    "sample_thickness_mm",
+                    default=0.0,
+                ),
+                "sample_thickness_mm_min": _numeric_min(
+                    target_df,
+                    "sample_thickness_mm",
+                    default=0.0,
+                ),
+                "sample_thickness_available": int(
+                    _has_finite(target_df, "sample_thickness_mm")
+                ),
                 "target_profile_replicate_distance": (
                     float(replicate_distance) if np.isfinite(replicate_distance) else 0.0
                 ),
@@ -599,6 +716,7 @@ def fit_repeated_fusion_logistic_models(
     target_sensitivity: float = 0.95,
     aggregation: str = "mean",
     feature_sets: dict[str, list[str]] | None = None,
+    extra_feature_columns: Sequence[str] | None = None,
 ) -> FusionModelComparisonResult:
     """Compare M0-M3 fusion LogisticRegression models on shared splits."""
     feature_sets = default_fusion_feature_sets() if feature_sets is None else feature_sets
@@ -615,6 +733,7 @@ def fit_repeated_fusion_logistic_models(
         inner_splits=inner_splits,
         target_sensitivity=target_sensitivity,
         aggregation=aggregation,
+        extra_feature_columns=extra_feature_columns,
     )
     feature_table = build_fusion_feature_table(
         one_to_many_df,
@@ -807,6 +926,27 @@ def profile_matrix(df: pd.DataFrame, profile_column: str) -> np.ndarray:
     return x
 
 
+def model_matrix(
+    df: pd.DataFrame,
+    profile_column: str | None,
+    extra_feature_columns: Sequence[str] | None = None,
+) -> np.ndarray:
+    """Stack profile arrays and optional numeric scalar model features."""
+    columns = list(extra_feature_columns or [])
+    matrices = []
+    if profile_column is not None:
+        matrices.append(profile_matrix(df, profile_column))
+    if columns:
+        _require_columns(df, columns)
+        extra = df[columns].apply(pd.to_numeric, errors="coerce").to_numpy(dtype=float)
+        if not np.isfinite(extra).all():
+            raise ValueError(f"Extra model features contain non-finite values: {columns}")
+        matrices.append(extra)
+    if not matrices:
+        raise ValueError("At least one profile or scalar model feature is required.")
+    return np.hstack(matrices)
+
+
 def _measurement_oof_scores(
     df: pd.DataFrame,
     *,
@@ -816,6 +956,8 @@ def _measurement_oof_scores(
     logreg_c: float,
     random_state: int,
     inner_splits: int,
+    extra_feature_columns: Sequence[str] | None = None,
+    use_profile: bool = True,
 ) -> np.ndarray:
     groups = df[group_column].astype(str).to_numpy()
     n_splits = max(2, min(int(inner_splits), int(pd.Series(groups).nunique())))
@@ -833,8 +975,14 @@ def _measurement_oof_scores(
         )
         train_df = df.iloc[train_idx]
         val_df = df.iloc[val_idx]
-        model.fit(profile_matrix(train_df, profile_column), y[train_idx])
-        scores[val_idx] = model.predict_proba(profile_matrix(val_df, profile_column))[:, 1]
+        matrix_profile_column = profile_column if use_profile else None
+        model.fit(
+            model_matrix(train_df, matrix_profile_column, extra_feature_columns),
+            y[train_idx],
+        )
+        scores[val_idx] = model.predict_proba(
+            model_matrix(val_df, matrix_profile_column, extra_feature_columns)
+        )[:, 1]
     if np.isnan(scores).any():
         raise ValueError("Out-of-fold measurement probabilities were not filled.")
     return scores
@@ -1161,27 +1309,28 @@ def _symmetry_features_for_target(
     contralateral_df = _contralateral_rows(patient_df, specimen_id=specimen_id, side=side)
     target_profiles = _profile_array_list(target_df, profile_column)
     contralateral_profiles = _profile_array_list(contralateral_df, profile_column)
-    between = _mean_cross_distance(target_profiles, contralateral_profiles)
-    within_target = _mean_pairwise_distance(target_profiles)
-    within_contralateral = _mean_pairwise_distance(contralateral_profiles)
-    within = _finite_mean([within_target, within_contralateral])
-    value = float(between - within) if np.isfinite(between) and np.isfinite(within) else np.nan
-    available = int(np.isfinite(value))
-    distance_value = float(value) if available else 0.0
+    cosine = _distance_summary(target_profiles, contralateral_profiles, _cosine_distance)
+    available = int(np.isfinite(cosine["asymmetry_score"]))
+    target_within_available = int(np.isfinite(cosine["within_target_mean"]))
+    contralateral_within_available = int(
+        np.isfinite(cosine["within_contralateral_mean"])
+    )
     return {
         "symmetry_available": available,
-        "symmetry_distance_value": distance_value,
-        "symmetry_distance_x_available": distance_value * available,
-        "symmetry_between_mean": float(between) if np.isfinite(between) else np.nan,
-        "symmetry_within_target_mean": (
-            float(within_target) if np.isfinite(within_target) else np.nan
+        "target_within_available": target_within_available,
+        "contralateral_within_available": contralateral_within_available,
+        "both_within_available": int(
+            bool(target_within_available and contralateral_within_available)
         ),
-        "symmetry_within_contralateral_mean": (
-            float(within_contralateral)
-            if np.isfinite(within_contralateral)
-            else np.nan
+        "symmetry_distance_value": _finite_or_zero(cosine["asymmetry_score"]),
+        "symmetry_distance_x_available": (
+            _finite_or_zero(cosine["asymmetry_score"]) * available
         ),
-        "symmetry_within_mean": float(within) if np.isfinite(within) else np.nan,
+        "symmetry_between_mean": cosine["between_mean"],
+        "symmetry_within_target_mean": cosine["within_target_mean"],
+        "symmetry_within_contralateral_mean": cosine["within_contralateral_mean"],
+        "symmetry_within_mean": cosine["within_mean"],
+        **_prefixed_distance_features("cosine", cosine, available),
         "n_valid_contralateral_measurements": int(len(contralateral_profiles)),
         "contralateral_specimen_count": int(
             contralateral_df["specimenId"].astype(str).nunique()
@@ -1234,6 +1383,101 @@ def _mean_pairwise_distance(profiles: list[np.ndarray]) -> float:
     return _finite_mean(values)
 
 
+def _distance_summary(
+    target_profiles: list[np.ndarray],
+    contralateral_profiles: list[np.ndarray],
+    distance_fn,
+) -> dict[str, float]:
+    between = _mean_cross_distance_with(
+        target_profiles,
+        contralateral_profiles,
+        distance_fn,
+    )
+    within_target = _mean_pairwise_distance_with(target_profiles, distance_fn)
+    within_contralateral = _mean_pairwise_distance_with(
+        contralateral_profiles,
+        distance_fn,
+    )
+    within = _finite_mean([within_target, within_contralateral])
+    asymmetry = (
+        float(between - within)
+        if np.isfinite(between) and np.isfinite(within)
+        else np.nan
+    )
+    centroid = _centroid_distance(target_profiles, contralateral_profiles, distance_fn)
+    variability_delta = (
+        float(within_target - within_contralateral)
+        if np.isfinite(within_target) and np.isfinite(within_contralateral)
+        else np.nan
+    )
+    variability_ratio = (
+        float(within_target / (within_contralateral + 1e-12))
+        if np.isfinite(within_target) and np.isfinite(within_contralateral)
+        else np.nan
+    )
+    return {
+        "between_mean": between,
+        "within_target_mean": within_target,
+        "within_contralateral_mean": within_contralateral,
+        "within_mean": within,
+        "asymmetry_score": asymmetry,
+        "target_contralateral_centroid": centroid,
+        "replicate_variability_delta": variability_delta,
+        "replicate_variability_ratio": variability_ratio,
+    }
+
+
+def _prefixed_distance_features(
+    prefix: str,
+    summary: dict[str, float],
+    available: int,
+) -> dict[str, float]:
+    out = {}
+    for key, value in summary.items():
+        clean = _finite_or_zero(value)
+        out[f"{prefix}_{key}"] = clean
+        out[f"{prefix}_{key}_x_available"] = clean * available
+    return out
+
+
+def _mean_cross_distance_with(
+    left: list[np.ndarray],
+    right: list[np.ndarray],
+    distance_fn,
+) -> float:
+    values = [
+        distance_fn(a, b)
+        for a in left
+        for b in right
+        if _compatible_profiles(a, b)
+    ]
+    return _finite_mean(values)
+
+
+def _mean_pairwise_distance_with(profiles: list[np.ndarray], distance_fn) -> float:
+    if len(profiles) < 2:
+        return np.nan
+    values = [
+        distance_fn(profiles[i], profiles[j])
+        for i in range(len(profiles) - 1)
+        for j in range(i + 1, len(profiles))
+        if _compatible_profiles(profiles[i], profiles[j])
+    ]
+    return _finite_mean(values)
+
+
+def _centroid_distance(
+    left: list[np.ndarray],
+    right: list[np.ndarray],
+    distance_fn,
+) -> float:
+    left_centroid = _profile_centroid(left)
+    right_centroid = _profile_centroid(right)
+    if left_centroid.size == 0 or right_centroid.size == 0:
+        return np.nan
+    return distance_fn(left_centroid, right_centroid)
+
+
 def _compatible_profiles(a: np.ndarray, b: np.ndarray) -> bool:
     return a.size > 0 and b.size > 0 and min(a.size, b.size) > 1
 
@@ -1246,6 +1490,26 @@ def _cosine_distance(a: np.ndarray, b: np.ndarray) -> float:
     if denom <= 1e-12:
         return np.nan
     return float(1.0 - float(np.dot(x, y)) / denom)
+
+
+def _profile_centroid(profiles: list[np.ndarray]) -> np.ndarray:
+    valid = [profile for profile in profiles if profile.size > 0]
+    if not valid:
+        return np.asarray([], dtype=float)
+    dim = min(profile.size for profile in valid)
+    if dim < 2:
+        return np.asarray([], dtype=float)
+    matrix = np.vstack(
+        [
+            np.nan_to_num(profile[:dim], nan=0.0, posinf=0.0, neginf=0.0)
+            for profile in valid
+        ]
+    )
+    return np.mean(matrix, axis=0)
+
+
+def _finite_or_zero(value: float) -> float:
+    return float(value) if np.isfinite(value) else 0.0
 
 
 def _finite_mean(values: list[float]) -> float:
@@ -1301,14 +1565,14 @@ def _logit(values: pd.Series | np.ndarray) -> np.ndarray:
 
 def _validate_binary_frame(
     df: pd.DataFrame,
-    profile_column: str,
+    profile_column: str | None,
     label_column: str,
     group_column: str,
 ) -> None:
-    _require_columns(
-        df,
-        [profile_column, label_column, group_column, "specimenId"],
-    )
+    columns = [label_column, group_column, "specimenId"]
+    if profile_column is not None:
+        columns.append(profile_column)
+    _require_columns(df, columns)
     labels = set(df[label_column].dropna().astype(str).unique())
     if labels != set(LABEL_MAP):
         raise ValueError(f"Expected only BENIGN/CANCER labels, got: {sorted(labels)}")

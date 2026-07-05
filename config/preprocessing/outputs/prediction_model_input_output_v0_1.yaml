@@ -1,0 +1,32 @@
+metadata:
+  keep_columns_errors: ignore
+  output_columns:
+  - patientId
+  - specimenId
+  - side
+  - target_side
+  - target_breast
+  - mammography_suspicious_field
+  - position
+  - started_at
+  - measurementDate
+  - specimen_status
+  - product_status_group
+  - product_diagnosis
+  - patient_product_diagnosis
+  - age
+  - biopsy
+  - sample_thickness_mm
+  - calibrant_thickness_mm
+  - poni_q_max_nm_inv
+  - measurement_data_source
+  - q_range
+  - radial_profile_data
+  - snr_db
+  - specimen_measurement_count
+  - radial_profile_value_at_q
+  - radial_profile_nearest_q_nm_inv
+  - radial_profile_q_delta_nm_inv
+  - radial_profile_value_pass
+normalization:
+  save_initial_data: false

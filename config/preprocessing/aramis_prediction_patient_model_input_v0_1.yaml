@@ -1,0 +1,29 @@
+extends:
+- shared/aramis_policy_v0_1.yaml
+- shared/aramis_pipeline_v0_1.yaml
+- outputs/prediction_model_input_output_v0_1.yaml
+- branches/prediction_patient_v0_1.yaml
+aramis_preprocessing:
+  name: aramis_prediction_patient_model_input
+  version: 0.1
+  branch: one_to_many
+  clinical_stage: research draft
+provenance:
+  status: research draft prediction preprocessing config
+  canonical_location: Aramis/config/preprocessing/aramis_prediction_patient_model_input_v0_1.yaml
+  cohort_rule: one incoming patient H5; no historical date, diagnosis, biopsy, or AgBH exclusion filters
+  clinical_safety_note: Decision-support preprocessing only; not autonomous diagnosis.
+io:
+  input_h5_path: INPUT_H5_PATH_SET_BY_PREDICTION_CONFIG
+  output_joblib_path: ../../examples/outputs/prediction/aramis_prediction_patient_model_input_v0_1.joblib
+filters:
+  date_filter:
+    enabled: false
+  quality_exclusions:
+    enabled: false
+    primary_key:
+      excluded_values: []
+    fallback_date:
+      excluded_dates: []
+branch_settings:
+  output_columns: []

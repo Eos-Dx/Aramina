@@ -10,7 +10,17 @@ pipeline:
       session_category: SAMPLE
       set_category: SAMPLE
       h5_filters:
+      - enabled:
+          $ref: filters.date_filter.enabled
+        column:
+          $ref: filters.date_filter.column
+        op:
+          $ref: filters.date_filter.op
+        value:
+          $ref: filters.date_filter.value
       - column: linked_agbh_session_uid
+        enabled:
+          $ref: filters.quality_exclusions.enabled
         op: not in
         values:
           $ref: filters.quality_exclusions.primary_key.excluded_values
@@ -24,7 +34,9 @@ pipeline:
         column: biopsy
         op: ==
         value: true
-      - column: specimen_status
+      - enabled:
+          $ref: branch_settings.filter_by_specimen_status
+        column: specimen_status
         op: in
         values:
           $ref: branch_settings.specimen_status_keep
@@ -45,6 +57,13 @@ pipeline:
           $ref: filters.measurement_positions
   - name: product_columns
     transformer: ProductColumnBuilder
+    params:
+      cancer_values:
+        $ref: labels.product_column_builder.cancer_values
+      benign_values:
+        $ref: labels.product_column_builder.benign_values
+      normal_values:
+        $ref: labels.product_column_builder.normal_values
   - name: q_range_filter
     transformer: ColumnValueFilter
     params:
@@ -96,6 +115,8 @@ pipeline:
       value: true
   - name: specimen_status_filter
     transformer: ColumnValueFilter
+    enabled:
+      $ref: branch_settings.filter_by_specimen_status
     params:
       column: specimen_status
       op: in
@@ -103,6 +124,8 @@ pipeline:
         $ref: branch_settings.specimen_status_keep
   - name: product_status_filter
     transformer: ProductStatusGroupFilter
+    enabled:
+      $ref: branch_settings.filter_by_product_status_group
     params:
       allowed:
         $ref: branch_settings.product_status_group_keep

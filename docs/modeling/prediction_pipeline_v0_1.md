@@ -1,0 +1,131 @@
+# Prediction Pipeline v0.1
+
+Status: research draft.
+
+This document describes the first Aramis prediction route. It is clinical
+decision support only. It returns `p_cancer`, a suggested class, and reliability
+metadata for radiologist review. It is not autonomous diagnosis.
+
+## Command
+
+```bash
+python -m aramis predict --config config/prediction/aramis_predict_example_v0_1.yaml
+```
+
+## Input Contract
+
+The product route starts from one incoming H5 container:
+
+```text
+one-patient H5 container
+trained Aramis model joblib
+prediction preprocessing YAML stored in model joblib
+patient_id
+clinician-supplied target_side
+```
+
+The H5 is preprocessed by the same transformer lineage as training:
+
+```text
+H5
+-> h5_to_df
+-> ProductColumnBuilder
+-> q-range, sample-thickness, calibrant-thickness checks
+-> FaultyPixelDetector
+-> AzimuthalIntegration(error_model="poisson", thickness correction)
+-> SNRTransformer(snr_method="poisson")
+-> SNRFilter
+-> PatientSpecimenValidityFilter
+-> QRangeValueNormalizer
+-> RadialProfileValueFilter
+-> KeepColumnsTransformer
+```
+
+Prediction preprocessing differs from training cohort preprocessing:
+
+```text
+no historical date filter
+no AgBH quality exclusion list
+no diagnosis/status cohort filter
+no biopsy filter
+```
+
+The `target_side` can come from the clinician-facing YAML or from a dedicated
+H5/DataFrame metadata column such as `target_side`. It is not inferred from
+labels, biopsy metadata, or `specimen_status`. In training, biopsy/status
+metadata can define the historical target breast. In prediction, the suspicious
+breast comes from clinical input.
+
+## Call Chain
+
+```text
+aramis.__main__.main
+-> run_prediction_from_config(config_path)
+-> load model joblib
+-> read prediction_preprocessing_config from model joblib
+-> run prediction preprocessing, when io.input_h5_path is present
+-> joblib.load(io.input_model_joblib_path)
+-> build_patient_prediction_feature_row(...)
+-> score selected model M0/M0Q/M1/M1Q/M2/M2Q
+-> write report JSON/YAML
+```
+
+## Feature Construction
+
+For one patient:
+
+```text
+select target breast rows
+score target radial_profile_data with LR1
+logit-average target p_cancer
+compute target-vs-contralateral SK symmetry when contralateral breast is present
+add age if present
+add reliability counters
+```
+
+Risk and reliability are kept separate:
+
+```text
+p_cancer = risk score
+reliability = confidence in this result
+```
+
+Low reliability does not reduce `p_cancer`. It tells the report that the result
+needs more caution, for example when only one valid target-breast measurement is
+available or paired-breast symmetry is unavailable.
+
+## Output
+
+The report contains:
+
+```text
+patient_id
+target_side
+contralateral_side
+model_name
+p_cancer
+threshold
+suggested_class
+risk_level
+reliability
+reliability_reason
+feature_row
+model/data/config SHA256 provenance
+decision-support warnings
+```
+
+## Current Limitations
+
+- Prediction can still start from a preprocessed DataFrame joblib for tests and
+  debugging. Product use should start from H5 plus prediction preprocessing
+  config.
+- The report is machine-readable JSON/YAML only. A formatted clinical PDF/report
+  remains a separate layer.
+- Thresholds come from the training artifact. The model version must therefore
+  be reviewed together with its validation mode and intended use.
+- `M2/M2Q` use age. Age can carry real clinical signal but can also dominate a
+  small dataset, so age-based models require explicit review before product
+  fixation.
+- Prediction currently supports one selected model per config. Comparing several
+  models for review should be done in evaluation notebooks or a future report
+  mode.
