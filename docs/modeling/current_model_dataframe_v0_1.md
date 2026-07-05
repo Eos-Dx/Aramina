@@ -5,7 +5,7 @@ the Aramis model-development code. It is not clinical validation.
 
 ## Current Training Cohort
 
-The current model-grid training YAMLs use the biopsy-patient model-input
+The current product-clean training YAMLs use the biopsy-patient model-input
 DataFrame:
 
 ```text
@@ -17,7 +17,7 @@ Training configs point to this artifact, for example:
 
 ```text
 config/training/aramis_biopsy_patients_m0_m1_m2_v0_1.yaml
-config/training/model_grid_v0_1/18_m2_stratified_kfold_biopsy_patients_model_v0_1.yaml
+config/training/aramis_v0_1_beta_primary_train.yaml
 ```
 
 Current counts:
@@ -165,14 +165,13 @@ sample_thickness_mm
 
 Other columns are metadata, provenance, or quality-control context.
 
-## Wide-Pool Audit Cohort
+## Archived Wide-Pool Audit Cohort
 
 For patient-pair inventory and sanity checks, a separate wide cleaned artifact
-was used:
+was used during the experimental phase:
 
 ```text
-examples/outputs/real_h5_yaml_validation/aramis_monochromatic_metadata_pool_max_v0_1.joblib
-examples/outputs/patient_diagnosis_pairs_v0_1/README.md
+experiment/aramis-v0.1-research-state
 ```
 
 The biopsy-patient subset derived from that wide pool has:
@@ -185,8 +184,8 @@ The biopsy-patient subset derived from that wide pool has:
 | patients with two breasts | 150 |
 | patients with one breast | 14 |
 
-This wide-pool subset is useful for auditing breast-pair composition. It is not
-yet the artifact used by the current training YAMLs. If we decide that this
+This wide-pool subset was useful for auditing breast-pair composition. It is not
+the artifact used by the current training YAMLs. If we decide that this
 wide-derived cohort is the canonical model cohort, preprocessing YAMLs and the
 model grid must be updated and rerun.
 

@@ -238,22 +238,15 @@ validation modes:
   stratified_kfold
 ```
 
-The primary biopsy-only subset creates:
+Historical grid YAMLs were used to compare model families and validation modes.
+They are archived on `experiment/aramis-v0.1-research-state`.
+
+Development now keeps product-clean training configs only:
 
 ```text
-1 dataset x 3 models x 3 validation modes = 9 primary training YAMLs
-```
-
-Including exploratory `all_patients` comparison creates:
-
-```text
-2 datasets x 3 models x 3 validation modes = 18 training YAMLs
-```
-
-Location:
-
-```text
-config/training/model_grid_v0_1/
+config/training/aramis_v0_1_beta_primary_train.yaml
+config/training/aramis_biopsy_patients_m0_m1_m2_v0_1.yaml
+config/training/aramis_all_patients_m0_m1_m2_v0_1.yaml
 ```
 
 The primary model-input cohort is documented in:

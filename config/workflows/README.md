@@ -23,10 +23,10 @@ This avoids reloading the preprocessing joblib during one combined run while
 still preserving the dataset artifact. Use `mode: artifact` when the training
 step should explicitly reload the saved preprocessing joblib.
 
-Run:
+Run current product-clean workflow:
 
 ```bash
-python -m aramis run --config config/workflows/aramis_biopsy_patients_m2_kfold_v0_1.yaml
+python -m aramis run --config config/workflows/aramis_biopsy_patients_primary_workflow_v0_1.yaml
 ```
 
 Required fields:

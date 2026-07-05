@@ -29,7 +29,7 @@ For the complete product-development route, one workflow YAML can reference both
 sub-YAML files:
 
 ```bash
-python -m aramis run --config config/workflows/aramis_biopsy_patients_m2_kfold_v0_1.yaml
+python -m aramis run --config config/workflows/aramis_biopsy_patients_primary_workflow_v0_1.yaml
 ```
 
 That command executes:

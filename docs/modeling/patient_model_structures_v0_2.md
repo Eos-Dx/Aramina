@@ -36,14 +36,14 @@ must show `AGE_ONLY` next to profile/symmetry models.
 
 ## Datasets
 
-Both datasets are built from the same broad monochromaticity-filtered pool:
+The current product-clean datasets are built by YAML preprocessing configs:
 
 ```text
-wide source:
-  examples/outputs/threshold_grid_patient_cohorts/wide_pools/aramis_wide_t130.joblib
+all_patients:
+  config/preprocessing/aramis_all_patients_model_input_v0_1.yaml
 
-wide rows / patients / specimens:
-  1222 / 219 / 430
+biopsy_patients:
+  config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
 ```
 
 Label mapping:

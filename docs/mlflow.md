@@ -63,7 +63,7 @@ http://127.0.0.1:5000
 Notebook:
 
 ```bash
-marimo run examples/aramis_mlflow_draft.py
+python -m aramis train --config config/training/aramis_v0_1_beta_primary_train.yaml
 ```
 
 Default mode is `dry_run`.

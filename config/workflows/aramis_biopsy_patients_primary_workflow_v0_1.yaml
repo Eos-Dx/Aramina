@@ -1,5 +1,5 @@
 workflow:
-  name: aramis_biopsy_patients_m2_kfold
+  name: aramis_biopsy_patients_primary_train
   version: 0.1
   clinical_stage: research draft
   intended_use: decision-support p_cancer research draft; requires radiologist review
@@ -12,4 +12,4 @@ preprocessing:
   config_path: ../preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
 
 training:
-  config_path: ../training/model_grid_v0_1/18_m2_stratified_kfold_biopsy_patients_model_v0_1.yaml
+  config_path: ../training/aramis_v0_1_beta_primary_train.yaml
