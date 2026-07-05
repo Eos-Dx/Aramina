@@ -22,7 +22,7 @@ aramis_biopsy_patients_model_input_v0_1.yaml
 
 It keeps patients with at least one biopsy row, includes contralateral breast
 rows for same-patient symmetry features, maps NORMAL to BENIGN, applies AgBH
-T130 monochromaticity exclusions, and outputs only model/audit columns.
+T100 monochromaticity exclusions, and outputs only model/audit columns.
 
 Prediction uses:
 
@@ -58,8 +58,13 @@ outputs/model_input_output_v0_1.yaml
 outputs/prediction_model_input_output_v0_1.yaml
 branches/*.yaml
 exclusions/agbh_quality_exclusions_v0_1.yaml
+exclusions/agbh_quality_exclusions_t100_v0_1.yaml
 exclusions/agbh_quality_exclusions_t130_v0_1.yaml
 ```
+
+T100 is the current development default. It is a middle-ground
+monochromaticity threshold: stricter than T130, less data-hungry than T70, and
+keeps enough biopsy-patient cases for patient-safe model selection.
 
 Experimental threshold grids and old FDA-like cohorts are archived on branch:
 

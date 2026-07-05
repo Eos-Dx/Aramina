@@ -24,12 +24,27 @@ Current counts:
 
 | item | count |
 |---|---:|
-| measurement rows | 968 |
-| patients | 180 |
-| specimens / breasts | 342 |
-| patients with two breasts | 162 |
-| patients with one breast | 18 |
+| measurement rows | 893 |
+| patients | 164 |
+| specimens / breasts | 314 |
+| patients with two breasts | 150 |
+| patients with one breast | 14 |
 | DataFrame columns | 30 |
+
+## Monochromaticity Threshold
+
+Current development default is `T100`:
+
+```text
+config/preprocessing/exclusions/agbh_quality_exclusions_t100_v0_1.yaml
+monochromaticity_max_score: 0.0075
+```
+
+Rationale: T100 is the middle-ground AgBH monochromaticity threshold. T70 was
+slightly better in M1Q model-selection experiments but removed about 17% of the
+T130 biopsy-patient cohort. T130 kept the most data but gave weaker specificity
+and ROC in the current M1Q checks. T100 keeps more data than T70 while still
+removing more questionable calibration days than T130.
 
 ## Cohort Rule
 
@@ -80,11 +95,11 @@ Original specimen statuses in the current DataFrame:
 
 | specimen_status | specimens / breasts |
 |---|---:|
-| BENIGN | 163 |
-| NORMAL | 91 |
-| CANCER | 68 |
-| PRE_CANCEROUS | 12 |
-| ATYPICAL | 8 |
+| BENIGN | 152 |
+| NORMAL | 85 |
+| CANCER | 60 |
+| PRE_CANCEROUS | 11 |
+| ATYPICAL | 6 |
 
 Product label mapping:
 
@@ -97,8 +112,8 @@ Mapped product groups:
 
 | product_status_group | specimens / breasts | measurement rows |
 |---|---:|---:|
-| BENIGN | 254 | 714 |
-| CANCER | 88 | 254 |
+| BENIGN | 237 | 671 |
+| CANCER | 77 | 222 |
 
 ## Biopsy Flags
 
@@ -106,8 +121,8 @@ Biopsy availability in the current model-input DataFrame:
 
 | biopsy | specimens / breasts | measurement rows |
 |---|---:|---:|
-| True | 193 | 546 |
-| False | 149 | 422 |
+| True | 175 | 496 |
+| False | 139 | 397 |
 
 The `False` rows are mainly contralateral context rows retained because the
 patient has at least one biopsy-positive breast/specimen.

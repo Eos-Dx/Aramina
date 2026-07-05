@@ -39,6 +39,18 @@ The artifact is still written. The speed benefit is that the combined workflow
 does not need to reload the DataFrame joblib before training. `mode: artifact`
 keeps the stricter reload behavior.
 
+Current development preprocessing default is T100 AgBH monochromaticity
+filtering. It is a compromise between T70 and T130:
+
+```text
+T70: stricter, best M1Q signal in current checks, but loses more patients
+T100: middle-ground, selected for development
+T130: keeps most patients, but current M1Q checks show weaker specificity/ROC
+```
+
+This choice remains research-draft and must be revisited with the team before a
+fixed product model version is declared.
+
 ## sklearn Pipeline Status
 
 Preprocessing is a YAML-declared sklearn transformer route owned mostly by
