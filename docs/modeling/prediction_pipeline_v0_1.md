@@ -22,6 +22,8 @@ trained Aramis model joblib
 prediction preprocessing YAML stored in model joblib
 patient_id
 clinician-supplied target_side from predict YAML
+model_id
+selected_model
 ```
 
 The H5 is preprocessed by the same transformer lineage as training:
@@ -55,6 +57,12 @@ read from H5 metadata and is not inferred from labels, biopsy metadata, or
 `specimen_status`. In training, biopsy/status metadata can define the
 historical target breast. In prediction, the suspicious breast comes from
 clinical input.
+
+The `model_id` must also come from predict YAML. It is checked against
+`training.name` stored inside the model joblib. This prevents accidentally
+running a different model artifact than the one requested by the report config.
+The `selected_model` field selects the submodel inside the artifact, for example
+`M1Q`.
 
 ## Call Chain
 
@@ -103,6 +111,7 @@ patient_id
 target_side
 contralateral_side
 model_name
+model_id
 p_cancer
 threshold
 suggested_class

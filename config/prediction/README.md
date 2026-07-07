@@ -28,6 +28,7 @@ io.output_json_path
 io.output_yaml_path
 patient.patient_id
 patient.target_side
+model.model_id
 model.selected_model
 decision.threshold_key
 ```
@@ -37,6 +38,8 @@ Important rule:
 ```text
 target_side is supplied by clinician/config in predict YAML
 target_side is not inferred from labels, biopsy fields, or specimen_status
+model.model_id must match training.name stored inside the model joblib
+model.selected_model selects the submodel inside that artifact, for example M1Q
 ```
 
 The prediction preprocessing YAML is stored inside the trained model joblib as

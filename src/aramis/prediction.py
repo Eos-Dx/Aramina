@@ -49,7 +49,9 @@ def run_prediction_from_config(config_path: str | Path) -> dict[str, Any]:
     )
 
     model_artifact = joblib.load(model_path)
-    model_name = str(config["model"].get("selected_model", "M1Q")).upper()
+    model_id = str(config["model"]["model_id"])
+    _validate_model_id(model_artifact, model_id)
+    model_name = str(config["model"]["selected_model"]).upper()
     model_info = _model_info(model_artifact, model_name)
     df, dataframe_path, preprocessing_artifact = _prediction_dataframe(
         config,
@@ -77,6 +79,7 @@ def run_prediction_from_config(config_path: str | Path) -> dict[str, Any]:
         preprocessing_artifact=preprocessing_artifact,
         model_path=model_path,
         model_artifact=model_artifact,
+        model_id=model_id,
         model_name=model_name,
         feature_row=feature_row,
         p_cancer=p_cancer,
@@ -199,6 +202,7 @@ def _prediction_report(
     preprocessing_artifact: dict[str, Any] | None,
     model_path: Path,
     model_artifact: dict[str, Any],
+    model_id: str,
     model_name: str,
     feature_row,
     p_cancer: float,
@@ -225,6 +229,7 @@ def _prediction_report(
             "patient_id": str(config["patient"]["patient_id"]),
             "target_side": row["target_side"],
             "contralateral_side": row["contralateral_side"],
+            "model_id": model_id,
             "model_name": model_name,
             "p_cancer": p_cancer,
             "threshold_key": threshold_key,
@@ -262,6 +267,7 @@ def _prediction_report(
                 ).get("preprocessing_config_sha256"),
                 "input_model_joblib_path": str(model_path),
                 "input_model_joblib_sha256": _file_sha256(model_path),
+                "input_model_id": model_id,
                 "training_config_sha256": model_artifact.get(
                     "training_config_sha256"
                 ),
@@ -308,6 +314,21 @@ def _model_info(model_artifact: dict[str, Any], model_name: str) -> dict[str, An
     return models[model_name]
 
 
+def _validate_model_id(model_artifact: dict[str, Any], requested_model_id: str) -> None:
+    artifact_model_id = (
+        model_artifact.get("training_config", {})
+        .get("training", {})
+        .get("name")
+    )
+    if not artifact_model_id:
+        raise ValueError("Prediction model artifact has no training.name model_id.")
+    if str(artifact_model_id) != str(requested_model_id):
+        raise ValueError(
+            "Prediction model_id does not match artifact training.name: "
+            f"requested={requested_model_id!r}, artifact={artifact_model_id!r}"
+        )
+
+
 def _model_threshold(model_info: dict[str, Any], threshold_key: str) -> float:
     thresholds = model_info.get("thresholds", {})
     if threshold_key not in thresholds:
@@ -349,6 +370,10 @@ def _validate_prediction_config(config: dict[str, Any], config_path: Path) -> No
         raise ValueError(f"Missing patient.patient_id in {config_path}")
     if not config.get("patient", {}).get("target_side"):
         raise ValueError(f"Missing patient.target_side in {config_path}")
+    if not config.get("model", {}).get("model_id"):
+        raise ValueError(f"Missing model.model_id in {config_path}")
+    if not config.get("model", {}).get("selected_model"):
+        raise ValueError(f"Missing model.selected_model in {config_path}")
 
 
 def _config_path(

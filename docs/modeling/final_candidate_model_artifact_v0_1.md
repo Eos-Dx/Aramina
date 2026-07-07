@@ -22,6 +22,15 @@ Current fitted artifact:
 examples/outputs/model_selection_m1q_regularization_v0_1/aramis_m1q_t100_selected_c_train_all.joblib
 ```
 
+Model id:
+
+```text
+aramis_m1q_t100_train_all_c0p1
+```
+
+This id is stored as `training.name` in the model artifact and must be supplied
+as `model.model_id` in prediction YAML.
+
 ## Why T100
 
 T100 is the current development preprocessing default. It is a middle-ground
@@ -137,6 +146,9 @@ breast side must be supplied explicitly in predict YAML:
 patient:
   patient_id: PATIENT_ID
   target_side: Left
+model:
+  model_id: aramis_m1q_t100_train_all_c0p1
+  selected_model: M1Q
 ```
 
 The per-patient report must keep risk and reliability separate:

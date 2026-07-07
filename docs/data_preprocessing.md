@@ -303,6 +303,7 @@ trained Aramis model joblib
 prediction preprocessing YAML stored in model joblib
 one patient
 clinician-supplied target_side from predict YAML
+model_id and selected_model from predict YAML
 two breast-side specimen groups when available
 machine-readable JSON/YAML output for report generation
 ```
