@@ -1,36 +1,66 @@
-# Aramis Modeling Notes
+# Aramis Modeling Documentation
 
 Status: research draft.
 
-Product-clean documents:
+This folder contains model rationale, selected-candidate evidence, and
+prediction/training contracts. Product readers should start here:
 
 ```text
-current_model_pipeline_and_risks_v0_1.md
-current_model_dataframe_v0_1.md
-development_cleanup_plan_v0_1.md
+../machine_learning_concept.md
 final_candidate_model_artifact_v0_1.md
-training_pipeline_classes_v0_1.md
 prediction_pipeline_v0_1.md
-reliability_quality_models_v0_1.md
-patient_model_structures_v0_2.md
-modeling_results_interpretation_v0_1.md
+training_pipeline_classes_v0_1.md
+current_model_pipeline_and_risks_v0_1.md
 ```
 
-Archived experiment documents may still mention removed result CSVs. Their full
-source tables and exploratory scripts are preserved on:
+## Primary Candidate
 
 ```text
-experiment/aramis-v0.1-research-state
+model_id: aramis_m1q_t100_train_all_c0p1
+selected_model: M1Q
+preprocessing: T100 biopsy-patient model input
+regularization: L2 LogisticRegression, C=0.1
+threshold_target: 0.327873
 ```
 
-Current product direction:
+Decision record:
 
 ```text
-preprocess: YAML-governed XRD preprocessing
-train: YAML-governed patient-level model training
-predict: model joblib supplies prediction preprocessing YAML, incoming H5 supplies patient scans
-primary candidate: M1Q-style profile risk plus same-patient symmetry plus reliability fields
+final_candidate_model_artifact_v0_1.md
 ```
 
-All results remain research-draft decision-support evidence only. They do not
-represent clinical validation, FDA clearance, or autonomous diagnosis.
+## Evidence Documents
+
+```text
+m1q_regularization_experiment_v0_1.md
+  why C=0.1 was selected
+
+m1q_threshold_mode_comparison_v0_1.md
+  how threshold / validation modes behave
+
+current_model_dataframe_v0_1.md
+  what data the current candidate was trained from
+```
+
+## Product Contracts
+
+```text
+training_pipeline_classes_v0_1.md
+  sklearn-like training classes and artifact structure
+
+prediction_pipeline_v0_1.md
+  one-patient H5 prediction route and report schema
+
+current_model_pipeline_and_risks_v0_1.md
+  known limitations and required interpretation guards
+```
+
+## Archived / Non-Primary Evidence
+
+Older exploratory notebooks and generated tables are not product defaults. They
+remain useful as background evidence when comparing alternative model families,
+thresholds, or cohorts.
+
+Do not use generated `examples/outputs/**/*.md` tables as API documentation.
+Use them only as experiment evidence.
+

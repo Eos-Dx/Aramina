@@ -1,0 +1,19 @@
+extends:
+- ../../config/preprocessing/aramis_prediction_patient_model_input_v0_1.yaml
+
+provenance:
+  status: research draft prediction preprocessing config for synthetic examples
+  canonical_location: Aramis/examples/prediction_h5/aramis_prediction_patient_raw_h5_example_v0_1.yaml
+  clinical_safety_note: Synthetic raw-array smoke-test config; not clinical product preprocessing.
+
+raw_data:
+  source: raw
+  location: h5_blob
+  allowed_sources:
+  - raw
+
+snr:
+  min_snr_db: -100.0
+
+profile_gate:
+  min_value: -1000000.0

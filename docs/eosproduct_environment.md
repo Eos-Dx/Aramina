@@ -68,5 +68,5 @@ Validation commands:
 ```text
 python -m ruff check .
 pytest -q
-python -m marimo check examples/aramis_dataframe_one_to_one_v0_1.py examples/aramis_dataframe_one_to_many_v0_1.py
+python -m marimo check examples/aramis_dataframe_all_patients_v0_1.py examples/aramis_dataframe_biopsy_patients_v0_1.py
 ```

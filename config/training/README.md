@@ -10,15 +10,7 @@ writes a model artifact joblib plus optional JSON/YAML summaries.
 Current product-clean training config:
 
 ```text
-aramis_v0_1_beta_primary_train.yaml
-```
-
-Current comparison configs:
-
-```text
-aramis_biopsy_patients_m0_m1_m2_v0_1.yaml
-aramis_all_patients_m0_m1_m2_v0_1.yaml
-aramis_one_to_many_logistic_v0_1.yaml
+aramis_m1q_t100_primary_train_v0_1.yaml
 ```
 
 Primary route:
@@ -72,3 +64,7 @@ Full historical model grids are archived on branch:
 ```text
 experiment/aramis-v0.1-research-state
 ```
+
+The development branch intentionally does not keep runnable model-selection YAML
+grids. It keeps only the product candidate training YAML and the evidence
+documents that justify it.

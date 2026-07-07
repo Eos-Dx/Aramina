@@ -123,7 +123,7 @@ if ((Ensure-Git) -and (Ask-YesNo "Use git to clone/update repos?" "y")) {
 }
 
 Copy-OrUpdateRepo "XRD-preprocessing" "https://github.com/Eos-Dx/XRD-preprocessing.git" (Join-Path $TargetRoot "XRD-preprocessing") "src\xrd_preprocessing\configs\preprocessing_branch_config_template.yaml" "v0.1.6-beta"
-Copy-OrUpdateRepo "Aramis" "https://github.com/Eos-Dx/Aramis.git" (Join-Path $TargetRoot "Aramis") "examples\aramis_dataframe_one_to_one_v0_1.py" "0.1.3-beta"
+Copy-OrUpdateRepo "Aramis" "https://github.com/Eos-Dx/Aramis.git" (Join-Path $TargetRoot "Aramis") "examples\aramis_dataframe_biopsy_patients_v0_1.py" "0.1.4-beta"
 Copy-OrUpdateRepo "container" "https://github.com/Eos-Dx/container.git" (Join-Path $TargetRoot "container") "pyproject.toml" "feat/v0_3-eoscan-session-container"
 New-Item -ItemType Directory -Force -Path (Join-Path $TargetRoot "Bremen") | Out-Null
 

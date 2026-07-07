@@ -11,6 +11,11 @@ io:
   output_json_path: ../../examples/outputs/prediction/aramis_predict_from_h5_v0_1.json
   output_yaml_path: ../../examples/outputs/prediction/aramis_predict_from_h5_v0_1.yaml
 
+container:
+  schema_version: "0.3"
+  format: xrd-session
+  max_patients: 1
+
 patient:
   patient_id: PATIENT_ID_FROM_H5
   target_side: Left

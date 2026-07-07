@@ -37,41 +37,14 @@ class AramisPreprocessingPipeline(TransformerMixin, BaseEstimator):
         return self.pipeline_.fit_transform(X)
 
 
-class AramisOneToOnePreprocessingPipeline(AramisPreprocessingPipeline):
-    """One-to-one paired-breast preprocessing route."""
-
-
-class AramisOneToManyPreprocessingPipeline(AramisPreprocessingPipeline):
-    """One-to-many specimen-level preprocessing route."""
-
-
-def run_one_to_one_preprocessing_pipeline(
+def run_preprocessing_pipeline(
     h5_path: str | Path,
     config: dict[str, Any] | str | Path,
     *,
     output_joblib_path: str | Path | None = None,
 ) -> pd.DataFrame:
-    """Build the one-to-one paired-breast preprocessing DataFrame."""
-    pipeline = AramisOneToOnePreprocessingPipeline(config=config)
-    df = pipeline.fit_transform(h5_path)
-    _write_joblib_if_requested(
-        df,
-        output_joblib_path,
-        config_source=config,
-        effective_config=pipeline.config_,
-        input_h5_path=h5_path,
-    )
-    return df
-
-
-def run_one_to_many_preprocessing_pipeline(
-    h5_path: str | Path,
-    config: dict[str, Any] | str | Path,
-    *,
-    output_joblib_path: str | Path | None = None,
-) -> pd.DataFrame:
-    """Build the one-to-many specimen-level preprocessing DataFrame."""
-    pipeline = AramisOneToManyPreprocessingPipeline(config=config)
+    """Build the Aramis preprocessing DataFrame declared by YAML."""
+    pipeline = AramisPreprocessingPipeline(config=config)
     df = pipeline.fit_transform(h5_path)
     _write_joblib_if_requested(
         df,
@@ -90,12 +63,9 @@ def run_preprocessing_artifact_from_config(config_path: str | Path) -> dict[str,
     branch = config["aramis_preprocessing"]["branch"]
     h5_path = _config_path(config, config_path, "input_h5_path")
     output_joblib_path = _config_path(config, config_path, "output_joblib_path")
-    if branch == "one_to_one":
-        pipeline = AramisOneToOnePreprocessingPipeline(config=config)
-    elif branch == "one_to_many":
-        pipeline = AramisOneToManyPreprocessingPipeline(config=config)
-    else:
+    if branch != "one_to_many":
         raise ValueError(f"Unknown Aramis preprocessing branch: {branch}")
+    pipeline = AramisPreprocessingPipeline(config=config)
     df = pipeline.fit_transform(h5_path)
     return _write_joblib_if_requested(
         df,
@@ -113,14 +83,8 @@ def run_preprocessing_from_config(config_path: str | Path) -> pd.DataFrame:
     branch = config["aramis_preprocessing"]["branch"]
     h5_path = _config_path(config, config_path, "input_h5_path")
     output_joblib_path = _config_path(config, config_path, "output_joblib_path")
-    if branch == "one_to_one":
-        return run_one_to_one_preprocessing_pipeline(
-            h5_path,
-            config,
-            output_joblib_path=output_joblib_path,
-        )
     if branch == "one_to_many":
-        return run_one_to_many_preprocessing_pipeline(
+        return run_preprocessing_pipeline(
             h5_path,
             config,
             output_joblib_path=output_joblib_path,

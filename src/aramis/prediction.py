@@ -7,6 +7,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
+import h5py
 import joblib
 import yaml
 from xrd_preprocessing import (
@@ -15,10 +16,7 @@ from xrd_preprocessing import (
     load_preprocessing_dataframe,
 )
 
-from .pipelines import (
-    run_one_to_many_preprocessing_pipeline,
-    run_one_to_one_preprocessing_pipeline,
-)
+from .pipelines import run_preprocessing_pipeline
 from .training import build_patient_prediction_feature_row
 
 
@@ -117,6 +115,7 @@ def _prediction_dataframe(
         section="io",
         key="input_h5_path",
     )
+    _validate_h5_container_contract(config, config_path, h5_path)
     output_dataframe_path = _config_path(
         config,
         config_path,
@@ -127,20 +126,13 @@ def _prediction_dataframe(
     preprocessing_config["io"]["input_h5_path"] = str(h5_path)
     preprocessing_config["io"]["output_joblib_path"] = str(output_dataframe_path)
     branch = preprocessing_config.get("aramis_preprocessing", {}).get("branch")
-    if branch == "one_to_many":
-        df = run_one_to_many_preprocessing_pipeline(
-            h5_path,
-            preprocessing_config,
-            output_joblib_path=output_dataframe_path,
-        )
-    elif branch == "one_to_one":
-        df = run_one_to_one_preprocessing_pipeline(
-            h5_path,
-            preprocessing_config,
-            output_joblib_path=output_dataframe_path,
-        )
-    else:
+    if branch != "one_to_many":
         raise ValueError(f"Unsupported prediction preprocessing branch: {branch!r}")
+    df = run_preprocessing_pipeline(
+        h5_path,
+        preprocessing_config,
+        output_joblib_path=output_dataframe_path,
+    )
     return df, output_dataframe_path, load_preprocessing_artifact(output_dataframe_path)
 
 
@@ -374,6 +366,107 @@ def _validate_prediction_config(config: dict[str, Any], config_path: Path) -> No
         raise ValueError(f"Missing model.model_id in {config_path}")
     if not config.get("model", {}).get("selected_model"):
         raise ValueError(f"Missing model.selected_model in {config_path}")
+    if config.get("io", {}).get("input_h5_path") and "container" not in config:
+        raise ValueError(
+            "Missing container section in prediction config with io.input_h5_path: "
+            f"{config_path}"
+        )
+
+
+def _validate_h5_container_contract(
+    config: dict[str, Any],
+    config_path: Path,
+    h5_path: Path,
+) -> None:
+    container = config.get("container")
+    if not isinstance(container, dict):
+        raise ValueError(f"Missing container section in prediction config: {config_path}")
+
+    expected_schema_version = str(_required_container_value(container, "schema_version"))
+    expected_format = str(_required_container_value(container, "format"))
+    max_patients = int(container.get("max_patients", 1))
+    if max_patients != 1:
+        raise ValueError("Aramis prediction currently requires container.max_patients=1.")
+
+    with h5py.File(h5_path, "r") as h5:
+        actual_schema_version = _h5_attr_text(h5, "schema_version")
+        actual_format = _h5_attr_text(h5, "format")
+        if actual_schema_version != expected_schema_version:
+            raise ValueError(
+                "Prediction H5 schema_version does not match YAML container contract: "
+                f"expected={expected_schema_version!r}, actual={actual_schema_version!r}"
+            )
+        if actual_format != expected_format:
+            raise ValueError(
+                "Prediction H5 format does not match YAML container contract: "
+                f"expected={expected_format!r}, actual={actual_format!r}"
+            )
+        if actual_schema_version != "0.3":
+            raise ValueError(
+                "Unsupported prediction H5 schema_version validator: "
+                f"{actual_schema_version!r}. Add a version-specific validator first."
+            )
+        patient_ids = _v0_3_patient_ids(h5)
+
+    if not patient_ids:
+        raise ValueError("Prediction H5 contains no patientId values.")
+    if len(patient_ids) > max_patients:
+        raise ValueError(
+            "Aramis prediction requires exactly one patient per H5 container; "
+            f"found {len(patient_ids)} patients: {patient_ids}"
+        )
+    expected_patient_id = str(config["patient"]["patient_id"])
+    only_patient_id = patient_ids[0]
+    if only_patient_id != expected_patient_id:
+        raise ValueError(
+            "Prediction patient.patient_id does not match H5 patientId: "
+            f"expected={expected_patient_id!r}, h5={only_patient_id!r}"
+        )
+
+
+def _required_container_value(container: dict[str, Any], key: str) -> Any:
+    value = container.get(key)
+    if value in {None, ""}:
+        raise ValueError(f"Missing container.{key} in prediction config.")
+    return value
+
+
+def _h5_attr_text(group: h5py.Group | h5py.File, key: str) -> str | None:
+    value = group.attrs.get(key)
+    if isinstance(value, bytes):
+        return value.decode("utf-8")
+    if value is None:
+        return None
+    return str(value)
+
+
+def _h5_text_dataset(group: h5py.Group, path: str) -> str | None:
+    if path not in group:
+        return None
+    value = group[path][()]
+    if isinstance(value, bytes):
+        return value.decode("utf-8")
+    return str(value)
+
+
+def _v0_3_patient_ids(h5: h5py.File) -> list[str]:
+    session = h5.get("session")
+    if not isinstance(session, h5py.Group):
+        raise ValueError("Prediction H5 v0.3 is missing /session group.")
+    fallback_patient_id = _h5_text_dataset(session, "sample/patient_name")
+    sets = session.get("sets")
+    if not isinstance(sets, h5py.Group):
+        raise ValueError("Prediction H5 v0.3 is missing /session/sets group.")
+
+    patient_ids: set[str] = set()
+    for set_name in sorted(sets):
+        set_group = sets[set_name]
+        if not isinstance(set_group, h5py.Group):
+            continue
+        patient_id = _h5_attr_text(set_group, "patientId") or fallback_patient_id
+        if patient_id not in {None, ""}:
+            patient_ids.add(str(patient_id))
+    return sorted(patient_ids)
 
 
 def _config_path(

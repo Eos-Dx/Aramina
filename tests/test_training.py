@@ -13,27 +13,6 @@ from aramis.__main__ import main
 from aramis.training import _logit_average_probability, run_training_from_config
 
 
-def _training_frame() -> pd.DataFrame:
-    rows = []
-    q = np.linspace(2.0, 23.0, 20)
-    for patient_idx in range(20):
-        label = "CANCER" if patient_idx % 2 else "BENIGN"
-        for measurement_idx in range(2):
-            baseline = 1.0 if label == "CANCER" else -1.0
-            rows.append(
-                {
-                    "patientId": f"P{patient_idx:02d}",
-                    "specimenId": f"P{patient_idx:02d}_RIGHT",
-                    "measurementId": f"P{patient_idx:02d}_M{measurement_idx}",
-                    "product_status_group": label,
-                    "radial_profile_data": baseline + np.sin(q / 3.0),
-                    "q_range": q,
-                    "sample_thickness_mm": 8.0 + measurement_idx * 0.1,
-                }
-            )
-    return pd.DataFrame(rows)
-
-
 def _patient_training_frame() -> pd.DataFrame:
     rows = []
     q = np.linspace(2.0, 23.0, 30)
@@ -63,42 +42,6 @@ def _patient_training_frame() -> pd.DataFrame:
                     }
                 )
     return pd.DataFrame(rows)
-
-
-def _training_config(input_path: Path, output_path: Path) -> dict:
-    return {
-        "training": {
-            "name": "test_one_to_many_logistic",
-            "version": 0.1,
-            "branch": "one_to_many",
-        },
-        "io": {
-            "input_dataframe_joblib_path": str(input_path),
-            "output_model_joblib_path": str(output_path),
-            "prediction_preprocessing_config_path": str(
-                Path(__file__).parents[1]
-                / "config"
-                / "preprocessing"
-                / "aramis_prediction_patient_model_input_v0_1.yaml"
-            ),
-        },
-        "model": {
-            "type": "logistic_regression",
-            "profile_column": "radial_profile_data",
-            "label_column": "product_status_group",
-            "group_column": "patientId",
-            "specimen_column": "specimenId",
-            "logreg_c": 1.0,
-        },
-        "evaluation": {
-            "n_splits": 2,
-            "test_size": 0.30,
-            "random_state": 7,
-            "inner_splits": 3,
-            "target_sensitivity": 0.95,
-            "aggregation": "mean",
-        },
-    }
 
 
 def _patient_training_config(
@@ -149,43 +92,6 @@ def _patient_training_config(
             "target_sensitivity": 0.95,
         },
     }
-
-
-def test_train_cli_writes_one_to_many_model_artifact(tmp_path: Path):
-    input_path = tmp_path / "preprocessed.joblib"
-    output_path = tmp_path / "model.joblib"
-    config_path = tmp_path / "train.yaml"
-    save_preprocessing_artifact(
-        _training_frame(),
-        input_path,
-        preprocessing_config={"aramis_preprocessing": {"branch": "one_to_many"}},
-        preprocessing_config_text="aramis_preprocessing:\n  branch: one_to_many\n",
-        metadata={"branch": "one_to_many"},
-    )
-    config_path.write_text(
-        yaml.safe_dump(_training_config(input_path, output_path)),
-        encoding="utf-8",
-    )
-
-    exit_code = main(["train", "--config", str(config_path)])
-    artifact = joblib.load(output_path)
-
-    assert exit_code == 0
-    assert artifact["kind"] == "aramis_training_artifact"
-    assert artifact["model_type"] == "one_to_many_logistic_regression"
-    assert artifact["training_config_sha256"]
-    assert artifact["preprocessing_config_sha256"]
-    assert artifact["training_preprocessing_config_sha256"]
-    assert artifact["training_preprocessing_config_text"]
-    assert artifact["prediction_preprocessing_config_sha256"]
-    assert artifact["prediction_preprocessing_config_text"]
-    assert artifact["input_dataframe_joblib_sha256"]
-    assert artifact["metadata"]["branch"] == "one_to_many"
-    assert artifact["metric_summary"]["roc_auc_mean"].between(0.0, 1.0).all()
-    scores = artifact["model"].predict_proba(
-        np.vstack(_training_frame()["radial_profile_data"])
-    )
-    assert scores.shape == (40, 2)
 
 
 def test_train_cli_writes_patient_m0_m1_m2_artifact(tmp_path: Path):
@@ -369,12 +275,31 @@ def test_train_rejects_unknown_branch(tmp_path: Path):
     input_path = tmp_path / "preprocessed.joblib"
     output_path = tmp_path / "model.joblib"
     config_path = tmp_path / "train.yaml"
-    save_preprocessing_artifact(_training_frame(), input_path)
-    config = _training_config(input_path, output_path)
+    save_preprocessing_artifact(_patient_training_frame(), input_path)
+    config = _patient_training_config(input_path, output_path, tmp_path)
     config["training"]["branch"] = "one_to_one"
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
 
     with pytest.raises(ValueError, match="Unsupported training branch"):
+        run_training_from_config(config_path)
+
+
+def test_train_rejects_legacy_measurement_level_model_type(tmp_path: Path):
+    input_path = tmp_path / "preprocessed.joblib"
+    output_path = tmp_path / "model.joblib"
+    config_path = tmp_path / "train.yaml"
+    save_preprocessing_artifact(
+        _patient_training_frame(),
+        input_path,
+        preprocessing_config={"aramis_preprocessing": {"branch": "one_to_many"}},
+        preprocessing_config_text="aramis_preprocessing:\n  branch: one_to_many\n",
+        metadata={"branch": "one_to_many"},
+    )
+    config = _patient_training_config(input_path, output_path, tmp_path)
+    config["model"]["type"] = "logistic_regression"
+    config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Unsupported training model.type"):
         run_training_from_config(config_path)
 
 

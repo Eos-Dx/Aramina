@@ -13,18 +13,19 @@ diagnosis.
 
 ## Files
 
-This folder contains reference metadata and audit artifacts. Runtime
+This folder contains reference metadata and audit artifacts. Runtime product
 preprocessing YAML files live in:
 
 ```text
 Aramis/config/preprocessing/
 ```
 
-The shared base YAMLs are not directly runnable:
+Current runnable preprocessing YAMLs:
 
 ```text
-config/preprocessing/aramis_main_max_v0_1.yaml
-config/preprocessing/aramis_main_min_v0_1.yaml
+config/preprocessing/aramis_all_patients_model_input_v0_1.yaml
+config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
+config/preprocessing/aramis_prediction_patient_model_input_v0_1.yaml
 ```
 
 They compose smaller fragments:
@@ -32,14 +33,14 @@ They compose smaller fragments:
 ```text
 shared/aramis_policy_v0_1.yaml      GFRM-only product policy
 shared/aramis_pipeline_v0_1.yaml    ordered transformer steps
-exclusions/agbh_quality_exclusions_v0_1.yaml
-outputs/max_output_v0_1.yaml        MAX output schema
-outputs/min_output_v0_1.yaml        MIN output schema
+exclusions/agbh_quality_exclusions_t100_v0_1.yaml
+outputs/model_input_output_v0_1.yaml
+outputs/prediction_model_input_output_v0_1.yaml
 branches/*.yaml                     cohort rules
 ```
 
-Runnable root YAMLs extend one MAIN base and one branch fragment. They define
-only runtime identity, output joblib path, and concrete branch output columns.
+Runnable root YAMLs extend shared policy, pipeline, output schema, exclusion,
+and branch fragments.
 
 Short file map:
 
@@ -90,117 +91,61 @@ product filtering policy
 Use this file when deciding whether a measurement batch is product-usable for a
 K-alpha-only Aramis workflow.
 
-### `config/preprocessing/aramis_one_to_one_max_v0_1.yaml`
+### `config/preprocessing/aramis_all_patients_model_input_v0_1.yaml`
 
 Purpose:
 
 ```text
-Aramis one-to-one preprocessing config
-decision unit: patientId
+Aramis all-patients model-input preprocessing config
 row unit: measurementId
 grouping unit: specimenId
-paired-breast patient rules
-BENIGN/CANCER/NORMAL context policy
+decision unit: patientId during model selection
+NORMAL -> BENIGN product-label policy
 thickness correction requirements
 SNR / normalization / profile-gate parameters
 quality_exclusions by linked AgBH session ID with date fallback
 ```
 
-This is the standard one-to-one paired-breast dataset. It keeps paired
-patientId contexts with BENIGN, CANCER, or NORMAL product status groups and
-excludes same-group pairs from the first symmetry-feature training policy.
+This is the broader comparison dataset. It keeps labelled patients after
+product quality filters and preserves enough patient/specimen metadata for
+patient-safe model selection and symmetry feature engineering.
 
-### `config/preprocessing/aramis_one_to_one_biopsy_max_v0_1.yaml`
+### `config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml`
 
 Purpose:
 
 ```text
-Aramis biopsy-only one-to-one preprocessing config
-decision unit: patientId
+Aramis biopsy-patients model-input preprocessing config
 row unit: measurementId
 grouping unit: specimenId
+decision unit: patientId during model selection
 patient-level biopsy policy
-same paired-breast XRD preprocessing as standard one-to-one
+keep contralateral rows for symmetry features
+NORMAL -> BENIGN product-label policy
+same XRD preprocessing as all-patients
 ```
 
-This is the biopsy-associated paired-breast dataset. Biopsy selection is
+This is the current primary development training dataset. Biopsy selection is
 patient-level: keep patients with at least one `biopsy == true` row, then keep
-both breast sides for paired symmetry/asymmetry feature generation. Do not use
-row-level biopsy filtering here, because it can remove the contralateral breast
-before `paired_patient_filter`.
+both breast sides when available for symmetry/asymmetry feature generation.
 
-### `config/preprocessing/aramis_one_to_many_max_v0_1.yaml`
+### `config/preprocessing/aramis_prediction_patient_model_input_v0_1.yaml`
 
 Purpose:
 
 ```text
-Aramis standard one-to-many BENIGN/CANCER preprocessing config
-decision unit: specimenId
+Aramis prediction preprocessing config embedded in trained model joblibs
+incoming H5 must contain one patient
+no historical date/diagnosis/biopsy/AgBH cohort filters
 row unit: measurementId
 grouping unit: specimenId
-BENIGN vs CANCER specimen-level policy
 raw detector source policy: gfrm only
-XRD-preprocessing version/tag tracking
-metadata retention policy
-H5-level filter rules
-canonical measurement-position rule: P1 / P2 / P3 only
 thickness correction requirements
 SNR / normalization / profile-gate parameters
-quality_exclusions by linked AgBH session ID with date fallback
 ```
 
-This is the standard one-to-many research-draft dataset. It keeps breast-side
-specimens with `specimen_status` BENIGN, CANCER, ATYPICAL, or PRE_CANCEROUS,
-then maps ATYPICAL/PRE_CANCEROUS to the product CANCER group at `specimenId`
-level.
-
-### `config/preprocessing/aramis_one_to_many_biopsy_max_v0_1.yaml`
-
-Purpose:
-
-```text
-Aramis biopsy-only one-to-many BENIGN/CANCER preprocessing config
-decision unit: specimenId
-row unit: measurementId
-grouping unit: specimenId
-biopsy-confirmed BENIGN vs CANCER specimen-level policy
-same XRD preprocessing as standard one-to-many
-```
-
-This is the stricter one-to-many dataset requested for first model work. It
-uses the same branch logic as the standard one-to-many YAML, but additionally
-requires `biopsy == true` at row level. The biopsy filter is applied at H5
-metadata level before GFRM loading and repeated at DataFrame level as a safety
-check.
-
-The rule follows the Human clinical-trial FDA notebook convention where the
-biopsy-only cohort is selected with `biopsy_flag == True`.
-
-### `config/preprocessing/*_min_v0_1.yaml`
-
-Purpose:
-
-```text
-MIN preprocessing config
-extends aramis_main_min_v0_1.yaml
-keeps only essential model columns in final joblib
-uses separate MIN output_joblib_path
-```
-
-Use MIN YAMLs when a collaborator needs only the final normalized profiles
-and basic product metadata:
-
-```text
-patientId, specimenId, side, position, dates
-product_status_group / product_diagnosis
-sample and calibrant thickness
-q_range and radial_profile_data
-snr_db and source trace
-```
-
-For one-to-one rows, `product_status_group` may be BENIGN, CANCER, or NORMAL.
-`product_diagnosis` is binary and may be empty for NORMAL rows. Use
-`product_status_group` and pair metadata for one-to-one symmetry work.
+Prediction config is normally not run directly. It is stored in trained model
+joblibs and used by `python -m aramis predict --config <predict.yaml>`.
 
 Reusable preprocessing YAML template/contract is owned by XRD-preprocessing:
 
@@ -288,8 +233,8 @@ Aramis/docs/agbh_quality_exclusions.md
 Used by:
 
 ```text
-Aramis/examples/aramis_dataframe_one_to_one_v0_1.py
-Aramis/examples/aramis_dataframe_one_to_many_v0_1.py
+Aramis/examples/aramis_dataframe_all_patients_v0_1.py
+Aramis/examples/aramis_dataframe_biopsy_patients_v0_1.py
 Aramis/packaging/eosproduct_bundle/scripts/run_aramis_notebooks.sh
 ```
 
@@ -308,7 +253,7 @@ This notebook is a meta/provenance artifact, not a runtime preprocessing step.
 Runtime exclusions are still stored in the YAML files under:
 
 ```text
-Aramis/config/preprocessing/exclusions/agbh_quality_exclusions_v0_1.yaml
+Aramis/config/preprocessing/exclusions/agbh_quality_exclusions_t100_v0_1.yaml
 ```
 
 Use this notebook when explaining why particular AgBH calibration sessions or
@@ -316,7 +261,7 @@ fallback dates were excluded from Aramis preprocessing. If the exclusion list is
 changed after reviewing the notebook, update:
 
 ```text
-config/preprocessing/exclusions/agbh_quality_exclusions_v0_1.yaml
+config/preprocessing/exclusions/agbh_quality_exclusions_t100_v0_1.yaml
 docs/agbh_quality_exclusions.md
 docs/meta/aramis_preprocessing_v0_1_config.json
 MLflow preprocessing artifacts for affected runs

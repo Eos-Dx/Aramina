@@ -26,6 +26,9 @@ io.output_dataframe_joblib_path
 io.input_model_joblib_path
 io.output_json_path
 io.output_yaml_path
+container.schema_version
+container.format
+container.max_patients
 patient.patient_id
 patient.target_side
 model.model_id
@@ -38,6 +41,9 @@ Important rule:
 ```text
 target_side is supplied by clinician/config in predict YAML
 target_side is not inferred from labels, biopsy fields, or specimen_status
+container.schema_version must match the H5 root @schema_version
+container.format must match the H5 root @format
+container.max_patients must be 1 for Aramis prediction
 model.model_id must match training.name stored inside the model joblib
 model.selected_model selects the submodel inside that artifact, for example M1Q
 ```

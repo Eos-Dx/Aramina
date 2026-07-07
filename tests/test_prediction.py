@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import h5py
 import joblib
 import numpy as np
 import pandas as pd
@@ -11,7 +12,7 @@ from xrd_preprocessing import load_preprocessing_config
 from xrd_preprocessing import save_preprocessing_artifact
 
 from aramis.__main__ import main
-from .synthetic_aramis_h5 import write_known_synthetic_h5
+from .synthetic_aramis_h5 import write_v0_3_one_patient_h5
 
 
 def _patient_frame() -> pd.DataFrame:
@@ -47,15 +48,22 @@ def _training_config(
     input_path: Path,
     output_path: Path,
     prediction_preprocessing_config_path: Path | None = None,
+    selected_models: list[str] | None = None,
 ) -> dict:
+    if prediction_preprocessing_config_path is None:
+        prediction_preprocessing_config_path = (
+            Path(__file__).parents[1]
+            / "config"
+            / "preprocessing"
+            / "aramis_prediction_patient_model_input_v0_1.yaml"
+        )
     io = {
         "input_dataframe_joblib_path": str(input_path),
         "output_model_joblib_path": str(output_path),
-    }
-    if prediction_preprocessing_config_path is not None:
-        io["prediction_preprocessing_config_path"] = str(
+        "prediction_preprocessing_config_path": str(
             prediction_preprocessing_config_path
-        )
+        ),
+    }
     return {
         "training": {
             "name": "test_predict_train",
@@ -73,7 +81,7 @@ def _training_config(
             "age_column": "age",
             "biopsy_column": "biopsy",
             "lr1_row_policy": "all_rows",
-            "selected_models": ["M1Q"],
+            "selected_models": selected_models or ["M1Q"],
             "logreg_c": 1.0,
         },
         "evaluation": {
@@ -116,6 +124,9 @@ def _h5_prediction_config(
     model_path: Path,
     output_json_path: Path,
     output_yaml_path: Path,
+    *,
+    patient_id: str = "P1",
+    target_side: str = "Left",
 ) -> dict:
     return {
         "prediction": {
@@ -130,10 +141,60 @@ def _h5_prediction_config(
             "output_json_path": str(output_json_path),
             "output_yaml_path": str(output_yaml_path),
         },
+        "patient": {"patient_id": patient_id, "target_side": target_side},
+        "container": {
+            "schema_version": "0.3",
+            "format": "xrd-session",
+            "max_patients": 1,
+        },
+        "model": {"model_id": "test_predict_train", "selected_model": "M1Q"},
+        "decision": {"threshold_key": "threshold_target"},
+    }
+
+
+def _valid_prediction_config(
+    tmp_path: Path,
+    *,
+    input_h5: bool = False,
+) -> dict:
+    io = {
+        "input_model_joblib_path": str(tmp_path / "model.joblib"),
+        "output_json_path": str(tmp_path / "report.json"),
+        "output_yaml_path": str(tmp_path / "report.yaml"),
+    }
+    if input_h5:
+        io["input_h5_path"] = str(tmp_path / "patient.h5")
+        io["output_dataframe_joblib_path"] = str(tmp_path / "prediction.joblib")
+    else:
+        io["input_dataframe_joblib_path"] = str(tmp_path / "prediction.joblib")
+    config = {
+        "prediction": {"name": "test_predict", "version": 0.1},
+        "io": io,
         "patient": {"patient_id": "P1", "target_side": "Left"},
         "model": {"model_id": "test_predict_train", "selected_model": "M1Q"},
         "decision": {"threshold_key": "threshold_target"},
     }
+    if input_h5:
+        config["container"] = {
+            "schema_version": "0.3",
+            "format": "xrd-session",
+            "max_patients": 1,
+        }
+    return config
+
+
+def _v0_3_prediction_preprocessing_config(path: Path) -> None:
+    preprocessing_config = load_preprocessing_config(
+        Path(__file__).parents[1]
+        / "config"
+        / "preprocessing"
+        / "aramis_prediction_patient_model_input_v0_1.yaml"
+    )
+    preprocessing_config["raw_data"]["source"] = "raw"
+    preprocessing_config["raw_data"]["allowed_sources"] = ["gfrm", "raw"]
+    preprocessing_config["snr"]["min_snr_db"] = -100.0
+    preprocessing_config["profile_gate"]["min_value"] = -1_000_000.0
+    path.write_text(yaml.safe_dump(preprocessing_config), encoding="utf-8")
 
 
 def test_predict_cli_writes_decision_support_report(tmp_path: Path):
@@ -218,6 +279,142 @@ def test_predict_rejects_wrong_model_id(tmp_path: Path):
         main(["predict", "--config", str(prediction_config_path)])
 
 
+@pytest.mark.parametrize(
+    ("mutate", "error"),
+    [
+        (lambda config: config.pop("prediction"), "Missing prediction config sections"),
+        (lambda config: config["io"].pop("output_yaml_path"), "Missing io.output_yaml_path"),
+        (lambda config: config["patient"].pop("patient_id"), "Missing patient.patient_id"),
+        (lambda config: config["patient"].pop("target_side"), "Missing patient.target_side"),
+        (lambda config: config["model"].pop("model_id"), "Missing model.model_id"),
+        (lambda config: config["model"].pop("selected_model"), "Missing model.selected_model"),
+        (
+            lambda config: config["io"].pop("input_dataframe_joblib_path"),
+            "Missing io.input_dataframe_joblib_path",
+        ),
+    ],
+)
+def test_predict_rejects_invalid_prediction_yaml(tmp_path: Path, mutate, error: str):
+    config_path = tmp_path / "predict.yaml"
+    config = _valid_prediction_config(tmp_path)
+    mutate(config)
+    config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+
+    with pytest.raises(ValueError, match=error):
+        main(["predict", "--config", str(config_path)])
+
+
+def test_predict_rejects_non_mapping_yaml(tmp_path: Path):
+    config_path = tmp_path / "predict.yaml"
+    config_path.write_text("- not\n- a\n- mapping\n", encoding="utf-8")
+
+    with pytest.raises(TypeError, match="Prediction config must be a mapping"):
+        main(["predict", "--config", str(config_path)])
+
+
+def test_predict_rejects_invalid_h5_prediction_yaml(tmp_path: Path):
+    config_path = tmp_path / "predict.yaml"
+    config = _valid_prediction_config(tmp_path, input_h5=True)
+    config.pop("container")
+    config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Missing container section"):
+        main(["predict", "--config", str(config_path)])
+
+
+def test_predict_rejects_invalid_preprocessing_override_yaml(tmp_path: Path):
+    config_path = tmp_path / "predict.yaml"
+    config = _valid_prediction_config(tmp_path, input_h5=True)
+    config["preprocessing"] = {}
+    config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Missing preprocessing.config_path"):
+        main(["predict", "--config", str(config_path)])
+
+
+def test_predict_target_side_controls_profile_score(tmp_path: Path):
+    training_dataframe_path = tmp_path / "training_preprocessed.joblib"
+    prediction_dataframe_path = tmp_path / "prediction_preprocessed.joblib"
+    model_path = tmp_path / "model.joblib"
+    training_config_path = tmp_path / "train.yaml"
+    left_config_path = tmp_path / "predict_left.yaml"
+    right_config_path = tmp_path / "predict_right.yaml"
+    left_json_path = tmp_path / "left.json"
+    left_yaml_path = tmp_path / "left.yaml"
+    right_json_path = tmp_path / "right.json"
+    right_yaml_path = tmp_path / "right.yaml"
+    q = np.linspace(2.0, 23.0, 100)
+    rows = []
+    for side, shift in (("Left", 1.2), ("Right", -1.2)):
+        for measurement_idx in range(3):
+            rows.append(
+                {
+                    "patientId": "PX_TARGET",
+                    "specimenId": f"PX_TARGET_{side}",
+                    "measurementId": f"PX_TARGET_{side}_{measurement_idx}",
+                    "side": side,
+                    "product_status_group": "BENIGN",
+                    "radial_profile_data": shift + np.sin(q / 3.0),
+                    "q_range": q,
+                    "age": 55,
+                    "biopsy": side == "Left",
+                }
+            )
+
+    save_preprocessing_artifact(
+        _patient_frame(),
+        training_dataframe_path,
+        preprocessing_config={"aramis_preprocessing": {"branch": "one_to_many"}},
+        preprocessing_config_text="aramis_preprocessing:\n  branch: one_to_many\n",
+        metadata={"branch": "one_to_many"},
+    )
+    save_preprocessing_artifact(
+        pd.DataFrame(rows),
+        prediction_dataframe_path,
+        preprocessing_config={"aramis_preprocessing": {"branch": "one_to_many"}},
+        preprocessing_config_text="aramis_preprocessing:\n  branch: one_to_many\n",
+        metadata={"branch": "one_to_many"},
+    )
+    training_config_path.write_text(
+        yaml.safe_dump(
+            _training_config(
+                training_dataframe_path,
+                model_path,
+                selected_models=["M0"],
+            )
+        ),
+        encoding="utf-8",
+    )
+    left_config = _prediction_config(
+        prediction_dataframe_path,
+        model_path,
+        left_json_path,
+        left_yaml_path,
+    )
+    left_config["patient"] = {"patient_id": "PX_TARGET", "target_side": "Left"}
+    left_config["model"]["selected_model"] = "M0"
+    right_config = _prediction_config(
+        prediction_dataframe_path,
+        model_path,
+        right_json_path,
+        right_yaml_path,
+    )
+    right_config["patient"] = {"patient_id": "PX_TARGET", "target_side": "Right"}
+    right_config["model"]["selected_model"] = "M0"
+    left_config_path.write_text(yaml.safe_dump(left_config), encoding="utf-8")
+    right_config_path.write_text(yaml.safe_dump(right_config), encoding="utf-8")
+
+    assert main(["train", "--config", str(training_config_path)]) == 0
+    assert main(["predict", "--config", str(left_config_path)]) == 0
+    assert main(["predict", "--config", str(right_config_path)]) == 0
+    left_report = yaml.safe_load(left_yaml_path.read_text(encoding="utf-8"))
+    right_report = yaml.safe_load(right_yaml_path.read_text(encoding="utf-8"))
+
+    assert left_report["target_side"] == "Left"
+    assert right_report["target_side"] == "Right"
+    assert left_report["p_cancer"] > right_report["p_cancer"]
+
+
 def test_predict_cli_can_preprocess_one_patient_h5_before_scoring(tmp_path: Path):
     h5_path = tmp_path / "patient.h5"
     training_dataframe_path = tmp_path / "training_preprocessed.joblib"
@@ -229,30 +426,15 @@ def test_predict_cli_can_preprocess_one_patient_h5_before_scoring(tmp_path: Path
     output_json_path = tmp_path / "report.json"
     output_yaml_path = tmp_path / "report.yaml"
 
-    write_known_synthetic_h5(h5_path)
-    preprocessing_config = load_preprocessing_config(
-        Path(__file__).parents[1]
-        / "config"
-        / "preprocessing"
-        / "aramis_prediction_patient_model_input_v0_1.yaml"
+    write_v0_3_one_patient_h5(
+        h5_path,
+        patient_id="P1",
+        left_status="BENIGN",
+        right_status="CANCER",
+        target_side="Left",
+        seed=20,
     )
-    preprocessing_config["raw_data"]["source"] = "npy"
-    preprocessing_config["raw_data"]["allowed_sources"] = ["gfrm", "npy"]
-    preprocessing_config["raw_data"]["h5_dataset_candidates"]["npy"] = ["processed/data"]
-    preprocessing_config["pipeline"]["steps"][0] = {
-        "name": "h5_blob_to_df",
-        "transformer": "H5BlobDataFrameTransformer",
-        "params": {
-            "source": {"$ref": "raw_data.source"},
-            "dataset_candidates": {"$ref": "raw_data.h5_dataset_candidates.npy"},
-        },
-    }
-    preprocessing_config["snr"]["min_snr_db"] = -100.0
-    preprocessing_config["profile_gate"]["min_value"] = -1_000_000.0
-    preprocessing_config_path.write_text(
-        yaml.safe_dump(preprocessing_config),
-        encoding="utf-8",
-    )
+    _v0_3_prediction_preprocessing_config(preprocessing_config_path)
 
     save_preprocessing_artifact(
         _patient_frame(),
@@ -271,6 +453,69 @@ def test_predict_cli_can_preprocess_one_patient_h5_before_scoring(tmp_path: Path
         ),
         encoding="utf-8",
     )
+    prediction_config = _h5_prediction_config(
+        h5_path,
+        prediction_dataframe_path,
+        model_path,
+        output_json_path,
+        output_yaml_path,
+    )
+    prediction_config["preprocessing"] = {"config_path": str(preprocessing_config_path)}
+    prediction_config_path.write_text(yaml.safe_dump(prediction_config), encoding="utf-8")
+
+    assert main(["train", "--config", str(training_config_path)]) == 0
+    assert main(["predict", "--config", str(prediction_config_path)]) == 0
+    report = yaml.safe_load(output_yaml_path.read_text(encoding="utf-8"))
+
+    assert prediction_dataframe_path.exists()
+    assert report["patient_id"] == "P1"
+    assert report["target_side"] == "Left"
+    assert "input_h5_sha256" in report["provenance"]
+    assert report["provenance"]["prediction_preprocessing_config_path"]
+    assert report["provenance"]["prediction_preprocessing_config_sha256"]
+
+
+def test_predict_rejects_h5_without_embedded_prediction_preprocessing(tmp_path: Path):
+    h5_path = tmp_path / "patient.h5"
+    training_dataframe_path = tmp_path / "training_preprocessed.joblib"
+    prediction_dataframe_path = tmp_path / "prediction_preprocessed.joblib"
+    model_path = tmp_path / "model.joblib"
+    training_config_path = tmp_path / "train.yaml"
+    prediction_config_path = tmp_path / "predict_from_h5.yaml"
+    preprocessing_config_path = tmp_path / "prediction_preprocessing.yaml"
+    output_json_path = tmp_path / "report.json"
+    output_yaml_path = tmp_path / "report.yaml"
+
+    write_v0_3_one_patient_h5(
+        h5_path,
+        patient_id="P1",
+        left_status="BENIGN",
+        right_status="CANCER",
+        target_side="Left",
+        seed=30,
+    )
+    _v0_3_prediction_preprocessing_config(preprocessing_config_path)
+    save_preprocessing_artifact(
+        _patient_frame(),
+        training_dataframe_path,
+        preprocessing_config={"aramis_preprocessing": {"branch": "one_to_many"}},
+        preprocessing_config_text="aramis_preprocessing:\n  branch: one_to_many\n",
+        metadata={"branch": "one_to_many"},
+    )
+    training_config_path.write_text(
+        yaml.safe_dump(
+            _training_config(
+                training_dataframe_path,
+                model_path,
+                preprocessing_config_path,
+            )
+        ),
+        encoding="utf-8",
+    )
+    assert main(["train", "--config", str(training_config_path)]) == 0
+    artifact = joblib.load(model_path)
+    artifact["prediction_preprocessing_config"] = None
+    joblib.dump(artifact, model_path)
     prediction_config_path.write_text(
         yaml.safe_dump(
             _h5_prediction_config(
@@ -284,12 +529,372 @@ def test_predict_cli_can_preprocess_one_patient_h5_before_scoring(tmp_path: Path
         encoding="utf-8",
     )
 
-    assert main(["train", "--config", str(training_config_path)]) == 0
-    assert main(["predict", "--config", str(prediction_config_path)]) == 0
-    report = yaml.safe_load(output_yaml_path.read_text(encoding="utf-8"))
+    with pytest.raises(ValueError, match="no prediction_preprocessing_config"):
+        main(["predict", "--config", str(prediction_config_path)])
 
-    assert prediction_dataframe_path.exists()
-    assert report["patient_id"] == "P1"
-    assert report["target_side"] == "Left"
-    assert "input_h5_sha256" in report["provenance"]
-    assert report["provenance"]["prediction_preprocessing_config_sha256"]
+
+def test_predict_cli_can_score_three_v0_3_one_patient_h5_containers(tmp_path: Path):
+    training_dataframe_path = tmp_path / "training_preprocessed.joblib"
+    model_path = tmp_path / "model.joblib"
+    training_config_path = tmp_path / "train.yaml"
+    preprocessing_config_path = tmp_path / "prediction_preprocessing_v0_3.yaml"
+    _v0_3_prediction_preprocessing_config(preprocessing_config_path)
+
+    save_preprocessing_artifact(
+        _patient_frame(),
+        training_dataframe_path,
+        preprocessing_config={"aramis_preprocessing": {"branch": "one_to_many"}},
+        preprocessing_config_text="aramis_preprocessing:\n  branch: one_to_many\n",
+        metadata={"branch": "one_to_many"},
+    )
+    training_config_path.write_text(
+        yaml.safe_dump(
+            _training_config(
+                training_dataframe_path,
+                model_path,
+                preprocessing_config_path,
+            )
+        ),
+        encoding="utf-8",
+    )
+    assert main(["train", "--config", str(training_config_path)]) == 0
+
+    patients = [
+        ("PX01", "BENIGN", "BENIGN", "Left"),
+        ("PX02", "CANCER", "BENIGN", "Left"),
+        ("PX03", "BENIGN", "CANCER", "Right"),
+    ]
+    reports = []
+    for index, (patient_id, left_status, right_status, target_side) in enumerate(
+        patients,
+        start=1,
+    ):
+        h5_path = tmp_path / f"{patient_id}.h5"
+        dataframe_path = tmp_path / f"{patient_id}_preprocessed.joblib"
+        prediction_config_path = tmp_path / f"{patient_id}_predict.yaml"
+        output_json_path = tmp_path / f"{patient_id}_report.json"
+        output_yaml_path = tmp_path / f"{patient_id}_report.yaml"
+        write_v0_3_one_patient_h5(
+            h5_path,
+            patient_id=patient_id,
+            left_status=left_status,
+            right_status=right_status,
+            target_side=target_side,
+            seed=100 + index,
+        )
+        prediction_config_path.write_text(
+            yaml.safe_dump(
+                _h5_prediction_config(
+                    h5_path,
+                    dataframe_path,
+                    model_path,
+                    output_json_path,
+                    output_yaml_path,
+                    patient_id=patient_id,
+                    target_side=target_side,
+                )
+            ),
+            encoding="utf-8",
+        )
+
+        assert main(["predict", "--config", str(prediction_config_path)]) == 0
+        report = yaml.safe_load(output_yaml_path.read_text(encoding="utf-8"))
+        prediction_artifact = joblib.load(dataframe_path)
+        prediction_df = prediction_artifact["dataframe"]
+        reports.append(report)
+
+        assert prediction_df["patientId"].nunique() == 1
+        assert prediction_df["patientId"].iloc[0] == patient_id
+        assert prediction_df["specimenId"].nunique() == 2
+        assert len(prediction_df) == 6
+        assert set(prediction_df["side"]) == {"Left", "Right"}
+        assert set(prediction_df["measurement_data_source"]) == {"container_raw_data"}
+        assert report["patient_id"] == patient_id
+        assert report["target_side"] == target_side
+        assert report["model_id"] == "test_predict_train"
+        assert report["model_name"] == "M1Q"
+        assert report["provenance"]["input_h5_sha256"]
+        assert report["provenance"]["prediction_preprocessing_config_sha256"]
+
+    assert {report["patient_id"] for report in reports} == {"PX01", "PX02", "PX03"}
+
+
+def test_predict_rejects_h5_patient_id_mismatch(tmp_path: Path):
+    h5_path = tmp_path / "patient.h5"
+    dataframe_path = tmp_path / "prediction_preprocessed.joblib"
+    model_path = tmp_path / "model.joblib"
+    training_dataframe_path = tmp_path / "training_preprocessed.joblib"
+    training_config_path = tmp_path / "train.yaml"
+    prediction_config_path = tmp_path / "predict.yaml"
+    preprocessing_config_path = tmp_path / "prediction_preprocessing_v0_3.yaml"
+    output_json_path = tmp_path / "report.json"
+    output_yaml_path = tmp_path / "report.yaml"
+
+    write_v0_3_one_patient_h5(
+        h5_path,
+        patient_id="PX_REAL",
+        left_status="BENIGN",
+        right_status="CANCER",
+        target_side="Left",
+        seed=150,
+    )
+    _v0_3_prediction_preprocessing_config(preprocessing_config_path)
+    save_preprocessing_artifact(
+        _patient_frame(),
+        training_dataframe_path,
+        preprocessing_config={"aramis_preprocessing": {"branch": "one_to_many"}},
+        preprocessing_config_text="aramis_preprocessing:\n  branch: one_to_many\n",
+        metadata={"branch": "one_to_many"},
+    )
+    training_config_path.write_text(
+        yaml.safe_dump(
+            _training_config(
+                training_dataframe_path,
+                model_path,
+                preprocessing_config_path,
+            )
+        ),
+        encoding="utf-8",
+    )
+    assert main(["train", "--config", str(training_config_path)]) == 0
+    prediction_config_path.write_text(
+        yaml.safe_dump(
+            _h5_prediction_config(
+                h5_path,
+                dataframe_path,
+                model_path,
+                output_json_path,
+                output_yaml_path,
+                patient_id="PX_WRONG",
+                target_side="Left",
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="patient_id does not match"):
+        main(["predict", "--config", str(prediction_config_path)])
+
+
+def test_predict_rejects_h5_format_mismatch(tmp_path: Path):
+    h5_path = tmp_path / "patient.h5"
+    dataframe_path = tmp_path / "prediction_preprocessed.joblib"
+    model_path = tmp_path / "model.joblib"
+    training_dataframe_path = tmp_path / "training_preprocessed.joblib"
+    training_config_path = tmp_path / "train.yaml"
+    prediction_config_path = tmp_path / "predict.yaml"
+    preprocessing_config_path = tmp_path / "prediction_preprocessing_v0_3.yaml"
+    output_json_path = tmp_path / "report.json"
+    output_yaml_path = tmp_path / "report.yaml"
+
+    write_v0_3_one_patient_h5(
+        h5_path,
+        patient_id="PX_FMT",
+        left_status="BENIGN",
+        right_status="CANCER",
+        target_side="Left",
+        seed=151,
+    )
+    _v0_3_prediction_preprocessing_config(preprocessing_config_path)
+    save_preprocessing_artifact(
+        _patient_frame(),
+        training_dataframe_path,
+        preprocessing_config={"aramis_preprocessing": {"branch": "one_to_many"}},
+        preprocessing_config_text="aramis_preprocessing:\n  branch: one_to_many\n",
+        metadata={"branch": "one_to_many"},
+    )
+    training_config_path.write_text(
+        yaml.safe_dump(
+            _training_config(
+                training_dataframe_path,
+                model_path,
+                preprocessing_config_path,
+            )
+        ),
+        encoding="utf-8",
+    )
+    assert main(["train", "--config", str(training_config_path)]) == 0
+    config = _h5_prediction_config(
+        h5_path,
+        dataframe_path,
+        model_path,
+        output_json_path,
+        output_yaml_path,
+        patient_id="PX_FMT",
+        target_side="Left",
+    )
+    config["container"]["format"] = "wrong-format"
+    prediction_config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="format does not match"):
+        main(["predict", "--config", str(prediction_config_path)])
+
+
+def test_predict_rejects_unsupported_h5_schema_version(tmp_path: Path):
+    h5_path = tmp_path / "patient.h5"
+    dataframe_path = tmp_path / "prediction_preprocessed.joblib"
+    model_path = tmp_path / "model.joblib"
+    training_dataframe_path = tmp_path / "training_preprocessed.joblib"
+    training_config_path = tmp_path / "train.yaml"
+    prediction_config_path = tmp_path / "predict.yaml"
+    preprocessing_config_path = tmp_path / "prediction_preprocessing_v0_3.yaml"
+    output_json_path = tmp_path / "report.json"
+    output_yaml_path = tmp_path / "report.yaml"
+
+    write_v0_3_one_patient_h5(
+        h5_path,
+        patient_id="PX_SCHEMA",
+        left_status="BENIGN",
+        right_status="CANCER",
+        target_side="Left",
+        seed=152,
+    )
+    with h5py.File(h5_path, "a") as h5:
+        h5.attrs["schema_version"] = "0.4"
+    _v0_3_prediction_preprocessing_config(preprocessing_config_path)
+    save_preprocessing_artifact(
+        _patient_frame(),
+        training_dataframe_path,
+        preprocessing_config={"aramis_preprocessing": {"branch": "one_to_many"}},
+        preprocessing_config_text="aramis_preprocessing:\n  branch: one_to_many\n",
+        metadata={"branch": "one_to_many"},
+    )
+    training_config_path.write_text(
+        yaml.safe_dump(
+            _training_config(
+                training_dataframe_path,
+                model_path,
+                preprocessing_config_path,
+            )
+        ),
+        encoding="utf-8",
+    )
+    assert main(["train", "--config", str(training_config_path)]) == 0
+    config = _h5_prediction_config(
+        h5_path,
+        dataframe_path,
+        model_path,
+        output_json_path,
+        output_yaml_path,
+        patient_id="PX_SCHEMA",
+        target_side="Left",
+    )
+    config["container"]["schema_version"] = "0.4"
+    prediction_config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Unsupported prediction H5 schema_version"):
+        main(["predict", "--config", str(prediction_config_path)])
+
+
+def test_predict_rejects_h5_schema_version_mismatch(tmp_path: Path):
+    h5_path = tmp_path / "patient.h5"
+    dataframe_path = tmp_path / "prediction_preprocessed.joblib"
+    model_path = tmp_path / "model.joblib"
+    training_dataframe_path = tmp_path / "training_preprocessed.joblib"
+    training_config_path = tmp_path / "train.yaml"
+    prediction_config_path = tmp_path / "predict.yaml"
+    preprocessing_config_path = tmp_path / "prediction_preprocessing_v0_3.yaml"
+    output_json_path = tmp_path / "report.json"
+    output_yaml_path = tmp_path / "report.yaml"
+
+    write_v0_3_one_patient_h5(
+        h5_path,
+        patient_id="PX99",
+        left_status="BENIGN",
+        right_status="CANCER",
+        target_side="Left",
+        seed=199,
+    )
+    _v0_3_prediction_preprocessing_config(preprocessing_config_path)
+    save_preprocessing_artifact(
+        _patient_frame(),
+        training_dataframe_path,
+        preprocessing_config={"aramis_preprocessing": {"branch": "one_to_many"}},
+        preprocessing_config_text="aramis_preprocessing:\n  branch: one_to_many\n",
+        metadata={"branch": "one_to_many"},
+    )
+    training_config_path.write_text(
+        yaml.safe_dump(
+            _training_config(
+                training_dataframe_path,
+                model_path,
+                preprocessing_config_path,
+            )
+        ),
+        encoding="utf-8",
+    )
+    assert main(["train", "--config", str(training_config_path)]) == 0
+
+    config = _h5_prediction_config(
+        h5_path,
+        dataframe_path,
+        model_path,
+        output_json_path,
+        output_yaml_path,
+        patient_id="PX99",
+        target_side="Left",
+    )
+    config["container"]["schema_version"] = "0.2"
+    prediction_config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="schema_version does not match"):
+        main(["predict", "--config", str(prediction_config_path)])
+
+
+def test_predict_rejects_more_than_one_patient_in_h5(tmp_path: Path):
+    h5_path = tmp_path / "two_patients.h5"
+    dataframe_path = tmp_path / "prediction_preprocessed.joblib"
+    model_path = tmp_path / "model.joblib"
+    training_dataframe_path = tmp_path / "training_preprocessed.joblib"
+    training_config_path = tmp_path / "train.yaml"
+    prediction_config_path = tmp_path / "predict.yaml"
+    preprocessing_config_path = tmp_path / "prediction_preprocessing_v0_3.yaml"
+    output_json_path = tmp_path / "report.json"
+    output_yaml_path = tmp_path / "report.yaml"
+
+    write_v0_3_one_patient_h5(
+        h5_path,
+        patient_id="PX98",
+        left_status="BENIGN",
+        right_status="CANCER",
+        target_side="Left",
+        seed=198,
+    )
+    with h5py.File(h5_path, "a") as h5:
+        h5["session/sets/set_006_sample_main"].attrs["patientId"] = "PX_OTHER"
+    _v0_3_prediction_preprocessing_config(preprocessing_config_path)
+    save_preprocessing_artifact(
+        _patient_frame(),
+        training_dataframe_path,
+        preprocessing_config={"aramis_preprocessing": {"branch": "one_to_many"}},
+        preprocessing_config_text="aramis_preprocessing:\n  branch: one_to_many\n",
+        metadata={"branch": "one_to_many"},
+    )
+    training_config_path.write_text(
+        yaml.safe_dump(
+            _training_config(
+                training_dataframe_path,
+                model_path,
+                preprocessing_config_path,
+            )
+        ),
+        encoding="utf-8",
+    )
+    assert main(["train", "--config", str(training_config_path)]) == 0
+    prediction_config_path.write_text(
+        yaml.safe_dump(
+            _h5_prediction_config(
+                h5_path,
+                dataframe_path,
+                model_path,
+                output_json_path,
+                output_yaml_path,
+                patient_id="PX98",
+                target_side="Left",
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="requires exactly one patient"):
+        main(["predict", "--config", str(prediction_config_path)])

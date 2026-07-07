@@ -13,11 +13,10 @@ config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
 examples/outputs/model_input/aramis_biopsy_patients_model_input_v0_1.joblib
 ```
 
-Training configs point to this artifact, for example:
+Primary training config points to this artifact:
 
 ```text
-config/training/aramis_biopsy_patients_m0_m1_m2_v0_1.yaml
-config/training/aramis_v0_1_beta_primary_train.yaml
+config/training/aramis_m1q_t100_primary_train_v0_1.yaml
 ```
 
 Current counts:
@@ -180,41 +179,19 @@ sample_thickness_mm
 
 Other columns are metadata, provenance, or quality-control context.
 
-## Archived Wide-Pool Audit Cohort
-
-For patient-pair inventory and sanity checks, a separate wide cleaned artifact
-was used during the experimental phase:
-
-```text
-experiment/aramis-v0.1-research-state
-```
-
-The biopsy-patient subset derived from that wide pool has:
-
-| item | count |
-|---|---:|
-| measurement rows | 893 |
-| patients | 164 |
-| specimens / breasts | 314 |
-| patients with two breasts | 150 |
-| patients with one breast | 14 |
-
-This wide-pool subset was useful for auditing breast-pair composition. It is not
-the artifact used by the current training YAMLs. If we decide that this
-wide-derived cohort is the canonical model cohort, preprocessing YAMLs and the
-model grid must be updated and rerun.
-
 ## Current Modeling Decision
 
 Current model-development default:
 
 ```text
 primary cohort: aramis_biopsy_patients_model_input_v0_1.joblib
-patients: 180
+patients: 164
+specimens / breasts: 314
+measurement rows: 893
 endpoint: BENIGN vs CANCER decision-support p_cancer
 row unit: measurement
 grouping unit: patientId
-decision-support level under discussion: target breast / patient workflow
+decision-support level: target breast with patient-level symmetry context
 status: research draft, requires radiologist review
 ```
 

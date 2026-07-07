@@ -1,0 +1,31 @@
+prediction:
+  name: aramis_predict_benign_example
+  version: 0.1
+  clinical_stage: research draft
+  intended_use: decision-support p_cancer research draft; requires radiologist review
+
+io:
+  input_h5_path: benign_one_patient.h5
+  output_dataframe_joblib_path: ../outputs/prediction_h5_examples/benign_prediction_df.joblib
+  input_model_joblib_path: ../outputs/training/aramis_m1q_t100_train_all_c0p1.joblib
+  output_json_path: ../outputs/prediction_h5_examples/benign_report.json
+  output_yaml_path: ../outputs/prediction_h5_examples/benign_report.yaml
+
+preprocessing:
+  config_path: aramis_prediction_patient_raw_h5_example_v0_1.yaml
+
+container:
+  schema_version: "0.3"
+  format: xrd-session
+  max_patients: 1
+
+patient:
+  patient_id: PRED_BENIGN
+  target_side: Left
+
+model:
+  model_id: aramis_m1q_t100_train_all_c0p1
+  selected_model: M1Q
+
+decision:
+  threshold_key: threshold_target

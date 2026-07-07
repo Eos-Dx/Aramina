@@ -29,12 +29,9 @@ from .modeling import (
     summarize_one_to_many_product_results,
 )
 from .pipelines import (
-    AramisOneToManyPreprocessingPipeline,
-    AramisOneToOnePreprocessingPipeline,
     AramisPreprocessingPipeline,
+    run_preprocessing_pipeline,
     run_preprocessing_from_config,
-    run_one_to_many_preprocessing_pipeline,
-    run_one_to_one_preprocessing_pipeline,
 )
 from .prediction import run_prediction_from_config
 from .training import (
@@ -44,14 +41,11 @@ from .training import (
     PatientModelSetTrainer,
     build_patient_training_pipeline,
     run_training_from_config,
-    train_one_to_many_model_artifact,
 )
 from .workflows import run_workflow_from_config
 
 __all__ = [
     "DEFAULT_EXPERIMENT_NAME",
-    "AramisOneToManyPreprocessingPipeline",
-    "AramisOneToOnePreprocessingPipeline",
     "AramisPatientTrainingPipeline",
     "AramisPreprocessingPipeline",
     "FusionModelComparisonResult",
@@ -78,14 +72,12 @@ __all__ = [
     "log_product_run",
     "model_matrix",
     "profile_matrix",
+    "run_preprocessing_pipeline",
     "run_preprocessing_from_config",
-    "run_one_to_many_preprocessing_pipeline",
-    "run_one_to_one_preprocessing_pipeline",
     "run_prediction_from_config",
     "run_training_from_config",
     "run_workflow_from_config",
     "summarize_one_to_many_datasets",
     "summarize_one_to_many_dataframe",
     "summarize_one_to_many_product_results",
-    "train_one_to_many_model_artifact",
 ]

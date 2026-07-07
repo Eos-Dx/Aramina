@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "aramis"
-version = "0.1.3b0"
+version = "0.1.4b0"
 description = "Aramis cancer-classification product draft."
 readme = "README.md"
 requires-python = ">=3.13,<3.14"

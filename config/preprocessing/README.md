@@ -2,11 +2,13 @@
 
 Status: research draft.
 
-Runnable root YAMLs extend shared fragments from this folder. Aramis passes the
-resolved YAML to `xrd_preprocessing`, which builds the sklearn-style transformer
-pipeline and writes a preprocessing artifact joblib.
+Aramis preprocessing is YAML-governed. Aramis loads a concrete YAML, resolves
+its shared fragments through `xrd_preprocessing.load_preprocessing_config(...)`,
+builds the sklearn-style transformer route with
+`xrd_preprocessing.build_pipeline_from_config(...)`, and writes a DataFrame
+joblib artifact.
 
-Product-clean model-input configs:
+## Runnable Product Configs
 
 ```text
 aramis_all_patients_model_input_v0_1.yaml
@@ -14,60 +16,63 @@ aramis_biopsy_patients_model_input_v0_1.yaml
 aramis_prediction_patient_model_input_v0_1.yaml
 ```
 
-Current primary training data uses:
+`aramis_biopsy_patients_model_input_v0_1.yaml` is the current primary
+development training dataset config. It keeps patients with at least one biopsy
+row, keeps contralateral rows for symmetry features, maps NORMAL to BENIGN,
+applies AgBH T100 monochromaticity exclusions, and outputs model/audit columns.
 
-```text
-aramis_biopsy_patients_model_input_v0_1.yaml
-```
+`aramis_all_patients_model_input_v0_1.yaml` is the broader comparison dataset.
+It keeps all labelled patients, maps NORMAL to BENIGN, applies the same T100
+quality exclusions, and writes the same model-input schema.
 
-It keeps patients with at least one biopsy row, includes contralateral breast
-rows for same-patient symmetry features, maps NORMAL to BENIGN, applies AgBH
-T100 monochromaticity exclusions, and outputs only model/audit columns.
+`aramis_prediction_patient_model_input_v0_1.yaml` is stored inside trained model
+joblibs and is used by `aramis predict`. It has no historical date, diagnosis,
+biopsy, or AgBH cohort filters. The predict YAML supplies the incoming one-
+patient H5 path, target side, model id, and report outputs.
 
-Prediction uses:
-
-```text
-aramis_prediction_patient_model_input_v0_1.yaml
-```
-
-This config is stored inside trained model joblibs. `aramis predict` loads it
-from the model artifact, injects the incoming patient H5 path and output path,
-then runs the same preprocessing lineage needed by the model.
-
-Legacy notebook/dataframe examples kept for inspection:
-
-```text
-aramis_one_to_one_max_v0_1.yaml
-aramis_one_to_one_min_v0_1.yaml
-aramis_one_to_one_biopsy_max_v0_1.yaml
-aramis_one_to_one_biopsy_min_v0_1.yaml
-aramis_one_to_many_max_v0_1.yaml
-aramis_one_to_many_min_v0_1.yaml
-aramis_one_to_many_biopsy_max_v0_1.yaml
-aramis_one_to_many_biopsy_min_v0_1.yaml
-```
-
-Shared fragments:
+## Shared Fragments
 
 ```text
 shared/aramis_policy_v0_1.yaml
 shared/aramis_pipeline_v0_1.yaml
-outputs/max_output_v0_1.yaml
-outputs/min_output_v0_1.yaml
+branches/one_to_many_all_patients_normal_as_benign_v0_1.yaml
+branches/one_to_many_biopsy_patients_normal_as_benign_v0_1.yaml
+branches/prediction_patient_v0_1.yaml
 outputs/model_input_output_v0_1.yaml
 outputs/prediction_model_input_output_v0_1.yaml
-branches/*.yaml
-exclusions/agbh_quality_exclusions_v0_1.yaml
 exclusions/agbh_quality_exclusions_t100_v0_1.yaml
-exclusions/agbh_quality_exclusions_t130_v0_1.yaml
 ```
 
 T100 is the current development default. It is a middle-ground
 monochromaticity threshold: stricter than T130, less data-hungry than T70, and
 keeps enough biopsy-patient cases for patient-safe model selection.
 
-Experimental threshold grids and old FDA-like cohorts are archived on branch:
+## Commands
+
+```bash
+python -m aramis preprocess --config config/preprocessing/aramis_all_patients_model_input_v0_1.yaml
+python -m aramis preprocess --config config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
+```
+
+Prediction preprocessing is normally not run directly. It is embedded in the
+trained model joblib and invoked by:
+
+```bash
+python -m aramis predict --config config/prediction/aramis_predict_from_h5_template_v0_1.yaml
+```
+
+## Output Artifacts
+
+Preprocessing joblibs contain:
 
 ```text
-experiment/aramis-v0.1-research-state
+dataframe
+resolved preprocessing YAML
+original YAML text
+preprocessing_config_sha256
+input_h5_sha256
+Aramis version / git SHA
+branch metadata
 ```
+
+These are data-preparation artifacts, not trained classifiers.

@@ -36,11 +36,7 @@ from xrd_preprocessing import (
 from .modeling import (
     LABEL_MAP,
     compute_binary_thresholds,
-    fit_repeated_one_to_many_product_logistic,
-    model_matrix,
     profile_matrix,
-    summarize_one_to_many_dataframe,
-    summarize_one_to_many_product_results,
 )
 
 
@@ -396,25 +392,17 @@ def run_training_from_config(
     if preprocessing_artifact is None:
         preprocessing_artifact = load_preprocessing_artifact(input_path)
 
-    model_type = str(config.get("model", {}).get("type", "logistic_regression"))
-    if model_type == "patient_m0_m1_m2_logistic_set":
-        artifact = train_patient_m0_m1_m2_model_artifact(
-            df,
-            config=config,
-            config_text=config_text,
-            input_dataframe_joblib_path=input_path,
-            preprocessing_artifact=preprocessing_artifact,
-            prediction_preprocessing=prediction_preprocessing,
-        )
-    else:
-        artifact = train_one_to_many_model_artifact(
-            df,
-            config=config,
-            config_text=config_text,
-            input_dataframe_joblib_path=input_path,
-            preprocessing_artifact=preprocessing_artifact,
-            prediction_preprocessing=prediction_preprocessing,
-        )
+    model_type = str(config.get("model", {}).get("type", "patient_m0_m1_m2_logistic_set"))
+    if model_type != "patient_m0_m1_m2_logistic_set":
+        raise ValueError(f"Unsupported training model.type: {model_type!r}")
+    artifact = train_patient_m0_m1_m2_model_artifact(
+        df,
+        config=config,
+        config_text=config_text,
+        input_dataframe_joblib_path=input_path,
+        preprocessing_artifact=preprocessing_artifact,
+        prediction_preprocessing=prediction_preprocessing,
+    )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(artifact, output_path)
     if output_json_path is not None:
@@ -422,81 +410,6 @@ def run_training_from_config(
     if output_yaml_path is not None:
         _write_yaml_description(artifact, output_yaml_path)
     return artifact
-
-
-def train_one_to_many_model_artifact(
-    df: pd.DataFrame,
-    *,
-    config: dict[str, Any],
-    config_text: str,
-    input_dataframe_joblib_path: str | Path,
-    preprocessing_artifact: dict[str, Any],
-    prediction_preprocessing: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    """Train one-to-many LogisticRegression and return a model artifact."""
-    model_config = config.get("model", {})
-    evaluation_config = config.get("evaluation", {})
-    profile_column = str(model_config.get("profile_column", "radial_profile_data"))
-    label_column = str(model_config.get("label_column", "product_status_group"))
-    group_column = str(model_config.get("group_column", "patientId"))
-    specimen_column = str(model_config.get("specimen_column", "specimenId"))
-    extra_feature_columns = list(model_config.get("extra_feature_columns", []))
-    logreg_c = float(model_config.get("logreg_c", 1.0))
-    random_state = int(evaluation_config.get("random_state", 42))
-
-    result = fit_repeated_one_to_many_product_logistic(
-        df,
-        n_splits=int(evaluation_config.get("n_splits", 20)),
-        test_size=float(evaluation_config.get("test_size", 0.30)),
-        random_state=random_state,
-        profile_column=profile_column,
-        label_column=label_column,
-        group_column=group_column,
-        specimen_column=specimen_column,
-        logreg_c=logreg_c,
-        extra_feature_columns=extra_feature_columns,
-        inner_splits=int(evaluation_config.get("inner_splits", 5)),
-        target_sensitivity=float(evaluation_config.get("target_sensitivity", 0.95)),
-        aggregation=str(evaluation_config.get("aggregation", "mean")),
-    )
-    model = _fit_final_logistic_model(
-        df,
-        profile_column=profile_column,
-        label_column=label_column,
-        extra_feature_columns=extra_feature_columns,
-        logreg_c=logreg_c,
-        random_state=random_state,
-    )
-    metric_summary = summarize_one_to_many_product_results({"train": result})
-    dataset_summary = summarize_one_to_many_dataframe(df)
-    thresholds = _median_thresholds(result.threshold_summary)
-
-    return {
-        "kind": "aramis_training_artifact",
-        "version": "0.1",
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "model": model,
-        "model_type": "one_to_many_logistic_regression",
-        "thresholds": thresholds,
-        "training_config": config,
-        "training_config_yaml": config_text,
-        "training_config_text": config_text,
-        "training_config_sha256": sha256(config_text.encode("utf-8")).hexdigest(),
-        **_preprocessing_lineage_fields(
-            preprocessing_artifact,
-            prediction_preprocessing,
-        ),
-        "input_dataframe_joblib_sha256": _file_sha256(input_dataframe_joblib_path),
-        "dataset_summary": dataset_summary,
-        "metric_summary": metric_summary,
-        "split_metrics": result.split_metrics,
-        "threshold_summary": result.threshold_summary,
-        "metadata": {
-            "branch": "one_to_many",
-            "aramis_version": _aramis_version(),
-            "aramis_git_sha": _aramis_git_sha(),
-        },
-    }
 
 
 def train_patient_m0_m1_m2_model_artifact(
@@ -866,7 +779,7 @@ def _split_model_scores(
 def _selected_patient_models(model_config: dict[str, Any]) -> list[str]:
     selected = model_config.get(
         "selected_models",
-        ["M0", "M0Q", "M1", "M1Q", "M2", "M2Q"],
+        ["M1Q"],
     )
     if isinstance(selected, str):
         selected = [selected]
@@ -2101,45 +2014,6 @@ def _mean_finite(values: Sequence[float]) -> float:
     return float(np.mean(finite)) if finite else float("nan")
 
 
-def _fit_final_logistic_model(
-    df: pd.DataFrame,
-    *,
-    profile_column: str,
-    label_column: str,
-    extra_feature_columns: Sequence[str] | None,
-    logreg_c: float,
-    random_state: int,
-) -> Pipeline:
-    x = model_matrix(df, profile_column, extra_feature_columns)
-    y = df[label_column].map(LABEL_MAP).astype(int).to_numpy()
-    if len(np.unique(y)) != 2:
-        raise ValueError("Training DataFrame must contain BENIGN and CANCER.")
-    model = Pipeline(
-        steps=[
-            ("scaler", StandardScaler()),
-            (
-                "logreg",
-                LogisticRegression(
-                    C=float(logreg_c),
-                    class_weight="balanced",
-                    max_iter=5000,
-                    random_state=int(random_state),
-                    solver="lbfgs",
-                ),
-            ),
-        ]
-    )
-    model.fit(x, y)
-    return model
-
-
-def _median_thresholds(threshold_summary: pd.DataFrame) -> dict[str, float]:
-    return {
-        "threshold_youden": float(threshold_summary["threshold_youden"].median()),
-        "threshold_target": float(threshold_summary["threshold_target"].median()),
-    }
-
-
 def _prediction_preprocessing_payload(config_path: Path | None) -> dict[str, Any] | None:
     if config_path is None:
         return None
@@ -2195,13 +2069,21 @@ def _preprocessing_lineage_fields(
 def _validate_training_config(config: dict[str, Any], config_path: Path) -> None:
     if not isinstance(config, dict):
         raise TypeError(f"Training config must be a mapping: {config_path}")
-    missing = [section for section in ("training", "io", "model") if section not in config]
+    missing = [
+        section
+        for section in ("training", "io", "model", "evaluation")
+        if section not in config
+    ]
     if missing:
         raise ValueError(f"Missing training config sections: {missing}")
     if not config.get("io", {}).get("input_dataframe_joblib_path"):
         raise ValueError(f"Missing io.input_dataframe_joblib_path in {config_path}")
     if not config.get("io", {}).get("output_model_joblib_path"):
         raise ValueError(f"Missing io.output_model_joblib_path in {config_path}")
+    if not config.get("io", {}).get("prediction_preprocessing_config_path"):
+        raise ValueError(
+            f"Missing io.prediction_preprocessing_config_path in {config_path}"
+        )
 
 
 def _config_path(config: dict[str, Any], config_path: Path, key: str) -> Path:

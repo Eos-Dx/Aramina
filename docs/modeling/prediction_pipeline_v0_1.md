@@ -24,7 +24,45 @@ patient_id
 clinician-supplied target_side from predict YAML
 model_id
 selected_model
+container.schema_version
+container.format
+container.max_patients
 ```
+
+Expected H5 shape is EOS H5 v0.3:
+
+```text
+/
+  @format = xrd-session
+  @schema_version = 0.3
+  session/
+    @category = SAMPLE
+    @calibrant_thickness_mm
+    sample/patient_name
+    sets/set_*/
+      @patientId
+      @specimenId
+      @side
+      @position
+      @specimen_status
+      acquisition/sample_thickness
+      raw/data
+      artifacts/poni
+```
+
+For prediction tests, Aramis builds three one-patient v0.3 containers in
+`tests/test_prediction.py`. Each file contains one patient, left/right breast
+specimens, and three measurement sets per breast. The test then calls
+`python -m aramis predict --config <patient_predict.yaml>` for each H5.
+Prediction fails before preprocessing when the H5 root `@schema_version` or
+`@format` differs from the predict YAML, or when more than one patientId is
+present in `/session/sets/set_*`.
+
+Prediction tests also verify that `patient.patient_id` must match the H5
+patientId, `patient.target_side` controls which breast is scored by LR1, and
+H5 prediction requires the model artifact to carry
+`prediction_preprocessing_config` unless an explicit development override is
+provided in the predict YAML.
 
 The H5 is preprocessed by the same transformer lineage as training:
 

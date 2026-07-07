@@ -41,7 +41,7 @@ If git clone/update succeeds, installer uses pinned product refs:
 
 ```text
 XRD-preprocessing: v0.1.6-beta
-Aramis: 0.1.3-beta
+Aramis: 0.1.4-beta
 container: feat/v0_3-eoscan-session-container
 ```
 

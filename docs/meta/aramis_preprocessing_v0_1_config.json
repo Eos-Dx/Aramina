@@ -16,8 +16,8 @@
       "Aramis/examples/README.md"
     ],
     "used_by": [
-      "Aramis/examples/aramis_dataframe_one_to_one_v0_1.py",
-      "Aramis/examples/aramis_dataframe_one_to_many_v0_1.py",
+      "Aramis/examples/aramis_dataframe_all_patients_v0_1.py",
+      "Aramis/examples/aramis_dataframe_biopsy_patients_v0_1.py",
       "Aramis/packaging/eosproduct_bundle/scripts/run_aramis_notebooks.sh"
     ],
     "generation_summary": [

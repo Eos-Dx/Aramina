@@ -8,12 +8,8 @@ training, and prediction logic lives in `src/aramis` and `xrd_preprocessing`.
 Current notebooks:
 
 ```text
-aramis_dataframe_one_to_one_v0_1.py
-aramis_dataframe_one_to_many_v0_1.py
 aramis_dataframe_all_patients_v0_1.py
 aramis_dataframe_biopsy_patients_v0_1.py
-aramis_one_to_many_logistic_baseline_v0_1.py
-aramis_one_to_many_product_model_v0_1.py
 ```
 
 Helper file:
@@ -32,8 +28,7 @@ python -m aramis preprocess --config config/preprocessing/aramis_biopsy_patients
 Direct training:
 
 ```bash
-python -m aramis train --config config/training/aramis_v0_1_beta_primary_train.yaml
-python -m aramis train --config config/training/aramis_biopsy_patients_m0_m1_m2_v0_1.yaml
+python -m aramis train --config config/training/aramis_m1q_t100_primary_train_v0_1.yaml
 ```
 
 Preprocess + train workflow:
@@ -62,16 +57,6 @@ python -m marimo run examples/aramis_dataframe_all_patients_v0_1.py -- \
 
 python -m marimo run examples/aramis_dataframe_biopsy_patients_v0_1.py -- \
   --aramis-preprocessing-config-path config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
-```
-
-Run legacy branch-inspection notebooks:
-
-```bash
-python -m marimo run examples/aramis_dataframe_one_to_one_v0_1.py -- \
-  --aramis-preprocessing-config-path config/preprocessing/aramis_one_to_one_max_v0_1.yaml
-
-python -m marimo run examples/aramis_dataframe_one_to_many_v0_1.py -- \
-  --aramis-preprocessing-config-path config/preprocessing/aramis_one_to_many_max_v0_1.yaml
 ```
 
 Historical exploratory notebooks and threshold-grid scripts are archived on:
