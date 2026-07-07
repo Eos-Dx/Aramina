@@ -13,7 +13,7 @@ io:
 
 patient:
   patient_id: PATIENT_ID_FROM_H5
-  target_side_column: target_side
+  target_side: Left
 
 model:
   selected_model: M1Q

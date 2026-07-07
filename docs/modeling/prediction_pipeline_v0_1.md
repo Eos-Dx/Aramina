@@ -21,7 +21,7 @@ one-patient H5 container
 trained Aramis model joblib
 prediction preprocessing YAML stored in model joblib
 patient_id
-clinician-supplied target_side
+clinician-supplied target_side from predict YAML
 ```
 
 The H5 is preprocessed by the same transformer lineage as training:
@@ -50,11 +50,11 @@ no diagnosis/status cohort filter
 no biopsy filter
 ```
 
-The `target_side` can come from the clinician-facing YAML or from a dedicated
-H5/DataFrame metadata column such as `target_side`. It is not inferred from
-labels, biopsy metadata, or `specimen_status`. In training, biopsy/status
-metadata can define the historical target breast. In prediction, the suspicious
-breast comes from clinical input.
+The `target_side` must come from the clinician-facing predict YAML. It is not
+read from H5 metadata and is not inferred from labels, biopsy metadata, or
+`specimen_status`. In training, biopsy/status metadata can define the
+historical target breast. In prediction, the suspicious breast comes from
+clinical input.
 
 ## Call Chain
 

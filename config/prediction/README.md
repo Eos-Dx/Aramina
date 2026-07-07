@@ -27,7 +27,7 @@ io.input_model_joblib_path
 io.output_json_path
 io.output_yaml_path
 patient.patient_id
-patient.target_side or patient.target_side_column
+patient.target_side
 model.selected_model
 decision.threshold_key
 ```
@@ -35,7 +35,7 @@ decision.threshold_key
 Important rule:
 
 ```text
-target_side is supplied by clinician/config or one-patient H5 metadata
+target_side is supplied by clinician/config in predict YAML
 target_side is not inferred from labels, biopsy fields, or specimen_status
 ```
 
@@ -47,6 +47,7 @@ Product v0.1 route:
 
 ```text
 one-patient H5
+-> clinician-supplied patient.target_side from predict YAML
 -> prediction_preprocessing_config from model joblib
 -> hot/faulty pixel detection
 -> azimuthal integration with sample/calibrant thickness correction

@@ -57,7 +57,7 @@ def run_prediction_from_config(config_path: str | Path) -> dict[str, Any]:
         model_artifact,
     )
     patient_id = str(config["patient"]["patient_id"])
-    target_side = _prediction_target_side(config, df, patient_id)
+    target_side = _prediction_target_side(config, patient_id)
     feature_row = build_patient_prediction_feature_row(
         df,
         model_info,
@@ -166,39 +166,15 @@ def _prediction_preprocessing_config(
 
 def _prediction_target_side(
     config: dict[str, Any],
-    df,
     patient_id: str,
 ) -> str:
     target_side = config.get("patient", {}).get("target_side")
     if target_side not in {None, ""}:
         return str(target_side)
-    target_side_column = str(
-        config.get("patient", {}).get("target_side_column", "target_side")
+    raise ValueError(
+        "Prediction target side is missing: set patient.target_side in predict YAML. "
+        f"Target side is not inferred from H5 metadata for patient {patient_id!r}."
     )
-    if target_side_column not in df.columns:
-        raise ValueError(
-            "Prediction target side is missing: set patient.target_side or provide "
-            f"DataFrame column {target_side_column!r}."
-        )
-    patient_rows = df[df["patientId"].astype(str) == str(patient_id)]
-    if patient_rows.empty:
-        raise ValueError(f"Patient not found in prediction DataFrame: {patient_id!r}")
-    values = [
-        str(value).strip()
-        for value in patient_rows[target_side_column].dropna().unique()
-        if str(value).strip()
-    ]
-    normalized = {value.lower() for value in values}
-    if not normalized:
-        raise ValueError(
-            f"Target-side column {target_side_column!r} is empty for patient {patient_id!r}."
-        )
-    if len(normalized) != 1:
-        raise ValueError(
-            f"Target-side column {target_side_column!r} has conflicting values for "
-            f"patient {patient_id!r}: {values}"
-        )
-    return values[0]
 
 
 def _score_model(feature_row, model_name: str, model_info: dict[str, Any]) -> float:
@@ -371,13 +347,8 @@ def _validate_prediction_config(config: dict[str, Any], config_path: Path) -> No
         raise ValueError(f"Missing io.input_dataframe_joblib_path in {config_path}")
     if not config.get("patient", {}).get("patient_id"):
         raise ValueError(f"Missing patient.patient_id in {config_path}")
-    if not config.get("patient", {}).get("target_side") and not config.get(
-        "patient",
-        {},
-    ).get("target_side_column"):
-        raise ValueError(
-            f"Missing patient.target_side or patient.target_side_column in {config_path}"
-        )
+    if not config.get("patient", {}).get("target_side"):
+        raise ValueError(f"Missing patient.target_side in {config_path}")
 
 
 def _config_path(

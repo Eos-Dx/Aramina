@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import joblib
-import h5py
 import numpy as np
 import pandas as pd
 import yaml
@@ -130,7 +129,7 @@ def _h5_prediction_config(
             "output_json_path": str(output_json_path),
             "output_yaml_path": str(output_yaml_path),
         },
-        "patient": {"patient_id": "P1", "target_side_column": "target_side"},
+        "patient": {"patient_id": "P1", "target_side": "Left"},
         "model": {"selected_model": "M1Q"},
         "decision": {"threshold_key": "threshold_target"},
     }
@@ -197,11 +196,6 @@ def test_predict_cli_can_preprocess_one_patient_h5_before_scoring(tmp_path: Path
     output_yaml_path = tmp_path / "report.yaml"
 
     write_known_synthetic_h5(h5_path)
-    with h5py.File(h5_path, "a") as h5:
-        for group in h5["measurements"].values():
-            if group.attrs.get("patientId") == "P1":
-                group.attrs["target_side"] = "Left"
-
     preprocessing_config = load_preprocessing_config(
         Path(__file__).parents[1]
         / "config"
