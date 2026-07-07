@@ -7,7 +7,7 @@ prediction:
 io:
   input_h5_path: /path/to/one_patient_left_right_breasts.h5
   output_dataframe_joblib_path: ../../examples/outputs/prediction/aramis_prediction_patient_model_input_v0_1.joblib
-  input_model_joblib_path: ../../examples/outputs/training/aramis_biopsy_patients_m0_m1_m2_v0_1.joblib
+  input_model_joblib_path: ../../examples/outputs/training/aramis_m1q_t100_train_all_c0p1.joblib
   output_json_path: ../../examples/outputs/prediction/aramis_predict_from_h5_v0_1.json
   output_yaml_path: ../../examples/outputs/prediction/aramis_predict_from_h5_v0_1.yaml
 

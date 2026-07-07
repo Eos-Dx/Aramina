@@ -7,6 +7,7 @@ Product-clean documents:
 ```text
 current_model_pipeline_and_risks_v0_1.md
 current_model_dataframe_v0_1.md
+development_cleanup_plan_v0_1.md
 final_candidate_model_artifact_v0_1.md
 training_pipeline_classes_v0_1.md
 prediction_pipeline_v0_1.md

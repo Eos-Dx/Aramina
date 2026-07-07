@@ -19,7 +19,7 @@ threshold_target: 0.327873
 Current fitted artifact:
 
 ```text
-examples/outputs/model_selection_m1q_regularization_v0_1/aramis_m1q_t100_selected_c_train_all.joblib
+examples/outputs/training/aramis_m1q_t100_train_all_c0p1.joblib
 ```
 
 Model id:
@@ -30,6 +30,12 @@ aramis_m1q_t100_train_all_c0p1
 
 This id is stored as `training.name` in the model artifact and must be supplied
 as `model.model_id` in prediction YAML.
+
+The experiment artifact used to select this model is preserved at:
+
+```text
+examples/outputs/model_selection_m1q_regularization_v0_1/aramis_m1q_t100_selected_c_train_all.joblib
+```
 
 ## Why T100
 

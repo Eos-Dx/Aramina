@@ -26,9 +26,19 @@ Primary route:
 ```text
 input DataFrame: examples/outputs/model_input/aramis_biopsy_patients_model_input_v0_1.joblib
 model family: patient_m0_m1_m2_logistic_set
-selected product candidates: M0, M1
-primary candidate under discussion: M1Q / M1-style profile plus quality-aware symmetry
-validation: patient-safe repeated 70/30, target sensitivity 0.95
+selected product candidate: M1Q
+preprocessing: T100 biopsy-patient cohort
+regularization: L2 LogisticRegression, C=0.1
+final fit: train-all development cohort
+target sensitivity: 0.95 fitted-cohort operating point
+```
+
+Validation evidence remains separate from the final train-all artifact:
+
+```text
+primary evidence: repeated patient-safe stratified 5-fold x20
+secondary evidence: patient-safe 80/20 x50 and LOOVM
+train-all: final fitted candidate artifact, not validation evidence
 ```
 
 Model meanings:
