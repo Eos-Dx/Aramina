@@ -302,14 +302,15 @@ one-patient H5
 trained Aramis model joblib
 prediction preprocessing YAML stored in model joblib
 one patient
-clinician-supplied target_side or target_side metadata column
+clinician-supplied target_side from predict YAML
+model_id and selected_model from predict YAML
 two breast-side specimen groups when available
 machine-readable JSON/YAML output for report generation
 ```
 
 Prediction must not infer `target_side` from diagnosis labels or biopsy
 metadata. In a clinical workflow the suspicious breast side is supplied by the
-clinician-facing config or stored as explicit H5 metadata.
+clinician-facing predict YAML.
 
 Synthetic tests use one known H5 container with both `raw/data` and
 `processed/data` 2D arrays:

@@ -13,9 +13,10 @@ io:
 
 patient:
   patient_id: PATIENT_ID_FROM_H5
-  target_side_column: target_side
+  target_side: Left
 
 model:
+  model_id: aramis_m1q_t100_train_all_c0p1
   selected_model: M1Q
   profile_column: radial_profile_data
   group_column: patientId

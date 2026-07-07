@@ -3,9 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import joblib
-import h5py
 import numpy as np
 import pandas as pd
+import pytest
 import yaml
 from xrd_preprocessing import load_preprocessing_config
 from xrd_preprocessing import save_preprocessing_artifact
@@ -105,7 +105,7 @@ def _prediction_config(
             "output_yaml_path": str(output_yaml_path),
         },
         "patient": {"patient_id": "P00", "target_side": "Left"},
-        "model": {"selected_model": "M1Q"},
+        "model": {"model_id": "test_predict_train", "selected_model": "M1Q"},
         "decision": {"threshold_key": "threshold_target"},
     }
 
@@ -130,8 +130,8 @@ def _h5_prediction_config(
             "output_json_path": str(output_json_path),
             "output_yaml_path": str(output_yaml_path),
         },
-        "patient": {"patient_id": "P1", "target_side_column": "target_side"},
-        "model": {"selected_model": "M1Q"},
+        "patient": {"patient_id": "P1", "target_side": "Left"},
+        "model": {"model_id": "test_predict_train", "selected_model": "M1Q"},
         "decision": {"threshold_key": "threshold_target"},
     }
 
@@ -175,6 +175,7 @@ def test_predict_cli_writes_decision_support_report(tmp_path: Path):
     assert report["kind"] == "aramis_prediction_report"
     assert report["patient_id"] == "P00"
     assert report["target_side"] == "Left"
+    assert report["model_id"] == "test_predict_train"
     assert report["model_name"] == "M1Q"
     assert 0.0 <= report["p_cancer"] <= 1.0
     assert report["suggested_class"] in {"BENIGN", "CANCER"}
@@ -183,6 +184,38 @@ def test_predict_cli_writes_decision_support_report(tmp_path: Path):
     assert report["provenance"]["training_config_sha256"] == model_artifact[
         "training_config_sha256"
     ]
+
+
+def test_predict_rejects_wrong_model_id(tmp_path: Path):
+    dataframe_path = tmp_path / "preprocessed.joblib"
+    model_path = tmp_path / "model.joblib"
+    training_config_path = tmp_path / "train.yaml"
+    prediction_config_path = tmp_path / "predict.yaml"
+    output_json_path = tmp_path / "report.json"
+    output_yaml_path = tmp_path / "report.yaml"
+    save_preprocessing_artifact(
+        _patient_frame(),
+        dataframe_path,
+        preprocessing_config={"aramis_preprocessing": {"branch": "one_to_many"}},
+        preprocessing_config_text="aramis_preprocessing:\n  branch: one_to_many\n",
+        metadata={"branch": "one_to_many"},
+    )
+    training_config_path.write_text(
+        yaml.safe_dump(_training_config(dataframe_path, model_path)),
+        encoding="utf-8",
+    )
+    config = _prediction_config(
+        dataframe_path,
+        model_path,
+        output_json_path,
+        output_yaml_path,
+    )
+    config["model"]["model_id"] = "wrong_model_id"
+    prediction_config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+
+    assert main(["train", "--config", str(training_config_path)]) == 0
+    with pytest.raises(ValueError, match="model_id does not match"):
+        main(["predict", "--config", str(prediction_config_path)])
 
 
 def test_predict_cli_can_preprocess_one_patient_h5_before_scoring(tmp_path: Path):
@@ -197,11 +230,6 @@ def test_predict_cli_can_preprocess_one_patient_h5_before_scoring(tmp_path: Path
     output_yaml_path = tmp_path / "report.yaml"
 
     write_known_synthetic_h5(h5_path)
-    with h5py.File(h5_path, "a") as h5:
-        for group in h5["measurements"].values():
-            if group.attrs.get("patientId") == "P1":
-                group.attrs["target_side"] = "Left"
-
     preprocessing_config = load_preprocessing_config(
         Path(__file__).parents[1]
         / "config"

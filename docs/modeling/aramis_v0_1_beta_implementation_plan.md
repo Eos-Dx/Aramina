@@ -130,13 +130,18 @@ age_available
 
 - [x] Entry point: `python -m aramis predict --config <predict.yaml>`.
 - [x] Current v0.1 input: preprocessed DataFrame joblib, trained Aramis model
-  joblib, patient id, and clinician-supplied `target_side`.
+  joblib, patient id, clinician-supplied `target_side`, `model_id`, and
+  `selected_model`.
+- [x] H5 route: one-patient H5 can be preprocessed with the prediction
+  preprocessing config stored in the model artifact before scoring.
 - [x] Current v0.1 output: report YAML/JSON with `p_cancer`, suggested class,
   threshold, warnings, versions, and provenance.
 - [x] Report language: decision support, requires radiologist review,
   not autonomous diagnosis.
-- [ ] Later workflow extension: accept one-patient H5 input and call fixed
-  preprocessing before prediction.
+- [x] Prediction target side is supplied by predict YAML; it is not inferred from
+  H5 metadata, labels, biopsy fields, or `specimen_status`.
+- [x] Prediction model id is supplied by predict YAML and checked against
+  `training.name` stored in the model joblib.
 
 ### 4. Report Template
 

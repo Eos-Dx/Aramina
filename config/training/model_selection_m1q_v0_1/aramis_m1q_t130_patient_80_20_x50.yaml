@@ -1,0 +1,32 @@
+training:
+  name: aramis_m1q_t130_patient_80_20_x50
+  version: '0.1'
+  branch: one_to_many
+  clinical_stage: research draft
+  intended_use: decision-support p_cancer research draft; requires radiologist review
+  role: model_selection_experiment
+io:
+  input_dataframe_joblib_path: ../../../examples/outputs/model_selection_m1q_v0_1/preprocessing/aramis_t130_biopsy_patients_model_input.joblib
+  output_model_joblib_path: ../../../examples/outputs/model_selection_m1q_v0_1/training/aramis_m1q_t130_patient_80_20_x50.joblib
+  output_json_path: ../../../examples/outputs/model_selection_m1q_v0_1/training/aramis_m1q_t130_patient_80_20_x50_summary.json
+  output_yaml_path: ../../../examples/outputs/model_selection_m1q_v0_1/training/aramis_m1q_t130_patient_80_20_x50_description.yaml
+  prediction_preprocessing_config_path: ../../preprocessing/aramis_prediction_patient_model_input_v0_1.yaml
+model:
+  type: patient_m0_m1_m2_logistic_set
+  profile_column: radial_profile_data
+  label_column: product_status_group
+  group_column: patientId
+  specimen_column: specimenId
+  side_column: side
+  age_column: age
+  biopsy_column: biopsy
+  lr1_row_policy: biopsy_only
+  selected_models:
+  - M1Q
+  logreg_c: 1.0
+evaluation:
+  mode: repeated_stratified_shuffle
+  n_splits: 50
+  test_size: 0.2
+  random_state: 42
+  target_sensitivity: 0.95
