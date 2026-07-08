@@ -27,6 +27,8 @@ selected_model
 container.schema_version
 container.format
 container.max_patients
+reporting.external_report.version
+reporting.internal_report.version
 ```
 
 Expected H5 shape is EOS H5 v0.3:
@@ -113,7 +115,8 @@ aramis.__main__.main
 -> joblib.load(io.input_model_joblib_path)
 -> build_patient_prediction_feature_row(...)
 -> score selected model M0/M0Q/M1/M1Q/M2/M2Q
--> write report JSON/YAML
+-> write external report JSON/YAML
+-> write internal report JSON/YAML
 ```
 
 ## Feature Construction
@@ -127,6 +130,7 @@ logit-average target p_cancer
 compute target-vs-contralateral SK symmetry when contralateral breast is present
 add age if present
 add reliability counters
+score contralateral radial_profile_data with LR1 for internal report only
 ```
 
 Risk and reliability are kept separate:
@@ -142,12 +146,15 @@ available or paired-breast symmetry is unavailable.
 
 ## Output
 
-The report contains:
+Prediction always writes two report pairs.
+
+External report is minimal:
 
 ```text
+kind: aramis_external_prediction_report
+version
 patient_id
 target_side
-contralateral_side
 model_name
 model_id
 p_cancer
@@ -156,18 +163,38 @@ suggested_class
 risk_level
 reliability
 reliability_reason
+model/data/config SHA256 provenance
+decision-support warnings
+```
+
+Internal report follows `internal_clinical_report_content_v0_1.md` and contains:
+
+```text
+kind: aramis_internal_clinical_report
+version
+xrd_scan_information
+target LR1 profile-only p_cancer
+contralateral LR1 profile-only p_cancer
+SK symmetry features
+age fields
+reliability counters
+final target-side prediction
+intermediate LR1/final model summaries
 feature_row
 model/data/config SHA256 provenance
 decision-support warnings
 ```
+
+Contralateral p_cancer is included only in the internal report and only from the
+first-layer profile model. The final model remains target-side decision support.
 
 ## Current Limitations
 
 - Prediction can still start from a preprocessed DataFrame joblib for tests and
   debugging. Product use should start from H5 plus prediction preprocessing
   config.
-- The report is machine-readable JSON/YAML only. A formatted clinical PDF/report
-  remains a separate layer.
+- Reports are machine-readable JSON/YAML only. Formatted clinical PDF/report
+  rendering remains a separate layer.
 - Thresholds come from the training artifact. The model version must therefore
   be reviewed together with its validation mode and intended use.
 - `M2/M2Q` use age. Age can carry real clinical signal but can also dominate a

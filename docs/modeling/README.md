@@ -43,6 +43,9 @@ current_model_dataframe_v0_1.md
 
 sk_symmetry_features_v0_1.md
   mathematical definitions of SK symmetry features
+
+internal_clinical_report_content_v0_1.md
+  internal clinical report field draft and prediction-output requirements
 ```
 
 ## Product Contracts

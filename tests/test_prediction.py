@@ -15,6 +15,10 @@ from aramis.__main__ import main
 from .synthetic_aramis_h5 import write_v0_3_one_patient_h5
 
 
+def _internal_report_path(path: Path) -> Path:
+    return path.with_name(f"{path.stem}_internal{path.suffix}")
+
+
 def _patient_frame() -> pd.DataFrame:
     rows = []
     q = np.linspace(2.0, 23.0, 100)
@@ -109,8 +113,20 @@ def _prediction_config(
         "io": {
             "input_dataframe_joblib_path": str(dataframe_path),
             "input_model_joblib_path": str(model_path),
-            "output_json_path": str(output_json_path),
-            "output_yaml_path": str(output_yaml_path),
+            "output_external_json_path": str(output_json_path),
+            "output_external_yaml_path": str(output_yaml_path),
+            "output_internal_json_path": str(_internal_report_path(output_json_path)),
+            "output_internal_yaml_path": str(_internal_report_path(output_yaml_path)),
+        },
+        "reporting": {
+            "external_report": {
+                "version": "0.1",
+                "reference_doc": "../../docs/modeling/prediction_pipeline_v0_1.md",
+            },
+            "internal_report": {
+                "version": "0.1",
+                "reference_doc": "../../docs/modeling/internal_clinical_report_content_v0_1.md",
+            },
         },
         "patient": {"patient_id": "P00", "target_side": "Left"},
         "model": {"model_id": "test_predict_train", "selected_model": "M1Q"},
@@ -138,8 +154,20 @@ def _h5_prediction_config(
             "input_h5_path": str(h5_path),
             "output_dataframe_joblib_path": str(dataframe_path),
             "input_model_joblib_path": str(model_path),
-            "output_json_path": str(output_json_path),
-            "output_yaml_path": str(output_yaml_path),
+            "output_external_json_path": str(output_json_path),
+            "output_external_yaml_path": str(output_yaml_path),
+            "output_internal_json_path": str(_internal_report_path(output_json_path)),
+            "output_internal_yaml_path": str(_internal_report_path(output_yaml_path)),
+        },
+        "reporting": {
+            "external_report": {
+                "version": "0.1",
+                "reference_doc": "../../docs/modeling/prediction_pipeline_v0_1.md",
+            },
+            "internal_report": {
+                "version": "0.1",
+                "reference_doc": "../../docs/modeling/internal_clinical_report_content_v0_1.md",
+            },
         },
         "patient": {"patient_id": patient_id, "target_side": target_side},
         "container": {
@@ -159,8 +187,10 @@ def _valid_prediction_config(
 ) -> dict:
     io = {
         "input_model_joblib_path": str(tmp_path / "model.joblib"),
-        "output_json_path": str(tmp_path / "report.json"),
-        "output_yaml_path": str(tmp_path / "report.yaml"),
+        "output_external_json_path": str(tmp_path / "report.json"),
+        "output_external_yaml_path": str(tmp_path / "report.yaml"),
+        "output_internal_json_path": str(tmp_path / "report_internal.json"),
+        "output_internal_yaml_path": str(tmp_path / "report_internal.yaml"),
     }
     if input_h5:
         io["input_h5_path"] = str(tmp_path / "patient.h5")
@@ -170,6 +200,16 @@ def _valid_prediction_config(
     config = {
         "prediction": {"name": "test_predict", "version": 0.1},
         "io": io,
+        "reporting": {
+            "external_report": {
+                "version": "0.1",
+                "reference_doc": "../../docs/modeling/prediction_pipeline_v0_1.md",
+            },
+            "internal_report": {
+                "version": "0.1",
+                "reference_doc": "../../docs/modeling/internal_clinical_report_content_v0_1.md",
+            },
+        },
         "patient": {"patient_id": "P1", "target_side": "Left"},
         "model": {"model_id": "test_predict_train", "selected_model": "M1Q"},
         "decision": {"threshold_key": "threshold_target"},
@@ -230,10 +270,14 @@ def test_predict_cli_writes_decision_support_report(tmp_path: Path):
     assert main(["train", "--config", str(training_config_path)]) == 0
     assert main(["predict", "--config", str(prediction_config_path)]) == 0
     report = yaml.safe_load(output_yaml_path.read_text(encoding="utf-8"))
+    internal_report = yaml.safe_load(
+        _internal_report_path(output_yaml_path).read_text(encoding="utf-8")
+    )
     model_artifact = joblib.load(model_path)
 
     assert output_json_path.exists()
-    assert report["kind"] == "aramis_prediction_report"
+    assert _internal_report_path(output_json_path).exists()
+    assert report["kind"] == "aramis_external_prediction_report"
     assert report["patient_id"] == "P00"
     assert report["target_side"] == "Left"
     assert report["model_id"] == "test_predict_train"
@@ -245,6 +289,15 @@ def test_predict_cli_writes_decision_support_report(tmp_path: Path):
     assert report["provenance"]["training_config_sha256"] == model_artifact[
         "training_config_sha256"
     ]
+    assert internal_report["kind"] == "aramis_internal_clinical_report"
+    assert internal_report["version"] == "0.1"
+    assert internal_report["features"]["azimuthal_integration"][
+        "target_profile_model"
+    ]["available"]
+    assert internal_report["features"]["azimuthal_integration"][
+        "contralateral_profile_model"
+    ]["available"]
+    assert internal_report["intermediate_models"]["lr1_profile_model"]["steps"]
 
 
 def test_predict_rejects_wrong_model_id(tmp_path: Path):
@@ -283,7 +336,14 @@ def test_predict_rejects_wrong_model_id(tmp_path: Path):
     ("mutate", "error"),
     [
         (lambda config: config.pop("prediction"), "Missing prediction config sections"),
-        (lambda config: config["io"].pop("output_yaml_path"), "Missing io.output_yaml_path"),
+        (
+            lambda config: config["io"].pop("output_external_yaml_path"),
+            "Missing io.output_external_yaml_path",
+        ),
+        (
+            lambda config: config["reporting"]["internal_report"].pop("version"),
+            "Missing reporting.internal_report.version",
+        ),
         (lambda config: config["patient"].pop("patient_id"), "Missing patient.patient_id"),
         (lambda config: config["patient"].pop("target_side"), "Missing patient.target_side"),
         (lambda config: config["model"].pop("model_id"), "Missing model.model_id"),
@@ -473,6 +533,7 @@ def test_predict_cli_can_preprocess_one_patient_h5_before_scoring(tmp_path: Path
     assert "input_h5_sha256" in report["provenance"]
     assert report["provenance"]["prediction_preprocessing_config_path"]
     assert report["provenance"]["prediction_preprocessing_config_sha256"]
+    assert _internal_report_path(output_yaml_path).exists()
 
 
 def test_predict_rejects_h5_without_embedded_prediction_preprocessing(tmp_path: Path):
@@ -599,6 +660,9 @@ def test_predict_cli_can_score_three_v0_3_one_patient_h5_containers(tmp_path: Pa
 
         assert main(["predict", "--config", str(prediction_config_path)]) == 0
         report = yaml.safe_load(output_yaml_path.read_text(encoding="utf-8"))
+        internal_report = yaml.safe_load(
+            _internal_report_path(output_yaml_path).read_text(encoding="utf-8")
+        )
         prediction_artifact = joblib.load(dataframe_path)
         prediction_df = prediction_artifact["dataframe"]
         reports.append(report)
@@ -615,6 +679,9 @@ def test_predict_cli_can_score_three_v0_3_one_patient_h5_containers(tmp_path: Pa
         assert report["model_name"] == "M1Q"
         assert report["provenance"]["input_h5_sha256"]
         assert report["provenance"]["prediction_preprocessing_config_sha256"]
+        assert internal_report["features"]["azimuthal_integration"][
+            "contralateral_profile_model"
+        ]["available"]
 
     assert {report["patient_id"] for report in reports} == {"PX01", "PX02", "PX03"}
 

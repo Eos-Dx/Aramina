@@ -8,8 +8,18 @@ io:
   input_h5_path: cancer_one_patient.h5
   output_dataframe_joblib_path: ../outputs/prediction_h5_examples/cancer_prediction_df.joblib
   input_model_joblib_path: ../outputs/training/aramis_m1q_t100_train_all_c0p1.joblib
-  output_json_path: ../outputs/prediction_h5_examples/cancer_report.json
-  output_yaml_path: ../outputs/prediction_h5_examples/cancer_report.yaml
+  output_external_json_path: ../outputs/prediction_h5_examples/cancer_external_report.json
+  output_external_yaml_path: ../outputs/prediction_h5_examples/cancer_external_report.yaml
+  output_internal_json_path: ../outputs/prediction_h5_examples/cancer_internal_report.json
+  output_internal_yaml_path: ../outputs/prediction_h5_examples/cancer_internal_report.yaml
+
+reporting:
+  external_report:
+    version: "0.1"
+    reference_doc: ../../docs/modeling/prediction_pipeline_v0_1.md
+  internal_report:
+    version: "0.1"
+    reference_doc: ../../docs/modeling/internal_clinical_report_content_v0_1.md
 
 preprocessing:
   config_path: aramis_prediction_patient_raw_h5_example_v0_1.yaml

@@ -24,8 +24,14 @@ prediction.name
 io.input_h5_path
 io.output_dataframe_joblib_path
 io.input_model_joblib_path
-io.output_json_path
-io.output_yaml_path
+io.output_external_json_path
+io.output_external_yaml_path
+io.output_internal_json_path
+io.output_internal_yaml_path
+reporting.external_report.version
+reporting.external_report.reference_doc
+reporting.internal_report.version
+reporting.internal_report.reference_doc
 container.schema_version
 container.format
 container.max_patients
@@ -70,7 +76,8 @@ one-patient H5
 -> build SK symmetry features against contralateral breast when available
 -> add reliability counters
 -> selected M0/M0Q/M1/M1Q/M2/M2Q model
--> report JSON/YAML
+-> external report JSON/YAML
+-> internal report JSON/YAML
 ```
 
 Report language is decision-support only:
@@ -84,3 +91,7 @@ reliability_reason
 requires_radiologist_review
 not for autonomous diagnosis
 ```
+
+External report is intentionally minimal and target-side only. Internal report
+contains audit fields, intermediate model summaries, target LR1 profile score,
+and contralateral LR1 profile score for internal review.

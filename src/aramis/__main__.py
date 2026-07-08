@@ -93,7 +93,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"config={args.config}")
         return 0
     if args.command == "predict":
-        report = run_prediction_from_config(args.config)
+        reports = run_prediction_from_config(args.config)
+        report = reports["external_report"]
         print(f"patient_id={report['patient_id']}")
         print(f"target_side={report['target_side']}")
         print(f"model_name={report['model_name']}")

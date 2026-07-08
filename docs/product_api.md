@@ -33,7 +33,7 @@ These functions return in-memory objects:
 run_preprocessing_from_config -> pandas.DataFrame
 run_training_from_config      -> training artifact dict
 run_workflow_from_config      -> workflow result dict
-run_prediction_from_config    -> prediction report dict
+run_prediction_from_config    -> dict with external_report and internal_report
 ```
 
 ## Product Prediction Input
@@ -45,8 +45,18 @@ io:
   input_h5_path: /path/to/one_patient.h5
   output_dataframe_joblib_path: /path/to/prediction_dataframe.joblib
   input_model_joblib_path: /path/to/model.joblib
-  output_json_path: /path/to/report.json
-  output_yaml_path: /path/to/report.yaml
+  output_external_json_path: /path/to/external_report.json
+  output_external_yaml_path: /path/to/external_report.yaml
+  output_internal_json_path: /path/to/internal_report.json
+  output_internal_yaml_path: /path/to/internal_report.yaml
+
+reporting:
+  external_report:
+    version: "0.1"
+    reference_doc: docs/modeling/prediction_pipeline_v0_1.md
+  internal_report:
+    version: "0.1"
+    reference_doc: docs/modeling/internal_clinical_report_content_v0_1.md
 
 container:
   schema_version: "0.3"
@@ -207,11 +217,14 @@ Prediction checks `model.model_id` from YAML against
 
 ## Prediction Report Schema
 
-`aramis predict` writes JSON and YAML with:
+`aramis predict` always writes two JSON/YAML report pairs.
+
+External report is minimal and target-side only:
 
 ```text
-kind: aramis_prediction_report
+kind: aramis_external_prediction_report
 version
+reference_doc
 created_at
 clinical_stage
 intended_use
@@ -229,10 +242,37 @@ suggested_class
 risk_level
 reliability
 reliability_reason
+provenance
+limitations
+```
+
+Internal report is audit-oriented and follows
+`docs/modeling/internal_clinical_report_content_v0_1.md`:
+
+```text
+kind: aramis_internal_clinical_report
+version
+reference_doc
+created_at
+patient_id
+target_side
+contralateral_side
+xrd_scan_information
+features.azimuthal_integration.target_profile_model
+features.azimuthal_integration.contralateral_profile_model
+features.symmetry
+features.age
+features.reliability
+final_prediction
+intermediate_models.lr1_profile_model
+intermediate_models.final_model
 feature_row
 provenance
 limitations
 ```
+
+Contralateral breast prediction is internal-only. It is produced by the LR1
+profile model, not by the final target-side model.
 
 Risk and reliability are separate:
 
@@ -306,4 +346,3 @@ prediction from one-patient H5 v0.3
 schema/format/patient/model-id guards
 target_side scoring behavior
 ```
-
