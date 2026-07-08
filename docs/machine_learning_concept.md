@@ -131,6 +131,12 @@ Wasserstein distance over full q range
 symmetry_available flag
 ```
 
+Detailed mathematical definitions are in:
+
+```text
+docs/modeling/sk_symmetry_features_v0_1.md
+```
+
 Reliability counters:
 
 ```text
@@ -225,4 +231,3 @@ unstable feature schema
 unknown target_side in prediction
 unsupported H5 container version
 ```
-

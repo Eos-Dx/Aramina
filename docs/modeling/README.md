@@ -40,6 +40,9 @@ m1q_threshold_mode_comparison_v0_1.md
 
 current_model_dataframe_v0_1.md
   what data the current candidate was trained from
+
+sk_symmetry_features_v0_1.md
+  mathematical definitions of SK symmetry features
 ```
 
 ## Product Contracts
@@ -63,4 +66,3 @@ thresholds, or cohorts.
 
 Do not use generated `examples/outputs/**/*.md` tables as API documentation.
 Use them only as experiment evidence.
-
