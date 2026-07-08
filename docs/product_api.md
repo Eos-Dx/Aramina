@@ -41,14 +41,15 @@ run_prediction_from_config    -> dict with external_report and internal_report
 Prediction starts from one H5 container and one trained model joblib:
 
 ```yaml
+prediction:
+  name: aramis_predict_from_h5
+  version: 0.1
+  author: OPERATOR_OR_ANALYST
+
 io:
   input_h5_path: /path/to/one_patient.h5
-  output_dataframe_joblib_path: /path/to/prediction_dataframe.joblib
   input_model_joblib_path: /path/to/model.joblib
-  output_external_json_path: /path/to/external_report.json
-  output_external_yaml_path: /path/to/external_report.yaml
-  output_internal_json_path: /path/to/internal_report.json
-  output_internal_yaml_path: /path/to/internal_report.yaml
+  output_folder: /path/to/prediction_outputs
 
 reporting:
   external_report:
@@ -68,11 +69,21 @@ patient:
   target_side: Left
 
 model:
-  model_id: aramis_m1q_t100_train_all_c0p1
-  selected_model: M1Q
+  model_id: aramis_m2q_t100_train_all_c0p1
+  selected_model: M2Q
 
 decision:
   threshold_key: threshold_target
+```
+
+Aramis creates automatic output names inside `io.output_folder`:
+
+```text
+<prediction.name>_<patient.patient_id>_prediction_dataframe.joblib
+<prediction.name>_<patient.patient_id>_external_report.json
+<prediction.name>_<patient.patient_id>_external_report.yaml
+<prediction.name>_<patient.patient_id>_internal_report.json
+<prediction.name>_<patient.patient_id>_internal_report.yaml
 ```
 
 The model joblib stores `prediction_preprocessing_config`. Product prediction
@@ -293,8 +304,8 @@ the result needs more caution and clinician review.
 ## Current Primary Model
 
 ```text
-model_id: aramis_m1q_t100_train_all_c0p1
-selected_model: M1Q
+model_id: aramis_m2q_t100_train_all_c0p1
+selected_model: M2Q
 preprocessing: T100 biopsy-patient model input
 regularization: L2 LogisticRegression, C=0.1
 threshold_target: 0.327873

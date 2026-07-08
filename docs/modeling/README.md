@@ -16,11 +16,11 @@ current_model_pipeline_and_risks_v0_1.md
 ## Primary Candidate
 
 ```text
-model_id: aramis_m1q_t100_train_all_c0p1
-selected_model: M1Q
+model_id: aramis_m2q_t100_train_all_c0p1
+selected_model: M2Q
 preprocessing: T100 biopsy-patient model input
 regularization: L2 LogisticRegression, C=0.1
-threshold_target: 0.327873
+threshold_target: 0.302291
 ```
 
 Decision record:
@@ -37,6 +37,9 @@ m1q_regularization_experiment_v0_1.md
 
 m1q_threshold_mode_comparison_v0_1.md
   how threshold / validation modes behave
+
+m2q_age_candidate_update_v0_1.md
+  why age was added and why M2Q is now the primary candidate
 
 current_model_dataframe_v0_1.md
   what data the current candidate was trained from

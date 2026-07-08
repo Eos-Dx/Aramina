@@ -15,8 +15,20 @@ from aramis.__main__ import main
 from .synthetic_aramis_h5 import write_v0_3_one_patient_h5
 
 
-def _internal_report_path(path: Path) -> Path:
-    return path.with_name(f"{path.stem}_internal{path.suffix}")
+def _prediction_output_paths(
+    output_folder: Path,
+    *,
+    prediction_name: str,
+    patient_id: str,
+) -> dict[str, Path]:
+    stem = f"{prediction_name}_{patient_id}"
+    return {
+        "dataframe": output_folder / f"{stem}_prediction_dataframe.joblib",
+        "external_json": output_folder / f"{stem}_external_report.json",
+        "external_yaml": output_folder / f"{stem}_external_report.yaml",
+        "internal_json": output_folder / f"{stem}_internal_report.json",
+        "internal_yaml": output_folder / f"{stem}_internal_report.yaml",
+    }
 
 
 def _patient_frame() -> pd.DataFrame:
@@ -101,22 +113,22 @@ def _training_config(
 def _prediction_config(
     dataframe_path: Path,
     model_path: Path,
-    output_json_path: Path,
-    output_yaml_path: Path,
+    output_folder: Path,
+    *,
+    patient_id: str = "P00",
+    target_side: str = "Left",
 ) -> dict:
     return {
         "prediction": {
             "name": "test_predict",
             "version": 0.1,
+            "author": "Test Author",
             "clinical_stage": "research draft",
         },
         "io": {
             "input_dataframe_joblib_path": str(dataframe_path),
             "input_model_joblib_path": str(model_path),
-            "output_external_json_path": str(output_json_path),
-            "output_external_yaml_path": str(output_yaml_path),
-            "output_internal_json_path": str(_internal_report_path(output_json_path)),
-            "output_internal_yaml_path": str(_internal_report_path(output_yaml_path)),
+            "output_folder": str(output_folder),
         },
         "reporting": {
             "external_report": {
@@ -128,7 +140,7 @@ def _prediction_config(
                 "reference_doc": "../../docs/modeling/internal_clinical_report_content_v0_1.md",
             },
         },
-        "patient": {"patient_id": "P00", "target_side": "Left"},
+        "patient": {"patient_id": patient_id, "target_side": target_side},
         "model": {"model_id": "test_predict_train", "selected_model": "M1Q"},
         "decision": {"threshold_key": "threshold_target"},
     }
@@ -136,10 +148,8 @@ def _prediction_config(
 
 def _h5_prediction_config(
     h5_path: Path,
-    dataframe_path: Path,
     model_path: Path,
-    output_json_path: Path,
-    output_yaml_path: Path,
+    output_folder: Path,
     *,
     patient_id: str = "P1",
     target_side: str = "Left",
@@ -148,16 +158,13 @@ def _h5_prediction_config(
         "prediction": {
             "name": "test_predict_from_h5",
             "version": 0.1,
+            "author": "Test Author",
             "clinical_stage": "research draft",
         },
         "io": {
             "input_h5_path": str(h5_path),
-            "output_dataframe_joblib_path": str(dataframe_path),
             "input_model_joblib_path": str(model_path),
-            "output_external_json_path": str(output_json_path),
-            "output_external_yaml_path": str(output_yaml_path),
-            "output_internal_json_path": str(_internal_report_path(output_json_path)),
-            "output_internal_yaml_path": str(_internal_report_path(output_yaml_path)),
+            "output_folder": str(output_folder),
         },
         "reporting": {
             "external_report": {
@@ -187,18 +194,18 @@ def _valid_prediction_config(
 ) -> dict:
     io = {
         "input_model_joblib_path": str(tmp_path / "model.joblib"),
-        "output_external_json_path": str(tmp_path / "report.json"),
-        "output_external_yaml_path": str(tmp_path / "report.yaml"),
-        "output_internal_json_path": str(tmp_path / "report_internal.json"),
-        "output_internal_yaml_path": str(tmp_path / "report_internal.yaml"),
+        "output_folder": str(tmp_path / "outputs"),
     }
     if input_h5:
         io["input_h5_path"] = str(tmp_path / "patient.h5")
-        io["output_dataframe_joblib_path"] = str(tmp_path / "prediction.joblib")
     else:
         io["input_dataframe_joblib_path"] = str(tmp_path / "prediction.joblib")
     config = {
-        "prediction": {"name": "test_predict", "version": 0.1},
+        "prediction": {
+            "name": "test_predict",
+            "version": 0.1,
+            "author": "Test Author",
+        },
         "io": io,
         "reporting": {
             "external_report": {
@@ -242,8 +249,12 @@ def test_predict_cli_writes_decision_support_report(tmp_path: Path):
     model_path = tmp_path / "model.joblib"
     training_config_path = tmp_path / "train.yaml"
     prediction_config_path = tmp_path / "predict.yaml"
-    output_json_path = tmp_path / "report.json"
-    output_yaml_path = tmp_path / "report.yaml"
+    output_folder = tmp_path / "prediction_outputs"
+    output_paths = _prediction_output_paths(
+        output_folder,
+        prediction_name="test_predict",
+        patient_id="P00",
+    )
     save_preprocessing_artifact(
         _patient_frame(),
         dataframe_path,
@@ -260,8 +271,7 @@ def test_predict_cli_writes_decision_support_report(tmp_path: Path):
             _prediction_config(
                 dataframe_path,
                 model_path,
-                output_json_path,
-                output_yaml_path,
+                output_folder,
             )
         ),
         encoding="utf-8",
@@ -269,15 +279,16 @@ def test_predict_cli_writes_decision_support_report(tmp_path: Path):
 
     assert main(["train", "--config", str(training_config_path)]) == 0
     assert main(["predict", "--config", str(prediction_config_path)]) == 0
-    report = yaml.safe_load(output_yaml_path.read_text(encoding="utf-8"))
+    report = yaml.safe_load(output_paths["external_yaml"].read_text(encoding="utf-8"))
     internal_report = yaml.safe_load(
-        _internal_report_path(output_yaml_path).read_text(encoding="utf-8")
+        output_paths["internal_yaml"].read_text(encoding="utf-8")
     )
     model_artifact = joblib.load(model_path)
 
-    assert output_json_path.exists()
-    assert _internal_report_path(output_json_path).exists()
+    assert output_paths["external_json"].exists()
+    assert output_paths["internal_json"].exists()
     assert report["kind"] == "aramis_external_prediction_report"
+    assert report["author"] == "Test Author"
     assert report["patient_id"] == "P00"
     assert report["target_side"] == "Left"
     assert report["model_id"] == "test_predict_train"
@@ -305,8 +316,7 @@ def test_predict_rejects_wrong_model_id(tmp_path: Path):
     model_path = tmp_path / "model.joblib"
     training_config_path = tmp_path / "train.yaml"
     prediction_config_path = tmp_path / "predict.yaml"
-    output_json_path = tmp_path / "report.json"
-    output_yaml_path = tmp_path / "report.yaml"
+    output_folder = tmp_path / "prediction_outputs"
     save_preprocessing_artifact(
         _patient_frame(),
         dataframe_path,
@@ -321,8 +331,7 @@ def test_predict_rejects_wrong_model_id(tmp_path: Path):
     config = _prediction_config(
         dataframe_path,
         model_path,
-        output_json_path,
-        output_yaml_path,
+        output_folder,
     )
     config["model"]["model_id"] = "wrong_model_id"
     prediction_config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
@@ -337,8 +346,8 @@ def test_predict_rejects_wrong_model_id(tmp_path: Path):
     [
         (lambda config: config.pop("prediction"), "Missing prediction config sections"),
         (
-            lambda config: config["io"].pop("output_external_yaml_path"),
-            "Missing io.output_external_yaml_path",
+            lambda config: config["io"].pop("output_folder"),
+            "Missing io.output_folder",
         ),
         (
             lambda config: config["reporting"]["internal_report"].pop("version"),
@@ -399,10 +408,8 @@ def test_predict_target_side_controls_profile_score(tmp_path: Path):
     training_config_path = tmp_path / "train.yaml"
     left_config_path = tmp_path / "predict_left.yaml"
     right_config_path = tmp_path / "predict_right.yaml"
-    left_json_path = tmp_path / "left.json"
-    left_yaml_path = tmp_path / "left.yaml"
-    right_json_path = tmp_path / "right.json"
-    right_yaml_path = tmp_path / "right.yaml"
+    left_output_folder = tmp_path / "left_outputs"
+    right_output_folder = tmp_path / "right_outputs"
     q = np.linspace(2.0, 23.0, 100)
     rows = []
     for side, shift in (("Left", 1.2), ("Right", -1.2)):
@@ -448,18 +455,18 @@ def test_predict_target_side_controls_profile_score(tmp_path: Path):
     left_config = _prediction_config(
         prediction_dataframe_path,
         model_path,
-        left_json_path,
-        left_yaml_path,
+        left_output_folder,
+        patient_id="PX_TARGET",
+        target_side="Left",
     )
-    left_config["patient"] = {"patient_id": "PX_TARGET", "target_side": "Left"}
     left_config["model"]["selected_model"] = "M0"
     right_config = _prediction_config(
         prediction_dataframe_path,
         model_path,
-        right_json_path,
-        right_yaml_path,
+        right_output_folder,
+        patient_id="PX_TARGET",
+        target_side="Right",
     )
-    right_config["patient"] = {"patient_id": "PX_TARGET", "target_side": "Right"}
     right_config["model"]["selected_model"] = "M0"
     left_config_path.write_text(yaml.safe_dump(left_config), encoding="utf-8")
     right_config_path.write_text(yaml.safe_dump(right_config), encoding="utf-8")
@@ -467,8 +474,18 @@ def test_predict_target_side_controls_profile_score(tmp_path: Path):
     assert main(["train", "--config", str(training_config_path)]) == 0
     assert main(["predict", "--config", str(left_config_path)]) == 0
     assert main(["predict", "--config", str(right_config_path)]) == 0
-    left_report = yaml.safe_load(left_yaml_path.read_text(encoding="utf-8"))
-    right_report = yaml.safe_load(right_yaml_path.read_text(encoding="utf-8"))
+    left_paths = _prediction_output_paths(
+        left_output_folder,
+        prediction_name="test_predict",
+        patient_id="PX_TARGET",
+    )
+    right_paths = _prediction_output_paths(
+        right_output_folder,
+        prediction_name="test_predict",
+        patient_id="PX_TARGET",
+    )
+    left_report = yaml.safe_load(left_paths["external_yaml"].read_text(encoding="utf-8"))
+    right_report = yaml.safe_load(right_paths["external_yaml"].read_text(encoding="utf-8"))
 
     assert left_report["target_side"] == "Left"
     assert right_report["target_side"] == "Right"
@@ -478,13 +495,16 @@ def test_predict_target_side_controls_profile_score(tmp_path: Path):
 def test_predict_cli_can_preprocess_one_patient_h5_before_scoring(tmp_path: Path):
     h5_path = tmp_path / "patient.h5"
     training_dataframe_path = tmp_path / "training_preprocessed.joblib"
-    prediction_dataframe_path = tmp_path / "prediction_preprocessed.joblib"
     model_path = tmp_path / "model.joblib"
     training_config_path = tmp_path / "train.yaml"
     prediction_config_path = tmp_path / "predict_from_h5.yaml"
     preprocessing_config_path = tmp_path / "prediction_preprocessing.yaml"
-    output_json_path = tmp_path / "report.json"
-    output_yaml_path = tmp_path / "report.yaml"
+    output_folder = tmp_path / "prediction_outputs"
+    output_paths = _prediction_output_paths(
+        output_folder,
+        prediction_name="test_predict_from_h5",
+        patient_id="P1",
+    )
 
     write_v0_3_one_patient_h5(
         h5_path,
@@ -515,37 +535,33 @@ def test_predict_cli_can_preprocess_one_patient_h5_before_scoring(tmp_path: Path
     )
     prediction_config = _h5_prediction_config(
         h5_path,
-        prediction_dataframe_path,
         model_path,
-        output_json_path,
-        output_yaml_path,
+        output_folder,
     )
     prediction_config["preprocessing"] = {"config_path": str(preprocessing_config_path)}
     prediction_config_path.write_text(yaml.safe_dump(prediction_config), encoding="utf-8")
 
     assert main(["train", "--config", str(training_config_path)]) == 0
     assert main(["predict", "--config", str(prediction_config_path)]) == 0
-    report = yaml.safe_load(output_yaml_path.read_text(encoding="utf-8"))
+    report = yaml.safe_load(output_paths["external_yaml"].read_text(encoding="utf-8"))
 
-    assert prediction_dataframe_path.exists()
+    assert output_paths["dataframe"].exists()
     assert report["patient_id"] == "P1"
     assert report["target_side"] == "Left"
     assert "input_h5_sha256" in report["provenance"]
     assert report["provenance"]["prediction_preprocessing_config_path"]
     assert report["provenance"]["prediction_preprocessing_config_sha256"]
-    assert _internal_report_path(output_yaml_path).exists()
+    assert output_paths["internal_yaml"].exists()
 
 
 def test_predict_rejects_h5_without_embedded_prediction_preprocessing(tmp_path: Path):
     h5_path = tmp_path / "patient.h5"
     training_dataframe_path = tmp_path / "training_preprocessed.joblib"
-    prediction_dataframe_path = tmp_path / "prediction_preprocessed.joblib"
     model_path = tmp_path / "model.joblib"
     training_config_path = tmp_path / "train.yaml"
     prediction_config_path = tmp_path / "predict_from_h5.yaml"
     preprocessing_config_path = tmp_path / "prediction_preprocessing.yaml"
-    output_json_path = tmp_path / "report.json"
-    output_yaml_path = tmp_path / "report.yaml"
+    output_folder = tmp_path / "prediction_outputs"
 
     write_v0_3_one_patient_h5(
         h5_path,
@@ -581,10 +597,8 @@ def test_predict_rejects_h5_without_embedded_prediction_preprocessing(tmp_path: 
         yaml.safe_dump(
             _h5_prediction_config(
                 h5_path,
-                prediction_dataframe_path,
                 model_path,
-                output_json_path,
-                output_yaml_path,
+                output_folder,
             )
         ),
         encoding="utf-8",
@@ -631,10 +645,13 @@ def test_predict_cli_can_score_three_v0_3_one_patient_h5_containers(tmp_path: Pa
         start=1,
     ):
         h5_path = tmp_path / f"{patient_id}.h5"
-        dataframe_path = tmp_path / f"{patient_id}_preprocessed.joblib"
         prediction_config_path = tmp_path / f"{patient_id}_predict.yaml"
-        output_json_path = tmp_path / f"{patient_id}_report.json"
-        output_yaml_path = tmp_path / f"{patient_id}_report.yaml"
+        output_folder = tmp_path / f"{patient_id}_outputs"
+        output_paths = _prediction_output_paths(
+            output_folder,
+            prediction_name="test_predict_from_h5",
+            patient_id=patient_id,
+        )
         write_v0_3_one_patient_h5(
             h5_path,
             patient_id=patient_id,
@@ -647,10 +664,8 @@ def test_predict_cli_can_score_three_v0_3_one_patient_h5_containers(tmp_path: Pa
             yaml.safe_dump(
                 _h5_prediction_config(
                     h5_path,
-                    dataframe_path,
                     model_path,
-                    output_json_path,
-                    output_yaml_path,
+                    output_folder,
                     patient_id=patient_id,
                     target_side=target_side,
                 )
@@ -659,11 +674,11 @@ def test_predict_cli_can_score_three_v0_3_one_patient_h5_containers(tmp_path: Pa
         )
 
         assert main(["predict", "--config", str(prediction_config_path)]) == 0
-        report = yaml.safe_load(output_yaml_path.read_text(encoding="utf-8"))
+        report = yaml.safe_load(output_paths["external_yaml"].read_text(encoding="utf-8"))
         internal_report = yaml.safe_load(
-            _internal_report_path(output_yaml_path).read_text(encoding="utf-8")
+            output_paths["internal_yaml"].read_text(encoding="utf-8")
         )
-        prediction_artifact = joblib.load(dataframe_path)
+        prediction_artifact = joblib.load(output_paths["dataframe"])
         prediction_df = prediction_artifact["dataframe"]
         reports.append(report)
 
@@ -688,14 +703,12 @@ def test_predict_cli_can_score_three_v0_3_one_patient_h5_containers(tmp_path: Pa
 
 def test_predict_rejects_h5_patient_id_mismatch(tmp_path: Path):
     h5_path = tmp_path / "patient.h5"
-    dataframe_path = tmp_path / "prediction_preprocessed.joblib"
     model_path = tmp_path / "model.joblib"
     training_dataframe_path = tmp_path / "training_preprocessed.joblib"
     training_config_path = tmp_path / "train.yaml"
     prediction_config_path = tmp_path / "predict.yaml"
     preprocessing_config_path = tmp_path / "prediction_preprocessing_v0_3.yaml"
-    output_json_path = tmp_path / "report.json"
-    output_yaml_path = tmp_path / "report.yaml"
+    output_folder = tmp_path / "prediction_outputs"
 
     write_v0_3_one_patient_h5(
         h5_path,
@@ -728,10 +741,8 @@ def test_predict_rejects_h5_patient_id_mismatch(tmp_path: Path):
         yaml.safe_dump(
             _h5_prediction_config(
                 h5_path,
-                dataframe_path,
                 model_path,
-                output_json_path,
-                output_yaml_path,
+                output_folder,
                 patient_id="PX_WRONG",
                 target_side="Left",
             )
@@ -745,14 +756,12 @@ def test_predict_rejects_h5_patient_id_mismatch(tmp_path: Path):
 
 def test_predict_rejects_h5_format_mismatch(tmp_path: Path):
     h5_path = tmp_path / "patient.h5"
-    dataframe_path = tmp_path / "prediction_preprocessed.joblib"
     model_path = tmp_path / "model.joblib"
     training_dataframe_path = tmp_path / "training_preprocessed.joblib"
     training_config_path = tmp_path / "train.yaml"
     prediction_config_path = tmp_path / "predict.yaml"
     preprocessing_config_path = tmp_path / "prediction_preprocessing_v0_3.yaml"
-    output_json_path = tmp_path / "report.json"
-    output_yaml_path = tmp_path / "report.yaml"
+    output_folder = tmp_path / "prediction_outputs"
 
     write_v0_3_one_patient_h5(
         h5_path,
@@ -783,10 +792,8 @@ def test_predict_rejects_h5_format_mismatch(tmp_path: Path):
     assert main(["train", "--config", str(training_config_path)]) == 0
     config = _h5_prediction_config(
         h5_path,
-        dataframe_path,
         model_path,
-        output_json_path,
-        output_yaml_path,
+        output_folder,
         patient_id="PX_FMT",
         target_side="Left",
     )
@@ -799,14 +806,12 @@ def test_predict_rejects_h5_format_mismatch(tmp_path: Path):
 
 def test_predict_rejects_unsupported_h5_schema_version(tmp_path: Path):
     h5_path = tmp_path / "patient.h5"
-    dataframe_path = tmp_path / "prediction_preprocessed.joblib"
     model_path = tmp_path / "model.joblib"
     training_dataframe_path = tmp_path / "training_preprocessed.joblib"
     training_config_path = tmp_path / "train.yaml"
     prediction_config_path = tmp_path / "predict.yaml"
     preprocessing_config_path = tmp_path / "prediction_preprocessing_v0_3.yaml"
-    output_json_path = tmp_path / "report.json"
-    output_yaml_path = tmp_path / "report.yaml"
+    output_folder = tmp_path / "prediction_outputs"
 
     write_v0_3_one_patient_h5(
         h5_path,
@@ -839,10 +844,8 @@ def test_predict_rejects_unsupported_h5_schema_version(tmp_path: Path):
     assert main(["train", "--config", str(training_config_path)]) == 0
     config = _h5_prediction_config(
         h5_path,
-        dataframe_path,
         model_path,
-        output_json_path,
-        output_yaml_path,
+        output_folder,
         patient_id="PX_SCHEMA",
         target_side="Left",
     )
@@ -855,14 +858,12 @@ def test_predict_rejects_unsupported_h5_schema_version(tmp_path: Path):
 
 def test_predict_rejects_h5_schema_version_mismatch(tmp_path: Path):
     h5_path = tmp_path / "patient.h5"
-    dataframe_path = tmp_path / "prediction_preprocessed.joblib"
     model_path = tmp_path / "model.joblib"
     training_dataframe_path = tmp_path / "training_preprocessed.joblib"
     training_config_path = tmp_path / "train.yaml"
     prediction_config_path = tmp_path / "predict.yaml"
     preprocessing_config_path = tmp_path / "prediction_preprocessing_v0_3.yaml"
-    output_json_path = tmp_path / "report.json"
-    output_yaml_path = tmp_path / "report.yaml"
+    output_folder = tmp_path / "prediction_outputs"
 
     write_v0_3_one_patient_h5(
         h5_path,
@@ -894,10 +895,8 @@ def test_predict_rejects_h5_schema_version_mismatch(tmp_path: Path):
 
     config = _h5_prediction_config(
         h5_path,
-        dataframe_path,
         model_path,
-        output_json_path,
-        output_yaml_path,
+        output_folder,
         patient_id="PX99",
         target_side="Left",
     )
@@ -910,14 +909,12 @@ def test_predict_rejects_h5_schema_version_mismatch(tmp_path: Path):
 
 def test_predict_rejects_more_than_one_patient_in_h5(tmp_path: Path):
     h5_path = tmp_path / "two_patients.h5"
-    dataframe_path = tmp_path / "prediction_preprocessed.joblib"
     model_path = tmp_path / "model.joblib"
     training_dataframe_path = tmp_path / "training_preprocessed.joblib"
     training_config_path = tmp_path / "train.yaml"
     prediction_config_path = tmp_path / "predict.yaml"
     preprocessing_config_path = tmp_path / "prediction_preprocessing_v0_3.yaml"
-    output_json_path = tmp_path / "report.json"
-    output_yaml_path = tmp_path / "report.yaml"
+    output_folder = tmp_path / "prediction_outputs"
 
     write_v0_3_one_patient_h5(
         h5_path,
@@ -952,10 +949,8 @@ def test_predict_rejects_more_than_one_patient_in_h5(tmp_path: Path):
         yaml.safe_dump(
             _h5_prediction_config(
                 h5_path,
-                dataframe_path,
                 model_path,
-                output_json_path,
-                output_yaml_path,
+                output_folder,
                 patient_id="PX98",
                 target_side="Left",
             )

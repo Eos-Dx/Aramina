@@ -21,13 +21,10 @@ Required sections:
 
 ```text
 prediction.name
+prediction.author
 io.input_h5_path
-io.output_dataframe_joblib_path
 io.input_model_joblib_path
-io.output_external_json_path
-io.output_external_yaml_path
-io.output_internal_json_path
-io.output_internal_yaml_path
+io.output_folder
 reporting.external_report.version
 reporting.external_report.reference_doc
 reporting.internal_report.version
@@ -42,6 +39,16 @@ model.selected_model
 decision.threshold_key
 ```
 
+`io.output_folder` is enough. Aramis creates automatic output names:
+
+```text
+<prediction.name>_<patient.patient_id>_prediction_dataframe.joblib
+<prediction.name>_<patient.patient_id>_external_report.json
+<prediction.name>_<patient.patient_id>_external_report.yaml
+<prediction.name>_<patient.patient_id>_internal_report.json
+<prediction.name>_<patient.patient_id>_internal_report.yaml
+```
+
 Important rule:
 
 ```text
@@ -51,7 +58,7 @@ container.schema_version must match the H5 root @schema_version
 container.format must match the H5 root @format
 container.max_patients must be 1 for Aramis prediction
 model.model_id must match training.name stored inside the model joblib
-model.selected_model selects the submodel inside that artifact, for example M1Q
+model.selected_model selects the submodel inside that artifact, for example M2Q
 ```
 
 The prediction preprocessing YAML is stored inside the trained model joblib as

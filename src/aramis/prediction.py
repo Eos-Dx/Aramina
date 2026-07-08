@@ -36,7 +36,7 @@ def run_prediction_from_config(config_path: str | Path) -> dict[str, Any]:
         section="io",
         key="input_model_joblib_path",
     )
-    report_paths = _report_paths(config, config_path)
+    output_paths = _prediction_output_paths(config, config_path)
 
     model_artifact = joblib.load(model_path)
     model_id = str(config["model"]["model_id"])
@@ -47,6 +47,7 @@ def run_prediction_from_config(config_path: str | Path) -> dict[str, Any]:
         config,
         config_path,
         model_artifact,
+        output_paths["dataframe_joblib"],
     )
     patient_id = str(config["patient"]["patient_id"])
     target_side = _prediction_target_side(config, patient_id)
@@ -74,6 +75,7 @@ def run_prediction_from_config(config_path: str | Path) -> dict[str, Any]:
         config_path=config_path,
         config_text=config_text,
         dataframe_path=dataframe_path,
+        output_paths=output_paths,
         preprocessing_artifact=preprocessing_artifact,
         model_path=model_path,
         model_artifact=model_artifact,
@@ -87,14 +89,14 @@ def run_prediction_from_config(config_path: str | Path) -> dict[str, Any]:
         suggested_class=suggested_class,
         side_profile_scores=side_profile_scores,
     )
-    _write_text(report_paths["external_json"], _json_dumps(reports["external_report"]))
+    _write_text(output_paths["external_json"], _json_dumps(reports["external_report"]))
     _write_text(
-        report_paths["external_yaml"],
+        output_paths["external_yaml"],
         yaml.safe_dump(reports["external_report"], sort_keys=False),
     )
-    _write_text(report_paths["internal_json"], _json_dumps(reports["internal_report"]))
+    _write_text(output_paths["internal_json"], _json_dumps(reports["internal_report"]))
     _write_text(
-        report_paths["internal_yaml"],
+        output_paths["internal_yaml"],
         yaml.safe_dump(reports["internal_report"], sort_keys=False),
     )
     return reports
@@ -104,6 +106,7 @@ def _prediction_dataframe(
     config: dict[str, Any],
     config_path: Path,
     model_artifact: dict[str, Any],
+    output_dataframe_path: Path,
 ) -> tuple[Any, Path, dict[str, Any] | None]:
     if "preprocessing" not in config and not config.get("io", {}).get("input_h5_path"):
         dataframe_path = _config_path(
@@ -126,12 +129,6 @@ def _prediction_dataframe(
         key="input_h5_path",
     )
     _validate_h5_container_contract(config, config_path, h5_path)
-    output_dataframe_path = _config_path(
-        config,
-        config_path,
-        section="io",
-        key="output_dataframe_joblib_path",
-    )
     preprocessing_config.setdefault("io", {})
     preprocessing_config["io"]["input_h5_path"] = str(h5_path)
     preprocessing_config["io"]["output_joblib_path"] = str(output_dataframe_path)
@@ -201,6 +198,7 @@ def _prediction_reports(
     config_path: Path,
     config_text: str,
     dataframe_path: Path,
+    output_paths: dict[str, Path],
     preprocessing_artifact: dict[str, Any] | None,
     model_path: Path,
     model_artifact: dict[str, Any],
@@ -229,6 +227,7 @@ def _prediction_reports(
     )
     common = {
         "created_at": created_at,
+        "author": config["prediction"].get("author"),
         "clinical_stage": config["prediction"].get("clinical_stage", "research draft"),
         "intended_use": config["prediction"].get(
             "intended_use",
@@ -272,6 +271,7 @@ def _prediction_reports(
         feature_row=row,
         model_info=model_info,
         side_profile_scores=side_profile_scores,
+        output_paths=output_paths,
     )
     return _json_safe({"external_report": external, "internal_report": internal})
 
@@ -317,6 +317,7 @@ def _internal_report(
     feature_row: dict[str, Any],
     model_info: dict[str, Any],
     side_profile_scores: dict[str, Any],
+    output_paths: dict[str, Path],
 ) -> dict[str, Any]:
     return {
         "kind": "aramis_internal_clinical_report",
@@ -389,6 +390,14 @@ def _internal_report(
             "selected_feature_columns": model_info.get("feature_columns", []),
         },
         "feature_row": feature_row,
+        "outputs": {
+            "output_folder": str(output_paths["folder"]),
+            "prediction_dataframe_joblib": str(output_paths["dataframe_joblib"]),
+            "external_json": str(output_paths["external_json"]),
+            "external_yaml": str(output_paths["external_yaml"]),
+            "internal_json": str(output_paths["internal_json"]),
+            "internal_yaml": str(output_paths["internal_yaml"]),
+        },
     }
 
 
@@ -429,6 +438,7 @@ def _prediction_provenance(
         "input_model_joblib_path": str(model_path),
         "input_model_joblib_sha256": _file_sha256(model_path),
         "input_model_id": model_id,
+        "author": config["prediction"].get("author"),
         "training_config_sha256": model_artifact.get("training_config_sha256"),
         "preprocessing_config_sha256": model_artifact.get(
             "preprocessing_config_sha256"
@@ -676,33 +686,32 @@ def _model_threshold(model_info: dict[str, Any], threshold_key: str) -> float:
     return float(thresholds[threshold_key])
 
 
-def _report_paths(config: dict[str, Any], config_path: Path) -> dict[str, Path]:
+def _prediction_output_paths(
+    config: dict[str, Any],
+    config_path: Path,
+) -> dict[str, Path]:
+    folder = _config_path(config, config_path, section="io", key="output_folder")
+    stem = _safe_stem(
+        f"{config['prediction']['name']}_{config['patient']['patient_id']}"
+    )
     return {
-        "external_json": _config_path(
-            config,
-            config_path,
-            section="io",
-            key="output_external_json_path",
-        ),
-        "external_yaml": _config_path(
-            config,
-            config_path,
-            section="io",
-            key="output_external_yaml_path",
-        ),
-        "internal_json": _config_path(
-            config,
-            config_path,
-            section="io",
-            key="output_internal_json_path",
-        ),
-        "internal_yaml": _config_path(
-            config,
-            config_path,
-            section="io",
-            key="output_internal_yaml_path",
-        ),
+        "folder": folder,
+        "dataframe_joblib": folder / f"{stem}_prediction_dataframe.joblib",
+        "external_json": folder / f"{stem}_external_report.json",
+        "external_yaml": folder / f"{stem}_external_report.yaml",
+        "internal_json": folder / f"{stem}_internal_report.json",
+        "internal_yaml": folder / f"{stem}_internal_report.yaml",
     }
+
+
+def _safe_stem(value: str) -> str:
+    out = []
+    for char in value.strip():
+        if char.isalnum() or char in {"-", "_"}:
+            out.append(char)
+        else:
+            out.append("_")
+    return "".join(out).strip("_") or "aramis_prediction"
 
 
 def _validate_prediction_config(config: dict[str, Any], config_path: Path) -> None:
@@ -715,13 +724,7 @@ def _validate_prediction_config(config: dict[str, Any], config_path: Path) -> No
     ]
     if missing:
         raise ValueError(f"Missing prediction config sections: {missing}")
-    for key in (
-        "input_model_joblib_path",
-        "output_external_json_path",
-        "output_external_yaml_path",
-        "output_internal_json_path",
-        "output_internal_yaml_path",
-    ):
+    for key in ("input_model_joblib_path", "output_folder"):
         if not config.get("io", {}).get(key):
             raise ValueError(f"Missing io.{key} in {config_path}")
     for report_key in ("external_report", "internal_report"):
@@ -737,12 +740,10 @@ def _validate_prediction_config(config: dict[str, Any], config_path: Path) -> No
     if "preprocessing" in config:
         if not config.get("preprocessing", {}).get("config_path"):
             raise ValueError(f"Missing preprocessing.config_path in {config_path}")
-        for key in ("input_h5_path", "output_dataframe_joblib_path"):
-            if not config.get("io", {}).get(key):
-                raise ValueError(f"Missing io.{key} in {config_path}")
+        if not config.get("io", {}).get("input_h5_path"):
+            raise ValueError(f"Missing io.input_h5_path in {config_path}")
     elif config.get("io", {}).get("input_h5_path"):
-        if not config.get("io", {}).get("output_dataframe_joblib_path"):
-            raise ValueError(f"Missing io.output_dataframe_joblib_path in {config_path}")
+        pass
     elif not config.get("io", {}).get("input_dataframe_joblib_path"):
         raise ValueError(f"Missing io.input_dataframe_joblib_path in {config_path}")
     if not config.get("patient", {}).get("patient_id"):

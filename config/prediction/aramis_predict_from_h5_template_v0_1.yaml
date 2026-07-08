@@ -1,17 +1,14 @@
 prediction:
   name: aramis_predict_from_h5_template
   version: 0.1
+  author: Sergey Denisov
   clinical_stage: research draft
   intended_use: decision-support p_cancer research draft; requires radiologist review
 
 io:
   input_h5_path: /path/to/one_patient_left_right_breasts.h5
-  output_dataframe_joblib_path: ../../examples/outputs/prediction/aramis_prediction_patient_model_input_v0_1.joblib
-  input_model_joblib_path: ../../examples/outputs/training/aramis_m1q_t100_train_all_c0p1.joblib
-  output_external_json_path: ../../examples/outputs/prediction/aramis_predict_from_h5_external_v0_1.json
-  output_external_yaml_path: ../../examples/outputs/prediction/aramis_predict_from_h5_external_v0_1.yaml
-  output_internal_json_path: ../../examples/outputs/prediction/aramis_predict_from_h5_internal_v0_1.json
-  output_internal_yaml_path: ../../examples/outputs/prediction/aramis_predict_from_h5_internal_v0_1.yaml
+  input_model_joblib_path: ../../examples/outputs/training/aramis_m2q_t100_train_all_c0p1.joblib
+  output_folder: ../../examples/outputs/prediction
 
 reporting:
   external_report:
@@ -31,8 +28,8 @@ patient:
   target_side: Left
 
 model:
-  model_id: aramis_m1q_t100_train_all_c0p1
-  selected_model: M1Q
+  model_id: aramis_m2q_t100_train_all_c0p1
+  selected_model: M2Q
   profile_column: radial_profile_data
   group_column: patientId
   specimen_column: specimenId

@@ -156,13 +156,19 @@ make the result less stable.
 ## Current Candidate Choice
 
 ```text
-model_id: aramis_m1q_t100_train_all_c0p1
+model_id: aramis_m2q_t100_train_all_c0p1
 preprocessing: T100 biopsy-patient model input
-model: M1Q
+model: M2Q
 regularization: L2 LogisticRegression, C=0.1
 target sensitivity: >= 0.95 on fitted development cohort
-threshold_target: 0.327873
+threshold_target: 0.302291
 ```
+
+M2Q is selected because it keeps the profile, SK symmetry, and reliability
+features of M1Q and adds age as an explicit clinical risk prior. Age is
+clinically relevant because breast cancer risk increases with age. In the
+current comparison, adding age improved the candidate model by roughly 3
+percentage points.
 
 Why T100:
 

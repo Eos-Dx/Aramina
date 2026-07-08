@@ -8,12 +8,12 @@ overclaimed.
 ## Candidate Summary
 
 ```text
-model_id: aramis_m1q_t100_train_all_c0p1
+model_id: aramis_m2q_t100_train_all_c0p1
 dataset: biopsy_patients model-input DataFrame
 preprocessing: T100 AgBH quality threshold
-selected_model: M1Q
+selected_model: M2Q
 regularization: L2 LogisticRegression, C=0.1
-threshold_target: 0.327873
+threshold_target: 0.302291
 ```
 
 The model estimates `p_cancer` for decision support. It is not autonomous
@@ -30,7 +30,8 @@ H5
 -> patient-level target-breast p_cancer by logit-average
 -> SK target/contralateral symmetry features
 -> reliability counters
--> M1Q final LogisticRegression
+-> age + age_available
+-> M2Q final LogisticRegression
 -> p_cancer
 ```
 
@@ -49,7 +50,7 @@ contralateral rows are still kept for symmetry
 
 `all_patients` is exploratory only.
 
-## Why M1Q
+## Why M2Q
 
 ```text
 M0:
@@ -65,9 +66,11 @@ M2/M2Q:
   add age
 ```
 
-M1Q is the current primary candidate because it uses XRD profile evidence,
-same-patient symmetry context, and explicit data-reliability features while not
-using age as a primary shortcut.
+M2Q is the current primary candidate because it keeps the M1Q XRD profile,
+same-patient symmetry context, and explicit data-reliability features, and adds
+age as an explicit clinical risk prior. Age is clinically meaningful because
+breast cancer risk increases with age. In the current M1Q-vs-M2Q comparison,
+adding age improved the candidate by roughly 3 percentage points.
 
 ## Feature Interpretation
 
@@ -131,9 +134,9 @@ Key fixed-cohort result:
 patients: 164
 CANCER patients: 75
 BENIGN patients: 89
-train-all ROC AUC: 0.881
+train-all ROC AUC: 0.889
 train-all sensitivity: 0.960
-train-all specificity: 0.494
+train-all specificity: 0.517
 ```
 
 This train-all result is used to lock the candidate artifact and threshold. It
@@ -185,4 +188,3 @@ require H5 schema_version / format match
 keep p_cancer and reliability separate
 state decision-support-only limitation in report
 ```
-

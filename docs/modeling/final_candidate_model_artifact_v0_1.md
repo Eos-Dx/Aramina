@@ -9,23 +9,23 @@ decision-support research only and is not clinical validation.
 
 ```text
 preprocessing: T100 biopsy-patient model-input DataFrame
-model family: M1Q
+model family: M2Q
 LR penalty: L2
 LR regularization C: 0.1
 target sensitivity: >= 0.95 on fitted development cohort
-threshold_target: 0.327873
+threshold_target: 0.302291
 ```
 
 Current fitted artifact:
 
 ```text
-examples/outputs/training/aramis_m1q_t100_train_all_c0p1.joblib
+examples/outputs/training/aramis_m2q_t100_train_all_c0p1.joblib
 ```
 
 Model id:
 
 ```text
-aramis_m1q_t100_train_all_c0p1
+aramis_m2q_t100_train_all_c0p1
 ```
 
 This id is stored as `training.name` in the model artifact and must be supplied
@@ -51,24 +51,33 @@ T130: keeps more patients, but current M1Q checks show weaker ROC/specificity
 T100 keeps enough biopsy-patient cases for patient-safe model selection while
 excluding more questionable calibration days than T130.
 
-## Why M1Q
+## Why M2Q
 
-M1Q uses:
+M2Q uses:
 
 ```text
 LR1 profile p_cancer
 SK target-vs-contralateral symmetry features
 measurement reliability counters
+age + age_available
 ```
 
-It is preferred over M0Q because it includes same-patient symmetry information.
-M2Q adds age, but age can act as a clinical shortcut in a small dataset, so M2Q
-remains a comparison model rather than the current primary candidate.
+It is preferred over M1Q because age is a clinically meaningful risk prior for
+breast cancer: older women have higher baseline risk. In the current
+model-selection comparison, adding age improved the candidate by roughly 3
+percentage points while preserving the same T100 preprocessing, SK symmetry
+features, reliability counters, and L2 LogisticRegression regularization
+(`C=0.1`).
+
+Age remains explicitly documented because it can act as a clinical prior and
+may dominate the XRD signal in a small development cohort. The model output
+must therefore be described as decision support, not autonomous diagnosis.
 
 ## Regularization Selection
 
 Regularization was selected before fitting the final train-all model. The
-selection experiment used repeated patient-safe stratified 5-fold validation:
+initial selection experiment used repeated patient-safe stratified 5-fold
+validation on the T100 candidate family:
 
 ```text
 validation mode: repeated stratified patient K-fold
@@ -80,7 +89,11 @@ selection rule: highest K-fold ROC AUC, then smaller C if ROC differs by < 0.005
 selected C: 0.1
 ```
 
-K-fold grid:
+The final M2Q candidate keeps this same `C=0.1` regularization so that the
+model-family change isolates the addition of age rather than changing
+regularization at the same time.
+
+Original K-fold grid:
 
 | C | ROC AUC | sensitivity | specificity |
 |---:|---:|---:|---:|
@@ -108,16 +121,16 @@ Train-all fitted-cohort metrics:
 
 | metric | value |
 |---|---:|
-| ROC AUC | 0.881 |
-| threshold_target | 0.327873 |
+| ROC AUC | 0.889 |
+| threshold_target | 0.302291 |
 | sensitivity | 0.960 |
-| specificity | 0.494 |
+| specificity | 0.517 |
 | TP | 72 |
 | FN | 3 |
-| TN | 44 |
-| FP | 45 |
-| PPV | 0.615 |
-| NPV | 0.936 |
+| TN | 46 |
+| FP | 43 |
+| PPV | 0.626 |
+| NPV | 0.939 |
 
 ## Conservative Validation Views
 
@@ -125,10 +138,10 @@ The same selected settings were also evaluated with patient-safe validation:
 
 | mode | ROC AUC | sensitivity | specificity |
 |---|---:|---:|---:|
-| repeated stratified 5-fold x20 | 0.618 +/- 0.079 | 0.766 +/- 0.126 | 0.409 +/- 0.105 |
-| patient-safe 80/20 x50 | 0.613 +/- 0.084 | 0.748 +/- 0.119 | 0.407 +/- 0.106 |
-| LOOVM | 0.622 | 0.840 | 0.326 |
-| train-all | 0.881 | 0.960 | 0.494 |
+| repeated stratified 5-fold x20 | 0.673 +/- 0.074 | 0.803 +/- 0.112 | 0.419 +/- 0.111 |
+| patient-safe 80/20 x50 | 0.662 +/- 0.082 | 0.781 +/- 0.119 | 0.430 +/- 0.115 |
+| LOOVM | 0.677 | 0.840 | 0.326 |
+| train-all | 0.889 | 0.960 | 0.517 |
 
 ## Interpretation
 
@@ -153,8 +166,8 @@ patient:
   patient_id: PATIENT_ID
   target_side: Left
 model:
-  model_id: aramis_m1q_t100_train_all_c0p1
-  selected_model: M1Q
+  model_id: aramis_m2q_t100_train_all_c0p1
+  selected_model: M2Q
 ```
 
 The per-patient report must keep risk and reliability separate:

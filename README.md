@@ -39,7 +39,8 @@ one-patient H5
 -> normalized radial_profile_data
 -> LR1 profile model on target breast
 -> target/contralateral SK symmetry features
--> M1Q final LogisticRegression
+-> age + age_available
+-> M2Q final LogisticRegression
 -> p_cancer + suggested class + reliability
 ```
 
@@ -47,18 +48,24 @@ Training uses the same preprocessing family but a historical model-development
 cohort. The current primary candidate is:
 
 ```text
-model_id: aramis_m1q_t100_train_all_c0p1
+model_id: aramis_m2q_t100_train_all_c0p1
 preprocessing: T100 biopsy-patient model-input DataFrame
-selected_model: M1Q
+selected_model: M2Q
 regularization: L2 LogisticRegression, C=0.1
-threshold_target: 0.327873
+threshold_target: 0.302291
 ```
+
+M2Q is selected because it keeps the XRD profile, same-patient SK symmetry, and
+reliability features from M1Q, and adds age as an explicit clinical risk prior.
+Age is clinically meaningful because breast cancer risk rises with age. In the
+current model-selection comparison, adding age improved the candidate model by
+roughly 3 percentage points.
 
 ## Commands
 
 ```bash
 python -m aramis preprocess --config config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
-python -m aramis train --config config/training/aramis_m1q_t100_primary_train_v0_1.yaml
+python -m aramis train --config config/training/aramis_m2q_t100_primary_train_v0_1.yaml
 python -m aramis run --config config/workflows/aramis_biopsy_patients_primary_workflow_v0_1.yaml
 python -m aramis predict --config config/prediction/aramis_predict_from_h5_template_v0_1.yaml
 ```
@@ -164,4 +171,3 @@ conda run --no-capture-output -n eosproduct ruff check .
 conda run --no-capture-output -n eosproduct pytest -q
 conda run --no-capture-output -n eosproduct pytest --cov=aramis --cov-report=term-missing -q
 ```
-

@@ -10,7 +10,7 @@ writes a model artifact joblib plus optional JSON/YAML summaries.
 Current product-clean training config:
 
 ```text
-aramis_m1q_t100_primary_train_v0_1.yaml
+aramis_m2q_t100_primary_train_v0_1.yaml
 ```
 
 Primary route:
@@ -18,7 +18,7 @@ Primary route:
 ```text
 input DataFrame: examples/outputs/model_input/aramis_biopsy_patients_model_input_v0_1.joblib
 model family: patient_m0_m1_m2_logistic_set
-selected product candidate: M1Q
+selected product candidate: M2Q
 preprocessing: T100 biopsy-patient cohort
 regularization: L2 LogisticRegression, C=0.1
 final fit: train-all development cohort
@@ -43,6 +43,11 @@ M1Q: M1 + reliability/quality counters
 M2: M1 + age and age_available
 M2Q: M1Q + age and age_available
 ```
+
+M2Q is the current primary candidate because age is a clinically meaningful
+risk prior for breast cancer: older women have higher baseline risk. In current
+model-selection checks, adding age improved the candidate model by roughly 3
+percentage points while preserving the same preprocessing and regularization.
 
 Risk and reliability are separate. `p_cancer` is the decision-support risk
 score. Reliability fields describe whether enough valid target and

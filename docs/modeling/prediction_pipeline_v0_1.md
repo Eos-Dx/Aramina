@@ -24,6 +24,8 @@ patient_id
 clinician-supplied target_side from predict YAML
 model_id
 selected_model
+prediction.author
+io.output_folder
 container.schema_version
 container.format
 container.max_patients
@@ -145,6 +147,23 @@ needs more caution, for example when only one valid target-breast measurement is
 available or paired-breast symmetry is unavailable.
 
 ## Output
+
+Prediction YAML specifies one output folder:
+
+```yaml
+io:
+  output_folder: ../../examples/outputs/prediction
+```
+
+Aramis writes automatic file names:
+
+```text
+<prediction.name>_<patient.patient_id>_prediction_dataframe.joblib
+<prediction.name>_<patient.patient_id>_external_report.json
+<prediction.name>_<patient.patient_id>_external_report.yaml
+<prediction.name>_<patient.patient_id>_internal_report.json
+<prediction.name>_<patient.patient_id>_internal_report.yaml
+```
 
 Prediction always writes two report pairs.
 

@@ -128,8 +128,10 @@ M2: M1 + age + age_available
 M2Q: M1Q + age + age_available
 ```
 
-For v0.1-beta, M1Q is the current primary candidate. M2/M2Q are explicit
-age-audit/comparison branches because age can dominate the XRD signal.
+For v0.1-beta, M2Q is the current primary candidate. M2Q keeps the M1Q profile,
+SK symmetry, and reliability features, and adds age as an explicit clinical
+risk prior. Age must still be reported as a model component because it can
+dominate the XRD signal in small cohorts.
 
 Q models keep `p_cancer` as risk and add measurement-count confidence fields as
 model features/report fields:

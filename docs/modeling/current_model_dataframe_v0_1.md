@@ -16,7 +16,7 @@ examples/outputs/model_input/aramis_biopsy_patients_model_input_v0_1.joblib
 Primary training config points to this artifact:
 
 ```text
-config/training/aramis_m1q_t100_primary_train_v0_1.yaml
+config/training/aramis_m2q_t100_primary_train_v0_1.yaml
 ```
 
 Current counts:

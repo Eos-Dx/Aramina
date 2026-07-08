@@ -12,4 +12,4 @@ preprocessing:
   config_path: ../preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
 
 training:
-  config_path: ../training/aramis_m1q_t100_primary_train_v0_1.yaml
+  config_path: ../training/aramis_m2q_t100_primary_train_v0_1.yaml
