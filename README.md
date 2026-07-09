@@ -66,14 +66,24 @@ roughly 3 percentage points.
 Install from a fresh clone:
 
 ```bash
-conda create -n eosproduct python=3.13 -y
-conda activate eosproduct
-python -m pip install -e ".[dev]"
+git clone https://github.com/Eos-Dx/Aramis.git
+cd Aramis
+./install.sh
 ```
 
-If `conda` is missing, use the EOS Product bundle installer. It can install
-Miniforge, create the `eosproduct` environment, install Aramis with
-dependencies, and run tests.
+Windows:
+
+```bat
+git clone https://github.com/Eos-Dx/Aramis.git
+cd Aramis
+install.bat
+```
+
+If `conda` is missing, the installer asks to install Miniforge. See:
+
+```text
+INSTALL.md
+```
 
 ```bash
 python -m aramis preprocess --config config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml

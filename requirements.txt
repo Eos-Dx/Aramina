@@ -2,7 +2,6 @@ numpy>=1.26,<3
 pandas>=2.2
 scipy>=1.14
 scikit-learn>=1.5
-lightgbm>=4.5
 joblib>=1.4
 h5py>=3.12
 pyFAI>=2025.1
@@ -21,7 +20,4 @@ markdown-it-py
 fastjsonschema
 jsonschema
 tqdm
-
--e /Users/sad/dev/container
--e /Users/sad/dev/XRD-preprocessing[dev]
--e /Users/sad/dev/Aramis[dev]
+-e .[dev]

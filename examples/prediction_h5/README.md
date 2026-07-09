@@ -35,7 +35,7 @@ format = xrd-session
 Run:
 
 ```bash
-cd /Users/sad/dev/Aramis
+cd Aramis
 conda activate eosproduct
 
 python -m aramis predict --config examples/prediction_h5/px01_predict.yaml
