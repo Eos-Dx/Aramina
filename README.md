@@ -63,16 +63,41 @@ roughly 3 percentage points.
 
 ## Commands
 
+Install from a fresh clone:
+
+```bash
+conda create -n eosproduct python=3.13 -y
+conda activate eosproduct
+python -m pip install -e ".[dev]"
+```
+
+If `conda` is missing, use the EOS Product bundle installer. It can install
+Miniforge, create the `eosproduct` environment, install Aramis with
+dependencies, and run tests.
+
 ```bash
 python -m aramis preprocess --config config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
 python -m aramis train --config config/training/aramis_m2q_t100_primary_train_v0_1.yaml
 python -m aramis run --config config/workflows/aramis_biopsy_patients_primary_workflow_v0_1.yaml
-python -m aramis predict --config config/prediction/aramis_predict_from_h5_template_v0_1.yaml
+python -m aramis predict --config examples/prediction_h5/cancer_predict.yaml
 ```
 
 `preprocess` and `train` build the development model artifacts. Product
 prediction should start from H5 with `predict`. DataFrame prediction input is
 kept only for tests and debugging.
+
+Prediction template for a new patient H5:
+
+```bash
+config/prediction/aramis_predict_from_h5_template_v0_1.yaml
+```
+
+Working one-patient prediction examples use:
+
+```text
+examples/prediction_h5/cancer_one_patient.h5
+examples/prediction_models/aramis_m2q_t100_train_all_c0p1.joblib
+```
 
 ## Documentation Map
 

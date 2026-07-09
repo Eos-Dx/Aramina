@@ -5,16 +5,28 @@ should start from one H5 container and run prediction preprocessing before
 model scoring. The already-preprocessed DataFrame mode is kept for tests and
 debugging.
 
-Run:
+Working H5 smoke-test:
 
 ```bash
-python -m aramis predict --config config/prediction/aramis_predict_example_v0_1.yaml
+python -m aramis predict --config examples/prediction_h5/cancer_predict.yaml
 ```
 
-H5 template:
+H5 template for a new patient:
 
 ```bash
-python -m aramis predict --config config/prediction/aramis_predict_from_h5_template_v0_1.yaml
+config/prediction/aramis_predict_from_h5_template_v0_1.yaml
+```
+
+DataFrame-mode debug example:
+
+```bash
+config/prediction/aramis_predict_example_v0_1.yaml
+```
+
+The example uses the tracked model artifact:
+
+```text
+examples/prediction_models/aramis_m2q_t100_train_all_c0p1.joblib
 ```
 
 Required sections:
@@ -100,5 +112,7 @@ not for autonomous diagnosis
 ```
 
 External report is intentionally minimal and target-side only. Internal report
-contains audit fields, intermediate model summaries, target LR1 profile score,
-and contralateral LR1 profile score for internal review.
+contains audit fields, intermediate model summaries, target LR1
+`profile_p_cancer`, and contralateral LR1 profile score for internal review.
+`profile_p_cancer_logit_average` is kept only in `feature_row` as an internal
+model-audit feature.

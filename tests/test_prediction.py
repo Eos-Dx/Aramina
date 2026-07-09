@@ -294,6 +294,8 @@ def test_predict_cli_writes_decision_support_report(tmp_path: Path):
     assert report["model_id"] == "test_predict_train"
     assert report["model_name"] == "M1Q"
     assert 0.0 <= report["p_cancer"] <= 1.0
+    assert "profile_p_cancer" not in report
+    assert "profile_p_cancer_logit_average" not in report
     assert report["suggested_class"] in {"BENIGN", "CANCER"}
     assert report["reliability"] == "high"
     assert report["requires_radiologist_review"] is True
@@ -308,6 +310,11 @@ def test_predict_cli_writes_decision_support_report(tmp_path: Path):
     assert internal_report["features"]["azimuthal_integration"][
         "contralateral_profile_model"
     ]["available"]
+    lr1_report = internal_report["intermediate_models"]["lr1_profile_model"]
+    assert 0.0 <= lr1_report["profile_p_cancer"] <= 1.0
+    assert "profile_p_cancer_logit_average" in internal_report["feature_row"]
+    assert "p_cancer" not in internal_report
+    assert 0.0 <= internal_report["final_prediction"]["p_cancer"] <= 1.0
     assert internal_report["intermediate_models"]["lr1_profile_model"]["steps"]
 
 

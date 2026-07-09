@@ -381,7 +381,18 @@ def _internal_report(
             "risk_level": "high" if suggested_class == "CANCER" else "low",
         },
         "intermediate_models": {
-            "lr1_profile_model": _estimator_summary(model_info.get("lr1_model")),
+            "lr1_profile_model": {
+                **_estimator_summary(model_info.get("lr1_model")),
+                "profile_p_cancer": side_profile_scores["target"].get(
+                    "profile_p_cancer"
+                ),
+                "profile_p_cancer_probability_mean": side_profile_scores[
+                    "target"
+                ].get("profile_p_cancer_probability_mean"),
+                "profile_measurements": side_profile_scores["target"].get(
+                    "measurements"
+                ),
+            },
             "final_model": _estimator_summary(
                 model_info.get("final_model"),
                 feature_columns=model_info.get("feature_columns"),
@@ -504,8 +515,9 @@ def _side_profile_score(
             "available": False,
             "side": None,
             "measurements": 0,
+            "profile_p_cancer": None,
             "p_cancer_probability_mean": None,
-            "p_cancer_logit_average": None,
+            "profile_p_cancer_probability_mean": None,
             "measurement_p_cancer": [],
             "profile_statistics": None,
         }
@@ -519,8 +531,9 @@ def _side_profile_score(
             "available": False,
             "side": _display_side(side_norm),
             "measurements": 0,
+            "profile_p_cancer": None,
             "p_cancer_probability_mean": None,
-            "p_cancer_logit_average": None,
+            "profile_p_cancer_probability_mean": None,
             "measurement_p_cancer": [],
             "profile_statistics": None,
         }
@@ -528,12 +541,14 @@ def _side_profile_score(
     if lr1_model is None:
         raise ValueError("Model artifact is missing lr1_model.")
     scores = lr1_model.predict_proba(profile_matrix(side_df, profile_column))[:, 1]
+    profile_p_cancer = _logit_average_probability(scores)
     return {
         "available": True,
         "side": _display_side(side_norm),
         "measurements": int(len(side_df)),
+        "profile_p_cancer": profile_p_cancer,
         "p_cancer_probability_mean": float(np.mean(scores)),
-        "p_cancer_logit_average": _logit_average_probability(scores),
+        "profile_p_cancer_probability_mean": float(np.mean(scores)),
         "measurement_p_cancer": [float(value) for value in scores],
         "profile_statistics": _profile_statistics(
             side_df,

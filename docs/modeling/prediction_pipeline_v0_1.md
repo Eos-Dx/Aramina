@@ -186,6 +186,9 @@ model/data/config SHA256 provenance
 decision-support warnings
 ```
 
+External report intentionally reports only final `p_cancer`. LR1 profile-only
+scores and model features are internal-audit fields.
+
 Internal report follows `internal_clinical_report_content_v0_1.md` and contains:
 
 ```text
@@ -202,6 +205,19 @@ intermediate LR1/final model summaries
 feature_row
 model/data/config SHA256 provenance
 decision-support warnings
+```
+
+Report-level naming:
+
+```text
+final_prediction.p_cancer
+  final M2Q risk score
+
+intermediate_models.lr1_profile_model.profile_p_cancer
+  target-breast LR1 profile-only probability
+
+feature_row.profile_p_cancer_logit_average
+  internal final-model feature retained for reproducibility
 ```
 
 Contralateral p_cancer is included only in the internal report and only from the

@@ -100,6 +100,10 @@ reference set have a lower JP-index than the current patient.
   with the first-layer profile model unless explicitly changed.
 - Intermediate model outputs should be exportable, including first-layer profile
   model summaries and the final candidate model summary.
+- Internal report should expose final and intermediate probabilities separately:
+  `final_prediction.p_cancer` for the final M2Q output,
+  `intermediate_models.lr1_profile_model.profile_p_cancer` for target-breast
+  LR1 profile-only probability, and
+  `feature_row.profile_p_cancer_logit_average` only as model-audit input.
 - Report fields must preserve decision-support language: p_cancer, suggested
   class, reliability, and requires radiologist review.
-

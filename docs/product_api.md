@@ -90,6 +90,15 @@ The model joblib stores `prediction_preprocessing_config`. Product prediction
 normally does not pass a separate preprocessing YAML. Explicit
 `preprocessing.config_path` is a development/test override.
 
+Repository smoke-test model:
+
+```text
+examples/prediction_models/aramis_m2q_t100_train_all_c0p1.joblib
+```
+
+Example one-patient H5 configs in `examples/prediction_h5/*_predict.yaml` point
+to this tracked model artifact.
+
 ## H5 Container Contract
 
 Current supported prediction container:
@@ -257,6 +266,10 @@ provenance
 limitations
 ```
 
+External report does not expose LR1 profile-only fields such as
+`profile_p_cancer` or `profile_p_cancer_logit_average`. It reports only the
+final model `p_cancer`.
+
 Internal report is audit-oriented and follows
 `docs/modeling/internal_clinical_report_content_v0_1.md`:
 
@@ -280,6 +293,19 @@ intermediate_models.final_model
 feature_row
 provenance
 limitations
+```
+
+Internal report separates human-readable and model-audit values:
+
+```text
+final_prediction.p_cancer
+  final M2Q decision-support risk score
+
+intermediate_models.lr1_profile_model.profile_p_cancer
+  target-breast LR1 profile-only probability
+
+feature_row.profile_p_cancer_logit_average
+  internal feature used by the final model; kept for audit/reproducibility
 ```
 
 Contralateral breast prediction is internal-only. It is produced by the LR1

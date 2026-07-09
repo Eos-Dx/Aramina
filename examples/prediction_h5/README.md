@@ -47,6 +47,15 @@ python -m aramis predict --config examples/prediction_h5/atypical_predict.yaml
 python -m aramis predict --config examples/prediction_h5/benign_predict.yaml
 ```
 
+The YAML files use the tracked example model:
+
+```text
+examples/prediction_models/aramis_m2q_t100_train_all_c0p1.joblib
+```
+
+The H5 files are synthetic API fixtures. Their `p_cancer` values only prove that
+the prediction route runs; they are not clinical example scores.
+
 Reports are written to:
 
 ```text

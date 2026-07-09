@@ -19,7 +19,7 @@ threshold_target: 0.302291
 Current fitted artifact:
 
 ```text
-examples/outputs/training/aramis_m2q_t100_train_all_c0p1.joblib
+examples/prediction_models/aramis_m2q_t100_train_all_c0p1.joblib
 ```
 
 Model id:

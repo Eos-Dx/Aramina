@@ -13,6 +13,7 @@ install Miniforge automatically if conda is missing
 install container, XRD-preprocessing, and Aramis as editable local packages
 run tests
 launch Aramis marimo notebooks
+run Aramis one-patient prediction examples
 ```
 
 Run:
@@ -31,17 +32,17 @@ cd eosproduct_onboarding_bundle
 .\install.ps1
 ```
 
-The installer asks before running tests or launching notebooks. If tests are
-accepted, XRD-preprocessing and Aramis tests run together in a separate Terminal
-window on macOS/Linux or a separate PowerShell window on Windows. If notebooks
-are accepted, Aramis one-to-one and one-to-many notebooks open in separate
-Terminal/PowerShell windows.
+The installer asks before running tests, launching notebooks, or running
+prediction examples. If tests are accepted, XRD-preprocessing and Aramis tests
+run together in a separate Terminal window on macOS/Linux or a separate
+PowerShell window on Windows. If notebooks are accepted, Aramis all-patients and
+biopsy-patients notebooks open in separate Terminal/PowerShell windows.
 
 If git clone/update succeeds, installer uses pinned product refs:
 
 ```text
 XRD-preprocessing: v0.1.6-beta
-Aramis: 0.1.4-beta
+Aramis: 0.1.7-beta
 container: feat/v0_3-eoscan-session-container
 ```
 
@@ -88,6 +89,26 @@ Windows:
 
 ```powershell
 .\run_aramis_notebooks.ps1 -TargetRoot "$HOME\dev\eosproduct"
+```
+
+Manual prediction example after install:
+
+```bash
+./run_aramis_prediction_examples.sh ~/dev/eosproduct
+```
+
+Windows:
+
+```powershell
+.\run_aramis_prediction_examples.ps1 -TargetRoot "$HOME\dev\eosproduct"
+```
+
+Single prediction example:
+
+```bash
+cd ~/dev/eosproduct/Aramis
+conda activate eosproduct
+python -m aramis predict --config examples/prediction_h5/cancer_predict.yaml
 ```
 
 Notebook behavior:

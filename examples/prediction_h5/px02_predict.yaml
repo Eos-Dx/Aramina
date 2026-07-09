@@ -1,17 +1,14 @@
 prediction:
   name: aramis_predict_px02_example
   version: 0.1
+  author: Sergey Denisov
   clinical_stage: research draft
   intended_use: decision-support p_cancer research draft; requires radiologist review
 
 io:
   input_h5_path: px02_one_patient.h5
-  output_dataframe_joblib_path: ../outputs/prediction_h5_examples/px02_prediction_df.joblib
-  input_model_joblib_path: ../outputs/training/aramis_m1q_t100_train_all_c0p1.joblib
-  output_external_json_path: ../outputs/prediction_h5_examples/px02_external_report.json
-  output_external_yaml_path: ../outputs/prediction_h5_examples/px02_external_report.yaml
-  output_internal_json_path: ../outputs/prediction_h5_examples/px02_internal_report.json
-  output_internal_yaml_path: ../outputs/prediction_h5_examples/px02_internal_report.yaml
+  input_model_joblib_path: ../prediction_models/aramis_m2q_t100_train_all_c0p1.joblib
+  output_folder: ../outputs/prediction_h5_examples
 
 reporting:
   external_report:
@@ -34,8 +31,8 @@ patient:
   target_side: Left
 
 model:
-  model_id: aramis_m1q_t100_train_all_c0p1
-  selected_model: M1Q
+  model_id: aramis_m2q_t100_train_all_c0p1
+  selected_model: M2Q
 
 decision:
   threshold_key: threshold_target
