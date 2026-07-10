@@ -225,3 +225,9 @@ RMS / weighted-RMS / Mahalanobis duplicates
 
 This is not a final product claim. It is an experimental result used to reduce
 the feature set before product-code cleanup.
+
+The completed follow-up selection is documented in:
+
+```text
+docs/modeling/t100_m2q_symmetry_feature_selection_v0_1.md
+```

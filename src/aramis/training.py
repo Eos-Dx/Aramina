@@ -1075,15 +1075,9 @@ def _patient_model_feature_columns(
         "sk_cosine_distance_full_q2",
         "sk_wasserstein_distance_full_q2",
     ]
-    reliability = [
-        "profile_p_cancer_n_measurements",
-        "target_measurements",
-        "contralateral_measurements",
-        "min_measurements_per_breast",
-        "target_measurements_ok",
-        "contralateral_measurements_ok",
-        "paired_measurements_ok",
-    ]
+    # Q is target-profile reliability only. Paired-breast availability and
+    # contralateral measurement counts remain report/audit fields, not inputs.
+    reliability = ["profile_p_cancer_n_measurements"]
     return {
         "M0Q": keep(["profile_p_cancer_logit_average", *reliability]),
         "M1": keep(sk_symmetry),
@@ -1100,23 +1094,23 @@ def _patient_model_descriptions() -> dict[str, dict[str, Any]]:
             "description": "LR1 profile LogisticRegression, logit-averaged to patient p_cancer.",
         },
         "M0Q": {
-            "name": "M0Q profile plus reliability",
-            "description": "M0 plus explicit measurement-count reliability features; no symmetry or age.",
+            "name": "M0Q profile plus target measurement count",
+            "description": "M0 plus target-breast prediction count; no symmetry or age.",
         },
         "M1": {
             "name": "M1 profile plus SK symmetry",
             "description": "LR1 target-breast p_cancer plus same-patient target/contralateral SK symmetry block.",
         },
         "M1Q": {
-            "name": "M1Q profile plus SK symmetry plus reliability",
-            "description": "M1 plus explicit measurement-count reliability features; reliability is reported separately from p_cancer.",
+            "name": "M1Q profile plus SK symmetry plus target measurement count",
+            "description": "M1 plus target-breast prediction count; reliability is reported separately from p_cancer.",
         },
         "M2": {
             "name": "M2 profile plus SK symmetry plus age",
             "description": "M1 plus age and age availability flag.",
         },
         "M2Q": {
-            "name": "M2Q profile plus SK symmetry plus reliability plus age",
+            "name": "M2Q profile plus SK symmetry plus target measurement count plus age",
             "description": "M1Q plus age and age availability flag.",
         },
     }
@@ -1155,7 +1149,7 @@ def _patient_model_warnings(
         warnings.append("M2 includes age; age contribution must be reviewed separately.")
     if any(model_name in selected_models for model_name in ["M1Q", "M2Q"]):
         warnings.append(
-            "Q models include reliability/quality counters; report reliability separately from p_cancer."
+            "Q models include target-breast prediction count; report reliability separately from p_cancer."
         )
     unavailable = int((feature_table["symmetry_available"] == 0).sum())
     if unavailable:

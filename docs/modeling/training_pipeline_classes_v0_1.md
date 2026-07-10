@@ -131,17 +131,25 @@ M2Q: M1Q + age + age_available
 For v0.1-beta, M1 is the current primary candidate. M2 is an explicit age
 audit/comparison branch because age can dominate the XRD signal.
 
-Q models are reliability experiments. They keep `p_cancer` as risk and add
-measurement-count confidence fields as model features/report fields:
+Q models keep `p_cancer` as risk and add only the number of target-breast
+profile predictions as a model feature:
 
 ```text
 profile_p_cancer_n_measurements
+```
+
+The following fields remain report/audit fields only. They must not influence
+the learned risk because they describe contralateral or paired-breast
+availability rather than target-profile quality:
+
+```text
 target_measurements
 contralateral_measurements
 min_measurements_per_breast
 target_measurements_ok
 contralateral_measurements_ok
 paired_measurements_ok
+symmetry_available
 result_reliability
 result_reliability_reason
 ```

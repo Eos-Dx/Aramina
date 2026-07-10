@@ -214,12 +214,6 @@ def test_train_cli_writes_patient_m0_m1_m2_artifact(tmp_path: Path):
     assert artifact["feature_schema"]["M0Q"]["feature_columns"] == [
         "profile_p_cancer_logit_average",
         "profile_p_cancer_n_measurements",
-        "target_measurements",
-        "contralateral_measurements",
-        "min_measurements_per_breast",
-        "target_measurements_ok",
-        "contralateral_measurements_ok",
-        "paired_measurements_ok",
     ]
     assert artifact["feature_schema"]["M1"]["feature_columns"] == [
         "profile_p_cancer_logit_average",
@@ -240,14 +234,8 @@ def test_train_cli_writes_patient_m0_m1_m2_artifact(tmp_path: Path):
         "sk_cosine_distance_full_q2",
         "sk_wasserstein_distance_full_q2",
     ]
-    assert artifact["feature_schema"]["M1Q"]["feature_columns"][-7:] == [
+    assert artifact["feature_schema"]["M1Q"]["feature_columns"][-1:] == [
         "profile_p_cancer_n_measurements",
-        "target_measurements",
-        "contralateral_measurements",
-        "min_measurements_per_breast",
-        "target_measurements_ok",
-        "contralateral_measurements_ok",
-        "paired_measurements_ok",
     ]
     assert artifact["warnings"]
     assert any("reliability" in warning for warning in artifact["warnings"])

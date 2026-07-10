@@ -1,0 +1,7 @@
+candidate,patients,roc_auc_oof_mean,sensitivity_target,specificity_at_target_sensitivity,threshold_from_pooled_oof,note
+M2Q_screened_core_4_plus_age,164,0.7005243445692884,0.96,0.1797752808988764,0.17076284406679926,descriptive pooled OOF ROC point; threshold uses OOF labels
+M2Q_all_15_SK_plus_age,164,0.695131086142322,0.9733333333333334,0.1123595505617978,0.13262415874635428,descriptive pooled OOF ROC point; threshold uses OOF labels
+M2Q_no_SK_plus_age,164,0.6838951310861424,0.96,0.1123595505617978,0.14288117679517673,descriptive pooled OOF ROC point; threshold uses OOF labels
+M1Q_screened_core_4,164,0.6386516853932586,0.9733333333333334,0.1123595505617978,0.1650942631428673,descriptive pooled OOF ROC point; threshold uses OOF labels
+M1Q_all_15_SK,164,0.6371535580524345,0.9733333333333334,0.1123595505617978,0.16464624455452667,descriptive pooled OOF ROC point; threshold uses OOF labels
+M0Q_profile_plus_reliability,164,0.6320599250936328,0.96,0.1123595505617978,0.15908558132385694,descriptive pooled OOF ROC point; threshold uses OOF labels

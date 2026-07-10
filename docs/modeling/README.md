@@ -14,6 +14,9 @@ reliability_quality_models_v0_1.md
 patient_model_structures_v0_2.md
 modeling_results_interpretation_v0_1.md
 t100_peak_delta_symmetry_experiment_v0_1.md
+t100_m2q_symmetry_feature_selection_v0_1.md
+t100_m2q_pairwise_cosine_experiment_v0_1.md
+t100_m0q_m1q_m2q_controlled_comparison_v0_1.md
 ```
 
 Archived experiment documents may still mention removed result CSVs. Their full
