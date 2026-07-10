@@ -1,7 +1,7 @@
 # M2Q Age Candidate Update v0.1
 
-Status: superseded research record. The current paired-breast Core4 candidate
-is documented in `m2q_core4_paired_candidate_v0_1_8.md`.
+Status: superseded research record. The current optional-symmetry Core4
+candidate is documented in `m2q_core4_optional_symmetry_candidate_v0_1_9.md`.
 
 This note records the switch from M1Q to M2Q as the current Aramis primary
 candidate model. M2Q keeps the M1Q structure and adds `age` and

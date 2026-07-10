@@ -26,7 +26,7 @@ config/prediction/aramis_predict_example_v0_1.yaml
 The example uses the tracked model artifact:
 
 ```text
-examples/prediction_models/aramis_m2q_t100_core4_c1_0p1_c2_0p1.joblib
+examples/prediction_models/aramis_m2q_t100_core4_optional_symmetry_c1_0p1_c2_0p1.joblib
 ```
 
 Required sections:
@@ -92,7 +92,7 @@ one-patient H5
 -> select clinician-supplied target breast
 -> LR1 scores target-breast radial_profile_data
 -> logit-average target-breast p_cancer
--> require contralateral breast and build paired SK symmetry features
+-> build paired SK symmetry features when a contralateral breast is available
 -> add reliability counters
 -> selected M0/M0Q/M1/M1Q/M2/M2Q model
 -> external report JSON/YAML

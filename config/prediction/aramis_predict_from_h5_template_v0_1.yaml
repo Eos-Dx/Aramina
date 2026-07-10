@@ -7,7 +7,7 @@ prediction:
 
 io:
   input_h5_path: /path/to/one_patient_left_right_breasts.h5
-  input_model_joblib_path: ../../examples/prediction_models/aramis_m2q_t100_core4_c1_0p1_c2_0p1.joblib
+  input_model_joblib_path: ../../examples/prediction_models/aramis_m2q_t100_core4_optional_symmetry_c1_0p1_c2_0p1.joblib
   output_folder: ../../examples/outputs/prediction
 
 reporting:
@@ -28,7 +28,7 @@ patient:
   target_side: Left
 
 model:
-  model_id: aramis_m2q_t100_core4_c1_0p1_c2_0p1
+  model_id: aramis_m2q_t100_core4_optional_symmetry_c1_0p1_c2_0p1
   selected_model: M2Q
   profile_column: radial_profile_data
   group_column: patientId

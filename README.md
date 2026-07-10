@@ -48,17 +48,18 @@ Training uses the same preprocessing family but a historical model-development
 cohort. The current primary candidate is:
 
 ```text
-model_id: aramis_m2q_t100_core4_c1_0p1_c2_0p1
-preprocessing: T100 biopsy-patient model-input DataFrame, strict paired-breast cohort
+model_id: aramis_m2q_t100_core4_optional_symmetry_c1_0p1_c2_0p1
+preprocessing: T100 biopsy-patient model-input DataFrame
 selected_model: M2Q
 regularization: LR1 L2 C=0.1; LR2 L2 C=0.1
-threshold_target: 0.306342
+threshold_target: 0.298552
 ```
 
 M2Q combines the target-breast XRD profile score, four fixed SK
 target/contralateral symmetry fields, target measurement count, and age as an
-explicit clinical risk prior. Both breast sides are required for prediction;
-data sufficiency remains a separate report field rather than a risk feature.
+explicit clinical risk prior. A contralateral breast adds symmetry refinement
+when available; data sufficiency remains a separate report field rather than a
+risk feature.
 
 ## Commands
 
@@ -105,7 +106,7 @@ Working one-patient prediction examples use:
 
 ```text
 examples/prediction_h5/cancer_one_patient.h5
-examples/prediction_models/aramis_m2q_t100_core4_c1_0p1_c2_0p1.joblib
+examples/prediction_models/aramis_m2q_t100_core4_optional_symmetry_c1_0p1_c2_0p1.joblib
 ```
 
 ## Documentation Map

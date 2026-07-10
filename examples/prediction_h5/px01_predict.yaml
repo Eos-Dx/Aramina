@@ -7,7 +7,7 @@ prediction:
 
 io:
   input_h5_path: px01_one_patient.h5
-  input_model_joblib_path: ../prediction_models/aramis_m2q_t100_core4_c1_0p1_c2_0p1.joblib
+  input_model_joblib_path: ../prediction_models/aramis_m2q_t100_core4_optional_symmetry_c1_0p1_c2_0p1.joblib
   output_folder: ../outputs/prediction_h5_examples
 
 reporting:
@@ -31,7 +31,7 @@ patient:
   target_side: Left
 
 model:
-  model_id: aramis_m2q_t100_core4_c1_0p1_c2_0p1
+  model_id: aramis_m2q_t100_core4_optional_symmetry_c1_0p1_c2_0p1
   selected_model: M2Q
 
 decision:

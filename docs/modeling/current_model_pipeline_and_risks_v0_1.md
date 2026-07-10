@@ -8,12 +8,12 @@ overclaimed.
 ## Candidate Summary
 
 ```text
-model_id: aramis_m2q_t100_core4_c1_0p1_c2_0p1
-dataset: T100 biopsy-patient model-input DataFrame, strict paired-breast cohort
+model_id: aramis_m2q_t100_core4_optional_symmetry_c1_0p1_c2_0p1
+dataset: T100 biopsy-patient model-input DataFrame
 preprocessing: T100 AgBH quality threshold
 selected_model: M2Q
 regularization: LR1 L2 C=0.1; LR2 L2 C=0.1
-threshold_target: 0.306342
+threshold_target: 0.298552
 ```
 
 The model estimates `p_cancer` for decision support. It is not autonomous
@@ -28,7 +28,7 @@ H5
 -> patient-safe training/evaluation split
 -> LR1 profile model
 -> patient-level target-breast p_cancer by logit-average
--> fixed SK Core4 target/contralateral symmetry features
+-> SK Core4 target/contralateral symmetry features when available
 -> target measurement count
 -> age + age_available
 -> M2Q final LogisticRegression
@@ -80,12 +80,12 @@ LR1 scores only target-breast radial_profile_data
 measurement probabilities are combined by logit-average
 ```
 
-Symmetry context, required for this model:
+Symmetry context:
 
 ```text
 compares target breast against contralateral breast
-requires valid LEFT and RIGHT breast measurements
-uses the fixed SK Core4 feature set
+uses the fixed SK Core4 feature set when both sides are available
+is set to zero when contralateral data is unavailable
 ```
 
 Reliability:

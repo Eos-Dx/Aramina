@@ -7,7 +7,7 @@ prediction/training contracts. Product readers should start here:
 
 ```text
 ../machine_learning_concept.md
-m2q_core4_paired_candidate_v0_1_8.md
+m2q_core4_optional_symmetry_candidate_v0_1_9.md
 prediction_pipeline_v0_1.md
 training_pipeline_classes_v0_1.md
 current_model_pipeline_and_risks_v0_1.md
@@ -16,24 +16,24 @@ current_model_pipeline_and_risks_v0_1.md
 ## Primary Candidate
 
 ```text
-model_id: aramis_m2q_t100_core4_c1_0p1_c2_0p1
+model_id: aramis_m2q_t100_core4_optional_symmetry_c1_0p1_c2_0p1
 selected_model: M2Q
-preprocessing: T100 biopsy-patient model input, strict paired-breast cohort
+preprocessing: T100 biopsy-patient model input
 regularization: LR1 L2 C=0.1; LR2 L2 C=0.1
-threshold_target: 0.306342
+threshold_target: 0.298552
 ```
 
 Decision record:
 
 ```text
-m2q_core4_paired_candidate_v0_1_8.md
+m2q_core4_optional_symmetry_candidate_v0_1_9.md
 ```
 
 ## Evidence Documents
 
 ```text
-m2q_core4_paired_candidate_v0_1_8.md
-  current fixed model schema, Core4, paired eligibility, and regularization
+m2q_core4_optional_symmetry_candidate_v0_1_9.md
+  current fixed model schema, optional symmetry, and regularization
 
 m1q_threshold_mode_comparison_v0_1.md
   how threshold / validation modes behave

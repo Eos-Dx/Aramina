@@ -69,7 +69,7 @@ patient:
   target_side: Left
 
 model:
-  model_id: aramis_m2q_t100_core4_c1_0p1_c2_0p1
+  model_id: aramis_m2q_t100_core4_optional_symmetry_c1_0p1_c2_0p1
   selected_model: M2Q
 
 decision:
@@ -93,7 +93,7 @@ normally does not pass a separate preprocessing YAML. Explicit
 Repository smoke-test model:
 
 ```text
-examples/prediction_models/aramis_m2q_t100_core4_c1_0p1_c2_0p1.joblib
+examples/prediction_models/aramis_m2q_t100_core4_optional_symmetry_c1_0p1_c2_0p1.joblib
 ```
 
 Example one-patient H5 configs in `examples/prediction_h5/*_predict.yaml` point
@@ -330,17 +330,17 @@ the result needs more caution and clinician review.
 ## Current Primary Model
 
 ```text
-model_id: aramis_m2q_t100_core4_c1_0p1_c2_0p1
+model_id: aramis_m2q_t100_core4_optional_symmetry_c1_0p1_c2_0p1
 selected_model: M2Q
-preprocessing: T100 biopsy-patient model input, strict paired-breast cohort
+preprocessing: T100 biopsy-patient model input
 regularization: LR1 L2 C=0.1; LR2 L2 C=0.1
-threshold_target: 0.306342
+threshold_target: 0.298552
 ```
 
 See:
 
 ```text
-docs/modeling/m2q_core4_paired_candidate_v0_1_8.md
+docs/modeling/m2q_core4_optional_symmetry_candidate_v0_1_9.md
 ```
 
 ## Failure Rules
@@ -353,7 +353,6 @@ H5 root @format does not match prediction YAML
 more than one patientId is present
 patient.patient_id does not match H5 patientId
 patient.target_side is missing or absent in the preprocessed DataFrame
-the selected M1/M2 model lacks a contralateral breast measurement
 model.model_id does not match the artifact training.name
 selected_model is not present in the model artifact
 model artifact does not contain prediction_preprocessing_config

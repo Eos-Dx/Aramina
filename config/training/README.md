@@ -19,7 +19,7 @@ Primary route:
 input DataFrame: examples/outputs/model_selection_m1q_v0_1/preprocessing/aramis_t100_biopsy_patients_model_input.joblib
 model family: patient_m0_m1_m2_logistic_set
 selected product candidate: M2Q
-preprocessing: T100 strict paired-breast biopsy cohort
+preprocessing: T100 biopsy-patient cohort; symmetry is optional
 regularization: LR1 L2 C=0.1; LR2 L2 C=0.1
 final fit: all eligible development patients
 validation recorded in artifact: repeated patient-safe stratified 5-fold x20

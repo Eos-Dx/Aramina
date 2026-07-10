@@ -6,7 +6,7 @@ tests and colleague onboarding.
 Current artifact:
 
 ```text
-aramis_m2q_t100_core4_c1_0p1_c2_0p1.joblib
+aramis_m2q_t100_core4_optional_symmetry_c1_0p1_c2_0p1.joblib
 ```
 
 It is a research-draft decision-support model artifact. It contains the paired

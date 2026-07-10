@@ -3,8 +3,8 @@
 Status: superseded research record.
 
 This document records the earlier unrestricted-SK candidate. It is retained as
-research history only. The current paired-breast Core4 candidate is documented
-in `m2q_core4_paired_candidate_v0_1_8.md`.
+research history only. The current optional-symmetry Core4 candidate is
+documented in `m2q_core4_optional_symmetry_candidate_v0_1_9.md`.
 
 ## Historical Candidate
 

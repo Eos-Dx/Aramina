@@ -52,9 +52,11 @@ sigma_T(q) = target profile standard deviation across measurements
 sigma_C(q) = contralateral profile standard deviation across measurements
 ```
 
-The production M2Q route requires both target and contralateral profiles. A
-patient without paired-breast data is excluded from training and prediction
-fails before scoring. `symmetry_available` remains an audit field only.
+When both target and contralateral profiles are available, Core4 measures their
+asymmetry. If the contralateral profile is absent, all SK values are set to
+`0.0`, `symmetry_available = 0`, and the model still scores the target profile.
+`symmetry_available` remains an audit/reliability field only; it is not a model
+input.
 
 ## Q Regions
 

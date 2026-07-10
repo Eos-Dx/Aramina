@@ -149,18 +149,18 @@ paired_measurements_ok
 ```
 
 Only `profile_p_cancer_n_measurements` enters the M2Q model. The remaining
-fields are reported separately from risk. Prediction requires paired breasts,
-so `symmetry_available` is not a model feature.
+fields are reported separately from risk. If contralateral data is missing, the
+SK fields are zero and `symmetry_available = 0`; it is not a model feature.
 
 ## Current Candidate Choice
 
 ```text
-model_id: aramis_m2q_t100_core4_c1_0p1_c2_0p1
-preprocessing: T100 biopsy-patient model input, strict paired-breast cohort
+model_id: aramis_m2q_t100_core4_optional_symmetry_c1_0p1_c2_0p1
+preprocessing: T100 biopsy-patient model input
 model: M2Q
 regularization: LR1 L2 C=0.1; LR2 L2 C=0.1
 target sensitivity: >= 0.95 on fitted development cohort
-threshold_target: 0.306342
+threshold_target: 0.298552
 ```
 
 M2Q combines the profile score, fixed SK Core4 symmetry fields, target
@@ -179,14 +179,14 @@ Why two regularization values:
 
 ```text
 LR1 and LR2 have independently configurable C values
-the current paired-cohort candidate uses C=0.1 in both layers
+the current candidate uses C=0.1 in both layers
 L2 regularization reduces unstable coefficients in the small cohort
 ```
 
 Detailed evidence:
 
 ```text
-docs/modeling/m2q_core4_paired_candidate_v0_1_8.md
+docs/modeling/m2q_core4_optional_symmetry_candidate_v0_1_9.md
 ```
 
 ## Validation Framing

@@ -1,7 +1,9 @@
-# M2Q Core4 Paired Candidate v0.1.8
+# Historical M2Q Core4 Paired Candidate v0.1.8
 
-Status: research draft. This document is the current product-candidate record.
-It describes decision support only and is not clinical validation.
+Status: superseded research record. This strict paired-breast candidate is
+retained for traceability only; its artifact is retained in Git tag
+`0.1.8-beta`. The current optional-symmetry candidate is documented in
+`m2q_core4_optional_symmetry_candidate_v0_1_9.md`.
 
 ## Fixed Dataset
 
