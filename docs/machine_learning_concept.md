@@ -160,7 +160,7 @@ preprocessing: T100 biopsy-patient model input, strict paired-breast cohort
 model: M2Q
 regularization: LR1 L2 C=0.1; LR2 L2 C=0.1
 target sensitivity: >= 0.95 on fitted development cohort
-threshold_target: 0.297674
+threshold_target: 0.306342
 ```
 
 M2Q combines the profile score, fixed SK Core4 symmetry fields, target

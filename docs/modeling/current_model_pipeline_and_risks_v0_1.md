@@ -13,7 +13,7 @@ dataset: T100 biopsy-patient model-input DataFrame, strict paired-breast cohort
 preprocessing: T100 AgBH quality threshold
 selected_model: M2Q
 regularization: LR1 L2 C=0.1; LR2 L2 C=0.1
-threshold_target: 0.297674
+threshold_target: 0.306342
 ```
 
 The model estimates `p_cancer` for decision support. It is not autonomous

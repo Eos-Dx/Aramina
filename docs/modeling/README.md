@@ -7,7 +7,6 @@ prediction/training contracts. Product readers should start here:
 
 ```text
 ../machine_learning_concept.md
-final_candidate_model_artifact_v0_1.md
 m2q_core4_paired_candidate_v0_1_8.md
 prediction_pipeline_v0_1.md
 training_pipeline_classes_v0_1.md
@@ -21,7 +20,7 @@ model_id: aramis_m2q_t100_core4_c1_0p1_c2_0p1
 selected_model: M2Q
 preprocessing: T100 biopsy-patient model input, strict paired-breast cohort
 regularization: LR1 L2 C=0.1; LR2 L2 C=0.1
-threshold_target: 0.297674
+threshold_target: 0.306342
 ```
 
 Decision record:

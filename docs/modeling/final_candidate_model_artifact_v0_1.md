@@ -6,7 +6,7 @@ This document records the earlier unrestricted-SK candidate. It is retained as
 research history only. The current paired-breast Core4 candidate is documented
 in `m2q_core4_paired_candidate_v0_1_8.md`.
 
-## Current Candidate
+## Historical Candidate
 
 ```text
 preprocessing: T100 biopsy-patient model-input DataFrame
@@ -17,7 +17,8 @@ target sensitivity: >= 0.95 on fitted development cohort
 threshold_target: 0.302291
 ```
 
-Current fitted artifact:
+Historical fitted artifact, retained in Git tag `0.1.7-beta` but not shipped as
+the current product model:
 
 ```text
 examples/prediction_models/aramis_m2q_t100_train_all_c0p1.joblib

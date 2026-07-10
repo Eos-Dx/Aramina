@@ -100,7 +100,7 @@ Core4 is therefore explicitly fixed before this product fit.
 ```text
 model_id: aramis_m2q_t100_core4_c1_0p1_c2_0p1
 artifact: examples/prediction_models/aramis_m2q_t100_core4_c1_0p1_c2_0p1.joblib
-threshold_target: 0.297674
+threshold_target: 0.306342
 ```
 
 The delivered artifact is fitted on all 150 eligible development patients.
@@ -108,11 +108,11 @@ At its fitted-cohort threshold:
 
 | metric | value |
 |---|---:|
-| ROC AUC | 0.899 |
+| ROC AUC | 0.876 |
 | sensitivity | 0.957 | 
-| specificity | 0.538 |
+| specificity | 0.463 |
 | TP / FN | 67 / 3 |
-| TN / FP | 43 / 37 |
+| TN / FP | 37 / 43 |
 
 These are train-all metrics and are optimistic by definition.
 
@@ -130,9 +130,9 @@ threshold: selected on each training fold for target sensitivity 0.95
 
 | metric | mean +/- standard deviation |
 |---|---:|
-| ROC AUC | 0.631 +/- 0.079 |
-| sensitivity | 0.786 +/- 0.108 |
-| specificity | 0.366 +/- 0.121 |
+| ROC AUC | 0.645 +/- 0.077 |
+| sensitivity | 0.818 +/- 0.104 |
+| specificity | 0.324 +/- 0.119 |
 
 The strict paired-breast rule changes the cohort from the earlier 164-patient
 research comparison. Its validation metrics must not be mixed with broader

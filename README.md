@@ -52,7 +52,7 @@ model_id: aramis_m2q_t100_core4_c1_0p1_c2_0p1
 preprocessing: T100 biopsy-patient model-input DataFrame, strict paired-breast cohort
 selected_model: M2Q
 regularization: LR1 L2 C=0.1; LR2 L2 C=0.1
-threshold_target: 0.297674
+threshold_target: 0.306342
 ```
 
 M2Q combines the target-breast XRD profile score, four fixed SK
