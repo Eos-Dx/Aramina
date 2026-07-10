@@ -283,16 +283,9 @@ class AramisPatientTrainingPipeline(BaseEstimator):
         default_logreg_c = float(model_config.get("logreg_c", 1.0))
         lr1_logreg_c = float(model_config.get("lr1_logreg_c", default_logreg_c))
         lr2_logreg_c = float(model_config.get("lr2_logreg_c", default_logreg_c))
-        require_paired_breasts = bool(model_config.get("require_paired_breasts", False))
         random_state = int(evaluation_config.get("random_state", 42))
         target_sensitivity = float(evaluation_config.get("target_sensitivity", 0.95))
 
-        self.training_dataframe_, self.paired_breast_audit_ = _paired_breast_training_dataframe(
-            x,
-            group_column=group_column,
-            side_column=side_column,
-            required=require_paired_breasts,
-        )
         self.input_builder_ = PatientModelInputBuilder(
             profile_column=profile_column,
             label_column=label_column,
@@ -306,7 +299,7 @@ class AramisPatientTrainingPipeline(BaseEstimator):
             lr1_logreg_c=lr1_logreg_c,
             random_state=random_state,
         )
-        self.feature_table_ = self.input_builder_.fit_transform(self.training_dataframe_)
+        self.feature_table_ = self.input_builder_.fit_transform(x)
         self.model_trainer_ = PatientModelSetTrainer(
             selected_models=selected_models,
             profile_column=profile_column,
@@ -334,9 +327,9 @@ class AramisPatientTrainingPipeline(BaseEstimator):
             random_state=random_state,
             target_sensitivity=target_sensitivity,
         )
-        self.evaluator_.fit(self.training_dataframe_)
+        self.evaluator_.fit(x)
         self.artifact_ = _patient_training_artifact(
-            df=self.training_dataframe_,
+            df=x,
             config=self.config,
             config_text=self.config_text,
             input_dataframe_joblib_path=self.input_dataframe_joblib_path,
@@ -349,7 +342,6 @@ class AramisPatientTrainingPipeline(BaseEstimator):
             split_metrics=self.evaluator_.split_metrics_,
             split_predictions=self.evaluator_.split_predictions_,
         )
-        self.artifact_["paired_breast_eligibility"] = self.paired_breast_audit_
         return self
 
 
@@ -1266,15 +1258,6 @@ def build_patient_prediction_feature_row(
 
     contralateral = [side for side in available_sides if side != target_side_norm]
     contralateral_side_norm = contralateral[0] if contralateral else None
-    needs_paired_symmetry = any(
-        str(column).startswith("sk_")
-        for column in model_info.get("feature_columns", [])
-    )
-    if needs_paired_symmetry and contralateral_side_norm is None:
-        raise ValueError(
-            "Paired target/contralateral breast measurements are required for "
-            f"this model; patient {patient_id!r} has only {available_sides}."
-        )
     target_df = patient_df[side_norms == target_side_norm].copy()
     target_scores = lr1_model.predict_proba(
         profile_matrix(target_df, profile_column)
@@ -1886,49 +1869,6 @@ def _boolean_series(values: pd.Series) -> pd.Series:
     if clean.dtype == bool:
         return clean
     return clean.astype(str).str.lower().isin(["true", "1", "yes"])
-
-
-def _paired_breast_training_dataframe(
-    df: pd.DataFrame,
-    *,
-    group_column: str,
-    side_column: str,
-    required: bool,
-) -> tuple[pd.DataFrame, dict[str, Any]]:
-    """Optionally retain only patients with valid left and right breast data."""
-    _require_training_columns(df, [group_column, side_column])
-    side_norm = df[side_column].map(_normalize_side)
-    side_frame = pd.DataFrame(
-        {
-            "patient_id": df[group_column].astype(str),
-            "side": side_norm,
-        }
-    ).dropna(subset=["side"])
-    paired_ids = set(
-        side_frame.groupby("patient_id")["side"]
-        .agg(lambda values: set(values))
-        .loc[lambda sides: sides.map(lambda values: values == {"LEFT", "RIGHT"})]
-        .index
-    )
-    patient_ids = set(df[group_column].astype(str))
-    if required:
-        keep = df[group_column].astype(str).isin(paired_ids) & side_norm.notna()
-        out = df.loc[keep].copy()
-    else:
-        out = df.copy()
-    audit = {
-        "required": required,
-        "rule": "exactly LEFT and RIGHT breast sides" if required else "not applied",
-        "patients_before": len(patient_ids),
-        "patients_after": int(out[group_column].astype(str).nunique()),
-        "patients_dropped": len(patient_ids) - int(out[group_column].astype(str).nunique()),
-        "measurements_before": int(len(df)),
-        "measurements_after": int(len(out)),
-        "measurements_dropped": int(len(df) - len(out)),
-    }
-    if required and out.empty:
-        raise ValueError("Paired-breast eligibility removed every training patient.")
-    return out.reset_index(drop=True), audit
 
 
 def _profile_logistic(*, logreg_c: float, random_state: int) -> Pipeline:

@@ -167,7 +167,7 @@ def test_train_cli_writes_patient_m0_m1_m2_artifact(tmp_path: Path):
     assert set(artifact["feature_table"]["paired_measurements_ok"]) == {0}
 
 
-def test_train_filters_patients_without_paired_breasts(tmp_path: Path):
+def test_train_keeps_patients_without_paired_breasts(tmp_path: Path):
     input_path = tmp_path / "preprocessed.joblib"
     output_path = tmp_path / "patient_model.joblib"
     config_path = tmp_path / "train_patient.yaml"
@@ -189,24 +189,18 @@ def test_train_filters_patients_without_paired_breasts(tmp_path: Path):
         mode="all_on_all",
         selected_models=["M2Q"],
     )
-    config["model"]["require_paired_breasts"] = True
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
 
     assert main(["train", "--config", str(config_path)]) == 0
     artifact = joblib.load(output_path)
 
-    assert artifact["paired_breast_eligibility"] == {
-        "required": True,
-        "rule": "exactly LEFT and RIGHT breast sides",
-        "patients_before": 30,
-        "patients_after": 29,
-        "patients_dropped": 1,
-        "measurements_before": 118,
-        "measurements_after": 116,
-        "measurements_dropped": 2,
-    }
     assert "symmetry_available" not in artifact["models"]["M2Q"]["feature_columns"]
-    assert set(artifact["feature_table"]["result_reliability"]) == {"medium"}
+    assert len(artifact["feature_table"]) == 30
+    unpaired = artifact["feature_table"].query("patientId == 'P01'").iloc[0]
+    assert unpaired["symmetry_available"] == 0
+    assert unpaired["result_reliability"] == "low"
+    assert unpaired["sk_wasserstein_distance_full_q2"] == 0.0
+    assert unpaired["sk_mean_peak_value_abs_delta"] == 0.0
     assert "target_within_cosine_distance_mean" in artifact["feature_table"].columns
     assert (
         "contralateral_within_cosine_distance_mean"

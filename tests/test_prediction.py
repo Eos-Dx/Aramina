@@ -499,7 +499,7 @@ def test_predict_target_side_controls_profile_score(tmp_path: Path):
     assert left_report["p_cancer"] > right_report["p_cancer"]
 
 
-def test_predict_rejects_m1q_without_contralateral_breast(tmp_path: Path):
+def test_predict_m1q_without_contralateral_breast_reports_low_reliability(tmp_path: Path):
     training_dataframe_path = tmp_path / "training_preprocessed.joblib"
     prediction_dataframe_path = tmp_path / "prediction_preprocessed.joblib"
     model_path = tmp_path / "model.joblib"
@@ -543,8 +543,18 @@ def test_predict_rejects_m1q_without_contralateral_breast(tmp_path: Path):
     )
 
     assert main(["train", "--config", str(training_config_path)]) == 0
-    with pytest.raises(ValueError, match="Paired target/contralateral breast"):
-        main(["predict", "--config", str(prediction_config_path)])
+    assert main(["predict", "--config", str(prediction_config_path)]) == 0
+    output_paths = _prediction_output_paths(
+        tmp_path / "prediction_outputs",
+        prediction_name="test_predict",
+        patient_id="P00",
+    )
+    report = yaml.safe_load(output_paths["external_yaml"].read_text(encoding="utf-8"))
+    internal = yaml.safe_load(output_paths["internal_yaml"].read_text(encoding="utf-8"))
+
+    assert report["reliability"] == "low"
+    assert internal["features"]["symmetry"]["available"] is False
+    assert 0.0 <= report["p_cancer"] <= 1.0
 
 
 def test_predict_cli_can_preprocess_one_patient_h5_before_scoring(tmp_path: Path):
