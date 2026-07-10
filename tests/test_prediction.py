@@ -499,6 +499,54 @@ def test_predict_target_side_controls_profile_score(tmp_path: Path):
     assert left_report["p_cancer"] > right_report["p_cancer"]
 
 
+def test_predict_rejects_m1q_without_contralateral_breast(tmp_path: Path):
+    training_dataframe_path = tmp_path / "training_preprocessed.joblib"
+    prediction_dataframe_path = tmp_path / "prediction_preprocessed.joblib"
+    model_path = tmp_path / "model.joblib"
+    training_config_path = tmp_path / "train.yaml"
+    prediction_config_path = tmp_path / "predict.yaml"
+
+    training_frame = _patient_frame()
+    unpaired_prediction_frame = training_frame[
+        ~(
+            (training_frame["patientId"] == "P00")
+            & (training_frame["side"] == "Right")
+        )
+    ].copy()
+    save_preprocessing_artifact(
+        training_frame,
+        training_dataframe_path,
+        preprocessing_config={"aramis_preprocessing": {"branch": "one_to_many"}},
+        preprocessing_config_text="aramis_preprocessing:\n  branch: one_to_many\n",
+        metadata={"branch": "one_to_many"},
+    )
+    save_preprocessing_artifact(
+        unpaired_prediction_frame,
+        prediction_dataframe_path,
+        preprocessing_config={"aramis_preprocessing": {"branch": "one_to_many"}},
+        preprocessing_config_text="aramis_preprocessing:\n  branch: one_to_many\n",
+        metadata={"branch": "one_to_many"},
+    )
+    training_config_path.write_text(
+        yaml.safe_dump(_training_config(training_dataframe_path, model_path)),
+        encoding="utf-8",
+    )
+    prediction_config_path.write_text(
+        yaml.safe_dump(
+            _prediction_config(
+                prediction_dataframe_path,
+                model_path,
+                tmp_path / "prediction_outputs",
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    assert main(["train", "--config", str(training_config_path)]) == 0
+    with pytest.raises(ValueError, match="Paired target/contralateral breast"):
+        main(["predict", "--config", str(prediction_config_path)])
+
+
 def test_predict_cli_can_preprocess_one_patient_h5_before_scoring(tmp_path: Path):
     h5_path = tmp_path / "patient.h5"
     training_dataframe_path = tmp_path / "training_preprocessed.joblib"

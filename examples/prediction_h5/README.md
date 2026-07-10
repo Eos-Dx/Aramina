@@ -50,7 +50,7 @@ python -m aramis predict --config examples/prediction_h5/benign_predict.yaml
 The YAML files use the tracked example model:
 
 ```text
-examples/prediction_models/aramis_m2q_t100_train_all_c0p1.joblib
+examples/prediction_models/aramis_m2q_t100_core4_c1_0p1_c2_0p1.joblib
 ```
 
 The H5 files are synthetic API fixtures. Their `p_cancer` values only prove that

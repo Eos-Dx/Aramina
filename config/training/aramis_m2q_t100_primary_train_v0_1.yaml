@@ -1,17 +1,17 @@
 training:
-  name: aramis_m2q_t100_train_all_c0p1
-  version: 0.1-beta
+  name: aramis_m2q_t100_core4_c1_0p1_c2_0p1
+  version: 0.1.8-beta
   branch: one_to_many
   clinical_stage: research draft
   intended_use: decision-support p_cancer research draft; requires radiologist review
   role: primary_product_training
 
 io:
-  input_dataframe_joblib_path: ../../examples/outputs/model_input/aramis_biopsy_patients_model_input_v0_1.joblib
-  output_model_joblib_path: ../../examples/outputs/training/aramis_m2q_t100_train_all_c0p1.joblib
+  input_dataframe_joblib_path: ../../examples/outputs/model_selection_m1q_v0_1/preprocessing/aramis_t100_biopsy_patients_model_input.joblib
+  output_model_joblib_path: ../../examples/prediction_models/aramis_m2q_t100_core4_c1_0p1_c2_0p1.joblib
   prediction_preprocessing_config_path: ../preprocessing/aramis_prediction_patient_model_input_v0_1.yaml
-  output_json_path: ../../examples/outputs/training/aramis_m2q_t100_train_all_c0p1_summary.json
-  output_yaml_path: ../../examples/outputs/training/aramis_m2q_t100_train_all_c0p1_description.yaml
+  output_json_path: ../../examples/outputs/training/aramis_m2q_t100_core4_c1_0p1_c2_0p1_summary.json
+  output_yaml_path: ../../examples/outputs/training/aramis_m2q_t100_core4_c1_0p1_c2_0p1_description.yaml
 
 model:
   type: patient_m0_m1_m2_logistic_set
@@ -23,13 +23,16 @@ model:
   age_column: age
   biopsy_column: biopsy
   lr1_row_policy: biopsy_only
+  require_paired_breasts: true
   selected_models:
     - M2Q
-  logreg_c: 0.1
+  lr1_logreg_c: 0.1
+  lr2_logreg_c: 0.1
 
 evaluation:
-  mode: all_on_all
-  n_splits: 1
+  mode: stratified_kfold
+  n_splits: 5
+  n_repeats: 20
   test_size: 0.20
   random_state: 42
   target_sensitivity: 0.95

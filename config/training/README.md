@@ -16,13 +16,14 @@ aramis_m2q_t100_primary_train_v0_1.yaml
 Primary route:
 
 ```text
-input DataFrame: examples/outputs/model_input/aramis_biopsy_patients_model_input_v0_1.joblib
+input DataFrame: examples/outputs/model_selection_m1q_v0_1/preprocessing/aramis_t100_biopsy_patients_model_input.joblib
 model family: patient_m0_m1_m2_logistic_set
 selected product candidate: M2Q
-preprocessing: T100 biopsy-patient cohort
-regularization: L2 LogisticRegression, C=0.1
-final fit: train-all development cohort
-target sensitivity: 0.95 fitted-cohort operating point
+preprocessing: T100 strict paired-breast biopsy cohort
+regularization: LR1 L2 C=0.1; LR2 L2 C=0.1
+final fit: all eligible development patients
+validation recorded in artifact: repeated patient-safe stratified 5-fold x20
+target sensitivity: 0.95 training-fold operating point
 ```
 
 Validation evidence remains separate from the final train-all artifact:
@@ -37,11 +38,11 @@ Model meanings:
 
 ```text
 M0: profile p_cancer only
-M0Q: M0 + reliability/quality counters
+M0Q: M0 + target measurement count
 M1: profile p_cancer + same-patient SK symmetry block
-M1Q: M1 + reliability/quality counters
+M1Q: M1 + target measurement count
 M2: M1 + age and age_available
-M2Q: M1Q + age and age_available
+M2Q: M1Q + age and age_available; product schema uses SK Core4
 ```
 
 M2Q is the current primary candidate because age is a clinically meaningful

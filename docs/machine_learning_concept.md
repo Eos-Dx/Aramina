@@ -127,8 +127,7 @@ target within-breast variability
 contralateral within-breast variability
 SK RMS / weighted RMS blocks in q regions
 cosine distance over full q range
-Wasserstein distance over full q range
-symmetry_available flag
+fixed Core4 target/contralateral symmetry fields
 ```
 
 Detailed mathematical definitions are in:
@@ -137,7 +136,7 @@ Detailed mathematical definitions are in:
 docs/modeling/sk_symmetry_features_v0_1.md
 ```
 
-Reliability counters:
+Reliability audit fields:
 
 ```text
 profile_p_cancer_n_measurements
@@ -149,26 +148,24 @@ contralateral_measurements_ok
 paired_measurements_ok
 ```
 
-Reliability is reported separately from risk. Low reliability does not reduce
-`p_cancer`; it warns that fewer valid measurements or missing paired context
-make the result less stable.
+Only `profile_p_cancer_n_measurements` enters the M2Q model. The remaining
+fields are reported separately from risk. Prediction requires paired breasts,
+so `symmetry_available` is not a model feature.
 
 ## Current Candidate Choice
 
 ```text
-model_id: aramis_m2q_t100_train_all_c0p1
-preprocessing: T100 biopsy-patient model input
+model_id: aramis_m2q_t100_core4_c1_0p1_c2_0p1
+preprocessing: T100 biopsy-patient model input, strict paired-breast cohort
 model: M2Q
-regularization: L2 LogisticRegression, C=0.1
+regularization: LR1 L2 C=0.1; LR2 L2 C=0.1
 target sensitivity: >= 0.95 on fitted development cohort
-threshold_target: 0.302291
+threshold_target: 0.297674
 ```
 
-M2Q is selected because it keeps the profile, SK symmetry, and reliability
-features of M1Q and adds age as an explicit clinical risk prior. Age is
-clinically relevant because breast cancer risk increases with age. In the
-current comparison, adding age improved the candidate model by roughly 3
-percentage points.
+M2Q combines the profile score, fixed SK Core4 symmetry fields, target
+measurement count, and age as an explicit clinical risk prior. Age is
+clinically relevant because breast cancer risk increases with age.
 
 Why T100:
 
@@ -178,20 +175,18 @@ T130 keeps more patients but had weaker M1Q validation behavior
 T100 is the current development compromise
 ```
 
-Why C=0.1:
+Why two regularization values:
 
 ```text
-selected by repeated patient-safe stratified 5-fold validation
-balances ROC AUC and regularization strength
-more conservative than weaker regularization
+LR1 and LR2 have independently configurable C values
+the current paired-cohort candidate uses C=0.1 in both layers
+L2 regularization reduces unstable coefficients in the small cohort
 ```
 
 Detailed evidence:
 
 ```text
-docs/modeling/final_candidate_model_artifact_v0_1.md
-docs/modeling/m1q_regularization_experiment_v0_1.md
-docs/modeling/m1q_threshold_mode_comparison_v0_1.md
+docs/modeling/m2q_core4_paired_candidate_v0_1_8.md
 ```
 
 ## Validation Framing

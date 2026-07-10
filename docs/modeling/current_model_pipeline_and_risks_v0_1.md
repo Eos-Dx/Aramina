@@ -8,12 +8,12 @@ overclaimed.
 ## Candidate Summary
 
 ```text
-model_id: aramis_m2q_t100_train_all_c0p1
-dataset: biopsy_patients model-input DataFrame
+model_id: aramis_m2q_t100_core4_c1_0p1_c2_0p1
+dataset: T100 biopsy-patient model-input DataFrame, strict paired-breast cohort
 preprocessing: T100 AgBH quality threshold
 selected_model: M2Q
-regularization: L2 LogisticRegression, C=0.1
-threshold_target: 0.302291
+regularization: LR1 L2 C=0.1; LR2 L2 C=0.1
+threshold_target: 0.297674
 ```
 
 The model estimates `p_cancer` for decision support. It is not autonomous
@@ -28,8 +28,8 @@ H5
 -> patient-safe training/evaluation split
 -> LR1 profile model
 -> patient-level target-breast p_cancer by logit-average
--> SK target/contralateral symmetry features
--> reliability counters
+-> fixed SK Core4 target/contralateral symmetry features
+-> target measurement count
 -> age + age_available
 -> M2Q final LogisticRegression
 -> p_cancer
@@ -66,11 +66,10 @@ M2/M2Q:
   add age
 ```
 
-M2Q is the current primary candidate because it keeps the M1Q XRD profile,
-same-patient symmetry context, and explicit data-reliability features, and adds
-age as an explicit clinical risk prior. Age is clinically meaningful because
-breast cancer risk increases with age. In the current M1Q-vs-M2Q comparison,
-adding age improved the candidate by roughly 3 percentage points.
+M2Q is the current primary candidate because it combines the target-breast
+profile score, a fixed four-field target/contralateral symmetry block, target
+measurement count, and age as an explicit clinical risk prior. Age is
+clinically meaningful because breast cancer risk increases with age.
 
 ## Feature Interpretation
 
@@ -81,21 +80,20 @@ LR1 scores only target-breast radial_profile_data
 measurement probabilities are combined by logit-average
 ```
 
-Symmetry context:
+Symmetry context, required for this model:
 
 ```text
 compares target breast against contralateral breast
-adds target and contralateral within-breast variability
-adds SK distance features over q ranges
+requires valid LEFT and RIGHT breast measurements
+uses the fixed SK Core4 feature set
 ```
 
 Reliability:
 
 ```text
-counts valid target measurements
-counts valid contralateral measurements
-flags whether paired-breast context is sufficient
-is reported separately from p_cancer
+target measurement count is an LR2 input
+contralateral counts and paired-breast sufficiency are report/audit fields
+symmetry_available is not an LR2 input
 ```
 
 Low reliability does not lower risk. It tells the downstream report to flag the

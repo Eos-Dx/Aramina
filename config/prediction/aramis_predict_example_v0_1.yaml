@@ -7,7 +7,7 @@ prediction:
 
 io:
   input_dataframe_joblib_path: ../../examples/outputs/model_input/aramis_biopsy_patients_model_input_v0_1.joblib
-  input_model_joblib_path: ../../examples/prediction_models/aramis_m2q_t100_train_all_c0p1.joblib
+  input_model_joblib_path: ../../examples/prediction_models/aramis_m2q_t100_core4_c1_0p1_c2_0p1.joblib
   output_folder: ../../examples/outputs/prediction
 
 reporting:
@@ -23,7 +23,7 @@ patient:
   target_side: Left
 
 model:
-  model_id: aramis_m2q_t100_train_all_c0p1
+  model_id: aramis_m2q_t100_core4_c1_0p1_c2_0p1
   selected_model: M2Q
   profile_column: radial_profile_data
   group_column: patientId

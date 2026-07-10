@@ -82,7 +82,8 @@ def _patient_training_config(
             "lr1_row_policy": "all_rows",
             "selected_models": selected_models
             or ["M0", "M0Q", "M1", "M1Q", "M2", "M2Q"],
-            "logreg_c": 1.0,
+            "lr1_logreg_c": 0.1,
+            "lr2_logreg_c": 0.1,
         },
         "evaluation": {
             "mode": mode,
@@ -120,40 +121,16 @@ def test_train_cli_writes_patient_m0_m1_m2_artifact(tmp_path: Path):
     assert artifact["feature_schema"]["M0Q"]["feature_columns"] == [
         "profile_p_cancer_logit_average",
         "profile_p_cancer_n_measurements",
-        "target_measurements",
-        "contralateral_measurements",
-        "min_measurements_per_breast",
-        "target_measurements_ok",
-        "contralateral_measurements_ok",
-        "paired_measurements_ok",
     ]
     assert artifact["feature_schema"]["M1"]["feature_columns"] == [
         "profile_p_cancer_logit_average",
-        "symmetry_available",
-        "sk_meanrms1",
-        "sk_weightedrms1",
-        "sk_sigma_target1",
-        "sk_sigma_contralateral1",
-        "sk_mahalanobis1",
-        "sk_meanrms2",
-        "sk_weightedrms2",
-        "sk_sigma_target2",
-        "sk_sigma_contralateral2",
-        "sk_mahalanobis2",
-        "sk_peak14_intensity",
-        "sk_mean_peak_value",
-        "sk_wasserstein_distance_mu_tc",
-        "sk_cosine_distance_full_q2",
         "sk_wasserstein_distance_full_q2",
+        "sk_weightedrms1",
+        "sk_weightedrms2",
+        "sk_mean_peak_value_abs_delta",
     ]
-    assert artifact["feature_schema"]["M1Q"]["feature_columns"][-7:] == [
+    assert artifact["feature_schema"]["M1Q"]["feature_columns"][-1:] == [
         "profile_p_cancer_n_measurements",
-        "target_measurements",
-        "contralateral_measurements",
-        "min_measurements_per_breast",
-        "target_measurements_ok",
-        "contralateral_measurements_ok",
-        "paired_measurements_ok",
     ]
     assert artifact["warnings"]
     assert any("reliability" in warning for warning in artifact["warnings"])
@@ -188,6 +165,47 @@ def test_train_cli_writes_patient_m0_m1_m2_artifact(tmp_path: Path):
     assert set(artifact["feature_table"]["profile_p_cancer_n_measurements"]) == {2}
     assert set(artifact["feature_table"]["min_measurements_per_breast"]) == {2}
     assert set(artifact["feature_table"]["paired_measurements_ok"]) == {0}
+
+
+def test_train_filters_patients_without_paired_breasts(tmp_path: Path):
+    input_path = tmp_path / "preprocessed.joblib"
+    output_path = tmp_path / "patient_model.joblib"
+    config_path = tmp_path / "train_patient.yaml"
+    frame = _patient_training_frame()
+    frame = frame[
+        ~((frame["patientId"] == "P01") & (frame["side"] == "Right"))
+    ].copy()
+    save_preprocessing_artifact(
+        frame,
+        input_path,
+        preprocessing_config={"aramis_preprocessing": {"branch": "one_to_many"}},
+        preprocessing_config_text="aramis_preprocessing:\n  branch: one_to_many\n",
+        metadata={"branch": "one_to_many"},
+    )
+    config = _patient_training_config(
+        input_path,
+        output_path,
+        tmp_path,
+        mode="all_on_all",
+        selected_models=["M2Q"],
+    )
+    config["model"]["require_paired_breasts"] = True
+    config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+
+    assert main(["train", "--config", str(config_path)]) == 0
+    artifact = joblib.load(output_path)
+
+    assert artifact["paired_breast_eligibility"] == {
+        "required": True,
+        "rule": "exactly LEFT and RIGHT breast sides",
+        "patients_before": 30,
+        "patients_after": 29,
+        "patients_dropped": 1,
+        "measurements_before": 118,
+        "measurements_after": 116,
+        "measurements_dropped": 2,
+    }
+    assert "symmetry_available" not in artifact["models"]["M2Q"]["feature_columns"]
     assert set(artifact["feature_table"]["result_reliability"]) == {"medium"}
     assert "target_within_cosine_distance_mean" in artifact["feature_table"].columns
     assert (

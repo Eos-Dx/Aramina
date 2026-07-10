@@ -2,8 +2,8 @@
 
 Status: research draft.
 
-This document defines the current SK target/contralateral symmetry feature
-block used by Aramis `M1`, `M1Q`, `M2`, and `M2Q`.
+This document defines the SK target/contralateral symmetry calculations. The
+current product M2Q schema uses only the four fields marked **Core4** below.
 
 Code source:
 
@@ -52,8 +52,9 @@ sigma_T(q) = target profile standard deviation across measurements
 sigma_C(q) = contralateral profile standard deviation across measurements
 ```
 
-If target or contralateral profiles are absent, all SK features are set to
-`0.0` and `symmetry_available = 0`.
+The production M2Q route requires both target and contralateral profiles. A
+patient without paired-breast data is excluded from training and prediction
+fails before scoring. `symmetry_available` remains an audit field only.
 
 ## Q Regions
 
@@ -85,6 +86,8 @@ profile_p_cancer_logit_average = sigmoid(mean(logit_i))
 0 otherwise
 ```
 
+This field is not a model input for the current product M2Q.
+
 ### sk_meanrms1
 
 RMS difference between target and contralateral mean profiles in region 1:
@@ -93,7 +96,7 @@ RMS difference between target and contralateral mean profiles in region 1:
 sqrt(mean((mu_T(q) - mu_C(q))^2)), q in 7.0..15.0
 ```
 
-### sk_weightedrms1
+### sk_weightedrms1 (Core4)
 
 Variance-weighted RMS difference in region 1:
 
@@ -137,7 +140,7 @@ Same as `sk_meanrms1`, but in region 2:
 q in 15.0..23.0 nm^-1
 ```
 
-### sk_weightedrms2
+### sk_weightedrms2 (Core4)
 
 Same as `sk_weightedrms1`, but in region 2:
 
@@ -169,27 +172,31 @@ Same as `sk_mahalanobis1`, but in region 2:
 q in 15.0..23.0 nm^-1
 ```
 
-### sk_peak14_intensity
+### sk_peak14_intensity_abs_delta
 
-Maximum of the average target/contralateral mean profile around the main peak:
-
-```text
-y(q) = 0.5 * (mu_T(q) + mu_C(q))
-sk_peak14_intensity = max(y(q)), q in 13.5..14.5 nm^-1
-```
-
-### sk_mean_peak_value
-
-Mean of per-measurement peak maxima around the main peak:
+Absolute difference of target and contralateral mean-profile maxima around the
+main peak:
 
 ```text
-for each measurement y_i:
-  peak_i = max(y_i(q)), q in 13.0..14.8 nm^-1
-
-sk_mean_peak_value = mean(peak_i)
+abs(max(mu_T(q)) - max(mu_C(q))), q in 13.5..14.5 nm^-1
 ```
 
-This uses all patient measurements.
+### sk_mean_peak_value_abs_delta (Core4)
+
+Absolute difference of side-specific means of per-measurement peak maxima:
+
+```text
+for each target measurement y_i:
+  target_peak_i = max(y_i(q)), q in 13.0..14.8 nm^-1
+
+for each contralateral measurement y_j:
+  contralateral_peak_j = max(y_j(q)), q in 13.0..14.8 nm^-1
+
+sk_mean_peak_value_abs_delta =
+  abs(mean(target_peak_i) - mean(contralateral_peak_j))
+```
+
+This is a true target/contralateral asymmetry feature.
 
 ### sk_wasserstein_distance_mu_tc
 
@@ -224,7 +231,7 @@ ROI: 2.0..23.0 nm^-1
 1 - cosine_similarity(mu_T, mu_C)
 ```
 
-### sk_wasserstein_distance_full_q2
+### sk_wasserstein_distance_full_q2 (Core4)
 
 Same Wasserstein-like distance as `sk_wasserstein_distance_mu_tc`, but on the
 wider q range:
@@ -249,4 +256,3 @@ sk_wasserstein_distance_full_q2:
 
 Both are Wasserstein-like distances between side mean profiles. The difference
 is the q range.
-

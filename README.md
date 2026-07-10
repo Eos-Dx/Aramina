@@ -48,18 +48,17 @@ Training uses the same preprocessing family but a historical model-development
 cohort. The current primary candidate is:
 
 ```text
-model_id: aramis_m2q_t100_train_all_c0p1
-preprocessing: T100 biopsy-patient model-input DataFrame
+model_id: aramis_m2q_t100_core4_c1_0p1_c2_0p1
+preprocessing: T100 biopsy-patient model-input DataFrame, strict paired-breast cohort
 selected_model: M2Q
-regularization: L2 LogisticRegression, C=0.1
-threshold_target: 0.302291
+regularization: LR1 L2 C=0.1; LR2 L2 C=0.1
+threshold_target: 0.297674
 ```
 
-M2Q is selected because it keeps the XRD profile, same-patient SK symmetry, and
-reliability features from M1Q, and adds age as an explicit clinical risk prior.
-Age is clinically meaningful because breast cancer risk rises with age. In the
-current model-selection comparison, adding age improved the candidate model by
-roughly 3 percentage points.
+M2Q combines the target-breast XRD profile score, four fixed SK
+target/contralateral symmetry fields, target measurement count, and age as an
+explicit clinical risk prior. Both breast sides are required for prediction;
+data sufficiency remains a separate report field rather than a risk feature.
 
 ## Commands
 
@@ -106,7 +105,7 @@ Working one-patient prediction examples use:
 
 ```text
 examples/prediction_h5/cancer_one_patient.h5
-examples/prediction_models/aramis_m2q_t100_train_all_c0p1.joblib
+examples/prediction_models/aramis_m2q_t100_core4_c1_0p1_c2_0p1.joblib
 ```
 
 ## Documentation Map

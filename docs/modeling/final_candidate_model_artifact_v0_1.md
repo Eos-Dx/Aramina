@@ -1,9 +1,10 @@
-# Aramis Final Candidate Model Artifact v0.1
+# Historical Aramis Candidate Artifact v0.1
 
-Status: research draft.
+Status: superseded research record.
 
-This document records the current Aramis candidate model fixation logic. It is
-decision-support research only and is not clinical validation.
+This document records the earlier unrestricted-SK candidate. It is retained as
+research history only. The current paired-breast Core4 candidate is documented
+in `m2q_core4_paired_candidate_v0_1_8.md`.
 
 ## Current Candidate
 
