@@ -66,7 +66,7 @@ class PatientModelInputBuilder(BaseEstimator):
         age_column: str = "age",
         biopsy_column: str = "biopsy",
         lr1_row_policy: str = "all_rows",
-        logreg_c: float = 1.0,
+        lr1_logreg_c: float = 1.0,
         random_state: int = 42,
     ) -> None:
         self.profile_column = profile_column
@@ -78,7 +78,7 @@ class PatientModelInputBuilder(BaseEstimator):
         self.age_column = age_column
         self.biopsy_column = biopsy_column
         self.lr1_row_policy = lr1_row_policy
-        self.logreg_c = logreg_c
+        self.lr1_logreg_c = lr1_logreg_c
         self.random_state = random_state
 
     def fit(self, x: pd.DataFrame, y: Any = None) -> "PatientModelInputBuilder":
@@ -90,7 +90,7 @@ class PatientModelInputBuilder(BaseEstimator):
             lr1_row_policy=self.lr1_row_policy,
         )
         self.lr1_model_ = _profile_logistic(
-            logreg_c=self.logreg_c,
+            logreg_c=self.lr1_logreg_c,
             random_state=self.random_state,
         )
         self.lr1_model_.fit(
@@ -146,14 +146,18 @@ class PatientModelSetTrainer(BaseEstimator):
         selected_models: Sequence[str] = ("M0", "M0Q", "M1", "M1Q", "M2", "M2Q"),
         profile_column: str = "radial_profile_data",
         label_column: str = "product_status_group",
-        logreg_c: float = 1.0,
+        lr1_logreg_c: float = 1.0,
+        lr2_logreg_c: float = 1.0,
+        drop_feature_columns: Sequence[str] = (),
         random_state: int = 42,
         target_sensitivity: float = 0.95,
     ) -> None:
         self.selected_models = list(selected_models)
         self.profile_column = profile_column
         self.label_column = label_column
-        self.logreg_c = logreg_c
+        self.lr1_logreg_c = lr1_logreg_c
+        self.lr2_logreg_c = lr2_logreg_c
+        self.drop_feature_columns = list(drop_feature_columns)
         self.random_state = random_state
         self.target_sensitivity = target_sensitivity
 
@@ -168,7 +172,9 @@ class PatientModelSetTrainer(BaseEstimator):
             lr1_rows,
             profile_column=self.profile_column,
             label_column=self.label_column,
-            logreg_c=self.logreg_c,
+            lr1_logreg_c=self.lr1_logreg_c,
+            lr2_logreg_c=self.lr2_logreg_c,
+            drop_feature_columns=self.drop_feature_columns,
             random_state=self.random_state,
             target_sensitivity=self.target_sensitivity,
             selected_models=self.selected_models,
@@ -198,7 +204,9 @@ class PatientModelSetEvaluator(BaseEstimator):
         age_column: str = "age",
         biopsy_column: str = "biopsy",
         lr1_row_policy: str = "all_rows",
-        logreg_c: float = 1.0,
+        lr1_logreg_c: float = 1.0,
+        lr2_logreg_c: float = 1.0,
+        drop_feature_columns: Sequence[str] = (),
         random_state: int = 42,
         target_sensitivity: float = 0.95,
     ) -> None:
@@ -213,7 +221,9 @@ class PatientModelSetEvaluator(BaseEstimator):
         self.age_column = age_column
         self.biopsy_column = biopsy_column
         self.lr1_row_policy = lr1_row_policy
-        self.logreg_c = logreg_c
+        self.lr1_logreg_c = lr1_logreg_c
+        self.lr2_logreg_c = lr2_logreg_c
+        self.drop_feature_columns = list(drop_feature_columns)
         self.random_state = random_state
         self.target_sensitivity = target_sensitivity
 
@@ -231,7 +241,9 @@ class PatientModelSetEvaluator(BaseEstimator):
             age_column=self.age_column,
             biopsy_column=self.biopsy_column,
             lr1_row_policy=self.lr1_row_policy,
-            logreg_c=self.logreg_c,
+            lr1_logreg_c=self.lr1_logreg_c,
+            lr2_logreg_c=self.lr2_logreg_c,
+            drop_feature_columns=self.drop_feature_columns,
             random_state=self.random_state,
             target_sensitivity=self.target_sensitivity,
             selected_models=self.selected_models,
@@ -278,7 +290,10 @@ class AramisPatientTrainingPipeline(BaseEstimator):
         biopsy_column = str(model_config.get("biopsy_column", "biopsy"))
         lr1_row_policy = str(model_config.get("lr1_row_policy", "all_rows"))
         selected_models = _selected_patient_models(model_config)
-        logreg_c = float(model_config.get("logreg_c", 1.0))
+        drop_feature_columns = [str(value) for value in model_config.get("drop_feature_columns", [])]
+        default_logreg_c = float(model_config.get("logreg_c", 1.0))
+        lr1_logreg_c = float(model_config.get("lr1_logreg_c", default_logreg_c))
+        lr2_logreg_c = float(model_config.get("lr2_logreg_c", default_logreg_c))
         random_state = int(evaluation_config.get("random_state", 42))
         target_sensitivity = float(evaluation_config.get("target_sensitivity", 0.95))
 
@@ -292,7 +307,7 @@ class AramisPatientTrainingPipeline(BaseEstimator):
             age_column=age_column,
             biopsy_column=biopsy_column,
             lr1_row_policy=lr1_row_policy,
-            logreg_c=logreg_c,
+            lr1_logreg_c=lr1_logreg_c,
             random_state=random_state,
         )
         self.feature_table_ = self.input_builder_.fit_transform(x)
@@ -300,7 +315,9 @@ class AramisPatientTrainingPipeline(BaseEstimator):
             selected_models=selected_models,
             profile_column=profile_column,
             label_column=label_column,
-            logreg_c=logreg_c,
+            lr1_logreg_c=lr1_logreg_c,
+            lr2_logreg_c=lr2_logreg_c,
+            drop_feature_columns=drop_feature_columns,
             random_state=random_state,
             target_sensitivity=target_sensitivity,
         )
@@ -317,7 +334,9 @@ class AramisPatientTrainingPipeline(BaseEstimator):
             age_column=age_column,
             biopsy_column=biopsy_column,
             lr1_row_policy=lr1_row_policy,
-            logreg_c=logreg_c,
+            lr1_logreg_c=lr1_logreg_c,
+            lr2_logreg_c=lr2_logreg_c,
+            drop_feature_columns=drop_feature_columns,
             random_state=random_state,
             target_sensitivity=target_sensitivity,
         )
@@ -335,6 +354,7 @@ class AramisPatientTrainingPipeline(BaseEstimator):
             lr1_rows=self.input_builder_.lr1_rows_,
             split_metrics=self.evaluator_.split_metrics_,
             split_predictions=self.evaluator_.split_predictions_,
+            drop_feature_columns=drop_feature_columns,
         )
         return self
 
@@ -534,6 +554,7 @@ def _patient_training_artifact(
     lr1_rows: pd.DataFrame,
     split_metrics: pd.DataFrame,
     split_predictions: pd.DataFrame,
+    drop_feature_columns: Sequence[str],
 ) -> dict[str, Any]:
     """Build the traceable joblib payload for patient-level model training."""
     metric_summary = _summarize_patient_model_metrics(split_metrics)
@@ -551,7 +572,10 @@ def _patient_training_artifact(
         "model_type": "patient_m0_m1_m2_logistic_set",
         "models": models,
         "model_descriptions": model_descriptions,
-        "feature_schema": _patient_model_feature_schema(selected_models),
+        "feature_schema": _patient_model_feature_schema(
+            selected_models,
+            drop_feature_columns=drop_feature_columns,
+        ),
         "warnings": _patient_model_warnings(config, selected_models, feature_table),
         "training_config": config,
         "training_config_yaml": config_text,
@@ -587,7 +611,7 @@ def _fit_patient_model_input(
     age_column: str,
     biopsy_column: str,
     lr1_row_policy: str,
-    logreg_c: float,
+    lr1_logreg_c: float,
     random_state: int,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     lr1_rows = _lr1_training_rows(
@@ -596,7 +620,7 @@ def _fit_patient_model_input(
         biopsy_column=biopsy_column,
         lr1_row_policy=lr1_row_policy,
     )
-    lr1_model = _profile_logistic(logreg_c=logreg_c, random_state=random_state)
+    lr1_model = _profile_logistic(logreg_c=lr1_logreg_c, random_state=random_state)
     lr1_model.fit(profile_matrix(lr1_rows, profile_column), _row_labels(lr1_rows, label_column))
     scored_lr1 = _score_lr1_rows(
         lr1_model,
@@ -629,12 +653,14 @@ def _fit_patient_model_set(
     *,
     profile_column: str,
     label_column: str,
-    logreg_c: float,
+    lr1_logreg_c: float,
+    lr2_logreg_c: float,
+    drop_feature_columns: Sequence[str],
     random_state: int,
     target_sensitivity: float,
     selected_models: Sequence[str],
 ) -> dict[str, Any]:
-    lr1_model = _profile_logistic(logreg_c=logreg_c, random_state=random_state)
+    lr1_model = _profile_logistic(logreg_c=lr1_logreg_c, random_state=random_state)
     lr1_model.fit(profile_matrix(lr1_rows, profile_column), _row_labels(lr1_rows, label_column))
     y = feature_table["label"].to_numpy(dtype=int)
     models = {}
@@ -650,10 +676,10 @@ def _fit_patient_model_set(
                 target_sensitivity=target_sensitivity,
             ),
         }
-    for model_name, columns in _patient_model_feature_columns().items():
+    for model_name, columns in _patient_model_feature_columns(drop_feature_columns).items():
         if model_name not in selected_models:
             continue
-        final_model = _scalar_logistic(logreg_c=logreg_c, random_state=random_state)
+        final_model = _scalar_logistic(logreg_c=lr2_logreg_c, random_state=random_state)
         final_model.fit(feature_table[columns], y)
         score = final_model.predict_proba(feature_table[columns])[:, 1]
         models[model_name] = {
@@ -683,7 +709,9 @@ def _evaluate_patient_model_set(
     age_column: str,
     biopsy_column: str,
     lr1_row_policy: str,
-    logreg_c: float,
+    lr1_logreg_c: float,
+    lr2_logreg_c: float,
+    drop_feature_columns: Sequence[str],
     random_state: int,
     target_sensitivity: float,
     selected_models: Sequence[str],
@@ -717,7 +745,9 @@ def _evaluate_patient_model_set(
             age_column=age_column,
             biopsy_column=biopsy_column,
             lr1_row_policy=lr1_row_policy,
-            logreg_c=logreg_c,
+            lr1_logreg_c=lr1_logreg_c,
+            lr2_logreg_c=lr2_logreg_c,
+            drop_feature_columns=drop_feature_columns,
             random_state=random_state,
             target_sensitivity=target_sensitivity,
             selected_models=selected_models,
@@ -754,11 +784,11 @@ def _evaluate_patient_model_set(
             age_column=age_column,
             biopsy_column=biopsy_column,
             lr1_row_policy=lr1_row_policy,
-            logreg_c=logreg_c,
+            lr1_logreg_c=lr1_logreg_c,
             random_state=random_state + split_id,
         )
         lr1_model = _profile_logistic(
-            logreg_c=logreg_c,
+            logreg_c=lr1_logreg_c,
             random_state=random_state + split_id,
         )
         lr1_model.fit(
@@ -799,7 +829,8 @@ def _evaluate_patient_model_set(
                 model_name,
                 train_features,
                 test_features,
-                logreg_c=logreg_c,
+                lr2_logreg_c=lr2_logreg_c,
+                drop_feature_columns=drop_feature_columns,
                 random_state=random_state + split_id,
             )
             thresholds = compute_binary_thresholds(
@@ -846,16 +877,17 @@ def _split_model_scores(
     train_features: pd.DataFrame,
     test_features: pd.DataFrame,
     *,
-    logreg_c: float,
+    lr2_logreg_c: float,
+    drop_feature_columns: Sequence[str],
     random_state: int,
 ) -> tuple[np.ndarray, np.ndarray]:
     if model_name == "M0":
         return (
             train_features["profile_p_cancer_logit_average"].to_numpy(dtype=float),
             test_features["profile_p_cancer_logit_average"].to_numpy(dtype=float),
-        )
-    columns = _patient_model_feature_columns()[model_name]
-    model = _scalar_logistic(logreg_c=logreg_c, random_state=random_state)
+    )
+    columns = _patient_model_feature_columns(drop_feature_columns)[model_name]
+    model = _scalar_logistic(logreg_c=lr2_logreg_c, random_state=random_state)
     model.fit(train_features[columns], train_features["label"].to_numpy(dtype=int))
     return (
         model.predict_proba(train_features[columns])[:, 1],
@@ -953,7 +985,9 @@ def _evaluate_patient_all_on_all(
     age_column: str,
     biopsy_column: str,
     lr1_row_policy: str,
-    logreg_c: float,
+    lr1_logreg_c: float,
+    lr2_logreg_c: float,
+    drop_feature_columns: Sequence[str],
     random_state: int,
     target_sensitivity: float,
     selected_models: Sequence[str],
@@ -969,10 +1003,10 @@ def _evaluate_patient_all_on_all(
         age_column=age_column,
         biopsy_column=biopsy_column,
         lr1_row_policy=lr1_row_policy,
-        logreg_c=logreg_c,
+        lr1_logreg_c=lr1_logreg_c,
         random_state=random_state,
     )
-    lr1_model = _profile_logistic(logreg_c=logreg_c, random_state=random_state)
+    lr1_model = _profile_logistic(logreg_c=lr1_logreg_c, random_state=random_state)
     lr1_model.fit(profile_matrix(lr1_rows, profile_column), _row_labels(lr1_rows, label_column))
     metrics = []
     predictions = []
@@ -981,7 +1015,8 @@ def _evaluate_patient_all_on_all(
             model_name,
             feature_table,
             feature_table,
-            logreg_c=logreg_c,
+            lr2_logreg_c=lr2_logreg_c,
+            drop_feature_columns=drop_feature_columns,
             random_state=random_state,
         )
         thresholds = compute_binary_thresholds(
@@ -1013,7 +1048,14 @@ def _evaluate_patient_all_on_all(
     return pd.DataFrame(metrics), pd.concat(predictions, ignore_index=True)
 
 
-def _patient_model_feature_columns() -> dict[str, list[str]]:
+def _patient_model_feature_columns(
+    drop_feature_columns: Sequence[str] = (),
+) -> dict[str, list[str]]:
+    dropped = set(drop_feature_columns)
+
+    def keep(columns: list[str]) -> list[str]:
+        return [column for column in columns if column not in dropped]
+
     sk_symmetry = [
         "profile_p_cancer_logit_average",
         "symmetry_available",
@@ -1027,8 +1069,8 @@ def _patient_model_feature_columns() -> dict[str, list[str]]:
         "sk_sigma_target2",
         "sk_sigma_contralateral2",
         "sk_mahalanobis2",
-        "sk_peak14_intensity",
-        "sk_mean_peak_value",
+        "sk_peak14_intensity_abs_delta",
+        "sk_mean_peak_value_abs_delta",
         "sk_wasserstein_distance_mu_tc",
         "sk_cosine_distance_full_q2",
         "sk_wasserstein_distance_full_q2",
@@ -1043,11 +1085,11 @@ def _patient_model_feature_columns() -> dict[str, list[str]]:
         "paired_measurements_ok",
     ]
     return {
-        "M0Q": ["profile_p_cancer_logit_average", *reliability],
-        "M1": sk_symmetry,
-        "M1Q": [*sk_symmetry, *reliability],
-        "M2": [*sk_symmetry, "age", "age_available"],
-        "M2Q": [*sk_symmetry, *reliability, "age", "age_available"],
+        "M0Q": keep(["profile_p_cancer_logit_average", *reliability]),
+        "M1": keep(sk_symmetry),
+        "M1Q": keep([*sk_symmetry, *reliability]),
+        "M2": keep([*sk_symmetry, "age", "age_available"]),
+        "M2Q": keep([*sk_symmetry, *reliability, "age", "age_available"]),
     }
 
 
@@ -1080,9 +1122,13 @@ def _patient_model_descriptions() -> dict[str, dict[str, Any]]:
     }
 
 
-def _patient_model_feature_schema(selected_models: Sequence[str]) -> dict[str, Any]:
+def _patient_model_feature_schema(
+    selected_models: Sequence[str],
+    *,
+    drop_feature_columns: Sequence[str] = (),
+) -> dict[str, Any]:
     feature_columns = {"M0": ["profile_p_cancer_logit_average"]}
-    feature_columns.update(_patient_model_feature_columns())
+    feature_columns.update(_patient_model_feature_columns(drop_feature_columns))
     return {
         model_name: {
             "feature_columns": feature_columns[model_name],
@@ -1574,8 +1620,8 @@ def _sk_symmetry_columns() -> list[str]:
         "sk_sigma_target2",
         "sk_sigma_contralateral2",
         "sk_mahalanobis2",
-        "sk_peak14_intensity",
-        "sk_mean_peak_value",
+        "sk_peak14_intensity_abs_delta",
+        "sk_mean_peak_value_abs_delta",
         "sk_wasserstein_distance_mu_tc",
         "sk_cosine_distance_full_q2",
         "sk_wasserstein_distance_full_q2",
@@ -1639,9 +1685,18 @@ def _sk_target_contralateral_symmetry_features(
         "sk_mahalanobis2": _finite_or_zero(
             _mahalanobis_difference(mu_t, mu_c, std_t, std_c, mask2)
         ),
-        "sk_peak14_intensity": _finite_or_zero(_peak14_intensity(q, mu_t, mu_c)),
-        "sk_mean_peak_value": _finite_or_zero(
-            _mean_peak_value(patient_df, q_column=q_column, profile_column=profile_column)
+        "sk_peak14_intensity_abs_delta": _finite_or_zero(
+            _peak14_intensity_abs_delta(q, mu_t, mu_c)
+        ),
+        "sk_mean_peak_value_abs_delta": _finite_or_zero(
+            _mean_peak_value_abs_delta(
+                patient_df,
+                q_column=q_column,
+                profile_column=profile_column,
+                side_column=side_column,
+                target_side_norm=target_side_norm,
+                contralateral_side_norm=contralateral_side_norm,
+            )
         ),
         "sk_wasserstein_distance_mu_tc": _finite_or_zero(
             _profile_wasserstein(q, mu_t, mu_c)
@@ -1799,25 +1854,75 @@ def _sigma_rms(std: np.ndarray, mask: np.ndarray) -> float:
     return float(np.sqrt(np.mean(std[good] ** 2))) if int(good.sum()) >= 5 else np.nan
 
 
-def _peak14_intensity(q: np.ndarray, a: np.ndarray, b: np.ndarray) -> float:
-    y = 0.5 * (a + b)
-    mask = (q >= 13.5) & (q <= 14.5) & np.isfinite(y)
+def _peak14_intensity_abs_delta(
+    q: np.ndarray,
+    target: np.ndarray,
+    contralateral: np.ndarray,
+) -> float:
+    target_peak = _peak_value(q, target, q_min=13.5, q_max=14.5)
+    contralateral_peak = _peak_value(q, contralateral, q_min=13.5, q_max=14.5)
+    if not np.isfinite(target_peak) or not np.isfinite(contralateral_peak):
+        return np.nan
+    return float(abs(target_peak - contralateral_peak))
+
+
+def _peak_value(
+    q: np.ndarray,
+    y: np.ndarray,
+    *,
+    q_min: float,
+    q_max: float,
+) -> float:
+    mask = (q >= q_min) & (q <= q_max) & np.isfinite(y)
     return float(np.nanmax(y[mask])) if int(mask.sum()) >= 3 else np.nan
 
 
-def _mean_peak_value(
+def _mean_peak_value_abs_delta(
     df: pd.DataFrame,
     *,
     q_column: str,
     profile_column: str,
+    side_column: str,
+    target_side_norm: str,
+    contralateral_side_norm: str,
+) -> float:
+    target_peak = _mean_peak_value_for_side(
+        df,
+        q_column=q_column,
+        profile_column=profile_column,
+        side_column=side_column,
+        side_norm=target_side_norm,
+    )
+    contralateral_peak = _mean_peak_value_for_side(
+        df,
+        q_column=q_column,
+        profile_column=profile_column,
+        side_column=side_column,
+        side_norm=contralateral_side_norm,
+    )
+    if not np.isfinite(target_peak) or not np.isfinite(contralateral_peak):
+        return np.nan
+    return float(abs(target_peak - contralateral_peak))
+
+
+def _mean_peak_value_for_side(
+    df: pd.DataFrame,
+    *,
+    q_column: str,
+    profile_column: str,
+    side_column: str,
+    side_norm: str,
 ) -> float:
     values = []
-    for row in df.itertuples(index=False):
-        q = np.asarray(getattr(row, q_column), dtype=float).ravel()
-        y = np.asarray(getattr(row, profile_column), dtype=float).ravel()
-        mask = (q >= 13.0) & (q <= 14.8) & np.isfinite(y)
-        if int(mask.sum()) >= 3:
-            values.append(float(np.nanmax(y[mask])))
+    subset = df[[side_column, q_column, profile_column]]
+    for side, q_raw, y_raw in subset.itertuples(index=False, name=None):
+        if _normalize_side(side) != side_norm:
+            continue
+        q = np.asarray(q_raw, dtype=float).ravel()
+        y = np.asarray(y_raw, dtype=float).ravel()
+        peak = _peak_value(q, y, q_min=13.0, q_max=14.8)
+        if np.isfinite(peak):
+            values.append(peak)
     return float(np.mean(values)) if values else np.nan
 
 

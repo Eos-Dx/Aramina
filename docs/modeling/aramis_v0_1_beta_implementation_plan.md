@@ -74,8 +74,8 @@ sk_weightedrms2
 sk_sigma_target2
 sk_sigma_contralateral2
 sk_mahalanobis2
-sk_peak14_intensity
-sk_mean_peak_value
+sk_peak14_intensity_abs_delta
+sk_mean_peak_value_abs_delta
 sk_wasserstein_distance_mu_tc
 sk_cosine_distance_full_q2
 sk_wasserstein_distance_full_q2
