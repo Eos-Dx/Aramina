@@ -509,6 +509,7 @@ def _patient_training_artifact(
         for name, description in _patient_model_descriptions().items()
         if name in selected_models
     }
+    prediction_contract = _prediction_contract_payload(config["prediction_contract"])
 
     return {
         "kind": "aramis_training_artifact",
@@ -523,6 +524,9 @@ def _patient_training_artifact(
         "training_config_yaml": config_text,
         "training_config_text": config_text,
         "training_config_sha256": sha256(config_text.encode("utf-8")).hexdigest(),
+        "prediction_contract": prediction_contract["contract"],
+        "prediction_contract_yaml": prediction_contract["yaml"],
+        "prediction_contract_sha256": prediction_contract["sha256"],
         **_preprocessing_lineage_fields(
             preprocessing_artifact,
             prediction_preprocessing,
@@ -2786,6 +2790,16 @@ def _prediction_preprocessing_payload(config_path: Path | None) -> dict[str, Any
     }
 
 
+def _prediction_contract_payload(contract: dict[str, Any]) -> dict[str, Any]:
+    """Serialize the immutable prediction contract embedded in a model artifact."""
+    contract_yaml = yaml.safe_dump(contract, sort_keys=True)
+    return {
+        "contract": contract,
+        "yaml": contract_yaml,
+        "sha256": sha256(contract_yaml.encode("utf-8")).hexdigest(),
+    }
+
+
 def _preprocessing_lineage_fields(
     preprocessing_artifact: dict[str, Any],
     prediction_preprocessing: dict[str, Any] | None,
@@ -2830,7 +2844,7 @@ def _validate_training_config(config: dict[str, Any], config_path: Path) -> None
         raise TypeError(f"Training config must be a mapping: {config_path}")
     missing = [
         section
-        for section in ("training", "io", "model", "evaluation")
+        for section in ("training", "io", "model", "evaluation", "prediction_contract")
         if section not in config
     ]
     if missing:
@@ -2843,6 +2857,7 @@ def _validate_training_config(config: dict[str, Any], config_path: Path) -> None
         raise ValueError(
             f"Missing io.prediction_preprocessing_config_path in {config_path}"
         )
+    _validate_prediction_contract(config["prediction_contract"], config_path)
     nested = config.get("evaluation", {}).get("nested", {})
     if nested.get("enabled", False):
         selected_models = _selected_patient_models(config.get("model", {}))
@@ -2858,6 +2873,35 @@ def _validate_training_config(config: dict[str, Any], config_path: Path) -> None
             raise ValueError("evaluation.nested.inner_n_splits must be at least 2.")
     if int(config.get("evaluation", {}).get("bootstrap_samples", 0)) < 0:
         raise ValueError("evaluation.bootstrap_samples must be non-negative.")
+
+
+def _validate_prediction_contract(contract: Any, config_path: Path) -> None:
+    """Require the model-held H5, report, and decision contract at training time."""
+    if not isinstance(contract, dict):
+        raise ValueError(f"prediction_contract must be a mapping in {config_path}")
+    container = contract.get("container")
+    if not isinstance(container, dict):
+        raise ValueError(f"Missing prediction_contract.container in {config_path}")
+    for key in ("schema_version", "format"):
+        if container.get(key) in {None, ""}:
+            raise ValueError(
+                f"Missing prediction_contract.container.{key} in {config_path}"
+            )
+    reporting = contract.get("reporting")
+    if not isinstance(reporting, dict):
+        raise ValueError(f"Missing prediction_contract.reporting in {config_path}")
+    for report_key in ("external_report", "internal_report"):
+        report = reporting.get(report_key)
+        if not isinstance(report, dict) or not report.get("version") or not report.get(
+            "reference_doc"
+        ):
+            raise ValueError(
+                f"Missing prediction_contract.reporting.{report_key} details in {config_path}"
+            )
+    if contract.get("decision", {}).get("threshold_key") in {None, ""}:
+        raise ValueError(
+            f"Missing prediction_contract.decision.threshold_key in {config_path}"
+        )
 
 
 def _config_path(config: dict[str, Any], config_path: Path, key: str) -> Path:

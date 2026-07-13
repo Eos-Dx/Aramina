@@ -1,17 +1,14 @@
 training:
-  name: aramis_m2q_t100_gated_sk_core4_nested_c1_0p1_c2_0p3
+  name: aramis_m2q_t100_gated_sk_core4_synthetic_h5_example
   version: 0.2.2-beta
   branch: one_to_many
   clinical_stage: research draft
-  intended_use: decision-support p_cancer research draft; requires radiologist review
-  role: primary_product_training
+  intended_use: synthetic H5 smoke-test only; not a clinical product model
 
 io:
   input_dataframe_joblib_path: ../../examples/outputs/model_selection_m1q_v0_1/preprocessing/aramis_t100_biopsy_patients_model_input.joblib
-  output_model_joblib_path: ../../examples/prediction_models/aramis_m2q_t100_gated_sk_core4_nested_c1_0p1_c2_0p3.joblib
-  prediction_preprocessing_config_path: ../preprocessing/aramis_prediction_patient_model_input_v0_1.yaml
-  output_json_path: ../../examples/outputs/training/aramis_m2q_t100_gated_sk_core4_nested_c1_0p1_c2_0p3_summary.json
-  output_yaml_path: ../../examples/outputs/training/aramis_m2q_t100_gated_sk_core4_nested_c1_0p1_c2_0p3_description.yaml
+  output_model_joblib_path: ../../examples/prediction_models/aramis_m2q_t100_gated_sk_core4_synthetic_h5_example.joblib
+  prediction_preprocessing_config_path: ../../examples/prediction_h5/aramis_prediction_patient_raw_h5_example_v0_1.yaml
 
 model:
   type: patient_m0_m1_m2_logistic_set
@@ -20,11 +17,12 @@ model:
   group_column: patientId
   specimen_column: specimenId
   side_column: side
+  q_column: q_range
   age_column: age
   biopsy_column: biopsy
-  lr1_row_policy: biopsy_only
+  lr1_row_policy: all_rows
   selected_models:
-    - M2Q
+  - M2Q
   lr1_logreg_c: 0.1
   lr2_logreg_c: 0.3
 
@@ -32,6 +30,7 @@ evaluation:
   mode: train_all
   random_state: 42
   target_sensitivity: 0.95
+
 prediction_contract:
   container:
     schema_version: "0.3"

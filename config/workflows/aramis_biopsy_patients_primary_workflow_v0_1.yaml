@@ -1,6 +1,6 @@
 workflow:
-  name: aramis_biopsy_patients_primary_train
-  version: 0.1
+  name: aramis_biopsy_patients_m2q_gated_train
+  version: 0.2.2-beta
   clinical_stage: research draft
   intended_use: decision-support p_cancer research draft; requires radiologist review
   mode: memory

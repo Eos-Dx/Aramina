@@ -1,14 +1,15 @@
 # Current Aramis Model Pipeline And Risks v0.1
 
-Status: research draft. Development behavior is not yet tagged.
+Status: research draft. Packaged as `0.2.2-beta`.
 
 This document records how the current candidate works and what must not be
 overclaimed.
 
 ## Candidate Summary
 
-The tagged v0.1.9 artifact remains a historical smoke-test fixture. Current
-development code uses one gated M2Q architecture documented in
+The packaged artifact is
+`aramis_m2q_t100_gated_sk_core4_nested_c1_0p1_c2_0p3.joblib`. It uses one
+gated M2Q architecture documented in
 `m2q_gated_target_case_model_v0_1.md`.
 
 The model estimates `p_cancer` for decision support. It is not autonomous

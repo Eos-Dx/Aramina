@@ -97,6 +97,20 @@ def _patient_training_config(
             "random_state": 7,
             "target_sensitivity": 0.95,
         },
+        "prediction_contract": {
+            "container": {"schema_version": "0.3", "format": "xrd-session"},
+            "reporting": {
+                "external_report": {
+                    "version": "0.1",
+                    "reference_doc": "docs/modeling/prediction_pipeline_v0_1.md",
+                },
+                "internal_report": {
+                    "version": "0.1",
+                    "reference_doc": "docs/modeling/internal_clinical_report_content_v0_1.md",
+                },
+            },
+            "decision": {"threshold_key": "threshold_target"},
+        },
     }
 
 
@@ -150,6 +164,14 @@ def test_train_cli_writes_patient_m0_m1_m2_artifact(tmp_path: Path):
     assert artifact["training_preprocessing_config_text"]
     assert artifact["prediction_preprocessing_config_sha256"]
     assert artifact["prediction_preprocessing_config_text"]
+    assert artifact["prediction_contract"]["container"] == {
+        "schema_version": "0.3",
+        "format": "xrd-session",
+    }
+    assert artifact["prediction_contract"]["decision"]["threshold_key"] == (
+        "threshold_target"
+    )
+    assert artifact["prediction_contract_sha256"]
     operational = artifact["metric_summary"].query("evaluation_view == 'operational'")
     assert operational["model_name"].tolist() == [
         "M0",

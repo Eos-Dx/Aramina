@@ -23,14 +23,10 @@ prediction preprocessing YAML stored in model joblib
 patient_id
 clinician-supplied target_side from predict YAML
 model_id
-selected_model
+model_name
+model_version
 prediction.author
 io.output_folder
-container.schema_version
-container.format
-container.max_patients
-reporting.external_report.version
-reporting.internal_report.version
 ```
 
 Expected H5 shape is EOS H5 v0.3:
@@ -59,14 +55,14 @@ For prediction tests, Aramis builds three one-patient v0.3 containers in
 specimens, and three measurement sets per breast. The test then calls
 `python -m aramis predict --config <patient_predict.yaml>` for each H5.
 Prediction fails before preprocessing when the H5 root `@schema_version` or
-`@format` differs from the predict YAML, or when more than one patientId is
+`@format` differs from the model-held prediction contract, or when more than one patientId is
 present in `/session/sets/set_*`.
 
 Prediction tests also verify that `patient.patient_id` must match the H5
 patientId, `patient.target_side` controls which breast is scored by LR1, and
 H5 prediction requires the model artifact to carry
-`prediction_preprocessing_config` unless an explicit development override is
-provided in the predict YAML.
+`prediction_preprocessing_config` and `prediction_contract`. Predict YAML
+cannot override preprocessing, reports, the H5 contract, or decision threshold.
 
 The H5 is preprocessed by the same transformer lineage as training:
 
@@ -109,9 +105,8 @@ prediction runs.
 The `model_id` must also come from predict YAML. It is checked against
 `training.name` stored inside the model joblib. This prevents accidentally
 running a different model artifact than the one requested by the report config.
-The `selected_model` field selects the submodel inside the artifact. The fixed
-development model is `M2Q`; historical smoke-test fixtures may expose older
-submodels for regression tests only.
+`model_name` selects the model entry inside the artifact and `model_version`
+must match artifact `training.version`. The fixed development model is `M2Q`.
 
 ## Call Chain
 
@@ -123,7 +118,7 @@ aramis.__main__.main
 -> run prediction preprocessing, when io.input_h5_path is present
 -> joblib.load(io.input_model_joblib_path)
 -> build_patient_prediction_feature_row(...)
--> score selected model M0/M0Q/M1/M1Q/M2/M2Q
+-> score artifact-selected M2Q
 -> write external report JSON/YAML
 -> write internal report JSON/YAML
 ```

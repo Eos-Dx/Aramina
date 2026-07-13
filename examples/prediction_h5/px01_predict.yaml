@@ -7,32 +7,14 @@ prediction:
 
 io:
   input_h5_path: px01_one_patient.h5
-  input_model_joblib_path: ../prediction_models/aramis_m2q_t100_core4_optional_symmetry_c1_0p1_c2_0p1.joblib
+  input_model_joblib_path: ../prediction_models/aramis_m2q_t100_gated_sk_core4_synthetic_h5_example.joblib
   output_folder: ../outputs/prediction_h5_examples
-
-reporting:
-  external_report:
-    version: "0.1"
-    reference_doc: ../../docs/modeling/prediction_pipeline_v0_1.md
-  internal_report:
-    version: "0.1"
-    reference_doc: ../../docs/modeling/internal_clinical_report_content_v0_1.md
-
-preprocessing:
-  config_path: aramis_prediction_patient_raw_h5_example_v0_1.yaml
-
-container:
-  schema_version: "0.3"
-  format: xrd-session
-  max_patients: 1
 
 patient:
   patient_id: PX01
   target_side: Left
 
 model:
-  model_id: aramis_m2q_t100_core4_optional_symmetry_c1_0p1_c2_0p1
-  selected_model: M2Q
-
-decision:
-  threshold_key: threshold_target
+  model_id: aramis_m2q_t100_gated_sk_core4_synthetic_h5_example
+  model_name: M2Q
+  model_version: "0.2.2-beta"

@@ -51,55 +51,42 @@ io:
   input_model_joblib_path: /path/to/model.joblib
   output_folder: /path/to/prediction_outputs
 
-reporting:
-  external_report:
-    version: "0.1"
-    reference_doc: docs/modeling/prediction_pipeline_v0_1.md
-  internal_report:
-    version: "0.1"
-    reference_doc: docs/modeling/internal_clinical_report_content_v0_1.md
-
-container:
-  schema_version: "0.3"
-  format: xrd-session
-  max_patients: 1
-
 patient:
   patient_id: PATIENT_ID
   target_side: Left
 
 model:
   model_id: MODEL_ARTIFACT_ID
-  selected_model: M2Q
-
-decision:
-  threshold_key: threshold_target
+  model_name: M2Q
+  model_version: "0.2.2-beta"
 ```
 
 Aramis creates automatic output names inside `io.output_folder`:
 
 ```text
-<prediction.name>_<patient.patient_id>_prediction_dataframe.joblib
-<prediction.name>_<patient.patient_id>_external_report.json
-<prediction.name>_<patient.patient_id>_external_report.yaml
-<prediction.name>_<patient.patient_id>_internal_report.json
-<prediction.name>_<patient.patient_id>_internal_report.yaml
+<prediction.name>_<patient.patient_id>_<automatic_run_id>_prediction_dataframe.joblib
+<prediction.name>_<patient.patient_id>_<automatic_run_id>_external_report.json
+<prediction.name>_<patient.patient_id>_<automatic_run_id>_external_report.yaml
+<prediction.name>_<patient.patient_id>_<automatic_run_id>_internal_report.json
+<prediction.name>_<patient.patient_id>_<automatic_run_id>_internal_report.yaml
 ```
 
-The model joblib stores `prediction_preprocessing_config`. Product prediction
-normally does not pass a separate preprocessing YAML. Explicit
-`preprocessing.config_path` is a development/test override.
+Training embeds `prediction_preprocessing_config` and an immutable
+`prediction_contract` in the model joblib. The contract contains supported H5
+schema and format, report versions, report references, and threshold key.
+Predict YAML cannot override preprocessing, reporting, container, or decision
+settings.
 
-Repository smoke-test model:
+Packaged product model artifact:
 
 ```text
-examples/prediction_models/aramis_m2q_t100_core4_optional_symmetry_c1_0p1_c2_0p1.joblib
+examples/prediction_models/aramis_m2q_t100_gated_sk_core4_nested_c1_0p1_c2_0p3.joblib
 ```
 
 Example one-patient H5 configs in `examples/prediction_h5/*_predict.yaml` point
-to this tracked historical artifact. The fixed gated M2Q architecture is
-documented in `docs/modeling/m2q_gated_target_case_model_v0_1.md`; the next
-configuration stage will package its final artifact id and update the examples.
+to a separate synthetic-only smoke-test artifact with embedded raw-array
+preprocessing. The fixed gated M2Q architecture is documented in
+`docs/modeling/m2q_gated_target_case_model_v0_1.md`.
 
 ## H5 Container Contract
 
@@ -351,14 +338,16 @@ docs/modeling/m2q_gated_target_case_model_v0_1.md
 Prediction fails before scoring when:
 
 ```text
-H5 root @schema_version does not match prediction YAML
-H5 root @format does not match prediction YAML
+H5 root @schema_version does not match model-held contract
+H5 root @format does not match model-held contract
 more than one patientId is present
 patient.patient_id does not match H5 patientId
 patient.target_side is missing or absent in the preprocessed DataFrame
 model.model_id does not match the artifact training.name
-selected_model is not present in the model artifact
+model.model_name is not present in the model artifact
+model.model_version does not match artifact training.version
 model artifact does not contain prediction_preprocessing_config
+model artifact does not contain prediction_contract
 ```
 
 Preprocessing fails or drops rows when:

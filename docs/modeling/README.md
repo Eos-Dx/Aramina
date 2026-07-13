@@ -30,9 +30,9 @@ Current development decision record:
 m2q_gated_target_case_model_v0_1.md
 ```
 
-The v0.1.9 candidate document and its joblib are historical smoke-test
-fixtures. The next configuration stage will package the fixed gated M2Q model
-under a final artifact id.
+The packaged research-draft artifact is
+`aramis_m2q_t100_gated_sk_core4_nested_c1_0p1_c2_0p3.joblib`. Synthetic H5
+smoke tests use a separate raw-array artifact.
 
 ## Evidence Documents
 

@@ -64,8 +64,8 @@ symmetry availability is a gate, not a learned risk feature.
 
 The fixed architecture and its current evaluation are recorded in
 [`docs/modeling/m2q_gated_target_case_model_v0_1.md`](docs/modeling/m2q_gated_target_case_model_v0_1.md).
-The tracked v0.1.9 model joblib remains a historical prediction smoke-test
-fixture until the next configuration and artifact-packaging stage.
+The packaged M2Q artifact embeds its prediction preprocessing and immutable
+prediction contract. Predict YAML supplies identity and paths only.
 
 ## Commands
 
@@ -112,8 +112,12 @@ Working one-patient prediction examples use:
 
 ```text
 examples/prediction_h5/cancer_one_patient.h5
-examples/prediction_models/aramis_m2q_t100_core4_optional_symmetry_c1_0p1_c2_0p1.joblib
+examples/prediction_models/aramis_m2q_t100_gated_sk_core4_synthetic_h5_example.joblib
 ```
+
+The synthetic artifact is for repository smoke tests only. The product artifact
+is `aramis_m2q_t100_gated_sk_core4_nested_c1_0p1_c2_0p3.joblib` and embeds the
+production GFRM preprocessing contract.
 
 ## Documentation Map
 

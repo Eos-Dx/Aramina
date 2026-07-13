@@ -32,13 +32,17 @@ def _prediction_output_paths(
     prediction_name: str,
     patient_id: str,
 ) -> dict[str, Path]:
-    stem = f"{prediction_name}_{patient_id}"
+    stem = f"{prediction_name}_{patient_id}_"
+    external_paths = sorted(output_folder.glob(f"{stem}*_external_report.yaml"))
+    assert len(external_paths) == 1
+    external_yaml = external_paths[0]
+    run_stem = external_yaml.name.removesuffix("_external_report.yaml")
     return {
-        "dataframe": output_folder / f"{stem}_prediction_dataframe.joblib",
-        "external_json": output_folder / f"{stem}_external_report.json",
-        "external_yaml": output_folder / f"{stem}_external_report.yaml",
-        "internal_json": output_folder / f"{stem}_internal_report.json",
-        "internal_yaml": output_folder / f"{stem}_internal_report.yaml",
+        "dataframe": output_folder / f"{run_stem}_prediction_dataframe.joblib",
+        "external_json": output_folder / f"{run_stem}_external_report.json",
+        "external_yaml": external_yaml,
+        "internal_json": output_folder / f"{run_stem}_internal_report.json",
+        "internal_yaml": output_folder / f"{run_stem}_internal_report.yaml",
     }
 
 
@@ -118,6 +122,20 @@ def _training_config(
             "random_state": 7,
             "target_sensitivity": 0.95,
         },
+        "prediction_contract": {
+            "container": {"schema_version": "0.3", "format": "xrd-session"},
+            "reporting": {
+                "external_report": {
+                    "version": "0.1",
+                    "reference_doc": "docs/modeling/prediction_pipeline_v0_1.md",
+                },
+                "internal_report": {
+                    "version": "0.1",
+                    "reference_doc": "docs/modeling/internal_clinical_report_content_v0_1.md",
+                },
+            },
+            "decision": {"threshold_key": "threshold_target"},
+        },
     }
 
 
@@ -141,19 +159,12 @@ def _prediction_config(
             "input_model_joblib_path": str(model_path),
             "output_folder": str(output_folder),
         },
-        "reporting": {
-            "external_report": {
-                "version": "0.1",
-                "reference_doc": "../../docs/modeling/prediction_pipeline_v0_1.md",
-            },
-            "internal_report": {
-                "version": "0.1",
-                "reference_doc": "../../docs/modeling/internal_clinical_report_content_v0_1.md",
-            },
-        },
         "patient": {"patient_id": patient_id, "target_side": target_side},
-        "model": {"model_id": "test_predict_train", "selected_model": "M1Q"},
-        "decision": {"threshold_key": "threshold_target"},
+        "model": {
+            "model_id": "test_predict_train",
+            "model_name": "M1Q",
+            "model_version": "0.1",
+        },
     }
 
 
@@ -177,24 +188,12 @@ def _h5_prediction_config(
             "input_model_joblib_path": str(model_path),
             "output_folder": str(output_folder),
         },
-        "reporting": {
-            "external_report": {
-                "version": "0.1",
-                "reference_doc": "../../docs/modeling/prediction_pipeline_v0_1.md",
-            },
-            "internal_report": {
-                "version": "0.1",
-                "reference_doc": "../../docs/modeling/internal_clinical_report_content_v0_1.md",
-            },
-        },
         "patient": {"patient_id": patient_id, "target_side": target_side},
-        "container": {
-            "schema_version": "0.3",
-            "format": "xrd-session",
-            "max_patients": 1,
+        "model": {
+            "model_id": "test_predict_train",
+            "model_name": "M1Q",
+            "model_version": "0.1",
         },
-        "model": {"model_id": "test_predict_train", "selected_model": "M1Q"},
-        "decision": {"threshold_key": "threshold_target"},
     }
 
 
@@ -218,26 +217,13 @@ def _valid_prediction_config(
             "author": "Test Author",
         },
         "io": io,
-        "reporting": {
-            "external_report": {
-                "version": "0.1",
-                "reference_doc": "../../docs/modeling/prediction_pipeline_v0_1.md",
-            },
-            "internal_report": {
-                "version": "0.1",
-                "reference_doc": "../../docs/modeling/internal_clinical_report_content_v0_1.md",
-            },
-        },
         "patient": {"patient_id": "P1", "target_side": "Left"},
-        "model": {"model_id": "test_predict_train", "selected_model": "M1Q"},
-        "decision": {"threshold_key": "threshold_target"},
+        "model": {
+            "model_id": "test_predict_train",
+            "model_name": "M1Q",
+            "model_version": "0.1",
+        },
     }
-    if input_h5:
-        config["container"] = {
-            "schema_version": "0.3",
-            "format": "xrd-session",
-            "max_patients": 1,
-        }
     return config
 
 
@@ -261,11 +247,6 @@ def test_predict_cli_writes_decision_support_report(tmp_path: Path):
     training_config_path = tmp_path / "train.yaml"
     prediction_config_path = tmp_path / "predict.yaml"
     output_folder = tmp_path / "prediction_outputs"
-    output_paths = _prediction_output_paths(
-        output_folder,
-        prediction_name="test_predict",
-        patient_id="P00",
-    )
     save_preprocessing_artifact(
         _patient_frame(),
         dataframe_path,
@@ -290,6 +271,11 @@ def test_predict_cli_writes_decision_support_report(tmp_path: Path):
 
     assert main(["train", "--config", str(training_config_path)]) == 0
     assert main(["predict", "--config", str(prediction_config_path)]) == 0
+    output_paths = _prediction_output_paths(
+        output_folder,
+        prediction_name="test_predict",
+        patient_id="P00",
+    )
     report = yaml.safe_load(output_paths["external_yaml"].read_text(encoding="utf-8"))
     internal_report = yaml.safe_load(
         output_paths["internal_yaml"].read_text(encoding="utf-8")
@@ -368,6 +354,40 @@ def test_predict_rejects_wrong_model_id(tmp_path: Path):
 
 
 @pytest.mark.parametrize(
+    ("key", "value", "error"),
+    [
+        ("model_name", "M0", "model_name does not match"),
+        ("model_version", "wrong-version", "model_version does not match"),
+    ],
+)
+def test_predict_rejects_wrong_model_identity_field(
+    tmp_path: Path, key: str, value: str, error: str
+):
+    dataframe_path = tmp_path / "preprocessed.joblib"
+    model_path = tmp_path / "model.joblib"
+    training_config_path = tmp_path / "train.yaml"
+    prediction_config_path = tmp_path / "predict.yaml"
+    save_preprocessing_artifact(
+        _patient_frame(),
+        dataframe_path,
+        preprocessing_config={"aramis_preprocessing": {"branch": "one_to_many"}},
+        preprocessing_config_text="aramis_preprocessing:\n  branch: one_to_many\n",
+        metadata={"branch": "one_to_many"},
+    )
+    training_config_path.write_text(
+        yaml.safe_dump(_training_config(dataframe_path, model_path)),
+        encoding="utf-8",
+    )
+    config = _prediction_config(dataframe_path, model_path, tmp_path / "outputs")
+    config["model"][key] = value
+    prediction_config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+
+    assert main(["train", "--config", str(training_config_path)]) == 0
+    with pytest.raises(ValueError, match=error):
+        main(["predict", "--config", str(prediction_config_path)])
+
+
+@pytest.mark.parametrize(
     ("mutate", "error"),
     [
         (lambda config: config.pop("prediction"), "Missing prediction config sections"),
@@ -376,16 +396,17 @@ def test_predict_rejects_wrong_model_id(tmp_path: Path):
             "Missing io.output_folder",
         ),
         (
-            lambda config: config["reporting"]["internal_report"].pop("version"),
-            "Missing reporting.internal_report.version",
+            lambda config: config.__setitem__("reporting", {}),
+            "cannot override model-held sections",
         ),
         (lambda config: config["patient"].pop("patient_id"), "Missing patient.patient_id"),
         (lambda config: config["patient"].pop("target_side"), "Missing patient.target_side"),
         (lambda config: config["model"].pop("model_id"), "Missing model.model_id"),
-        (lambda config: config["model"].pop("selected_model"), "Missing model.selected_model"),
+        (lambda config: config["model"].pop("model_name"), "Missing model.model_name"),
+        (lambda config: config["model"].pop("model_version"), "Missing model.model_version"),
         (
             lambda config: config["io"].pop("input_dataframe_joblib_path"),
-            "Missing io.input_dataframe_joblib_path",
+            "Set exactly one input",
         ),
     ],
 )
@@ -407,23 +428,23 @@ def test_predict_rejects_non_mapping_yaml(tmp_path: Path):
         main(["predict", "--config", str(config_path)])
 
 
-def test_predict_rejects_invalid_h5_prediction_yaml(tmp_path: Path):
+def test_predict_rejects_model_held_contract_override(tmp_path: Path):
     config_path = tmp_path / "predict.yaml"
     config = _valid_prediction_config(tmp_path, input_h5=True)
-    config.pop("container")
+    config["container"] = {"schema_version": "0.3", "format": "xrd-session"}
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
 
-    with pytest.raises(ValueError, match="Missing container section"):
+    with pytest.raises(ValueError, match="cannot override model-held sections"):
         main(["predict", "--config", str(config_path)])
 
 
-def test_predict_rejects_invalid_preprocessing_override_yaml(tmp_path: Path):
+def test_predict_rejects_preprocessing_override_yaml(tmp_path: Path):
     config_path = tmp_path / "predict.yaml"
     config = _valid_prediction_config(tmp_path, input_h5=True)
-    config["preprocessing"] = {}
+    config["preprocessing"] = {"config_path": "other.yaml"}
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
 
-    with pytest.raises(ValueError, match="Missing preprocessing.config_path"):
+    with pytest.raises(ValueError, match="cannot override model-held sections"):
         main(["predict", "--config", str(config_path)])
 
 
@@ -485,7 +506,7 @@ def test_predict_target_side_controls_profile_score(tmp_path: Path):
         patient_id="PX_TARGET",
         target_side="Left",
     )
-    left_config["model"]["selected_model"] = "M0"
+    left_config["model"]["model_name"] = "M0"
     right_config = _prediction_config(
         prediction_dataframe_path,
         model_path,
@@ -493,7 +514,7 @@ def test_predict_target_side_controls_profile_score(tmp_path: Path):
         patient_id="PX_TARGET",
         target_side="Right",
     )
-    right_config["model"]["selected_model"] = "M0"
+    right_config["model"]["model_name"] = "M0"
     left_config_path.write_text(yaml.safe_dump(left_config), encoding="utf-8")
     right_config_path.write_text(yaml.safe_dump(right_config), encoding="utf-8")
 
@@ -561,7 +582,7 @@ def test_predict_m2q_without_contralateral_breast_uses_neutral_symmetry_gate(tmp
         model_path,
         tmp_path / "prediction_outputs",
     )
-    prediction_config["model"]["selected_model"] = "M2Q"
+    prediction_config["model"]["model_name"] = "M2Q"
     prediction_config_path.write_text(
         yaml.safe_dump(prediction_config),
         encoding="utf-8",
@@ -592,11 +613,6 @@ def test_predict_cli_can_preprocess_one_patient_h5_before_scoring(tmp_path: Path
     prediction_config_path = tmp_path / "predict_from_h5.yaml"
     preprocessing_config_path = tmp_path / "prediction_preprocessing.yaml"
     output_folder = tmp_path / "prediction_outputs"
-    output_paths = _prediction_output_paths(
-        output_folder,
-        prediction_name="test_predict_from_h5",
-        patient_id="P1",
-    )
 
     write_v0_3_one_patient_h5(
         h5_path,
@@ -630,11 +646,15 @@ def test_predict_cli_can_preprocess_one_patient_h5_before_scoring(tmp_path: Path
         model_path,
         output_folder,
     )
-    prediction_config["preprocessing"] = {"config_path": str(preprocessing_config_path)}
     prediction_config_path.write_text(yaml.safe_dump(prediction_config), encoding="utf-8")
 
     assert main(["train", "--config", str(training_config_path)]) == 0
     assert main(["predict", "--config", str(prediction_config_path)]) == 0
+    output_paths = _prediction_output_paths(
+        output_folder,
+        prediction_name="test_predict_from_h5",
+        patient_id="P1",
+    )
     report = yaml.safe_load(output_paths["external_yaml"].read_text(encoding="utf-8"))
 
     assert output_paths["dataframe"].exists()
@@ -739,11 +759,6 @@ def test_predict_cli_can_score_three_v0_3_one_patient_h5_containers(tmp_path: Pa
         h5_path = tmp_path / f"{patient_id}.h5"
         prediction_config_path = tmp_path / f"{patient_id}_predict.yaml"
         output_folder = tmp_path / f"{patient_id}_outputs"
-        output_paths = _prediction_output_paths(
-            output_folder,
-            prediction_name="test_predict_from_h5",
-            patient_id=patient_id,
-        )
         write_v0_3_one_patient_h5(
             h5_path,
             patient_id=patient_id,
@@ -766,6 +781,11 @@ def test_predict_cli_can_score_three_v0_3_one_patient_h5_containers(tmp_path: Pa
         )
 
         assert main(["predict", "--config", str(prediction_config_path)]) == 0
+        output_paths = _prediction_output_paths(
+            output_folder,
+            prediction_name="test_predict_from_h5",
+            patient_id=patient_id,
+        )
         report = yaml.safe_load(output_paths["external_yaml"].read_text(encoding="utf-8"))
         internal_report = yaml.safe_load(
             output_paths["internal_yaml"].read_text(encoding="utf-8")
@@ -889,7 +909,8 @@ def test_predict_rejects_h5_format_mismatch(tmp_path: Path):
         patient_id="PX_FMT",
         target_side="Left",
     )
-    config["container"]["format"] = "wrong-format"
+    with h5py.File(h5_path, "a") as h5:
+        h5.attrs["format"] = "wrong-format"
     prediction_config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
 
     with pytest.raises(ValueError, match="format does not match"):
@@ -941,7 +962,9 @@ def test_predict_rejects_unsupported_h5_schema_version(tmp_path: Path):
         patient_id="PX_SCHEMA",
         target_side="Left",
     )
-    config["container"]["schema_version"] = "0.4"
+    artifact = joblib.load(model_path)
+    artifact["prediction_contract"]["container"]["schema_version"] = "0.4"
+    joblib.dump(artifact, model_path)
     prediction_config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
 
     with pytest.raises(ValueError, match="Unsupported prediction H5 schema_version"):
@@ -992,7 +1015,8 @@ def test_predict_rejects_h5_schema_version_mismatch(tmp_path: Path):
         patient_id="PX99",
         target_side="Left",
     )
-    config["container"]["schema_version"] = "0.2"
+    with h5py.File(h5_path, "a") as h5:
+        h5.attrs["schema_version"] = "0.2"
     prediction_config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
 
     with pytest.raises(ValueError, match="schema_version does not match"):

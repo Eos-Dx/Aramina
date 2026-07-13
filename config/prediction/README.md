@@ -23,13 +23,16 @@ DataFrame-mode debug example:
 config/prediction/aramis_predict_example_v0_1.yaml
 ```
 
-The example uses the tracked model artifact:
+The H5 smoke-test examples use a synthetic-only model artifact:
 
 ```text
-examples/prediction_models/aramis_m2q_t100_core4_optional_symmetry_c1_0p1_c2_0p1.joblib
+examples/prediction_models/aramis_m2q_t100_gated_sk_core4_synthetic_h5_example.joblib
 ```
 
-Required sections:
+The general H5 template points to the packaged product artifact, which embeds
+the production GFRM preprocessing contract.
+
+Required product sections:
 
 ```text
 prediction.name
@@ -37,28 +40,21 @@ prediction.author
 io.input_h5_path
 io.input_model_joblib_path
 io.output_folder
-reporting.external_report.version
-reporting.external_report.reference_doc
-reporting.internal_report.version
-reporting.internal_report.reference_doc
-container.schema_version
-container.format
-container.max_patients
 patient.patient_id
 patient.target_side
 model.model_id
-model.selected_model
-decision.threshold_key
+model.model_name
+model.model_version
 ```
 
 `io.output_folder` is enough. Aramis creates automatic output names:
 
 ```text
-<prediction.name>_<patient.patient_id>_prediction_dataframe.joblib
-<prediction.name>_<patient.patient_id>_external_report.json
-<prediction.name>_<patient.patient_id>_external_report.yaml
-<prediction.name>_<patient.patient_id>_internal_report.json
-<prediction.name>_<patient.patient_id>_internal_report.yaml
+<prediction.name>_<patient.patient_id>_<automatic_run_id>_prediction_dataframe.joblib
+<prediction.name>_<patient.patient_id>_<automatic_run_id>_external_report.json
+<prediction.name>_<patient.patient_id>_<automatic_run_id>_external_report.yaml
+<prediction.name>_<patient.patient_id>_<automatic_run_id>_internal_report.json
+<prediction.name>_<patient.patient_id>_<automatic_run_id>_internal_report.yaml
 ```
 
 Important rule:
@@ -66,16 +62,18 @@ Important rule:
 ```text
 target_side is supplied by clinician/config in predict YAML
 target_side is not inferred from labels, biopsy fields, or specimen_status
-container.schema_version must match the H5 root @schema_version
-container.format must match the H5 root @format
-container.max_patients must be 1 for Aramis prediction
+patient.patient_id must exactly match the single H5 patientId
+H5 root @schema_version and @format must match model-held contract
+exactly one patient must be present in the H5 container
 model.model_id must match training.name stored inside the model joblib
-model.selected_model selects the submodel inside that artifact, for example M2Q
+model.model_name must exist inside that artifact, for example M2Q
+model.model_version must match training.version stored inside that artifact
 ```
 
-The prediction preprocessing YAML is stored inside the trained model joblib as
-`prediction_preprocessing_config`. Product `predict.yaml` normally does not
-point to a preprocessing YAML.
+The training YAML defines `prediction_contract`. Training embeds that contract,
+the prediction preprocessing YAML, report versions, and decision threshold in
+the model joblib. Product Predict YAML cannot override `preprocessing`,
+`reporting`, `container`, or `decision`.
 
 Product v0.1 route:
 
@@ -94,7 +92,7 @@ one-patient H5
 -> logit-average target-breast p_cancer
 -> build paired SK symmetry features when a contralateral breast is available
 -> add reliability counters
--> selected M0/M0Q/M1/M1Q/M2/M2Q model
+-> model-selected M2Q decision-support score
 -> external report JSON/YAML
 -> internal report JSON/YAML
 ```
@@ -112,7 +110,7 @@ not for autonomous diagnosis
 ```
 
 External report is intentionally minimal and target-side only. Internal report
-contains audit fields, intermediate model summaries, target LR1
-`profile_p_cancer`, and contralateral LR1 profile score for internal review.
-`profile_p_cancer_logit_average` is kept only in `feature_row` as an internal
-model-audit feature.
+contains XRD profile evidence, symmetry fields, reliability, and traceability.
+It does not duplicate intermediate estimator summaries, feature rows, model
+weights, or training configuration; those remain in the ML-classifier training
+output YAML under `model_registry`. The joblib is the executable model artifact.

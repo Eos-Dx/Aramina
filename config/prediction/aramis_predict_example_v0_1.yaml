@@ -7,30 +7,14 @@ prediction:
 
 io:
   input_dataframe_joblib_path: ../../examples/outputs/model_input/aramis_biopsy_patients_model_input_v0_1.joblib
-  input_model_joblib_path: ../../examples/prediction_models/aramis_m2q_t100_core4_optional_symmetry_c1_0p1_c2_0p1.joblib
+  input_model_joblib_path: ../../examples/prediction_models/aramis_m2q_t100_gated_sk_core4_nested_c1_0p1_c2_0p3.joblib
   output_folder: ../../examples/outputs/prediction
-
-reporting:
-  external_report:
-    version: "0.1"
-    reference_doc: ../../docs/modeling/prediction_pipeline_v0_1.md
-  internal_report:
-    version: "0.1"
-    reference_doc: ../../docs/modeling/internal_clinical_report_content_v0_1.md
 
 patient:
   patient_id: Nova_214
   target_side: Left
 
 model:
-  model_id: aramis_m2q_t100_core4_optional_symmetry_c1_0p1_c2_0p1
-  selected_model: M2Q
-  profile_column: radial_profile_data
-  group_column: patientId
-  specimen_column: specimenId
-  side_column: side
-  q_column: q_range
-  age_column: age
-
-decision:
-  threshold_key: threshold_target
+  model_id: aramis_m2q_t100_gated_sk_core4_nested_c1_0p1_c2_0p3
+  model_name: M2Q
+  model_version: "0.2.2-beta"
