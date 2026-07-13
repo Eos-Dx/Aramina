@@ -127,7 +127,9 @@ same XRD preprocessing as all-patients
 
 This is the current primary development training dataset. Biopsy selection is
 patient-level: keep patients with at least one `biopsy == true` row, then keep
-both breast sides when available for symmetry/asymmetry feature generation.
+both breast sides when available for symmetry/asymmetry feature generation. At
+training time, each biopsied breast becomes one target case; bilateral cases are
+never separated across patient-safe folds.
 
 ### `config/preprocessing/aramis_prediction_patient_model_input_v0_1.yaml`
 

@@ -1,20 +1,15 @@
 # Current Aramis Model Pipeline And Risks v0.1
 
-Status: research draft.
+Status: research draft. Development behavior is not yet tagged.
 
 This document records how the current candidate works and what must not be
 overclaimed.
 
 ## Candidate Summary
 
-```text
-model_id: aramis_m2q_t100_core4_optional_symmetry_c1_0p1_c2_0p1
-dataset: T100 biopsy-patient model-input DataFrame
-preprocessing: T100 AgBH quality threshold
-selected_model: M2Q
-regularization: LR1 L2 C=0.1; LR2 L2 C=0.1
-threshold_target: 0.298552
-```
+The tagged v0.1.9 artifact remains a historical smoke-test fixture. Current
+development code uses one gated M2Q architecture documented in
+`m2q_gated_target_case_model_v0_1.md`.
 
 The model estimates `p_cancer` for decision support. It is not autonomous
 diagnosis.
@@ -27,12 +22,10 @@ H5
 -> measurement-level normalized radial_profile_data
 -> patient-safe training/evaluation split
 -> LR1 profile model
--> patient-level target-breast p_cancer by logit-average
--> SK Core4 target/contralateral symmetry features when available
--> target measurement count
--> age + age_available
--> M2Q final LogisticRegression
+-> target-breast case p_cancer by logit-average
+-> one LR2 with profile + age and gated SK Core4 refinement
 -> p_cancer
+-> separate reliability from measurement counts
 ```
 
 Prediction uses the same model feature logic, but `target_side` comes from
@@ -48,6 +41,10 @@ endpoint is the cleanest available BENIGN/CANCER label
 contralateral rows are still kept for symmetry
 ```
 
+Each biopsied breast becomes one training case. A patient with bilateral
+biopsies contributes two target-breast cases, but patient-safe splitters keep
+both cases in one fold.
+
 `all_patients` is exploratory only.
 
 ## Why M2Q
@@ -60,16 +57,17 @@ M1:
   target-breast profile score + SK target/contralateral symmetry
 
 M1Q:
-  M1 + reliability counters
+  same prediction as M1; reliability reported separately
 
 M2/M2Q:
-  add age
+  M2 adds age; M2Q reports reliability separately
 ```
 
-M2Q is the current primary candidate because it combines the target-breast
-profile score, a fixed four-field target/contralateral symmetry block, target
-measurement count, and age as an explicit clinical risk prior. Age is
-clinically meaningful because breast cancer risk increases with age.
+M2Q is the development candidate because it combines the target-breast profile
+score, an optional fixed four-field target/contralateral symmetry block, and age
+as an explicit clinical risk prior. Age is clinically meaningful because breast
+cancer risk increases with age, but age-only performance is reported separately
+to expose shortcut risk.
 
 ## Feature Interpretation
 
@@ -84,16 +82,17 @@ Symmetry context:
 
 ```text
 compares target breast against contralateral breast
-uses the fixed SK Core4 feature set when both sides are available
-is set to zero when contralateral data is unavailable
+uses the fixed SK Core4 feature set as an optional refinement
+sets all SK terms to zero when contralateral data is unavailable
+symmetry_available controls the gate and is not a learned feature
 ```
 
 Reliability:
 
 ```text
-target measurement count is an LR2 input
-contralateral counts and paired-breast sufficiency are report/audit fields
-symmetry_available is not an LR2 input
+measurement counts and paired-breast sufficiency are report/audit fields
+no measurement count is an LR2 input
+symmetry_available is a gate and report field, not a learned LR2 input
 ```
 
 Low reliability does not lower risk. It tells the downstream report to flag the
@@ -102,8 +101,12 @@ result as less stable.
 ## Validation Views
 
 ```text
-repeated stratified patient K-fold:
-  main model-selection signal
+outer repeated stratified patient K-fold:
+  main generalization estimate
+
+inner patient K-fold:
+  selects LR1/LR2 regularization
+  derives one train-only threshold for the final model
 
 repeated patient 80/20 or 70/30 splits:
   robustness check
@@ -112,33 +115,17 @@ LOOVM:
   patient-safe but high-variance leave-one-out view
 
 train-all:
-  final fitted candidate artifact and operating threshold
-  optimistic fitted-cohort view, not validation
+  refits the selected architecture after nested validation
+  uses inner out-of-fold thresholds
+  fitted-cohort metrics remain diagnostics, not validation
 ```
 
 All split modes are patient-safe.
 
-## Current Evidence Pattern
+## Current Development Evidence
 
-The selected candidate is documented in:
-
-```text
-final_candidate_model_artifact_v0_1.md
-```
-
-Key fixed-cohort result:
-
-```text
-patients: 164
-CANCER patients: 75
-BENIGN patients: 89
-train-all ROC AUC: 0.889
-train-all sensitivity: 0.960
-train-all specificity: 0.517
-```
-
-This train-all result is used to lock the candidate artifact and threshold. It
-is paired with patient-safe validation estimates in the candidate document.
+See `m2q_gated_target_case_model_v0_1.md`. Its primary evidence is outer
+patient-safe nested validation, not train-all fitted-cohort performance.
 
 ## Main Risks
 
@@ -149,8 +136,8 @@ patient-safe split modes.
 
 ### Age Shortcut
 
-Age improves some models but can dominate a small dataset. M2/M2Q remain
-comparison models until age use is explicitly accepted.
+Age is fixed in M2Q because it is a clinically meaningful risk prior, but it
+can dominate this small cohort. A0 age-only stays mandatory control evidence.
 
 ### Weak Profile-Only Baseline
 

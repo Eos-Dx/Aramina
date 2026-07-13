@@ -2,8 +2,8 @@
 
 Status: superseded research record. This strict paired-breast candidate is
 retained for traceability only; its artifact is retained in Git tag
-`0.1.8-beta`. The current optional-symmetry candidate is documented in
-`m2q_core4_optional_symmetry_candidate_v0_1_9.md`.
+`0.1.8-beta`. The current gated target-case M2Q record is documented in
+`m2q_gated_target_case_model_v0_1.md`.
 
 ## Fixed Dataset
 

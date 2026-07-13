@@ -69,7 +69,7 @@ patient:
   target_side: Left
 
 model:
-  model_id: aramis_m2q_t100_core4_optional_symmetry_c1_0p1_c2_0p1
+  model_id: MODEL_ARTIFACT_ID
   selected_model: M2Q
 
 decision:
@@ -97,7 +97,9 @@ examples/prediction_models/aramis_m2q_t100_core4_optional_symmetry_c1_0p1_c2_0p1
 ```
 
 Example one-patient H5 configs in `examples/prediction_h5/*_predict.yaml` point
-to this tracked model artifact.
+to this tracked historical artifact. The fixed gated M2Q architecture is
+documented in `docs/modeling/m2q_gated_target_case_model_v0_1.md`; the next
+configuration stage will package its final artifact id and update the examples.
 
 ## H5 Container Contract
 
@@ -140,6 +142,10 @@ allowed_sources: [gfrm]
 
 `patient.target_side` is supplied by the clinical caller. It is not inferred
 from H5 labels, biopsy flags, or `specimen_status`.
+
+Training uses one historical case per biopsied breast. A bilateral-biopsy
+patient therefore has two target-breast cases, but both always remain in the
+same `patientId` split. Prediction accepts one explicit target breast per run.
 
 ## Preprocessing Output Joblib
 
@@ -274,7 +280,7 @@ Internal report is audit-oriented and follows
 `docs/modeling/internal_clinical_report_content_v0_1.md`:
 
 ```text
-kind: aramis_internal_clinical_report
+output_type: aramis_internal_clinical_report
 version
 reference_doc
 created_at
@@ -282,31 +288,28 @@ patient_id
 target_side
 contralateral_side
 xrd_scan_information
-features.azimuthal_integration.target_profile_model
-features.azimuthal_integration.contralateral_profile_model
+features.azimuthal_integration.target_profile
+features.azimuthal_integration.contralateral_profile
 features.symmetry
-features.age
 features.reliability
 final_prediction
-intermediate_models.lr1_profile_model
-intermediate_models.final_model
-feature_row
 provenance
-limitations
+outputs
 ```
 
-Internal report separates human-readable and model-audit values:
+Internal report contains human-readable XRD evidence and decision output:
 
 ```text
 final_prediction.p_cancer
   final M2Q decision-support risk score
 
-intermediate_models.lr1_profile_model.profile_p_cancer
+features.azimuthal_integration.target_profile.profile_p_cancer
   target-breast LR1 profile-only probability
-
-feature_row.profile_p_cancer_logit_average
-  internal feature used by the final model; kept for audit/reproducibility
 ```
+
+Estimator configuration, feature weights, model schema, thresholds, and raw
+model feature rows are stored only in the ML-classifier training output YAML
+under `model_registry`; the joblib is the executable model artifact.
 
 Contralateral breast prediction is internal-only. It is produced by the LR1
 profile model, not by the final target-side model.
@@ -327,20 +330,20 @@ reliability_reason:
 Low reliability does not reduce `p_cancer`. It tells the report consumer that
 the result needs more caution and clinician review.
 
-## Current Primary Model
+## Current Development Model
 
 ```text
-model_id: aramis_m2q_t100_core4_optional_symmetry_c1_0p1_c2_0p1
+architecture_id: m2q_gated_target_case_v0_1
 selected_model: M2Q
 preprocessing: T100 biopsy-patient model input
-regularization: LR1 L2 C=0.1; LR2 L2 C=0.1
-threshold_target: 0.298552
+regularization: LR1 L2 C=0.1; LR2 L2 C=0.3
+threshold: selected from inner patient-safe out-of-fold predictions
 ```
 
 See:
 
 ```text
-docs/modeling/m2q_core4_optional_symmetry_candidate_v0_1_9.md
+docs/modeling/m2q_gated_target_case_model_v0_1.md
 ```
 
 ## Failure Rules

@@ -25,10 +25,11 @@ python -m aramis preprocess --config config/preprocessing/aramis_all_patients_mo
 python -m aramis preprocess --config config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
 ```
 
-Direct training:
+Direct training uses a retained development config. Training-config structure
+and final artifact naming are revised in the next configuration stage:
 
 ```bash
-python -m aramis train --config config/training/aramis_m1q_t100_primary_train_v0_1.yaml
+python -m aramis train --config config/training/aramis_m2q_t100_primary_train_v0_1.yaml
 ```
 
 Preprocess + train workflow:

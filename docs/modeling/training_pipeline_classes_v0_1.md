@@ -11,7 +11,7 @@ python -m aramis train --config <training.yaml>
 ```
 
 The YAML selects the input preprocessing joblib, output artifacts, model family,
-model subset, and validation mode. Internally, the patient-level M0/M1/M2 route
+model subset, and validation mode. Internally, the target-breast M0/M1/M2 route
 is organized as sklearn-like classes.
 
 The patient-level route is also wrapped as one sklearn `Pipeline` object:
@@ -64,28 +64,33 @@ This is the single training pipeline unit used by `python -m aramis train`.
 
 Input: measurement-level preprocessing DataFrame.
 
-Output: patient-level feature table.
+Output: target-breast case feature table.
 
 Responsibilities:
 
 ```text
 select LR1 rows from product labels
 fit profile LogisticRegression on radial_profile_data
-score measurement-level p_cancer
-logit-average measurement scores to patient-level p_cancer
-build patient label
-infer training target side from biopsy/status metadata
+score target-breast measurement-level p_cancer
+logit-average measurement scores to target-case p_cancer
+build one BENIGN/CANCER label per biopsied target breast
+create one target case per biopsied breast
 build target/contralateral SK symmetry features
 keep target/contralateral cosine symmetry fields for audit
 copy age and age_available
 record patient/specimen/measurement counters
 ```
 
-For the primary `biopsy_patients` training cohort:
+For the primary `biopsy_patients` training cohort, a biopsied breast is the
+historical target breast:
 
 ```text
 inferred_target_side = biopsied breast
 ```
+
+A patient with bilateral biopsies contributes two target cases. Every split is
+made on `patientId`, so both cases and all their measurements remain in the same
+train or test fold.
 
 For future prediction, `target_side` must be supplied by the clinician-facing
 input config. Prediction must not infer target side from labels.
@@ -107,7 +112,7 @@ This class owns the first model layer. It preserves the product policy
 Input:
 
 ```text
-patient feature table
+target-breast case feature table
 LR1 training rows from PatientModelInputBuilder
 ```
 
@@ -120,21 +125,21 @@ models_ dictionary
 Supported model entries:
 
 ```text
-M0: LR1 patient p_cancer only
-M0Q: M0 + reliability/quality counters
-M1: M0 + target/contralateral SK symmetry block
-M1Q: M1 + reliability/quality counters
+M0: LR1 target-breast p_cancer only
+M0Q: same prediction as M0; reliability is reported separately
+M1: profile p_cancer + optional gated target/contralateral SK symmetry
+M1Q: same prediction as M1; reliability is reported separately
 M2: M1 + age + age_available
-M2Q: M1Q + age + age_available
+M2Q: same prediction as M2; reliability is reported separately
 ```
 
-For v0.1-beta, M2Q is the current primary candidate. M2Q keeps the M1Q profile,
-SK symmetry, and reliability features, and adds age as an explicit clinical
-risk prior. Age must still be reported as a model component because it can
-dominate the XRD signal in small cohorts.
+For v0.1-beta, M2Q is the fixed development architecture. It combines the
+profile score, gated SK symmetry refinement, and age as an explicit clinical
+risk prior. Reliability is not an LR2 feature. Age must still be reported as a
+model component because it can dominate the XRD signal in small cohorts.
 
 Q models keep `p_cancer` as risk and add measurement-count confidence fields as
-model features/report fields:
+report fields:
 
 ```text
 profile_p_cancer_n_measurements
@@ -151,6 +156,10 @@ result_reliability_reason
 Reliability must be reported separately from risk. Example: `p_cancer=0.62`,
 `risk_level=high`, `reliability=low`, reason: only one valid target-breast
 measurement.
+
+M1/M1Q/M2/M2Q use one final LR2. Profile and age terms always reach it; SK
+terms are zeroed when symmetry is unavailable. `symmetry_available` is only a
+gate and is not a learned LR2 input.
 
 Each entry stores the fitted sklearn model components, selected feature columns,
 and thresholds computed at target sensitivity on training scores.

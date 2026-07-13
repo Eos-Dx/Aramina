@@ -5,19 +5,18 @@ the Aramis model-development code. It is not clinical validation.
 
 ## Current Training Cohort
 
-The current product-clean training YAMLs use the biopsy-patient model-input
-DataFrame:
+The current product-clean preprocessing YAML produces the biopsy-patient
+model-input DataFrame:
 
 ```text
 config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
 examples/outputs/model_input/aramis_biopsy_patients_model_input_v0_1.joblib
 ```
 
-Primary training config points to this artifact:
-
-```text
-config/training/aramis_m2q_t100_primary_train_v0_1.yaml
-```
+The existing training YAML name is retained as a runnable development fixture.
+Its layout and final model-artifact name will be revised in the next
+configuration stage; it does not replace the fixed model record in
+`m2q_gated_target_case_model_v0_1.md`.
 
 Current counts:
 
@@ -73,20 +72,21 @@ side = Left or Right breast
 position = measurement position within breast
 ```
 
-The training code then builds patient-level features:
+The training code then builds target-breast cases:
 
 ```text
 measurement rows
 -> specimen/breast profile scores
--> patient-level profile logit-average
--> inferred target breast from biopsy/status metadata
+-> target-breast profile logit-average
+-> one case per biopsied target breast
 -> optional target/contralateral symmetry features
 -> optional age feature
--> patient-level p_cancer research score
+-> target-breast p_cancer research score
 ```
 
-Split-based evaluation is patient-safe: rows from one `patientId` must not be
-split between train and test.
+Each biopsied breast contributes one historical target case. Bilateral-biopsy
+patients therefore contribute two cases. Split-based evaluation is patient-safe:
+all cases and measurements from one `patientId` remain in the same fold.
 
 ## Label Mapping
 
@@ -191,7 +191,7 @@ measurement rows: 893
 endpoint: BENIGN vs CANCER decision-support p_cancer
 row unit: measurement
 grouping unit: patientId
-decision-support level: target breast with patient-level symmetry context
+decision-support level: target breast with patient-internal symmetry context
 status: research draft, requires radiologist review
 ```
 
@@ -199,7 +199,7 @@ Training target-side rule:
 
 ```text
 primary cohort: biopsy_patients
-inferred target breast: biopsied breast
+historical target breast: biopsied breast
 reason: biopsied breast is the clinically suspicious breast and has endpoint
 prediction target breast: must be supplied by clinician/config, not inferred
 ```

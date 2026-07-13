@@ -71,7 +71,7 @@ def main(argv: list[str] | None = None) -> int:
         if "model_name" in metric_summary.columns:
             for row in metric_summary.itertuples(index=False):
                 print(
-                    f"{row.model_name}: "
+                    f"{row.model_name}/{row.evaluation_view}: "
                     f"roc_auc_mean={row.roc_auc_mean:.6f} "
                     f"specificity_target_mean={row.specificity_target_mean:.6f}"
                 )

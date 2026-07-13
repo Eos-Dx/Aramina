@@ -10,7 +10,12 @@ import yaml
 from xrd_preprocessing import save_preprocessing_artifact
 
 from aramis.__main__ import main
-from aramis.training import _logit_average_probability, run_training_from_config
+from aramis.training import (
+    PatientModelInputBuilder,
+    _logit_average_probability,
+    _patient_split_pairs,
+    run_training_from_config,
+)
 
 
 def _patient_training_frame() -> pd.DataFrame:
@@ -120,17 +125,21 @@ def test_train_cli_writes_patient_m0_m1_m2_artifact(tmp_path: Path):
     assert set(artifact["models"]) == {"M0", "M0Q", "M1", "M1Q", "M2", "M2Q"}
     assert artifact["feature_schema"]["M0Q"]["feature_columns"] == [
         "profile_p_cancer_logit_average",
-        "profile_p_cancer_n_measurements",
     ]
-    assert artifact["feature_schema"]["M1"]["feature_columns"] == [
+    assert artifact["feature_schema"]["M0Q"]["unit"] == "target_breast_case"
+    assert artifact["feature_schema"]["M1"]["learned_feature_columns"] == [
         "profile_p_cancer_logit_average",
         "sk_wasserstein_distance_full_q2",
         "sk_weightedrms1",
         "sk_weightedrms2",
         "sk_mean_peak_value_abs_delta",
     ]
-    assert artifact["feature_schema"]["M1Q"]["feature_columns"][-1:] == [
+    assert artifact["feature_schema"]["M1"]["symmetry_gate"] == "symmetry_available"
+    assert artifact["feature_schema"]["M1Q"]["reliability_fields"] == [
         "profile_p_cancer_n_measurements",
+        "target_measurements",
+        "contralateral_measurements",
+        "symmetry_available",
     ]
     assert artifact["warnings"]
     assert any("reliability" in warning for warning in artifact["warnings"])
@@ -141,7 +150,8 @@ def test_train_cli_writes_patient_m0_m1_m2_artifact(tmp_path: Path):
     assert artifact["training_preprocessing_config_text"]
     assert artifact["prediction_preprocessing_config_sha256"]
     assert artifact["prediction_preprocessing_config_text"]
-    assert artifact["metric_summary"]["model_name"].tolist() == [
+    operational = artifact["metric_summary"].query("evaluation_view == 'operational'")
+    assert operational["model_name"].tolist() == [
         "M0",
         "M0Q",
         "M1",
@@ -152,19 +162,44 @@ def test_train_cli_writes_patient_m0_m1_m2_artifact(tmp_path: Path):
     assert "balanced_accuracy_target_mean" in artifact["metric_summary"].columns
     assert "ppv_target_mean" in artifact["metric_summary"].columns
     assert "npv_target_mean" in artifact["metric_summary"].columns
+    assert "brier_score_mean" in artifact["metric_summary"].columns
+    assert "calibration_slope_mean" in artifact["metric_summary"].columns
     assert artifact["models"]["M0"]["feature_columns"] == [
         "profile_p_cancer_logit_average"
     ]
     assert "profile_p_cancer_logit_average" in artifact["feature_table"].columns
     assert "profile_p_cancer_probability_mean" in artifact["feature_table"].columns
     assert "profile_p_cancer_n_measurements" in artifact["feature_table"].columns
-    assert set(artifact["feature_table"]["inferred_target_side"]) == {"Left"}
-    assert set(artifact["feature_table"]["inferred_contralateral_side"]) == {"Right"}
-    assert "target_side" not in artifact["feature_table"].columns
-    assert "contralateral_side" not in artifact["feature_table"].columns
+    assert set(artifact["feature_table"]["target_side"]) == {"Left"}
+    assert set(artifact["feature_table"]["contralateral_side"]) == {"Right"}
+    assert artifact["feature_table"]["target_case_id"].nunique() == 30
     assert set(artifact["feature_table"]["profile_p_cancer_n_measurements"]) == {2}
     assert set(artifact["feature_table"]["min_measurements_per_breast"]) == {2}
     assert set(artifact["feature_table"]["paired_measurements_ok"]) == {0}
+
+
+def test_bilateral_biopsy_creates_two_target_cases_in_one_patient_safe_split():
+    frame = _patient_training_frame()
+    frame.loc[(frame["patientId"] == "P00") & (frame["side"] == "Right"), "biopsy"] = True
+    builder = PatientModelInputBuilder(lr1_row_policy="all_rows", random_state=7)
+    feature_table = builder.fit_transform(frame)
+
+    bilateral = feature_table.query("patientId == 'P00'")
+    assert set(bilateral["target_side"]) == {"Left", "Right"}
+    assert bilateral["target_case_id"].nunique() == 2
+
+    for train_index, test_index in _patient_split_pairs(
+        mode="stratified_kfold",
+        base_features=feature_table,
+        y_patients=feature_table["label"].to_numpy(dtype=int),
+        n_splits=3,
+        n_repeats=1,
+        test_size=0.30,
+        random_state=7,
+    ):
+        train_patients = set(feature_table.iloc[train_index]["patientId"])
+        test_patients = set(feature_table.iloc[test_index]["patientId"])
+        assert ("P00" in train_patients) != ("P00" in test_patients)
 
 
 def test_train_keeps_patients_without_paired_breasts(tmp_path: Path):
@@ -194,7 +229,10 @@ def test_train_keeps_patients_without_paired_breasts(tmp_path: Path):
     assert main(["train", "--config", str(config_path)]) == 0
     artifact = joblib.load(output_path)
 
-    assert "symmetry_available" not in artifact["models"]["M2Q"]["feature_columns"]
+    m2q_model = artifact["models"]["M2Q"]
+    assert m2q_model["symmetry_policy"] == "single_model_gated_optional_refinement"
+    assert m2q_model["symmetry_gate"] == "symmetry_available"
+    assert "symmetry_available" in m2q_model["feature_columns"]
     assert len(artifact["feature_table"]) == 30
     unpaired = artifact["feature_table"].query("patientId == 'P01'").iloc[0]
     assert unpaired["symmetry_available"] == 0
@@ -212,6 +250,11 @@ def test_train_keeps_patients_without_paired_breasts(tmp_path: Path):
     assert "sk_cosine_distance_full_q2" in artifact["feature_table"].columns
     assert (tmp_path / "summary.json").exists()
     assert (tmp_path / "description.yaml").exists()
+    description = yaml.safe_load((tmp_path / "description.yaml").read_text())
+    m2q_registry = description["model_registry"]["M2Q"]
+    assert m2q_registry["symmetry_policy"] == "single_model_gated_optional_refinement"
+    assert m2q_registry["lr1_profile_model"]["steps"]["logreg"]["C"] == 0.1
+    assert "coef" in m2q_registry["final_model"]["logreg"]
 
 
 def test_logit_average_probability_preserves_consistent_evidence():
@@ -249,7 +292,7 @@ def test_patient_training_evaluation_modes(tmp_path: Path, mode: str):
 
     assert exit_code == 0
     assert set(artifact["models"]) == {"M0"}
-    assert artifact["metric_summary"]["evaluation_mode"].tolist() == [mode]
+    assert set(artifact["metric_summary"]["evaluation_mode"]) == {mode}
     assert artifact["metric_summary"]["roc_auc_mean"].between(0.0, 1.0).all()
 
 
@@ -281,6 +324,54 @@ def test_patient_training_repeated_stratified_kfold(tmp_path: Path):
     assert exit_code == 0
     assert len(artifact["split_metrics"]) == 6
     assert artifact["metric_summary"]["splits"].tolist() == [6]
+
+
+def test_patient_training_nested_cv_selects_regularization_and_oof_thresholds(
+    tmp_path: Path,
+):
+    input_path = tmp_path / "nested.joblib"
+    output_path = tmp_path / "nested_model.joblib"
+    config_path = tmp_path / "nested.yaml"
+    save_preprocessing_artifact(
+        _patient_training_frame(),
+        input_path,
+        preprocessing_config={"aramis_preprocessing": {"branch": "one_to_many"}},
+        preprocessing_config_text="aramis_preprocessing:\n  branch: one_to_many\n",
+        metadata={"branch": "one_to_many"},
+    )
+    config = _patient_training_config(
+        input_path,
+        output_path,
+        tmp_path,
+        mode="stratified_kfold",
+        selected_models=["M2Q"],
+    )
+    config["evaluation"].update(
+        {
+            "n_splits": 3,
+            "bootstrap_samples": 20,
+            "nested": {
+                "enabled": True,
+                "inner_n_splits": 3,
+                "inner_n_repeats": 1,
+                "lr1_c_grid": [0.1, 0.3],
+                "lr2_c_grid": [0.1, 0.3],
+            },
+        }
+    )
+    config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+
+    assert main(["train", "--config", str(config_path)]) == 0
+    artifact = joblib.load(output_path)
+
+    selection = artifact["hyperparameter_selection"]
+    assert selection["lr1_c"] in {0.1, 0.3}
+    assert selection["lr2_c"] in {0.1, 0.3}
+    assert len(selection["candidate_metrics"]) == 4
+    assert set(artifact["metric_summary"]["evaluation_view"]) == {"operational"}
+    assert artifact["metric_summary"]["roc_auc_ci_low"].notna().all()
+    assert "selected_lr1_c" in artifact["split_metrics"].columns
+    assert "selected_lr2_c" in artifact["split_metrics"].columns
 
 
 def test_train_rejects_unknown_branch(tmp_path: Path):

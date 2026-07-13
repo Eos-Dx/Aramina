@@ -15,6 +15,17 @@ from aramis.__main__ import main
 from .synthetic_aramis_h5 import write_v0_3_one_patient_h5
 
 
+def _assert_report_numbers_rounded(value) -> None:
+    if isinstance(value, dict):
+        for item in value.values():
+            _assert_report_numbers_rounded(item)
+    elif isinstance(value, list):
+        for item in value:
+            _assert_report_numbers_rounded(item)
+    elif isinstance(value, float):
+        assert value == round(value, 5)
+
+
 def _prediction_output_paths(
     output_folder: Path,
     *,
@@ -302,20 +313,28 @@ def test_predict_cli_writes_decision_support_report(tmp_path: Path):
     assert report["provenance"]["training_config_sha256"] == model_artifact[
         "training_config_sha256"
     ]
-    assert internal_report["kind"] == "aramis_internal_clinical_report"
+    assert internal_report["output_type"] == "aramis_internal_clinical_report"
     assert internal_report["version"] == "0.1"
+    assert internal_report["reference_doc"] == "./docs/modeling/internal_clinical_report_content_v0_1.md"
+    assert internal_report["provenance"]["prediction_config"]["path"] == str(
+        prediction_config_path.resolve()
+    )
     assert internal_report["features"]["azimuthal_integration"][
-        "target_profile_model"
+        "target_profile"
     ]["available"]
     assert internal_report["features"]["azimuthal_integration"][
-        "contralateral_profile_model"
+        "contralateral_profile"
     ]["available"]
-    lr1_report = internal_report["intermediate_models"]["lr1_profile_model"]
-    assert 0.0 <= lr1_report["profile_p_cancer"] <= 1.0
-    assert "profile_p_cancer_logit_average" in internal_report["feature_row"]
-    assert "p_cancer" not in internal_report
+    assert 0.0 <= internal_report["features"]["azimuthal_integration"][
+        "target_profile"
+    ]["profile_p_cancer"] <= 1.0
+    assert "intermediate_models" not in internal_report
+    assert "feature_row" not in internal_report
+    assert internal_report["research_only"] is True
+    assert internal_report["xrd_scan_information"]["patient_age_available"] is True
     assert 0.0 <= internal_report["final_prediction"]["p_cancer"] <= 1.0
-    assert internal_report["intermediate_models"]["lr1_profile_model"]["steps"]
+    assert internal_report["final_prediction"]["decision_threshold_id"] == "target_sensitivity_0.95"
+    _assert_report_numbers_rounded(internal_report)
 
 
 def test_predict_rejects_wrong_model_id(tmp_path: Path):
@@ -499,7 +518,7 @@ def test_predict_target_side_controls_profile_score(tmp_path: Path):
     assert left_report["p_cancer"] > right_report["p_cancer"]
 
 
-def test_predict_m1q_without_contralateral_breast_reports_low_reliability(tmp_path: Path):
+def test_predict_m2q_without_contralateral_breast_uses_neutral_symmetry_gate(tmp_path: Path):
     training_dataframe_path = tmp_path / "training_preprocessed.joblib"
     prediction_dataframe_path = tmp_path / "prediction_preprocessed.joblib"
     model_path = tmp_path / "model.joblib"
@@ -528,17 +547,23 @@ def test_predict_m1q_without_contralateral_breast_reports_low_reliability(tmp_pa
         metadata={"branch": "one_to_many"},
     )
     training_config_path.write_text(
-        yaml.safe_dump(_training_config(training_dataframe_path, model_path)),
-        encoding="utf-8",
-    )
-    prediction_config_path.write_text(
         yaml.safe_dump(
-            _prediction_config(
-                prediction_dataframe_path,
+            _training_config(
+                training_dataframe_path,
                 model_path,
-                tmp_path / "prediction_outputs",
+                selected_models=["M2Q"],
             )
         ),
+        encoding="utf-8",
+    )
+    prediction_config = _prediction_config(
+        prediction_dataframe_path,
+        model_path,
+        tmp_path / "prediction_outputs",
+    )
+    prediction_config["model"]["selected_model"] = "M2Q"
+    prediction_config_path.write_text(
+        yaml.safe_dump(prediction_config),
         encoding="utf-8",
     )
 
@@ -554,6 +579,8 @@ def test_predict_m1q_without_contralateral_breast_reports_low_reliability(tmp_pa
 
     assert report["reliability"] == "low"
     assert internal["features"]["symmetry"]["available"] is False
+    assert "model_route" not in internal["final_prediction"]
+    assert "intermediate_models" not in internal
     assert 0.0 <= report["p_cancer"] <= 1.0
 
 
@@ -760,7 +787,7 @@ def test_predict_cli_can_score_three_v0_3_one_patient_h5_containers(tmp_path: Pa
         assert report["provenance"]["input_h5_sha256"]
         assert report["provenance"]["prediction_preprocessing_config_sha256"]
         assert internal_report["features"]["azimuthal_integration"][
-            "contralateral_profile_model"
+            "contralateral_profile"
         ]["available"]
 
     assert {report["patient_id"] for report in reports} == {"PX01", "PX02", "PX03"}

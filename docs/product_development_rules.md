@@ -113,10 +113,12 @@ measurement-level random split is forbidden
 specimen-level split is insufficient when patient leakage is possible
 ```
 
-Current selection policy:
+Current model-selection policy:
 
 ```text
-use repeated patient-safe stratified K-fold for model/regularization selection
+use nested patient-safe stratified K-fold
+  outer folds estimate generalization
+  inner folds select LR1/LR2 regularization and the operating threshold
 use train-all only to fit the final locked candidate artifact
 state clearly when a metric is train-all fitted-cohort and not validation
 ```
@@ -166,4 +168,3 @@ unsupported H5 container schema
 unknown target_side
 missing model threshold
 ```
-

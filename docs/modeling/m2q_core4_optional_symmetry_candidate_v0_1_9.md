@@ -1,7 +1,8 @@
 # M2Q Core4 Optional-Symmetry Candidate v0.1.9
 
-Status: research draft. This is the current product-candidate record. It
-describes decision support only and is not clinical validation.
+Status: superseded research record and historical v0.1.9 smoke-test artifact.
+It describes decision support only and is not clinical validation. The current
+gated target-case M2Q record is `m2q_gated_target_case_model_v0_1.md`.
 
 ## Fixed Dataset
 

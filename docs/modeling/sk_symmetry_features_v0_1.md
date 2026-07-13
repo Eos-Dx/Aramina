@@ -53,10 +53,9 @@ sigma_C(q) = contralateral profile standard deviation across measurements
 ```
 
 When both target and contralateral profiles are available, Core4 measures their
-asymmetry. If the contralateral profile is absent, all SK values are set to
-`0.0`, `symmetry_available = 0`, and the model still scores the target profile.
-`symmetry_available` remains an audit/reliability field only; it is not a model
-input.
+asymmetry and refines the one final LR2 score. If the contralateral profile is
+absent, `symmetry_available = 0` makes every SK contribution neutral.
+`symmetry_available` is a gate and audit field, not a learned model input.
 
 ## Q Regions
 

@@ -38,28 +38,34 @@ one-patient H5
 -> prediction preprocessing from model joblib
 -> normalized radial_profile_data
 -> LR1 profile model on target breast
--> target/contralateral SK symmetry features
--> age + age_available
--> M2Q final LogisticRegression
+-> one LR2: profile + age + optional gated SK Core4 refinement
 -> p_cancer + suggested class + reliability
 ```
 
 Training uses the same preprocessing family but a historical model-development
-cohort. The current primary candidate is:
+cohort. Current untagged development evaluation is:
 
 ```text
-model_id: aramis_m2q_t100_core4_optional_symmetry_c1_0p1_c2_0p1
+architecture_id: m2q_gated_target_case_v0_1
+evaluation_run: aramis_t100_honest_nested_operational_experiment
 preprocessing: T100 biopsy-patient model-input DataFrame
 selected_model: M2Q
-regularization: LR1 L2 C=0.1; LR2 L2 C=0.1
-threshold_target: 0.298552
+regularization: LR1 L2 C=0.1; LR2 L2 C=0.3
+threshold: derived from inner patient-safe out-of-fold predictions at target sensitivity 0.95
+training unit: one biopsied target breast
 ```
 
 M2Q combines the target-breast XRD profile score, four fixed SK
-target/contralateral symmetry fields, target measurement count, and age as an
-explicit clinical risk prior. A contralateral breast adds symmetry refinement
-when available; data sufficiency remains a separate report field rather than a
-risk feature.
+target/contralateral symmetry fields and age in one final model. Profile and
+age are always evaluated. When no contralateral breast is available, the gated
+SK contribution is exactly zero. Age-only performance is reported as a
+shortcut-risk control. Measurement counts remain reliability fields and
+symmetry availability is a gate, not a learned risk feature.
+
+The fixed architecture and its current evaluation are recorded in
+[`docs/modeling/m2q_gated_target_case_model_v0_1.md`](docs/modeling/m2q_gated_target_case_model_v0_1.md).
+The tracked v0.1.9 model joblib remains a historical prediction smoke-test
+fixture until the next configuration and artifact-packaging stage.
 
 ## Commands
 
@@ -128,8 +134,9 @@ Model concept and candidate choice:
 
 ```text
 docs/machine_learning_concept.md
-docs/modeling/final_candidate_model_artifact_v0_1.md
+docs/modeling/m2q_gated_target_case_model_v0_1.md
 docs/modeling/current_model_pipeline_and_risks_v0_1.md
+docs/documentation_audit_v0_1.md
 ```
 
 Prediction route and report schema:
@@ -163,7 +170,7 @@ src/aramis/pipelines.py
   YAML-governed preprocessing wrapper around XRD-preprocessing transformers
 
 src/aramis/training.py
-  patient-level M0/M0Q/M1/M1Q/M2/M2Q training artifact builder
+  patient-safe target-breast M0/M0Q/M1/M1Q/M2/M2Q training artifact builder
 
 src/aramis/prediction.py
   one-patient prediction route and report writer

@@ -7,39 +7,53 @@ prediction/training contracts. Product readers should start here:
 
 ```text
 ../machine_learning_concept.md
-m2q_core4_optional_symmetry_candidate_v0_1_9.md
+m2q_gated_target_case_model_v0_1.md
 prediction_pipeline_v0_1.md
 training_pipeline_classes_v0_1.md
 current_model_pipeline_and_risks_v0_1.md
 ```
 
-## Primary Candidate
+## Development Candidate
 
 ```text
-model_id: aramis_m2q_t100_core4_optional_symmetry_c1_0p1_c2_0p1
+architecture_id: m2q_gated_target_case_v0_1
 selected_model: M2Q
 preprocessing: T100 biopsy-patient model input
-regularization: LR1 L2 C=0.1; LR2 L2 C=0.1
-threshold_target: 0.298552
+architecture: one LR2 with gated optional SK Core4 refinement
+regularization: LR1 L2 C=0.1; LR2 L2 C=0.3
+measurement counts: reliability only, not model inputs
 ```
 
-Decision record:
+Current development decision record:
 
 ```text
-m2q_core4_optional_symmetry_candidate_v0_1_9.md
+m2q_gated_target_case_model_v0_1.md
 ```
+
+The v0.1.9 candidate document and its joblib are historical smoke-test
+fixtures. The next configuration stage will package the fixed gated M2Q model
+under a final artifact id.
 
 ## Evidence Documents
 
 ```text
+m2q_gated_target_case_model_v0_1.md
+  fixed architecture, current nested validation, and train-all diagnostic
+
+age_conditional_incremental_value_v0_1.md
+  historical paired-routed age analysis
+
+honest_operational_model_experiment_v0_1.md
+  historical paired/fallback experiment
+
 m2q_core4_optional_symmetry_candidate_v0_1_9.md
-  current fixed model schema, optional symmetry, and regularization
+  historical v0.1.9 smoke-test artifact
 
 m1q_threshold_mode_comparison_v0_1.md
   how threshold / validation modes behave
 
 m2q_age_candidate_update_v0_1.md
-  why age was added and why M2Q is now the primary candidate
+  historical rationale for adding age
 
 current_model_dataframe_v0_1.md
   what data the current candidate was trained from

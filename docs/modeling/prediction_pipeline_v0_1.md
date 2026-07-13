@@ -100,11 +100,18 @@ read from H5 metadata and is not inferred from labels, biopsy metadata, or
 historical target breast. In prediction, the suspicious breast comes from
 clinical input.
 
+Training creates one historical case per biopsied breast. A bilateral-biopsy
+patient therefore contributes two cases, while all validation splits remain
+strictly patient-safe. Prediction mirrors this behavior: one supplied
+`target_side` produces one result; two suspicious breasts require two separate
+prediction runs.
+
 The `model_id` must also come from predict YAML. It is checked against
 `training.name` stored inside the model joblib. This prevents accidentally
 running a different model artifact than the one requested by the report config.
-The `selected_model` field selects the submodel inside the artifact, for example
-`M1Q`.
+The `selected_model` field selects the submodel inside the artifact. The fixed
+development model is `M2Q`; historical smoke-test fixtures may expose older
+submodels for regression tests only.
 
 ## Call Chain
 
@@ -192,33 +199,32 @@ scores and model features are internal-audit fields.
 Internal report follows `internal_clinical_report_content_v0_1.md` and contains:
 
 ```text
-kind: aramis_internal_clinical_report
+output_type: aramis_internal_clinical_report
 version
 xrd_scan_information
 target LR1 profile-only p_cancer
 contralateral LR1 profile-only p_cancer
 SK symmetry features
-age fields
-reliability counters
+reliability result and reason
 final target-side prediction
-intermediate LR1/final model summaries
-feature_row
 model/data/config SHA256 provenance
-decision-support warnings
+output paths
 ```
 
 Report-level naming:
 
 ```text
 final_prediction.p_cancer
-  final M2Q risk score
+  final target-side risk score
 
-intermediate_models.lr1_profile_model.profile_p_cancer
+features.azimuthal_integration.target_profile.profile_p_cancer
   target-breast LR1 profile-only probability
-
-feature_row.profile_p_cancer_logit_average
-  internal final-model feature retained for reproducibility
 ```
+
+Estimator summaries, model weights, raw feature rows, and training configuration
+are intentionally not duplicated in an internal prediction report. They remain
+in the ML-classifier training output YAML under `model_registry`; the joblib is
+the executable model artifact.
 
 Contralateral p_cancer is included only in the internal report and only from the
 first-layer profile model. The final model remains target-side decision support.

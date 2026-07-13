@@ -1,10 +1,10 @@
 # M2Q Age Candidate Update v0.1
 
-Status: superseded research record. The current optional-symmetry Core4
-candidate is documented in `m2q_core4_optional_symmetry_candidate_v0_1_9.md`.
+Status: superseded research record. The current gated target-case M2Q model is
+documented in `m2q_gated_target_case_model_v0_1.md`.
 
-This note records the switch from M1Q to M2Q as the current Aramis primary
-candidate model. M2Q keeps the M1Q structure and adds `age` and
+This note records the historical switch from M1Q to M2Q. The configuration
+described below kept the M1Q structure and added `age` and
 `age_available`.
 
 ## Rationale
@@ -52,7 +52,7 @@ The patient-safe split views show a larger ROC AUC gain, especially in
 stratified 5-fold and 80/20 modes. These are still small-cohort estimates and
 must not be presented as clinical validation.
 
-## Product Decision
+## Historical Product Decision
 
 Current product candidate:
 
@@ -62,7 +62,6 @@ selected_model: M2Q
 threshold_target: 0.302291
 ```
 
-M1Q remains the age-free comparison model. M2Q becomes the primary candidate
-because age is clinically meaningful and improves the current model comparison
-without changing preprocessing, symmetry features, reliability features, or
-regularization.
+M1Q remains the age-free comparison model in this historical analysis. The
+current model decision is documented separately in
+`m2q_gated_target_case_model_v0_1.md`.

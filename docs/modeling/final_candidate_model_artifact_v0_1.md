@@ -3,8 +3,8 @@
 Status: superseded research record.
 
 This document records the earlier unrestricted-SK candidate. It is retained as
-research history only. The current optional-symmetry Core4 candidate is
-documented in `m2q_core4_optional_symmetry_candidate_v0_1_9.md`.
+research history only. The current gated target-case M2Q record is documented
+in `m2q_gated_target_case_model_v0_1.md`.
 
 ## Historical Candidate
 
@@ -18,7 +18,7 @@ threshold_target: 0.302291
 ```
 
 Historical fitted artifact, retained in Git tag `0.1.7-beta` but not shipped as
-the current product model:
+the current model artifact:
 
 ```text
 examples/prediction_models/aramis_m2q_t100_train_all_c0p1.joblib
@@ -115,7 +115,7 @@ CANCER patients: 75
 BENIGN patients: 89
 ```
 
-The train-all fit gives the current candidate artifact and fitted-cohort
+The train-all fit gave that historical candidate artifact and fitted-cohort
 operating threshold. The threshold is selected to reach the high-sensitivity
 operating point on the full development cohort.
 

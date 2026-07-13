@@ -5,31 +5,27 @@ Status: research draft.
 Source: `/Users/sad/Downloads/Aramis_internal_clinical_report_content.docx`.
 
 Purpose: development reference for the internal clinical report schema. This
-document defines report fields that Aramis prediction YAML/JSON outputs should
-support. It is not a public clinical report and is not for autonomous diagnosis.
+document distinguishes the implemented v0.1 output from future report fields.
+It is not a public clinical report and is not for autonomous diagnosis.
 
 ## XRD Scan Information
 
-These fields describe the examination, patient context, and acquisition setup:
+The implemented v0.1 report emits the following examination fields:
 
-- patient id
-- patient age
-- operator id
-- date and time of examination
-- instrument version
-- EoScan version
-- experimental protocol version
-- mammography target breast part
-- mammography conclusion for target breast, for example benign/cancer/other
-- target breast side: left or right
-- number of measurements for target breast side
-- number of measurements for control / contralateral breast side
+- `patient_id`
+- `target_side` and `contralateral_side`, lowercase
+- target and contralateral valid-measurement counts
+- patient age and an explicit `patient_age_available` boolean
+
+Operator, scan-time, hardware, protocol, and mammography metadata are future
+fields. They require a stable source in the prediction H5 input contract.
 
 ## Features
 
 ### Azimuthal Integration
 
-Report fields requested from the integrated radial profiles:
+The implemented v0.1 report emits, separately for target and contralateral
+breasts:
 
 - intensity distribution statistics:
   - minimum q
@@ -40,9 +36,11 @@ Report fields requested from the integrated radial profiles:
   - third quartile q
 - q mode: q value corresponding to the intensity peak
 - highest intensity
-- Wasserstein distance to average healthy profile from training data
 - target-side risk probability of malignancy based on azimuthal integration only
 - contralateral-side risk probability of malignancy based on azimuthal integration only
+
+The healthy-reference distance has a structured `not_implemented` placeholder
+until a fixed healthy reference profile is included in the model artifact.
 
 Implementation note: current product direction is to calculate contralateral
 breast prediction for the internal report only, using the first-layer profile
@@ -50,27 +48,34 @@ model only. It must not replace the target-side final decision-support output.
 
 ### Symmetry
 
-Report fields requested from target-vs-contralateral comparison:
+The implemented v0.1 report emits available SK target-vs-contralateral features.
+It also keeps a structured placeholder for a standalone symmetry-only score,
+because no such model is fixed in the prediction artifact.
+
+Future symmetry report fields may include:
 
 - Wasserstein distance between target and contralateral side
 - target-side risk probability of malignancy based on symmetry approach only
 - contralateral-side risk probability of malignancy based on symmetry approach only
 
-Implementation note: the current candidate model uses SK symmetry features as
-model features. Detailed feature definitions are maintained in
+Implementation note: the current gated M2Q model uses SK symmetry as an
+optional refinement. Detailed feature definitions are maintained in
 `sk_symmetry_features_v0_1.md`.
 
 ### Age
 
-Report fields requested from age-related model components:
-
-- prior risk probability of malignancy for target side
-- target-side risk probability of malignancy based only on age feature
-- prior risk probability of malignancy for contralateral side
+The v0.1 report emits age once in `xrd_scan_information`. It does not emit an
+age-only risk score because an age-only model is not part of the prediction
+artifact.
 
 ## Final Prediction
 
-Fields requested for final internal prediction:
+The implemented v0.1 final prediction contains `p_cancer`, a decision-threshold
+identifier and value, suggested class, and symmetry availability. There is no
+paired/fallback model route. Model coefficients and component details remain in
+training output, not in this prediction report.
+
+Future internal-report candidates:
 
 - ML-classifier version
 - preprocessing version
@@ -98,12 +103,14 @@ reference set have a lower JP-index than the current patient.
 - Target breast remains the primary product prediction.
 - Contralateral breast can be scored in parallel for internal review, but only
   with the first-layer profile model unless explicitly changed.
-- Intermediate model outputs should be exportable, including first-layer profile
-  model summaries and the final candidate model summary.
-- Internal report should expose final and intermediate probabilities separately:
-  `final_prediction.p_cancer` for the final M2Q output,
-  `intermediate_models.lr1_profile_model.profile_p_cancer` for target-breast
-  LR1 profile-only probability, and
-  `feature_row.profile_p_cancer_logit_average` only as model-audit input.
-- Report fields must preserve decision-support language: p_cancer, suggested
-  class, reliability, and requires radiologist review.
+- Internal report exposes target and contralateral first-layer profile
+  probabilities as XRD evidence, but it does not serialize estimator objects,
+  feature weights, model schemas, or raw feature rows.
+- Full model description, regularization, feature schema, training configuration,
+  thresholds, scaler/imputer state, and LR coefficients live in the
+  ML-classifier training output YAML under `model_registry`; the joblib remains
+  the executable model artifact.
+- Internal reports round every numerical value to five decimal places and use
+  `true`/`false` for every binary field.
+- Report fields preserve decision-support language: p_cancer, suggested class,
+  reliability, and research-only status.

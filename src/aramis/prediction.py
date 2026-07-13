@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from hashlib import sha256
+from math import isfinite
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import h5py
 import joblib
@@ -25,7 +27,7 @@ from .training import build_patient_prediction_feature_row
 
 def run_prediction_from_config(config_path: str | Path) -> dict[str, Any]:
     """Run one-patient prediction from a YAML config."""
-    config_path = Path(config_path)
+    config_path = Path(config_path).expanduser().resolve()
     config_text = config_path.read_text(encoding="utf-8")
     config = yaml.safe_load(config_text)
     _validate_prediction_config(config, config_path)
@@ -58,9 +60,10 @@ def run_prediction_from_config(config_path: str | Path) -> dict[str, Any]:
         target_side=target_side,
         **_prediction_columns(config, model_artifact),
     )
-    p_cancer = _score_model(feature_row, model_name, model_info)
+    model_route = _prediction_model_route(feature_row, model_info)
+    p_cancer = _score_model(feature_row, model_name, model_info, model_route)
     threshold_key = str(config.get("decision", {}).get("threshold_key", "threshold_target"))
-    threshold = _model_threshold(model_info, threshold_key)
+    threshold = _model_threshold(model_info, threshold_key, model_route)
     suggested_class = "CANCER" if p_cancer >= threshold else "BENIGN"
     side_profile_scores = _side_profile_scores(
         df,
@@ -82,6 +85,7 @@ def run_prediction_from_config(config_path: str | Path) -> dict[str, Any]:
         model_id=model_id,
         model_name=model_name,
         model_info=model_info,
+        model_route=model_route,
         feature_row=feature_row,
         p_cancer=p_cancer,
         threshold_key=threshold_key,
@@ -179,14 +183,28 @@ def _prediction_target_side(
     )
 
 
-def _score_model(feature_row, model_name: str, model_info: dict[str, Any]) -> float:
-    columns = list(model_info["feature_columns"])
+def _prediction_model_route(feature_row: pd.DataFrame, model_info: dict[str, Any]) -> str | None:
+    if model_info.get("symmetry_policy") == "single_model_gated_optional_refinement":
+        return None
+    if "routes" not in model_info:
+        return None
+    return "paired" if int(feature_row["symmetry_available"].iloc[0]) == 1 else "fallback_no_symmetry"
+
+
+def _score_model(
+    feature_row,
+    model_name: str,
+    model_info: dict[str, Any],
+    model_route: str | None,
+) -> float:
+    route_info = model_info.get("routes", {}).get(model_route, model_info)
+    columns = list(route_info["feature_columns"])
     missing = [column for column in columns if column not in feature_row.columns]
     if missing:
         raise ValueError(f"Prediction feature row is missing columns: {missing}")
-    if model_name == "M0":
+    if model_name in {"M0", "M0Q"}:
         return float(feature_row["profile_p_cancer_logit_average"].iloc[0])
-    final_model = model_info.get("final_model")
+    final_model = route_info.get("final_model")
     if final_model is None:
         raise ValueError(f"Model {model_name} is missing final_model.")
     return float(final_model.predict_proba(feature_row[columns])[:, 1][0])
@@ -205,6 +223,7 @@ def _prediction_reports(
     model_id: str,
     model_name: str,
     model_info: dict[str, Any],
+    model_route: str | None,
     feature_row,
     p_cancer: float,
     threshold_key: str,
@@ -269,7 +288,9 @@ def _prediction_reports(
         reliability=row["result_reliability"],
         reliability_reason=row["result_reliability_reason"],
         feature_row=row,
-        model_info=model_info,
+        model_route=model_route,
+        model_artifact=model_artifact,
+        provenance=provenance,
         side_profile_scores=side_profile_scores,
         output_paths=output_paths,
     )
@@ -315,92 +336,64 @@ def _internal_report(
     reliability: str,
     reliability_reason: str,
     feature_row: dict[str, Any],
-    model_info: dict[str, Any],
+    model_route: str | None,
+    model_artifact: dict[str, Any],
+    provenance: dict[str, Any],
     side_profile_scores: dict[str, Any],
     output_paths: dict[str, Path],
 ) -> dict[str, Any]:
+    training = model_artifact.get("training_config", {}).get("training", {})
+    age_available = bool(feature_row.get("age_available", False))
+    final_prediction = {
+        "p_cancer": p_cancer,
+        "decision_threshold_id": _decision_threshold_id(threshold_key),
+        "threshold": threshold,
+        "suggested_class": suggested_class,
+    }
+    if model_route is not None:
+        final_prediction["model_route"] = model_route
     return {
-        "kind": "aramis_internal_clinical_report",
+        "output_type": "aramis_internal_clinical_report",
         "version": version,
-        "reference_doc": reference_doc,
-        **common,
+        "reference_doc": _project_reference_doc(reference_doc),
+        "created_at": _internal_report_timestamp(),
+        "analysis_author": common.get("author"),
+        "clinical_stage": training.get("clinical_stage", common["clinical_stage"]),
+        "intended_use": training.get("intended_use", common["intended_use"]),
+        "research_only": str(
+            training.get("clinical_stage", common["clinical_stage"])
+        ).lower()
+        != "production",
+        "patient_id": common["patient_id"],
+        "target_side": _lower_side(common["target_side"]),
+        "contralateral_side": _lower_side(common["contralateral_side"]),
+        "model_id": common["model_id"],
+        "model_component": common["model_name"],
+        "provenance": _internal_provenance(provenance),
         "xrd_scan_information": {
-            "patient_id": common["patient_id"],
-            "target_side": common["target_side"],
-            "contralateral_side": common["contralateral_side"],
             "target_measurements": feature_row.get("target_measurements"),
             "contralateral_measurements": feature_row.get("contralateral_measurements"),
-            "total_measurements": feature_row.get("measurements"),
-            "specimens": feature_row.get("specimens"),
-            "patient_age": feature_row.get("age"),
-            "patient_age_available": feature_row.get("age_available"),
+            "patient_age": feature_row.get("age") if age_available else None,
+            "patient_age_available": age_available,
         },
         "features": {
             "azimuthal_integration": {
-                "target_profile_model": side_profile_scores["target"],
-                "contralateral_profile_model": side_profile_scores["contralateral"],
+                "target_profile": _internal_profile_score(side_profile_scores["target"]),
+                "contralateral_profile": _internal_profile_score(
+                    side_profile_scores["contralateral"]
+                ),
                 "healthy_reference_distance": {
                     "status": "not_implemented",
                     "reason": "average healthy reference profile is not fixed in model artifact",
                 },
             },
             "symmetry": _symmetry_report_block(feature_row),
-            "age": {
-                "age": feature_row.get("age"),
-                "age_available": feature_row.get("age_available"),
-                "age_only_p_cancer": {
-                    "status": "not_implemented",
-                    "reason": "age-only model is not part of current prediction artifact",
-                },
-            },
             "reliability": {
-                "profile_p_cancer_n_measurements": feature_row.get(
-                    "profile_p_cancer_n_measurements"
-                ),
-                "target_measurements": feature_row.get("target_measurements"),
-                "contralateral_measurements": feature_row.get(
-                    "contralateral_measurements"
-                ),
-                "min_measurements_per_breast": feature_row.get(
-                    "min_measurements_per_breast"
-                ),
-                "target_measurements_ok": feature_row.get("target_measurements_ok"),
-                "contralateral_measurements_ok": feature_row.get(
-                    "contralateral_measurements_ok"
-                ),
-                "paired_measurements_ok": feature_row.get("paired_measurements_ok"),
                 "result_reliability": reliability,
                 "result_reliability_reason": reliability_reason,
             },
         },
-        "final_prediction": {
-            "p_cancer": p_cancer,
-            "threshold_key": threshold_key,
-            "threshold": threshold,
-            "suggested_class": suggested_class,
-            "risk_level": "high" if suggested_class == "CANCER" else "low",
-        },
-        "intermediate_models": {
-            "lr1_profile_model": {
-                **_estimator_summary(model_info.get("lr1_model")),
-                "profile_p_cancer": side_profile_scores["target"].get(
-                    "profile_p_cancer"
-                ),
-                "profile_p_cancer_probability_mean": side_profile_scores[
-                    "target"
-                ].get("profile_p_cancer_probability_mean"),
-                "profile_measurements": side_profile_scores["target"].get(
-                    "measurements"
-                ),
-            },
-            "final_model": _estimator_summary(
-                model_info.get("final_model"),
-                feature_columns=model_info.get("feature_columns"),
-            ),
-            "thresholds": model_info.get("thresholds", {}),
-            "selected_feature_columns": model_info.get("feature_columns", []),
-        },
-        "feature_row": feature_row,
+        "final_prediction": final_prediction,
         "outputs": {
             "output_folder": str(output_paths["folder"]),
             "prediction_dataframe_joblib": str(output_paths["dataframe_joblib"]),
@@ -456,6 +449,76 @@ def _prediction_provenance(
         ),
         "model_metadata": model_artifact.get("metadata", {}),
     }
+
+
+def _internal_profile_score(score: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "available": bool(score.get("available", False)),
+        "side": _lower_side(score.get("side")),
+        "profile_p_cancer": score.get("profile_p_cancer"),
+        "measurement_p_cancer": score.get("measurement_p_cancer", []),
+        "profile_statistics": score.get("profile_statistics"),
+    }
+
+
+def _internal_provenance(provenance: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "prediction_config": {
+            "path": provenance.get("prediction_config_path"),
+            "sha256": provenance.get("prediction_config_sha256"),
+        },
+        "input": {
+            "prediction_dataframe_joblib": {
+                "path": provenance.get("input_dataframe_joblib_path"),
+                "sha256": provenance.get("input_dataframe_joblib_sha256"),
+            },
+            "h5_container": {
+                "path": provenance.get("input_h5_path"),
+                "sha256": provenance.get("input_h5_sha256"),
+            },
+        },
+        "prediction_preprocessing": {
+            "config_path": (
+                provenance.get("prediction_preprocessing_config_path")
+                or provenance.get("model_prediction_preprocessing_config_path")
+            ),
+            "config_sha256": provenance.get(
+                "prediction_preprocessing_config_sha256"
+            )
+            or provenance.get("model_prediction_preprocessing_config_sha256"),
+        },
+        "model_artifact": {
+            "path": provenance.get("input_model_joblib_path"),
+            "sha256": provenance.get("input_model_joblib_sha256"),
+            "model_id": provenance.get("input_model_id"),
+            "aramis_version": provenance.get("model_metadata", {}).get(
+                "aramis_version"
+            ),
+            "aramis_git_sha": provenance.get("model_metadata", {}).get(
+                "aramis_git_sha"
+            ),
+        },
+    }
+
+
+def _internal_report_timestamp() -> str:
+    return datetime.now(ZoneInfo("Europe/Paris")).strftime("%Y-%m-%dT%H:%M:%S%Z")
+
+
+def _project_reference_doc(reference_doc: str | None) -> str | None:
+    if reference_doc is None:
+        return None
+    text = str(reference_doc)
+    marker = "docs/"
+    return f"./{text[text.index(marker):]}" if marker in text else text
+
+
+def _lower_side(value: Any) -> str | None:
+    return None if value in {None, ""} else str(value).lower()
+
+
+def _decision_threshold_id(threshold_key: str) -> str:
+    return "target_sensitivity_0.95" if threshold_key == "threshold_target" else threshold_key
 
 
 def _prediction_columns(
@@ -582,11 +645,7 @@ def _profile_statistics(
 
 
 def _symmetry_report_block(feature_row: dict[str, Any]) -> dict[str, Any]:
-    keys = [
-        key
-        for key in feature_row
-        if key.startswith("sk_") or key in {"symmetry_available", "symmetry_score"}
-    ]
+    keys = [key for key in feature_row if key.startswith("sk_")]
     return {
         "available": bool(feature_row.get("symmetry_available", 0)),
         "features": {key: feature_row.get(key) for key in keys},
@@ -595,47 +654,6 @@ def _symmetry_report_block(feature_row: dict[str, Any]) -> dict[str, Any]:
             "reason": "standalone symmetry-only model is not fixed in prediction artifact",
         },
     }
-
-
-def _estimator_summary(
-    estimator: Any,
-    *,
-    feature_columns: list[str] | None = None,
-) -> dict[str, Any] | None:
-    if estimator is None:
-        return None
-    summary: dict[str, Any] = {
-        "class": estimator.__class__.__name__,
-    }
-    if feature_columns is not None:
-        summary["feature_columns"] = list(feature_columns)
-    if hasattr(estimator, "n_features_in_"):
-        summary["n_features_in"] = int(estimator.n_features_in_)
-    if hasattr(estimator, "coef_"):
-        summary["coef"] = np.asarray(estimator.coef_, dtype=float).tolist()
-    if hasattr(estimator, "intercept_"):
-        summary["intercept"] = np.asarray(estimator.intercept_, dtype=float).tolist()
-    if hasattr(estimator, "classes_"):
-        summary["classes"] = np.asarray(estimator.classes_).tolist()
-    if hasattr(estimator, "steps"):
-        summary["steps"] = {
-            name: _estimator_summary(step) for name, step in estimator.steps
-        }
-    if hasattr(estimator, "get_params"):
-        params = estimator.get_params()
-        summary["params"] = {
-            key: params[key]
-            for key in (
-                "C",
-                "penalty",
-                "solver",
-                "class_weight",
-                "max_iter",
-                "random_state",
-            )
-            if key in params
-        }
-    return summary
 
 
 def _logit_average_probability(scores: Any) -> float:
@@ -692,8 +710,14 @@ def _validate_model_id(model_artifact: dict[str, Any], requested_model_id: str) 
         )
 
 
-def _model_threshold(model_info: dict[str, Any], threshold_key: str) -> float:
-    thresholds = model_info.get("thresholds", {})
+def _model_threshold(
+    model_info: dict[str, Any],
+    threshold_key: str,
+    model_route: str | None,
+) -> float:
+    thresholds = model_info.get("routes", {}).get(model_route, model_info).get(
+        "thresholds", {}
+    )
     if threshold_key not in thresholds:
         raise ValueError(
             f"Threshold {threshold_key!r} not found; available: {sorted(thresholds)}"
@@ -942,6 +966,10 @@ def _json_safe(value: Any) -> Any:
         return {str(key): _json_safe(item) for key, item in value.items()}
     if isinstance(value, list | tuple):
         return [_json_safe(item) for item in value]
+    if isinstance(value, bool):
+        return value
     if hasattr(value, "item"):
-        return value.item()
+        return _json_safe(value.item())
+    if isinstance(value, float):
+        return round(value, 5) if isfinite(value) else None
     return value

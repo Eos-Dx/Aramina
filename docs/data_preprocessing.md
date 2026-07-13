@@ -48,7 +48,9 @@ config/preprocessing/aramis_prediction_patient_model_input_v0_1.yaml
   stored inside trained model joblibs
 ```
 
-The current primary model uses the biopsy-patient config.
+The fixed M2Q development model uses the biopsy-patient preprocessing cohort.
+The preprocessing YAML layout itself will be revised in the next configuration
+stage without changing this cohort decision.
 
 ## Product Label Mapping
 
@@ -239,4 +241,3 @@ output schema
 ```
 
 The suspicious breast side comes from prediction YAML, not from H5 labels.
-
