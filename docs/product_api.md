@@ -41,10 +41,8 @@ run_prediction_from_config    -> dict with external_report and internal_report
 Prediction starts from one H5 container and one trained model joblib:
 
 ```yaml
-prediction:
-  name: aramis_predict_from_h5
-  version: 0.1
-  author: OPERATOR_OR_ANALYST
+run:
+  analysis_author: OPERATOR_OR_ANALYST
 
 io:
   input_h5_path: /path/to/one_patient.h5
@@ -53,29 +51,28 @@ io:
 
 patient:
   patient_id: PATIENT_ID
-  target_side: Left
-
-model:
-  model_id: MODEL_ARTIFACT_ID
-  model_name: M2Q
-  model_version: "0.2.2-beta"
+  target_side: left
 ```
 
 Aramis creates automatic output names inside `io.output_folder`:
 
 ```text
-<prediction.name>_<patient.patient_id>_<automatic_run_id>_prediction_dataframe.joblib
-<prediction.name>_<patient.patient_id>_<automatic_run_id>_external_report.json
-<prediction.name>_<patient.patient_id>_<automatic_run_id>_external_report.yaml
-<prediction.name>_<patient.patient_id>_<automatic_run_id>_internal_report.json
-<prediction.name>_<patient.patient_id>_<automatic_run_id>_internal_report.yaml
+<patient_id>_<model_id>_<report_id>_prediction_dataframe.joblib
+<patient_id>_<model_id>_<report_id>_external_report.json
+<patient_id>_<model_id>_<report_id>_external_report.yaml
+<patient_id>_<model_id>_<report_id>_internal_report.json
+<patient_id>_<model_id>_<report_id>_internal_report.yaml
 ```
 
 Training embeds `prediction_preprocessing_config` and an immutable
 `prediction_contract` in the model joblib. The contract contains supported H5
 schema and format, report versions, report references, and threshold key.
 Predict YAML cannot override preprocessing, reporting, container, or decision
-settings.
+settings. It also does not duplicate model ID, name, version, or parameters:
+these are read from the selected model joblib.
+
+`io.input_dataframe_joblib_path` is accepted only by synthetic unit tests with
+`run.synthetic_test_mode: true`; it is not a product prediction input.
 
 Packaged product model artifact:
 
@@ -225,9 +222,6 @@ metadata.aramis_version
 metadata.aramis_git_sha
 ```
 
-Prediction checks `model.model_id` from YAML against
-`training_config.training.name` stored in this artifact.
-
 ## Prediction Report Schema
 
 `aramis predict` always writes two JSON/YAML report pairs.
@@ -235,53 +229,39 @@ Prediction checks `model.model_id` from YAML against
 External report is minimal and target-side only:
 
 ```text
-kind: aramis_external_prediction_report
-version
-reference_doc
+output_type: aramis_external_report
+report_version
+report_id
 created_at
-clinical_stage
-intended_use
-decision_support_only
-requires_radiologist_review
 patient_id
 target_side
-contralateral_side
-model_id
-model_name
-p_cancer
-threshold_key
-threshold
 suggested_class
-risk_level
 reliability
 reliability_reason
-provenance
-limitations
+model_version
 ```
 
-External report does not expose LR1 profile-only fields such as
-`profile_p_cancer` or `profile_p_cancer_logit_average`. It reports only the
-final model `p_cancer`.
+`report_id` is generated automatically and shared with the associated internal
+report. `created_at` is an ISO 8601 Europe/Paris timestamp with numeric UTC
+offset. External report does not expose `p_cancer`, threshold, LR1 profile
+scores, symmetry features, age, provenance, model parameters, or raw data.
+`reliability_reason` is mandatory for all reliability levels.
 
 Internal report is audit-oriented and follows
 `docs/modeling/internal_clinical_report_content_v0_1.md`:
 
 ```text
 output_type: aramis_internal_clinical_report
-version
+report_version
 reference_doc
+report_id
 created_at
-patient_id
-target_side
-contralateral_side
-xrd_scan_information
-features.azimuthal_integration.target_profile
-features.azimuthal_integration.contralateral_profile
-features.symmetry
-features.reliability
+analysis_author
+model
+prediction_config
+scan_metadata
+evidence
 final_prediction
-provenance
-outputs
 ```
 
 Internal report contains human-readable XRD evidence and decision output:
@@ -290,16 +270,19 @@ Internal report contains human-readable XRD evidence and decision output:
 final_prediction.p_cancer
   final M2Q decision-support risk score
 
-features.azimuthal_integration.target_profile.profile_p_cancer
+evidence.target_profile.profile_p_cancer
   target-breast LR1 profile-only probability
 ```
 
-Estimator configuration, feature weights, model schema, thresholds, and raw
-model feature rows are stored only in the ML-classifier training output YAML
-under `model_registry`; the joblib is the executable model artifact.
+Internal report stores `model.id`, `model.name`, `model.version`, and model
+artifact SHA256. Estimator configuration, feature weights, model schema,
+threshold derivation, and raw model feature rows remain only in the
+ML-classifier training output YAML under `model_registry`; the joblib is the
+executable model artifact.
 
-Contralateral breast prediction is internal-only. It is produced by the LR1
-profile model, not by the final target-side model.
+Contralateral breast prediction is internal-only. It is produced by LR1, not by
+the final target-side model. Profile statistics, filesystem paths, a generic
+provenance block, and output-file paths are intentionally excluded.
 
 Risk and reliability are separate:
 
@@ -343,9 +326,7 @@ H5 root @format does not match model-held contract
 more than one patientId is present
 patient.patient_id does not match H5 patientId
 patient.target_side is missing or absent in the preprocessed DataFrame
-model.model_id does not match the artifact training.name
-model.model_name is not present in the model artifact
-model.model_version does not match artifact training.version
+input model joblib cannot be loaded
 model artifact does not contain prediction_preprocessing_config
 model artifact does not contain prediction_contract
 ```
@@ -372,6 +353,6 @@ training artifact joblib
 workflow memory/artifact modes
 prediction from preprocessed DataFrame for tests
 prediction from one-patient H5 v0.3
-schema/format/patient/model-id guards
+schema/format/patient guards
 target_side scoring behavior
 ```

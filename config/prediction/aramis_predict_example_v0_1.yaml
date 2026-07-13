@@ -1,20 +1,11 @@
-prediction:
-  name: aramis_predict_example
-  version: 0.1
-  author: Sergey Denisov
-  clinical_stage: research draft
-  intended_use: decision-support p_cancer research draft; requires radiologist review
+run:
+  analysis_author: Sergey Denisov
 
 io:
-  input_dataframe_joblib_path: ../../examples/outputs/model_input/aramis_biopsy_patients_model_input_v0_1.joblib
-  input_model_joblib_path: ../../examples/prediction_models/aramis_m2q_t100_gated_sk_core4_nested_c1_0p1_c2_0p3.joblib
-  output_folder: ../../examples/outputs/prediction
+  input_h5_path: ../../examples/prediction_h5/cancer_one_patient.h5
+  input_model_joblib_path: ../../examples/prediction_models/aramis_m2q_t100_gated_sk_core4_synthetic_h5_example.joblib
+  output_folder: ../../examples/outputs/prediction_h5_examples
 
 patient:
-  patient_id: Nova_214
-  target_side: Left
-
-model:
-  model_id: aramis_m2q_t100_gated_sk_core4_nested_c1_0p1_c2_0p3
-  model_name: M2Q
-  model_version: "0.2.2-beta"
+  patient_id: PRED_CANCER
+  target_side: left

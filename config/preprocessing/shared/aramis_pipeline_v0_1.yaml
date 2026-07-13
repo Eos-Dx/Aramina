@@ -1,15 +1,13 @@
 pipeline:
   steps:
-  - name: h5_to_df
-    transformer: H5ToDataFrameTransformer
+  - name: poni_geometry
+    transformer: H5PoniGeometryCalculatorTransformer
+    params: {}
+  - name: select_h5_sessions
+    transformer: H5SessionSelectorTransformer
     params:
-      data_preference:
-        $ref: raw_data.source
-      drop_missing_sample_thickness:
-        $ref: filters.require_sample_thickness_mm
       session_category: SAMPLE
-      set_category: SAMPLE
-      h5_filters:
+      filters:
       - enabled:
           $ref: filters.date_filter.enabled
         column:
@@ -50,6 +48,19 @@ pipeline:
         op: <=
         value:
           $ref: filters.calibrant_thickness_range_mm.1
+      - column: poni_q_max_nm_inv
+        op: '>='
+        value:
+          $ref: filters.required_q_max_nm_inv
+  - name: h5_to_df
+    transformer: H5ToDataFrameTransformer
+    params:
+      data_preference:
+        $ref: raw_data.source
+      drop_missing_sample_thickness:
+        $ref: filters.require_sample_thickness_mm
+      session_category: SAMPLE
+      set_category: SAMPLE
       measurement_filters:
       - column: position
         op: in
@@ -64,13 +75,6 @@ pipeline:
         $ref: labels.product_column_builder.benign_values
       normal_values:
         $ref: labels.product_column_builder.normal_values
-  - name: q_range_filter
-    transformer: ColumnValueFilter
-    params:
-      column: poni_q_max_nm_inv
-      op: '>='
-      value:
-        $ref: filters.required_q_max_nm_inv
   - name: position_filter
     transformer: ColumnValueFilter
     params:

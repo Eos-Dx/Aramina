@@ -94,13 +94,13 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "predict":
         reports = run_prediction_from_config(args.config)
-        report = reports["external_report"]
-        print(f"patient_id={report['patient_id']}")
-        print(f"target_side={report['target_side']}")
-        print(f"model_name={report['model_name']}")
-        print(f"p_cancer={report['p_cancer']:.6f}")
-        print(f"suggested_class={report['suggested_class']}")
-        print(f"reliability={report['reliability']}")
+        external = reports["external_report"]
+        internal = reports["internal_report"]
+        print(f"patient_id={external['patient_id']}")
+        print(f"target_side={external['target_side']}")
+        print(f"model_name={internal['model']['name']}")
+        print(f"suggested_class={external['suggested_class']}")
+        print(f"reliability={external['reliability']}")
         print(f"config={args.config}")
         return 0
     raise ValueError(f"Unknown command: {args.command}")

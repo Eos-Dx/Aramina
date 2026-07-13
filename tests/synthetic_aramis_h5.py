@@ -98,7 +98,7 @@ def load_synthetic_config(branch: str = "biopsy_patients") -> dict:
     config["raw_data"]["source"] = "npy"
     config["raw_data"]["allowed_sources"] = ["gfrm", "npy"]
     config["raw_data"]["h5_dataset_candidates"]["npy"] = ["raw/data"]
-    config["pipeline"]["steps"][0] = {
+    blob_reader = {
         "name": "h5_blob_to_df",
         "transformer": "H5BlobDataFrameTransformer",
         "params": {
@@ -108,6 +108,19 @@ def load_synthetic_config(branch: str = "biopsy_patients") -> dict:
             },
         },
     }
+    h5_steps = {
+        "H5PoniGeometryCalculatorTransformer",
+        "H5SessionSelectorTransformer",
+        "H5ToDataFrameTransformer",
+    }
+    config["pipeline"]["steps"] = [
+        blob_reader,
+        *(
+            step
+            for step in config["pipeline"]["steps"]
+            if step["transformer"] not in h5_steps
+        ),
+    ]
     config["snr"]["min_snr_db"] = -100.0
     config["integration"]["q_range_nm_inv"] = [2.0, 23.0]
     config["normalization"]["q_range_nm_inv"] = [6.7, 7.1]

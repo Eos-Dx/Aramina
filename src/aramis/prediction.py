@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from copy import deepcopy
+from datetime import datetime
 from hashlib import sha256
 from math import isfinite
 from pathlib import Path
@@ -15,10 +16,6 @@ import joblib
 import numpy as np
 import pandas as pd
 import yaml
-from xrd_preprocessing import (
-    load_preprocessing_artifact,
-    load_preprocessing_dataframe,
-)
 
 from .modeling import profile_matrix
 from .pipelines import run_preprocessing_pipeline
@@ -28,8 +25,7 @@ from .training import build_patient_prediction_feature_row
 def run_prediction_from_config(config_path: str | Path) -> dict[str, Any]:
     """Run one-patient prediction from a YAML config."""
     config_path = Path(config_path).expanduser().resolve()
-    config_text = config_path.read_text(encoding="utf-8")
-    config = yaml.safe_load(config_text)
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
     _validate_prediction_config(config, config_path)
 
     model_path = _config_path(
@@ -39,13 +35,10 @@ def run_prediction_from_config(config_path: str | Path) -> dict[str, Any]:
         key="input_model_joblib_path",
     )
     model_artifact = joblib.load(model_path)
-    model_id, model_name, model_version = _validate_model_identity(
-        model_artifact,
-        config["model"],
-    )
-    output_paths = _prediction_output_paths(config, config_path)
+    model_id, model_name, model_version = _model_identity(model_artifact)
+    output_paths = _prediction_output_paths(config, config_path, model_id=model_id)
     model_info = _model_info(model_artifact, model_name)
-    df, dataframe_path, preprocessing_artifact = _prediction_dataframe(
+    df = _prediction_dataframe(
         config,
         config_path,
         model_artifact,
@@ -75,11 +68,7 @@ def run_prediction_from_config(config_path: str | Path) -> dict[str, Any]:
     )
     reports = _prediction_reports(
         config=config,
-        config_path=config_path,
-        config_text=config_text,
-        dataframe_path=dataframe_path,
         output_paths=output_paths,
-        preprocessing_artifact=preprocessing_artifact,
         model_path=model_path,
         model_artifact=model_artifact,
         model_id=model_id,
@@ -112,15 +101,18 @@ def _prediction_dataframe(
     config_path: Path,
     model_artifact: dict[str, Any],
     output_dataframe_path: Path,
-) -> tuple[Any, Path, dict[str, Any] | None]:
-    if not config.get("io", {}).get("input_h5_path"):
+) -> pd.DataFrame:
+    dataframe_value = config.get("io", {}).get("input_dataframe_joblib_path")
+    if dataframe_value not in {None, ""}:
         dataframe_path = _config_path(
             config,
             config_path,
             section="io",
             key="input_dataframe_joblib_path",
         )
-        return load_preprocessing_dataframe(dataframe_path), dataframe_path, None
+        from xrd_preprocessing import load_preprocessing_dataframe
+
+        return load_preprocessing_dataframe(dataframe_path)
 
     preprocessing_config = _prediction_preprocessing_config(model_artifact)
     h5_path = _config_path(
@@ -137,15 +129,12 @@ def _prediction_dataframe(
     preprocessing_config.setdefault("io", {})
     preprocessing_config["io"]["input_h5_path"] = str(h5_path)
     preprocessing_config["io"]["output_joblib_path"] = str(output_dataframe_path)
-    branch = preprocessing_config.get("aramis_preprocessing", {}).get("branch")
-    if branch != "one_to_many":
-        raise ValueError(f"Unsupported prediction preprocessing branch: {branch!r}")
     df = run_preprocessing_pipeline(
         h5_path,
         preprocessing_config,
         output_joblib_path=output_dataframe_path,
     )
-    return df, output_dataframe_path, load_preprocessing_artifact(output_dataframe_path)
+    return df
 
 
 def _prediction_preprocessing_config(model_artifact: dict[str, Any]) -> dict[str, Any]:
@@ -156,7 +145,7 @@ def _prediction_preprocessing_config(model_artifact: dict[str, Any]) -> dict[str
             "Model artifact has no prediction_preprocessing_config. Retrain model "
             "with io.prediction_preprocessing_config_path."
         )
-    return dict(model_config)
+    return deepcopy(model_config)
 
 
 def _prediction_target_side(
@@ -202,11 +191,7 @@ def _score_model(
 def _prediction_reports(
     *,
     config: dict[str, Any],
-    config_path: Path,
-    config_text: str,
-    dataframe_path: Path,
     output_paths: dict[str, Path],
-    preprocessing_artifact: dict[str, Any] | None,
     model_path: Path,
     model_artifact: dict[str, Any],
     model_id: str,
@@ -222,54 +207,27 @@ def _prediction_reports(
     side_profile_scores: dict[str, Any],
 ) -> dict[str, Any]:
     row = feature_row.iloc[0].to_dict()
-    created_at = datetime.now(timezone.utc).isoformat()
+    created_at = _report_timestamp()
     reporting = _prediction_contract(model_artifact)["reporting"]
-    provenance = _prediction_provenance(
-        config=config,
-        config_path=config_path,
-        config_text=config_text,
-        dataframe_path=dataframe_path,
-        preprocessing_artifact=preprocessing_artifact,
-        model_path=model_path,
-        model_artifact=model_artifact,
-        model_id=model_id,
-    )
     common = {
         "created_at": created_at,
-        "author": config["prediction"].get("author"),
-        "clinical_stage": config["prediction"].get("clinical_stage", "research draft"),
-        "intended_use": config["prediction"].get(
-            "intended_use",
-            "decision-support p_cancer research draft; requires radiologist review",
-        ),
-        "decision_support_only": True,
-        "requires_radiologist_review": True,
+        "analysis_author": config["run"]["analysis_author"],
         "patient_id": str(config["patient"]["patient_id"]),
         "target_side": row["target_side"],
-        "contralateral_side": row["contralateral_side"],
         "model_id": model_id,
         "model_name": model_name,
         "model_version": model_version,
-        "prediction_run_id": output_paths["run_id"],
-        "limitations": [
-            "research draft",
-            "not for autonomous diagnosis",
-            "requires breast-imaging clinician review",
-        ],
-        "provenance": provenance,
+        "report_id": output_paths["report_id"],
     }
     external = _external_report(
         common=common,
         version=str(reporting["external_report"]["version"]),
-        reference_doc=reporting["external_report"].get("reference_doc"),
-        p_cancer=p_cancer,
-        threshold_key=threshold_key,
-        threshold=threshold,
         suggested_class=suggested_class,
         reliability=row["result_reliability"],
         reliability_reason=row["result_reliability_reason"],
     )
     internal = _internal_report(
+        config=config,
         common=common,
         version=str(reporting["internal_report"]["version"]),
         reference_doc=reporting["internal_report"].get("reference_doc"),
@@ -281,10 +239,9 @@ def _prediction_reports(
         reliability_reason=row["result_reliability_reason"],
         feature_row=row,
         model_route=model_route,
-        model_artifact=model_artifact,
-        provenance=provenance,
+        model_info=model_info,
         side_profile_scores=side_profile_scores,
-        output_paths=output_paths,
+        model_artifact_sha256=_file_sha256(model_path),
     )
     return _json_safe({"external_report": external, "internal_report": internal})
 
@@ -293,24 +250,19 @@ def _external_report(
     *,
     common: dict[str, Any],
     version: str,
-    reference_doc: str | None,
-    p_cancer: float,
-    threshold_key: str,
-    threshold: float,
     suggested_class: str,
     reliability: str,
     reliability_reason: str,
 ) -> dict[str, Any]:
     return {
-        "kind": "aramis_external_prediction_report",
-        "version": version,
-        "reference_doc": reference_doc,
-        **common,
-        "p_cancer": p_cancer,
-        "threshold_key": threshold_key,
-        "threshold": threshold,
+        "output_type": "aramis_external_report",
+        "report_version": version,
+        "report_id": common["report_id"],
+        "created_at": common["created_at"],
+        "patient_id": common["patient_id"],
+        "target_side": _lower_side(common["target_side"]),
+        "model_version": common["model_version"],
         "suggested_class": suggested_class,
-        "risk_level": "high" if suggested_class == "CANCER" else "low",
         "reliability": reliability,
         "reliability_reason": reliability_reason,
     }
@@ -318,6 +270,7 @@ def _external_report(
 
 def _internal_report(
     *,
+    config: dict[str, Any],
     common: dict[str, Any],
     version: str,
     reference_doc: str | None,
@@ -329,12 +282,10 @@ def _internal_report(
     reliability_reason: str,
     feature_row: dict[str, Any],
     model_route: str | None,
-    model_artifact: dict[str, Any],
-    provenance: dict[str, Any],
+    model_info: dict[str, Any],
     side_profile_scores: dict[str, Any],
-    output_paths: dict[str, Path],
+    model_artifact_sha256: str,
 ) -> dict[str, Any]:
-    training = model_artifact.get("training_config", {}).get("training", {})
     age_available = bool(feature_row.get("age_available", False))
     final_prediction = {
         "p_cancer": p_cancer,
@@ -346,153 +297,107 @@ def _internal_report(
         final_prediction["model_route"] = model_route
     return {
         "output_type": "aramis_internal_clinical_report",
-        "version": version,
+        "report_version": version,
         "reference_doc": _project_reference_doc(reference_doc),
-        "created_at": _internal_report_timestamp(),
-        "analysis_author": common.get("author"),
-        "clinical_stage": training.get("clinical_stage", common["clinical_stage"]),
-        "intended_use": training.get("intended_use", common["intended_use"]),
-        "research_only": str(
-            training.get("clinical_stage", common["clinical_stage"])
-        ).lower()
-        != "production",
-        "patient_id": common["patient_id"],
-        "target_side": _lower_side(common["target_side"]),
-        "contralateral_side": _lower_side(common["contralateral_side"]),
-        "model_id": common["model_id"],
-        "model_component": common["model_name"],
-        "provenance": _internal_provenance(provenance),
-        "xrd_scan_information": {
-            "target_measurements": feature_row.get("target_measurements"),
-            "contralateral_measurements": feature_row.get("contralateral_measurements"),
-            "patient_age": feature_row.get("age") if age_available else None,
-            "patient_age_available": age_available,
+        "report_id": common["report_id"],
+        "created_at": common["created_at"],
+        "analysis_author": common["analysis_author"],
+        "model": {
+            "id": common["model_id"],
+            "name": common["model_name"],
+            "version": common["model_version"],
+            "artifact_sha256": model_artifact_sha256,
         },
-        "features": {
-            "azimuthal_integration": {
-                "target_profile": _internal_profile_score(side_profile_scores["target"]),
-                "contralateral_profile": _internal_profile_score(
-                    side_profile_scores["contralateral"]
-                ),
-                "healthy_reference_distance": {
-                    "status": "not_implemented",
-                    "reason": "average healthy reference profile is not fixed in model artifact",
-                },
-            },
-            "symmetry": _symmetry_report_block(feature_row),
+        "prediction_config": _prediction_config_snapshot(config),
+        "scan_metadata": _scan_metadata(
+            feature_row,
+            patient_id=common["patient_id"],
+            target_side=common["target_side"],
+            age_available=age_available,
+        ),
+        "evidence": {
+            "target_profile": _profile_evidence(side_profile_scores["target"]),
+            "contralateral_profile": _profile_evidence(side_profile_scores["contralateral"]),
+            "symmetry": _symmetry_report_block(
+                feature_row,
+                model_info=model_info,
+                model_route=model_route,
+            ),
             "reliability": {
-                "result_reliability": reliability,
-                "result_reliability_reason": reliability_reason,
+                "level": reliability,
+                "reason": reliability_reason,
             },
         },
         "final_prediction": final_prediction,
-        "outputs": {
-            "output_folder": str(output_paths["folder"]),
-            "prediction_dataframe_joblib": str(output_paths["dataframe_joblib"]),
-            "external_json": str(output_paths["external_json"]),
-            "external_yaml": str(output_paths["external_yaml"]),
-            "internal_json": str(output_paths["internal_json"]),
-            "internal_yaml": str(output_paths["internal_yaml"]),
-        },
     }
 
 
-def _prediction_provenance(
-    *,
-    config: dict[str, Any],
-    config_path: Path,
-    config_text: str,
-    dataframe_path: Path,
-    preprocessing_artifact: dict[str, Any] | None,
-    model_path: Path,
-    model_artifact: dict[str, Any],
-    model_id: str,
-) -> dict[str, Any]:
-    input_h5_path = _optional_config_path(config, config_path, "input_h5_path")
-    return {
-        "prediction_config_path": str(config_path),
-        "prediction_config_sha256": sha256(config_text.encode("utf-8")).hexdigest(),
-        "input_dataframe_joblib_path": str(dataframe_path),
-        "input_dataframe_joblib_sha256": _file_sha256(dataframe_path),
-        "input_h5_path": input_h5_path,
-        "input_h5_sha256": _optional_file_sha256(input_h5_path),
-        "prediction_preprocessing_config_path": model_artifact.get(
-            "prediction_preprocessing_config_path"
-        ),
-        "model_prediction_preprocessing_config_path": model_artifact.get(
-            "prediction_preprocessing_config_path"
-        ),
-        "model_prediction_preprocessing_config_sha256": model_artifact.get(
-            "prediction_preprocessing_config_sha256"
-        ),
-        "prediction_preprocessing_config_sha256": (preprocessing_artifact or {}).get(
-            "preprocessing_config_sha256"
-        ) or model_artifact.get("prediction_preprocessing_config_sha256"),
-        "prediction_contract_sha256": model_artifact.get("prediction_contract_sha256"),
-        "input_model_joblib_path": str(model_path),
-        "input_model_joblib_sha256": _file_sha256(model_path),
-        "input_model_id": model_id,
-        "author": config["prediction"].get("author"),
-        "training_config_sha256": model_artifact.get("training_config_sha256"),
-        "preprocessing_config_sha256": model_artifact.get(
-            "preprocessing_config_sha256"
-        ),
-        "model_metadata": model_artifact.get("metadata", {}),
-    }
-
-
-def _internal_profile_score(score: dict[str, Any]) -> dict[str, Any]:
+def _profile_evidence(score: dict[str, Any]) -> dict[str, Any]:
     return {
         "available": bool(score.get("available", False)),
-        "side": _lower_side(score.get("side")),
         "profile_p_cancer": score.get("profile_p_cancer"),
         "measurement_p_cancer": score.get("measurement_p_cancer", []),
-        "profile_statistics": score.get("profile_statistics"),
     }
 
 
-def _internal_provenance(provenance: dict[str, Any]) -> dict[str, Any]:
+def _prediction_config_snapshot(config: dict[str, Any]) -> dict[str, Any]:
     return {
-        "prediction_config": {
-            "path": provenance.get("prediction_config_path"),
-            "sha256": provenance.get("prediction_config_sha256"),
+        "run": {"analysis_author": config["run"]["analysis_author"]},
+        "patient": {
+            "patient_id": str(config["patient"]["patient_id"]),
+            "target_side": _lower_side(config["patient"]["target_side"]),
         },
-        "input": {
-            "prediction_dataframe_joblib": {
-                "path": provenance.get("input_dataframe_joblib_path"),
-                "sha256": provenance.get("input_dataframe_joblib_sha256"),
-            },
-            "h5_container": {
-                "path": provenance.get("input_h5_path"),
-                "sha256": provenance.get("input_h5_sha256"),
-            },
-        },
-        "prediction_preprocessing": {
-            "config_path": (
-                provenance.get("prediction_preprocessing_config_path")
-                or provenance.get("model_prediction_preprocessing_config_path")
+    }
+
+
+def _scan_metadata(
+    feature_row: dict[str, Any],
+    *,
+    patient_id: str,
+    target_side: str,
+    age_available: bool,
+) -> dict[str, Any]:
+    return {
+        "patient_id": patient_id,
+        "target_side": _lower_side(target_side),
+        "patient_age": feature_row.get("age") if age_available else "unknown",
+        "patient_age_available": age_available,
+        "session_id": _metadata_value(feature_row, "session_uid", "session_id"),
+        "scan_date_time": _metadata_value(feature_row, "scan_date_time", "started_at"),
+        "operator_id": _metadata_value(feature_row, "operator_id"),
+        "hardware_version": _metadata_value(feature_row, "hardware_version"),
+        "eoscan_version": _metadata_value(feature_row, "eoscan_version"),
+        "experimental_protocol_version": _metadata_value(
+            feature_row, "experimental_protocol_version", "product_protocol_version"
+        ),
+        "mammography_suspicious_field": _metadata_value(
+            feature_row, "mammography_suspicious_field"
+        ),
+        "mammography_conclusion": _metadata_value(
+            feature_row, "mammography_conclusion"
+        ),
+        "measurement_summary": {
+            "target_valid_measurements": feature_row.get("target_measurements", 0),
+            "contralateral_present": bool(
+                feature_row.get("contralateral_measurements", 0)
             ),
-            "config_sha256": provenance.get(
-                "prediction_preprocessing_config_sha256"
-            )
-            or provenance.get("model_prediction_preprocessing_config_sha256"),
-        },
-        "model_artifact": {
-            "path": provenance.get("input_model_joblib_path"),
-            "sha256": provenance.get("input_model_joblib_sha256"),
-            "model_id": provenance.get("input_model_id"),
-            "aramis_version": provenance.get("model_metadata", {}).get(
-                "aramis_version"
-            ),
-            "aramis_git_sha": provenance.get("model_metadata", {}).get(
-                "aramis_git_sha"
+            "contralateral_valid_measurements": feature_row.get(
+                "contralateral_measurements", 0
             ),
         },
     }
 
 
-def _internal_report_timestamp() -> str:
-    return datetime.now(ZoneInfo("Europe/Paris")).strftime("%Y-%m-%dT%H:%M:%S%Z")
+def _metadata_value(feature_row: dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        value = feature_row.get(key)
+        if value is not None and not pd.isna(value):
+            return value
+    return "unknown"
+
+
+def _report_timestamp() -> str:
+    return datetime.now(ZoneInfo("Europe/Paris")).isoformat(timespec="seconds")
 
 
 def _project_reference_doc(reference_doc: str | None) -> str | None:
@@ -518,7 +423,6 @@ def _prediction_columns(model_artifact: dict[str, Any]) -> dict[str, str]:
         "group_column": str(model_config.get("group_column", "patientId")),
         "specimen_column": str(model_config.get("specimen_column", "specimenId")),
         "side_column": str(model_config.get("side_column", "side")),
-        "q_column": str(model_config.get("q_column", "q_range")),
         "age_column": str(model_config.get("age_column", "age")),
     }
 
@@ -562,13 +466,8 @@ def _side_profile_score(
     if side_norm is None:
         return {
             "available": False,
-            "side": None,
-            "measurements": 0,
             "profile_p_cancer": None,
-            "p_cancer_probability_mean": None,
-            "profile_p_cancer_probability_mean": None,
             "measurement_p_cancer": [],
-            "profile_statistics": None,
         }
     group_column = columns["group_column"]
     side_column = columns["side_column"]
@@ -578,13 +477,8 @@ def _side_profile_score(
     if side_df.empty:
         return {
             "available": False,
-            "side": _display_side(side_norm),
-            "measurements": 0,
             "profile_p_cancer": None,
-            "p_cancer_probability_mean": None,
-            "profile_p_cancer_probability_mean": None,
             "measurement_p_cancer": [],
-            "profile_statistics": None,
         }
     lr1_model = model_info.get("lr1_model")
     if lr1_model is None:
@@ -593,52 +487,26 @@ def _side_profile_score(
     profile_p_cancer = _logit_average_probability(scores)
     return {
         "available": True,
-        "side": _display_side(side_norm),
-        "measurements": int(len(side_df)),
         "profile_p_cancer": profile_p_cancer,
-        "p_cancer_probability_mean": float(np.mean(scores)),
-        "profile_p_cancer_probability_mean": float(np.mean(scores)),
         "measurement_p_cancer": [float(value) for value in scores],
-        "profile_statistics": _profile_statistics(
-            side_df,
-            profile_column=profile_column,
-            q_column=columns["q_column"],
-        ),
     }
 
 
-def _profile_statistics(
-    df: pd.DataFrame,
+def _symmetry_report_block(
+    feature_row: dict[str, Any],
     *,
-    profile_column: str,
-    q_column: str,
+    model_info: dict[str, Any],
+    model_route: str | None,
 ) -> dict[str, Any]:
-    q_values = [np.asarray(value, dtype=float) for value in df[q_column]]
-    profiles = [np.asarray(value, dtype=float) for value in df[profile_column]]
-    q = q_values[0]
-    profile = np.mean(np.vstack(profiles), axis=0)
-    peak_index = int(np.argmax(profile))
-    return {
-        "q_min": float(np.min(q)),
-        "q_max": float(np.max(q)),
-        "q_mean": float(np.mean(q)),
-        "q_median": float(np.median(q)),
-        "q_first_quartile": float(np.quantile(q, 0.25)),
-        "q_third_quartile": float(np.quantile(q, 0.75)),
-        "q_mode_peak_intensity": float(q[peak_index]),
-        "highest_intensity": float(profile[peak_index]),
-    }
-
-
-def _symmetry_report_block(feature_row: dict[str, Any]) -> dict[str, Any]:
-    keys = [key for key in feature_row if key.startswith("sk_")]
+    route_info = model_info.get("routes", {}).get(model_route, model_info)
+    keys = [
+        key
+        for key in route_info.get("feature_columns", [])
+        if str(key).startswith("sk_")
+    ]
     return {
         "available": bool(feature_row.get("symmetry_available", 0)),
-        "features": {key: feature_row.get(key) for key in keys},
-        "symmetry_only_p_cancer": {
-            "status": "not_implemented",
-            "reason": "standalone symmetry-only model is not fixed in prediction artifact",
-        },
+        "selected_features": {key: feature_row.get(key) for key in keys},
     }
 
 
@@ -662,12 +530,6 @@ def _normalize_side(value: Any) -> str | None:
     return None
 
 
-def _display_side(side_norm: str | None) -> str | None:
-    if side_norm is None:
-        return None
-    return {"left": "Left", "right": "Right"}[side_norm]
-
-
 def _model_info(model_artifact: dict[str, Any], model_name: str) -> dict[str, Any]:
     if model_artifact.get("kind") != "aramis_training_artifact":
         raise ValueError("Prediction model joblib is not an Aramis training artifact.")
@@ -681,10 +543,8 @@ def _model_info(model_artifact: dict[str, Any], model_name: str) -> dict[str, An
     return models[model_name]
 
 
-def _validate_model_identity(
-    model_artifact: dict[str, Any], requested: dict[str, Any]
-) -> tuple[str, str, str]:
-    """Check all caller-supplied model identifiers against the loaded artifact."""
+def _model_identity(model_artifact: dict[str, Any]) -> tuple[str, str, str]:
+    """Read the immutable one-model identity from a prediction artifact."""
     artifact_model_id = (
         model_artifact.get("training_config", {})
         .get("training", {})
@@ -695,26 +555,13 @@ def _validate_model_identity(
     )
     if not artifact_model_id or artifact_model_version in {None, ""}:
         raise ValueError("Prediction model artifact has no training.name model_id.")
-    requested_model_id = str(requested["model_id"])
-    requested_model_name = str(requested["model_name"]).upper()
-    requested_model_version = str(requested["model_version"])
-    if str(artifact_model_id) != requested_model_id:
+    model_names = sorted(model_artifact.get("models", {}))
+    if len(model_names) != 1:
         raise ValueError(
-            "Prediction model_id does not match artifact training.name: "
-            f"requested={requested_model_id!r}, artifact={artifact_model_id!r}"
+            "Prediction model artifact must contain exactly one selected model; "
+            f"available={model_names}"
         )
-    if requested_model_name not in model_artifact.get("models", {}):
-        raise ValueError(
-            "Prediction model_name does not match artifact models: "
-            f"requested={requested_model_name!r}, "
-            f"available={sorted(model_artifact.get('models', {}))}"
-        )
-    if str(artifact_model_version) != requested_model_version:
-        raise ValueError(
-            "Prediction model_version does not match artifact training.version: "
-            f"requested={requested_model_version!r}, artifact={artifact_model_version!r}"
-        )
-    return str(artifact_model_id), requested_model_name, str(artifact_model_version)
+    return str(artifact_model_id), model_names[0], str(artifact_model_version)
 
 
 def _model_threshold(
@@ -735,13 +582,18 @@ def _model_threshold(
 def _prediction_output_paths(
     config: dict[str, Any],
     config_path: Path,
+    *,
+    model_id: str,
 ) -> dict[str, Path]:
     folder = _config_path(config, config_path, section="io", key="output_folder")
-    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ") + "_" + uuid4().hex[:8]
-    stem = _safe_stem(f"{config['prediction']['name']}_{config['patient']['patient_id']}_{run_id}")
+    report_id = datetime.now(ZoneInfo("Europe/Paris")).strftime("%Y%m%dT%H%M%S")
+    report_id = f"{report_id}_{uuid4().hex[:8]}"
+    stem = _safe_stem(
+        f"{config['patient']['patient_id']}_{model_id}_{report_id}"
+    )
     return {
         "folder": folder,
-        "run_id": run_id,
+        "report_id": report_id,
         "dataframe_joblib": folder / f"{stem}_prediction_dataframe.joblib",
         "external_json": folder / f"{stem}_external_report.json",
         "external_yaml": folder / f"{stem}_external_report.yaml",
@@ -765,7 +617,7 @@ def _validate_prediction_config(config: dict[str, Any], config_path: Path) -> No
         raise TypeError(f"Prediction config must be a mapping: {config_path}")
     missing = [
         section
-        for section in ("prediction", "io", "patient", "model")
+        for section in ("run", "io", "patient")
         if section not in config
     ]
     if missing:
@@ -774,7 +626,7 @@ def _validate_prediction_config(config: dict[str, Any], config_path: Path) -> No
         if not config.get("io", {}).get(key):
             raise ValueError(f"Missing io.{key} in {config_path}")
     forbidden = sorted(
-        set(config).intersection({"preprocessing", "reporting", "container", "decision"})
+        set(config).difference({"run", "io", "patient"})
     )
     if forbidden:
         raise ValueError(
@@ -786,25 +638,17 @@ def _validate_prediction_config(config: dict[str, Any], config_path: Path) -> No
         raise ValueError(
             "Set exactly one input: io.input_h5_path or io.input_dataframe_joblib_path."
         )
-    if not has_h5 and not has_dataframe:
-        raise ValueError(f"Missing io.input_dataframe_joblib_path in {config_path}")
+    if has_dataframe and not config.get("run", {}).get("synthetic_test_mode"):
+        raise ValueError(
+            "io.input_dataframe_joblib_path is allowed only with "
+            "run.synthetic_test_mode: true."
+        )
+    if not config.get("run", {}).get("analysis_author"):
+        raise ValueError(f"Missing run.analysis_author in {config_path}")
     if not config.get("patient", {}).get("patient_id"):
         raise ValueError(f"Missing patient.patient_id in {config_path}")
     if not config.get("patient", {}).get("target_side"):
         raise ValueError(f"Missing patient.target_side in {config_path}")
-    if not config.get("model", {}).get("model_id"):
-        raise ValueError(f"Missing model.model_id in {config_path}")
-    for key in ("model_name", "model_version"):
-        if not config.get("model", {}).get(key):
-            raise ValueError(f"Missing model.{key} in {config_path}")
-    extra_model_keys = sorted(
-        set(config.get("model", {})).difference({"model_id", "model_name", "model_version"})
-    )
-    if extra_model_keys:
-        raise ValueError(
-            "Predict YAML model section only identifies the artifact: "
-            f"unexpected keys={extra_model_keys}"
-        )
 
 
 def _validate_h5_container_contract(
@@ -924,36 +768,6 @@ def _config_path(
     if path.is_absolute():
         return path
     return (config_path.parent / path).resolve()
-
-
-def _optional_config_path(config: dict[str, Any], config_path: Path, key: str) -> str | None:
-    value = config.get("io", {}).get(key)
-    if value in {None, ""}:
-        return None
-    path = Path(str(value)).expanduser()
-    if not path.is_absolute():
-        path = (config_path.parent / path).resolve()
-    return str(path)
-
-
-def _optional_section_config_path(
-    config: dict[str, Any],
-    config_path: Path,
-    *,
-    section: str,
-    key: str,
-) -> str | None:
-    value = config.get(section, {}).get(key)
-    if value in {None, ""}:
-        return None
-    path = Path(str(value)).expanduser()
-    if not path.is_absolute():
-        path = (config_path.parent / path).resolve()
-    return str(path)
-
-
-def _optional_file_sha256(path: str | None) -> str | None:
-    return None if path is None else _file_sha256(path)
 
 
 def _file_sha256(path: str | Path) -> str:

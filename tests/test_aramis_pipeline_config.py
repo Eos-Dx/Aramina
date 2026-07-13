@@ -43,7 +43,12 @@ def test_yaml_pipeline_rejects_missing_or_unknown_transformer():
 
 def test_yaml_pipeline_skips_disabled_steps():
     config = load_synthetic_config("all_patients")
-    config["pipeline"]["steps"][1]["enabled"] = False
+    step = next(
+        step
+        for step in config["pipeline"]["steps"]
+        if step["name"] == "product_columns"
+    )
+    step["enabled"] = False
 
     names = [name for name, _ in build_pipeline_steps_from_config(config)]
 

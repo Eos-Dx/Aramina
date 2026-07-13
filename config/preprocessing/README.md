@@ -28,7 +28,9 @@ quality exclusions, and writes the same model-input schema.
 `aramis_prediction_patient_model_input_v0_1.yaml` is stored inside trained model
 joblibs and is used by `aramis predict`. It has no historical date, diagnosis,
 biopsy, or AgBH cohort filters. The predict YAML supplies the incoming one-
-patient H5 path, target side, model id, and report outputs.
+patient H5 path, target side, analysis author, and one output folder. Model
+identity, prediction preprocessing, report contract, and decision threshold are
+read only from the selected model joblib.
 
 ## Shared Fragments
 
@@ -46,6 +48,32 @@ exclusions/agbh_quality_exclusions_t100_v0_1.yaml
 T100 is the current development default. It is a middle-ground
 monochromaticity threshold: stricter than T130, less data-hungry than T70, and
 keeps enough biopsy-patient cases for patient-safe model selection.
+
+## Canonical Product Order
+
+The shared product pipeline expresses this canonical order explicitly:
+
+```text
+H5PoniGeometryCalculatorTransformer
+-> H5SessionSelectorTransformer
+-> H5ToDataFrameTransformer
+-> ProductColumnBuilder and product filters
+-> FaultyPixelDetector
+-> AzimuthalIntegration
+-> SNRTransformer and SNRFilter
+-> PatientSpecimenValidityFilter
+-> QRangeValueNormalizer
+-> RadialProfileValueFilter
+-> KeepColumnsTransformer
+```
+
+`H5PoniGeometryCalculatorTransformer` calculates `poni_q_max_nm_inv` from the
+PONI geometry with pyFAI before H5 data frames are decoded. The following
+session selector can therefore reject sessions that do not cover the required
+q range without reading GFRM payloads. This is the current Aramis product
+order, not a global restriction on every XRD-preprocessing YAML: another
+workflow may declare another explicit pipeline order when its data contract
+requires one.
 
 ## Commands
 

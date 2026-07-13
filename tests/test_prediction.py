@@ -29,11 +29,11 @@ def _assert_report_numbers_rounded(value) -> None:
 def _prediction_output_paths(
     output_folder: Path,
     *,
-    prediction_name: str,
+    prediction_name: str | None = None,
     patient_id: str,
 ) -> dict[str, Path]:
-    stem = f"{prediction_name}_{patient_id}_"
-    external_paths = sorted(output_folder.glob(f"{stem}*_external_report.yaml"))
+    _ = prediction_name
+    external_paths = sorted(output_folder.glob(f"{patient_id}_*_external_report.yaml"))
     assert len(external_paths) == 1
     external_yaml = external_paths[0]
     run_stem = external_yaml.name.removesuffix("_external_report.yaml")
@@ -118,7 +118,7 @@ def _training_config(
         "evaluation": {
             "mode": "stratified_kfold",
             "n_splits": 3,
-            "test_size": 0.30,
+            "n_repeats": 1,
             "random_state": 7,
             "target_sensitivity": 0.95,
         },
@@ -148,11 +148,9 @@ def _prediction_config(
     target_side: str = "Left",
 ) -> dict:
     return {
-        "prediction": {
-            "name": "test_predict",
-            "version": 0.1,
-            "author": "Test Author",
-            "clinical_stage": "research draft",
+        "run": {
+            "analysis_author": "Test Author",
+            "synthetic_test_mode": True,
         },
         "io": {
             "input_dataframe_joblib_path": str(dataframe_path),
@@ -160,11 +158,6 @@ def _prediction_config(
             "output_folder": str(output_folder),
         },
         "patient": {"patient_id": patient_id, "target_side": target_side},
-        "model": {
-            "model_id": "test_predict_train",
-            "model_name": "M1Q",
-            "model_version": "0.1",
-        },
     }
 
 
@@ -177,11 +170,8 @@ def _h5_prediction_config(
     target_side: str = "Left",
 ) -> dict:
     return {
-        "prediction": {
-            "name": "test_predict_from_h5",
-            "version": 0.1,
-            "author": "Test Author",
-            "clinical_stage": "research draft",
+        "run": {
+            "analysis_author": "Test Author",
         },
         "io": {
             "input_h5_path": str(h5_path),
@@ -189,11 +179,6 @@ def _h5_prediction_config(
             "output_folder": str(output_folder),
         },
         "patient": {"patient_id": patient_id, "target_side": target_side},
-        "model": {
-            "model_id": "test_predict_train",
-            "model_name": "M1Q",
-            "model_version": "0.1",
-        },
     }
 
 
@@ -211,18 +196,12 @@ def _valid_prediction_config(
     else:
         io["input_dataframe_joblib_path"] = str(tmp_path / "prediction.joblib")
     config = {
-        "prediction": {
-            "name": "test_predict",
-            "version": 0.1,
-            "author": "Test Author",
+        "run": {
+            "analysis_author": "Test Author",
+            "synthetic_test_mode": not input_h5,
         },
         "io": io,
         "patient": {"patient_id": "P1", "target_side": "Left"},
-        "model": {
-            "model_id": "test_predict_train",
-            "model_name": "M1Q",
-            "model_version": "0.1",
-        },
     }
     return config
 
@@ -280,117 +259,66 @@ def test_predict_cli_writes_decision_support_report(tmp_path: Path):
     internal_report = yaml.safe_load(
         output_paths["internal_yaml"].read_text(encoding="utf-8")
     )
-    model_artifact = joblib.load(model_path)
-
     assert output_paths["external_json"].exists()
     assert output_paths["internal_json"].exists()
-    assert report["kind"] == "aramis_external_prediction_report"
-    assert report["author"] == "Test Author"
+    assert report["output_type"] == "aramis_external_report"
+    assert report["report_version"] == "0.1"
+    assert set(report) == {
+        "output_type",
+        "report_version",
+        "report_id",
+        "created_at",
+        "patient_id",
+        "target_side",
+        "model_version",
+        "suggested_class",
+        "reliability",
+        "reliability_reason",
+    }
     assert report["patient_id"] == "P00"
-    assert report["target_side"] == "Left"
-    assert report["model_id"] == "test_predict_train"
-    assert report["model_name"] == "M1Q"
-    assert 0.0 <= report["p_cancer"] <= 1.0
+    assert report["target_side"] == "left"
+    assert report["model_version"] == "0.1"
+    assert "p_cancer" not in report
     assert "profile_p_cancer" not in report
-    assert "profile_p_cancer_logit_average" not in report
     assert report["suggested_class"] in {"BENIGN", "CANCER"}
     assert report["reliability"] == "high"
-    assert report["requires_radiologist_review"] is True
-    assert report["provenance"]["training_config_sha256"] == model_artifact[
-        "training_config_sha256"
-    ]
     assert internal_report["output_type"] == "aramis_internal_clinical_report"
-    assert internal_report["version"] == "0.1"
+    assert internal_report["report_version"] == "0.1"
     assert internal_report["reference_doc"] == "./docs/modeling/internal_clinical_report_content_v0_1.md"
-    assert internal_report["provenance"]["prediction_config"]["path"] == str(
-        prediction_config_path.resolve()
-    )
-    assert internal_report["features"]["azimuthal_integration"][
-        "target_profile"
-    ]["available"]
-    assert internal_report["features"]["azimuthal_integration"][
-        "contralateral_profile"
-    ]["available"]
-    assert 0.0 <= internal_report["features"]["azimuthal_integration"][
-        "target_profile"
-    ]["profile_p_cancer"] <= 1.0
+    assert internal_report["model"]["id"] == "test_predict_train"
+    assert internal_report["model"]["name"] == "M1Q"
+    assert set(internal_report) == {
+        "output_type",
+        "report_version",
+        "reference_doc",
+        "report_id",
+        "created_at",
+        "analysis_author",
+        "model",
+        "prediction_config",
+        "scan_metadata",
+        "evidence",
+        "final_prediction",
+    }
+    assert internal_report["prediction_config"]["run"]["analysis_author"] == "Test Author"
+    assert internal_report["evidence"]["target_profile"]["available"]
+    assert internal_report["evidence"]["contralateral_profile"]["available"]
+    assert 0.0 <= internal_report["evidence"]["target_profile"]["profile_p_cancer"] <= 1.0
     assert "intermediate_models" not in internal_report
     assert "feature_row" not in internal_report
-    assert internal_report["research_only"] is True
-    assert internal_report["xrd_scan_information"]["patient_age_available"] is True
+    assert "provenance" not in internal_report
+    assert "outputs" not in internal_report
+    assert "profile_statistics" not in internal_report
+    assert internal_report["scan_metadata"]["patient_age_available"] is True
     assert 0.0 <= internal_report["final_prediction"]["p_cancer"] <= 1.0
     assert internal_report["final_prediction"]["decision_threshold_id"] == "target_sensitivity_0.95"
     _assert_report_numbers_rounded(internal_report)
 
 
-def test_predict_rejects_wrong_model_id(tmp_path: Path):
-    dataframe_path = tmp_path / "preprocessed.joblib"
-    model_path = tmp_path / "model.joblib"
-    training_config_path = tmp_path / "train.yaml"
-    prediction_config_path = tmp_path / "predict.yaml"
-    output_folder = tmp_path / "prediction_outputs"
-    save_preprocessing_artifact(
-        _patient_frame(),
-        dataframe_path,
-        preprocessing_config={"aramis_preprocessing": {"branch": "one_to_many"}},
-        preprocessing_config_text="aramis_preprocessing:\n  branch: one_to_many\n",
-        metadata={"branch": "one_to_many"},
-    )
-    training_config_path.write_text(
-        yaml.safe_dump(_training_config(dataframe_path, model_path)),
-        encoding="utf-8",
-    )
-    config = _prediction_config(
-        dataframe_path,
-        model_path,
-        output_folder,
-    )
-    config["model"]["model_id"] = "wrong_model_id"
-    prediction_config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
-
-    assert main(["train", "--config", str(training_config_path)]) == 0
-    with pytest.raises(ValueError, match="model_id does not match"):
-        main(["predict", "--config", str(prediction_config_path)])
-
-
-@pytest.mark.parametrize(
-    ("key", "value", "error"),
-    [
-        ("model_name", "M0", "model_name does not match"),
-        ("model_version", "wrong-version", "model_version does not match"),
-    ],
-)
-def test_predict_rejects_wrong_model_identity_field(
-    tmp_path: Path, key: str, value: str, error: str
-):
-    dataframe_path = tmp_path / "preprocessed.joblib"
-    model_path = tmp_path / "model.joblib"
-    training_config_path = tmp_path / "train.yaml"
-    prediction_config_path = tmp_path / "predict.yaml"
-    save_preprocessing_artifact(
-        _patient_frame(),
-        dataframe_path,
-        preprocessing_config={"aramis_preprocessing": {"branch": "one_to_many"}},
-        preprocessing_config_text="aramis_preprocessing:\n  branch: one_to_many\n",
-        metadata={"branch": "one_to_many"},
-    )
-    training_config_path.write_text(
-        yaml.safe_dump(_training_config(dataframe_path, model_path)),
-        encoding="utf-8",
-    )
-    config = _prediction_config(dataframe_path, model_path, tmp_path / "outputs")
-    config["model"][key] = value
-    prediction_config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
-
-    assert main(["train", "--config", str(training_config_path)]) == 0
-    with pytest.raises(ValueError, match=error):
-        main(["predict", "--config", str(prediction_config_path)])
-
-
 @pytest.mark.parametrize(
     ("mutate", "error"),
     [
-        (lambda config: config.pop("prediction"), "Missing prediction config sections"),
+        (lambda config: config.pop("run"), "Missing prediction config sections"),
         (
             lambda config: config["io"].pop("output_folder"),
             "Missing io.output_folder",
@@ -401,9 +329,6 @@ def test_predict_rejects_wrong_model_identity_field(
         ),
         (lambda config: config["patient"].pop("patient_id"), "Missing patient.patient_id"),
         (lambda config: config["patient"].pop("target_side"), "Missing patient.target_side"),
-        (lambda config: config["model"].pop("model_id"), "Missing model.model_id"),
-        (lambda config: config["model"].pop("model_name"), "Missing model.model_name"),
-        (lambda config: config["model"].pop("model_version"), "Missing model.model_version"),
         (
             lambda config: config["io"].pop("input_dataframe_joblib_path"),
             "Set exactly one input",
@@ -506,7 +431,6 @@ def test_predict_target_side_controls_profile_score(tmp_path: Path):
         patient_id="PX_TARGET",
         target_side="Left",
     )
-    left_config["model"]["model_name"] = "M0"
     right_config = _prediction_config(
         prediction_dataframe_path,
         model_path,
@@ -514,7 +438,6 @@ def test_predict_target_side_controls_profile_score(tmp_path: Path):
         patient_id="PX_TARGET",
         target_side="Right",
     )
-    right_config["model"]["model_name"] = "M0"
     left_config_path.write_text(yaml.safe_dump(left_config), encoding="utf-8")
     right_config_path.write_text(yaml.safe_dump(right_config), encoding="utf-8")
 
@@ -534,9 +457,11 @@ def test_predict_target_side_controls_profile_score(tmp_path: Path):
     left_report = yaml.safe_load(left_paths["external_yaml"].read_text(encoding="utf-8"))
     right_report = yaml.safe_load(right_paths["external_yaml"].read_text(encoding="utf-8"))
 
-    assert left_report["target_side"] == "Left"
-    assert right_report["target_side"] == "Right"
-    assert left_report["p_cancer"] > right_report["p_cancer"]
+    left_internal = yaml.safe_load(left_paths["internal_yaml"].read_text(encoding="utf-8"))
+    right_internal = yaml.safe_load(right_paths["internal_yaml"].read_text(encoding="utf-8"))
+    assert left_report["target_side"] == "left"
+    assert right_report["target_side"] == "right"
+    assert left_internal["final_prediction"]["p_cancer"] > right_internal["final_prediction"]["p_cancer"]
 
 
 def test_predict_m2q_without_contralateral_breast_uses_neutral_symmetry_gate(tmp_path: Path):
@@ -582,7 +507,6 @@ def test_predict_m2q_without_contralateral_breast_uses_neutral_symmetry_gate(tmp
         model_path,
         tmp_path / "prediction_outputs",
     )
-    prediction_config["model"]["model_name"] = "M2Q"
     prediction_config_path.write_text(
         yaml.safe_dump(prediction_config),
         encoding="utf-8",
@@ -599,10 +523,10 @@ def test_predict_m2q_without_contralateral_breast_uses_neutral_symmetry_gate(tmp
     internal = yaml.safe_load(output_paths["internal_yaml"].read_text(encoding="utf-8"))
 
     assert report["reliability"] == "low"
-    assert internal["features"]["symmetry"]["available"] is False
+    assert internal["evidence"]["symmetry"]["available"] is False
     assert "model_route" not in internal["final_prediction"]
     assert "intermediate_models" not in internal
-    assert 0.0 <= report["p_cancer"] <= 1.0
+    assert 0.0 <= internal["final_prediction"]["p_cancer"] <= 1.0
 
 
 def test_predict_cli_can_preprocess_one_patient_h5_before_scoring(tmp_path: Path):
@@ -659,10 +583,7 @@ def test_predict_cli_can_preprocess_one_patient_h5_before_scoring(tmp_path: Path
 
     assert output_paths["dataframe"].exists()
     assert report["patient_id"] == "P1"
-    assert report["target_side"] == "Left"
-    assert "input_h5_sha256" in report["provenance"]
-    assert report["provenance"]["prediction_preprocessing_config_path"]
-    assert report["provenance"]["prediction_preprocessing_config_sha256"]
+    assert report["target_side"] == "left"
     assert output_paths["internal_yaml"].exists()
 
 
@@ -801,14 +722,10 @@ def test_predict_cli_can_score_three_v0_3_one_patient_h5_containers(tmp_path: Pa
         assert set(prediction_df["side"]) == {"Left", "Right"}
         assert set(prediction_df["measurement_data_source"]) == {"container_raw_data"}
         assert report["patient_id"] == patient_id
-        assert report["target_side"] == target_side
-        assert report["model_id"] == "test_predict_train"
-        assert report["model_name"] == "M1Q"
-        assert report["provenance"]["input_h5_sha256"]
-        assert report["provenance"]["prediction_preprocessing_config_sha256"]
-        assert internal_report["features"]["azimuthal_integration"][
-            "contralateral_profile"
-        ]["available"]
+        assert report["target_side"] == target_side.lower()
+        assert internal_report["model"]["id"] == "test_predict_train"
+        assert internal_report["model"]["name"] == "M1Q"
+        assert internal_report["evidence"]["contralateral_profile"]["available"]
 
     assert {report["patient_id"] for report in reports} == {"PX01", "PX02", "PX03"}
 

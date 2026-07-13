@@ -3,13 +3,13 @@
 Status: research draft.
 
 This document describes the first Aramis prediction route. It is clinical
-decision support only. It returns `p_cancer`, a suggested class, and reliability
-metadata for radiologist review. It is not autonomous diagnosis.
+decision support only. The external report returns a suggested class and
+reliability metadata; the internal report retains `p_cancer` for audit.
 
 ## Command
 
 ```bash
-python -m aramis predict --config config/prediction/aramis_predict_example_v0_1.yaml
+python -m aramis predict --config examples/prediction_h5/cancer_predict.yaml
 ```
 
 ## Input Contract
@@ -20,13 +20,12 @@ The product route starts from one incoming H5 container:
 one-patient H5 container
 trained Aramis model joblib
 prediction preprocessing YAML stored in model joblib
-patient_id
-clinician-supplied target_side from predict YAML
-model_id
-model_name
-model_version
-prediction.author
+run.analysis_author
+io.input_h5_path
+io.input_model_joblib_path
 io.output_folder
+patient.patient_id
+clinician-supplied target_side from predict YAML
 ```
 
 Expected H5 shape is EOS H5 v0.3:
@@ -68,6 +67,8 @@ The H5 is preprocessed by the same transformer lineage as training:
 
 ```text
 H5
+-> H5PoniGeometryCalculatorTransformer
+-> H5SessionSelectorTransformer
 -> h5_to_df
 -> ProductColumnBuilder
 -> q-range, sample-thickness, calibrant-thickness checks
@@ -102,11 +103,10 @@ strictly patient-safe. Prediction mirrors this behavior: one supplied
 `target_side` produces one result; two suspicious breasts require two separate
 prediction runs.
 
-The `model_id` must also come from predict YAML. It is checked against
-`training.name` stored inside the model joblib. This prevents accidentally
-running a different model artifact than the one requested by the report config.
-`model_name` selects the model entry inside the artifact and `model_version`
-must match artifact `training.version`. The fixed development model is `M2Q`.
+The selected joblib is the sole source for model ID, name, version, model entry,
+preprocessing contract, report contract, and decision threshold. Predict YAML
+does not duplicate these immutable model fields. The fixed development model is
+`M2Q`.
 
 ## Call Chain
 
@@ -160,11 +160,11 @@ io:
 Aramis writes automatic file names:
 
 ```text
-<prediction.name>_<patient.patient_id>_prediction_dataframe.joblib
-<prediction.name>_<patient.patient_id>_external_report.json
-<prediction.name>_<patient.patient_id>_external_report.yaml
-<prediction.name>_<patient.patient_id>_internal_report.json
-<prediction.name>_<patient.patient_id>_internal_report.yaml
+<patient_id>_<model_id>_<report_id>_prediction_dataframe.joblib
+<patient_id>_<model_id>_<report_id>_external_report.json
+<patient_id>_<model_id>_<report_id>_external_report.yaml
+<patient_id>_<model_id>_<report_id>_internal_report.json
+<patient_id>_<model_id>_<report_id>_internal_report.yaml
 ```
 
 Prediction always writes two report pairs.
@@ -172,38 +172,36 @@ Prediction always writes two report pairs.
 External report is minimal:
 
 ```text
-kind: aramis_external_prediction_report
-version
+output_type: aramis_external_report
+report_version
+report_id
+created_at
 patient_id
 target_side
-model_name
-model_id
-p_cancer
-threshold
 suggested_class
-risk_level
 reliability
 reliability_reason
-model/data/config SHA256 provenance
-decision-support warnings
+model_version
 ```
 
-External report intentionally reports only final `p_cancer`. LR1 profile-only
-scores and model features are internal-audit fields.
+External report does not expose `p_cancer`, threshold, LR1 profile-only scores,
+symmetry, age, provenance, raw data, or model internals. `report_id` is
+generated automatically and shared with the internal report from the same
+prediction operation. `created_at` is a Europe/Paris ISO timestamp with a
+numeric UTC offset.
 
 Internal report follows `internal_clinical_report_content_v0_1.md` and contains:
 
 ```text
 output_type: aramis_internal_clinical_report
-version
-xrd_scan_information
-target LR1 profile-only p_cancer
-contralateral LR1 profile-only p_cancer
-SK symmetry features
-reliability result and reason
-final target-side prediction
-model/data/config SHA256 provenance
-output paths
+report_version
+report_id and created_at
+model ID/name/version/artifact SHA256
+prediction configuration snapshot
+scan metadata and measurement summary
+target/contralateral LR1 profile evidence
+selected SK Core4 values and reliability
+final target-side prediction with threshold
 ```
 
 Report-level naming:
@@ -212,7 +210,7 @@ Report-level naming:
 final_prediction.p_cancer
   final target-side risk score
 
-features.azimuthal_integration.target_profile.profile_p_cancer
+evidence.target_profile.profile_p_cancer
   target-breast LR1 profile-only probability
 ```
 
@@ -221,14 +219,17 @@ are intentionally not duplicated in an internal prediction report. They remain
 in the ML-classifier training output YAML under `model_registry`; the joblib is
 the executable model artifact.
 
+Internal report excludes profile statistics, filesystem paths, generic
+provenance, and output-file paths.
+
 Contralateral p_cancer is included only in the internal report and only from the
 first-layer profile model. The final model remains target-side decision support.
 
 ## Current Limitations
 
-- Prediction can still start from a preprocessed DataFrame joblib for tests and
-  debugging. Product use should start from H5 plus prediction preprocessing
-  config.
+- Synthetic unit tests can start from a preprocessed DataFrame joblib only when
+  `run.synthetic_test_mode: true`. Product use starts from H5 plus the
+  prediction preprocessing config embedded in the model artifact.
 - Reports are machine-readable JSON/YAML only. Formatted clinical PDF/report
   rendering remains a separate layer.
 - Thresholds come from the training artifact. The model version must therefore

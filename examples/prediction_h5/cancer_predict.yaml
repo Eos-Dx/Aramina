@@ -1,9 +1,5 @@
-prediction:
-  name: aramis_predict_cancer_example
-  version: 0.1
-  author: Sergey Denisov
-  clinical_stage: research draft
-  intended_use: decision-support p_cancer research draft; requires radiologist review
+run:
+  analysis_author: Sergey Denisov
 
 io:
   input_h5_path: cancer_one_patient.h5
@@ -12,9 +8,4 @@ io:
 
 patient:
   patient_id: PRED_CANCER
-  target_side: Left
-
-model:
-  model_id: aramis_m2q_t100_gated_sk_core4_synthetic_h5_example
-  model_name: M2Q
-  model_version: "0.2.2-beta"
+  target_side: left
