@@ -1,6 +1,6 @@
 kind: aramis_model_description
 version: '0.1'
-model_id: aramis_m2q_t100_0_2_4-beta_e04444e79ea6
+model_id: aramis_m2q_t100_0_2_4-beta_a07625072e67
 model_name: aramis_m2q_t100
 model_version: 0.2.4-beta
 model_recipe: m2q_gated_target_case_v0_1
@@ -385,7 +385,7 @@ model_summary:
   symmetry_policy: single_model_gated_optional_refinement
   symmetry_gate: symmetry_available
 model_joblib: model.joblib
-model_joblib_sha256: e04444e79ea653547631f46c09643346a517c153a5ef9800980a7b90302448ef
+model_joblib_sha256: a07625072e67f890dea52e42b1c13f9ed0082e7804a87e06eedf9922a21171b0
 decision_thresholds:
   threshold_youden: 0.4171226115943444
   threshold_target: 0.24451397236244887
