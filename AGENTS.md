@@ -47,7 +47,7 @@ H5 container
 -> FaultyPixelDetector
 -> AzimuthalIntegration(error_model="poisson")
 -> SNRTransformer(snr_method="poisson")
--> SNRFilter(min_snr_db=20.0)
+-> SNRFilter(min_snr_db=18.0)
 -> QRangeValueNormalizer(q_min=6.7, q_max=7.1, statistic="median")
 -> product-specific model
 ```
@@ -103,42 +103,11 @@ untracked preprocessing changes
 
 When uncertain about clinical target, label mapping, endpoint, threshold, or release claim, ask the user before editing.
 
-## MLflow Requirement
+## Traceability
 
-MLflow must track preprocessing and modeling together.
-
-One MLflow run equals one full product dataset build plus model training/evaluation.
-
-Required artifacts:
-
-```text
-preprocessing_config.json
-product_filter_rules.json
-selected_measurement_ids.csv
-dropped_measurements.csv
-preprocessed_dataset.parquet or .csv
-feature_schema.json
-label_mapping.json
-train_test_split.csv
-model.joblib
-metrics.json
-predictions.csv
-```
-
-Required tags/params:
-
-```text
-product
-intended_use_id
-clinical_stage
-data_contract
-input_h5_id
-input_h5_checksum
-pipeline_version
-preprocessing_git_sha
-model_git_sha
-dataset_fingerprint
-```
+MLflow is not part of the current product baseline. Traceability is stored in
+preprocessing, evaluation, and model artifacts. Add MLflow only through a
+separate controlled change after the product workflow is stable.
 
 ## Model Rules
 

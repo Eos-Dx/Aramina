@@ -6,7 +6,7 @@ Public contract: `aramis_training_config_v0_1`.
 contract: aramis_training_config_v0_1
 training:
   name: aramis_m2q_t100
-  version: 0.2.3-beta
+  version: 0.2.4-beta
   created_by: Sergey Denisov
   created_at: "2026-07-14"
   clinical_stage: research draft
@@ -56,7 +56,9 @@ python -m aramis train \
   --config config/training/aramis_m2q_t100_primary_train_v0_1.yaml
 ```
 
-Every run creates a unique folder. `evaluation` writes:
+Every run uses patient-safe repeated stratified `5-fold x20` with seed `42`.
+The public YAML cannot override these fixed M2Q recipe settings. `evaluation`
+creates a unique folder and writes:
 
 ```text
 evaluation.joblib

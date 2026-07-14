@@ -3,7 +3,7 @@ recipes:
   m2q_gated_target_case_v0_1:
     description: M2Q target-breast model with gated Core4 SK symmetry and age.
     model:
-      type: patient_m0_m1_m2_logistic_set
+      type: m2q_gated_target_case
       profile_column: radial_profile_data
       label_column: product_status_group
       group_column: patientId

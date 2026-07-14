@@ -98,9 +98,9 @@ def _training_config(input_path: Path, output_folder: Path) -> dict:
         "model": {"recipe": "m2q_gated_target_case_v0_1"},
         "evaluation": {
             "method": "repeated_stratified_kfold",
-            "folds": 3,
-            "repeats": 1,
-            "random_seed": 7,
+            "folds": 5,
+            "repeats": 20,
+            "random_seed": 42,
         },
     }
 
@@ -133,6 +133,7 @@ def trained_model(tmp_path_factory):
         _patient_frame(),
         dataframe_path,
         preprocessing_config_text="pipeline:\n  steps:\n  - name: test\n",
+        metadata={"input_h5_sha256": "test-h5"},
     )
     config_path.write_text(
         yaml.safe_dump(_training_config(dataframe_path, root / "runs")),
@@ -224,7 +225,12 @@ def test_predict_without_contralateral_uses_unavailable_symmetry(
         ~((frame["patientId"] == "P00") & (frame["side"] == "Right"))
     ].copy()
     dataframe_path = tmp_path / "unpaired.joblib"
-    save_preprocessing_artifact(frame, dataframe_path)
+    save_preprocessing_artifact(
+        frame,
+        dataframe_path,
+        preprocessing_config_text="pipeline:\n  steps:\n  - name: test\n",
+        metadata={"input_h5_sha256": "test-h5"},
+    )
     config_path = tmp_path / "predict.yaml"
     config_path.write_text(
         yaml.safe_dump(

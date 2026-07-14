@@ -70,9 +70,9 @@ def _training_config(
         "model": {"recipe": "m2q_gated_target_case_v0_1"},
         "evaluation": {
             "method": "repeated_stratified_kfold",
-            "folds": 3,
-            "repeats": 1,
-            "random_seed": 7,
+            "folds": 5,
+            "repeats": 20,
+            "random_seed": 42,
         },
     }
 
@@ -89,10 +89,10 @@ def _write_training_input(path: Path) -> None:
 def test_training_contract_rejects_unknown_fields(tmp_path: Path):
     config_path = tmp_path / "train.yaml"
     config = _training_config(tmp_path / "input.joblib", tmp_path, mode="evaluation")
-    config["evaluation"]["test_size"] = 0.2
+    config["evaluation"]["folds"] = 3
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
 
-    with pytest.raises(ValueError, match="Unknown evaluation fields"):
+    with pytest.raises(ValueError, match="M2Q product recipe requires"):
         load_training_config(config_path)
 
 
@@ -102,17 +102,17 @@ def test_training_contract_requires_intended_use(tmp_path: Path):
     del config["training"]["intended_use"]
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
 
-    with pytest.raises(ValueError, match="Missing training fields: \['intended_use'\]"):
+    with pytest.raises(ValueError, match=r"Missing training fields: \['intended_use'\]"):
         load_training_config(config_path)
 
 
 def test_training_contract_allows_only_product_evaluation_method(tmp_path: Path):
     config_path = tmp_path / "train.yaml"
     config = _training_config(tmp_path / "input.joblib", tmp_path, mode="evaluation")
-    config["evaluation"]["method"] = "loovm"
+    config["evaluation"]["method"] = "leave_one_out"
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
 
-    with pytest.raises(ValueError, match="Development supports only"):
+    with pytest.raises(ValueError, match="M2Q product recipe requires"):
         load_training_config(config_path)
 
 
@@ -129,7 +129,7 @@ def test_evaluation_mode_writes_patient_safe_footprint_only(tmp_path: Path):
     run_folder = Path(artifact["run_folder"])
 
     assert artifact["kind"] == "aramis_evaluation_artifact"
-    assert len(artifact["split_metrics"]) == 3
+    assert len(artifact["split_metrics"]) == 100
     assert set(artifact["split_metrics"]["evaluation_mode"]) == {"stratified_kfold"}
     summary = artifact["metric_summary"].iloc[0]
     assert np.isfinite(summary["roc_auc_ci_low"])
@@ -195,10 +195,9 @@ def test_bilateral_biopsy_creates_two_target_cases_in_one_patient_safe_split():
         mode="stratified_kfold",
         base_features=feature_table,
         y_patients=feature_table["label"].to_numpy(dtype=int),
-        n_splits=3,
-        n_repeats=1,
-        test_size=0.30,
-        random_state=7,
+        n_splits=5,
+        n_repeats=20,
+        random_state=42,
     ):
         train_patients = set(feature_table.iloc[train_index]["patientId"])
         test_patients = set(feature_table.iloc[test_index]["patientId"])
@@ -210,3 +209,16 @@ def test_logit_average_probability_preserves_consistent_evidence():
 
     assert float(np.mean(scores)) == pytest.approx(0.80)
     assert _logit_average_probability(scores) == pytest.approx(0.877, abs=0.001)
+
+
+def test_final_fit_rejects_plain_dataframe_without_preprocessing_lineage(tmp_path: Path):
+    input_path = tmp_path / "plain.joblib"
+    joblib.dump(_patient_training_frame(), input_path)
+    config_path = tmp_path / "train.yaml"
+    config_path.write_text(
+        yaml.safe_dump(_training_config(input_path, tmp_path / "runs", mode="final_fit")),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="preprocessing artifact joblib"):
+        run_training_from_config(config_path)

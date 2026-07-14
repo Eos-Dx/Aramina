@@ -12,6 +12,12 @@ import yaml
 TRAINING_CONTRACT = "aramis_training_config_v0_1"
 RECIPE_REGISTRY_CONTRACT = "aramis_model_recipe_registry_v0_1"
 DEFAULT_RECIPE_REGISTRY = Path(__file__).with_name("model_recipes.yaml")
+PRODUCT_EVALUATION = {
+    "method": "repeated_stratified_kfold",
+    "folds": 5,
+    "repeats": 20,
+    "random_seed": 42,
+}
 
 
 def load_training_config(path: str | Path) -> tuple[dict[str, Any], str]:
@@ -157,17 +163,11 @@ def _validate_evaluation(evaluation: Any) -> None:
         allowed={"method", "folds", "repeats", "random_seed"},
         where="evaluation",
     )
-    if evaluation["method"] != "repeated_stratified_kfold":
+    if evaluation != PRODUCT_EVALUATION:
         raise ValueError(
-            "Development supports only evaluation.method "
-            "'repeated_stratified_kfold'."
+            "The M2Q product recipe requires evaluation "
+            "repeated_stratified_kfold, folds=5, repeats=20, random_seed=42."
         )
-    _positive_int(evaluation, "folds", minimum=2)
-    _positive_int(evaluation, "repeats")
-    if not isinstance(evaluation["random_seed"], int) or isinstance(
-        evaluation["random_seed"], bool
-    ):
-        raise ValueError("evaluation.random_seed must be an integer.")
 
 
 def _validate_recipe(recipe_id: str, recipe: Any) -> None:
@@ -224,8 +224,3 @@ def _exact_keys(
     if unknown:
         raise ValueError(f"Unknown {where} fields: {unknown}")
 
-
-def _positive_int(values: dict[str, Any], key: str, *, minimum: int = 1) -> None:
-    value = values[key]
-    if not isinstance(value, int) or isinstance(value, bool) or value < minimum:
-        raise ValueError(f"evaluation.{key} must be an integer >= {minimum}.")

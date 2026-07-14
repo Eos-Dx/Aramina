@@ -54,7 +54,7 @@ prediction preprocessing YAML text and SHA256
 Aramis version / git SHA
 XRD-preprocessing version / tag
 selected measurement rows
-dropped measurement rows and reasons when formal MLflow tracking is enabled
+dropped measurement rows and reasons when retained by the preprocessing artifact
 feature schema
 label mapping
 model threshold
@@ -113,14 +113,14 @@ measurement-level random split is forbidden
 specimen-level split is insufficient when patient leakage is possible
 ```
 
-Current model-selection policy:
+Current product evaluation policy:
 
 ```text
-use nested patient-safe stratified K-fold
-  outer folds estimate generalization
-  inner folds select LR1/LR2 regularization and the operating threshold
-use train-all only to fit the final locked candidate artifact
-state clearly when a metric is train-all fitted-cohort and not validation
+use repeated patient-safe stratified 5-fold x20 with random_seed=42
+  to evaluate the frozen M2Q recipe
+use train-all only after evaluation to fit the final packaged artifact
+derive the deployment threshold from train-all scores at sensitivity >=0.95
+state clearly that train-all is fitted-cohort evidence, not validation
 ```
 
 ## Prediction Rules
@@ -132,7 +132,7 @@ one patient per H5
 H5 schema_version / format matching predict YAML
 patient.patient_id matching H5 patientId
 patient.target_side supplied by predict YAML
-model.model_id matching training.name inside model artifact
+model identity derived from the selected model artifact SHA256
 prediction_preprocessing_config stored inside model artifact
 ```
 

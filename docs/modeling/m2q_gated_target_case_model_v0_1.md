@@ -53,75 +53,81 @@ One biopsied breast creates one historical target case. A bilateral-biopsy
 patient creates two target cases. All measurements and target cases from a
 patient remain together in every patient-safe fold.
 
-## Honest Nested Validation
+## Frozen Regularization And Evaluation
 
-This historical experiment selected the frozen recipe regularization. Current
-development training does not repeat hyperparameter selection; it evaluates the
-fixed `C1=0.1`, `C2=0.3` recipe with repeated patient-safe stratified k-fold.
+Historical experiments selected the frozen regularization values. Current
+product training does not search hyperparameters. It evaluates the fixed recipe
+and then fits it on all accepted target cases.
 
 Evaluation:
 
 ```text
-outer evaluation: repeated stratified patient 5-fold x20 = 100 test folds
-inner selection: patient-safe 4-fold
-LR1 C grid: [0.1, 0.3]
-LR2 C grid: [0.1, 0.3]
-selection metric: inner out-of-fold operational ROC AUC
-evaluation threshold: train-fold threshold applied to held-out fold
-deployment threshold: train-all threshold targeting sensitivity >=0.95
+historical regularization search: patient-safe folds over LR1/LR2 C in [0.1, 0.3]
+frozen product recipe: LR1 C=0.1, LR2 C=0.3
+current evaluation: repeated patient-safe stratified 5-fold x20, seed 42
+evaluation threshold: derived on each training fold, applied to its test fold
+deployment threshold: derived from final train-all scores at sensitivity >=0.95
 ```
 
-The full-cohort inner selection chose:
+The historical selection chose:
 
 ```text
 LR1 C = 0.1
 LR2 C = 0.3
 ```
 
-Outer test-fold metrics are not forced to 0.95 sensitivity. They measure how a
-train-derived threshold transfers to unseen patients.
+Held-out fold sensitivity is not forced to 0.95. It measures how a
+train-derived threshold transfers to unseen patients. Each `evaluation` or
+`final_fit` run writes the exact 100-fold metrics and held-out predictions next
+to the run-specific model artifact. Historical architecture comparisons are
+retained in the `experiment` branch rather than duplicated in product docs.
 
-| model | inputs | ROC AUC | sensitivity | specificity |
-|---|---|---:|---:|---:|
-| A0 | age + age_available | 0.703 +/- 0.068 | 0.935 +/- 0.068 | 0.292 +/- 0.109 |
-| M0 | target profile | 0.599 +/- 0.079 | 0.954 +/- 0.070 | 0.096 +/- 0.080 |
-| M1 | target profile + gated SK Core4 | 0.602 +/- 0.077 | 0.945 +/- 0.078 | 0.139 +/- 0.089 |
-| M2Q | target profile + gated SK Core4 + age | 0.657 +/- 0.069 | 0.942 +/- 0.076 | 0.159 +/- 0.085 |
-
-Interpretation:
+Current interpretation:
 
 ```text
-M1 adds a small specificity gain over M0 in this validation.
-M2Q improves ranking over M0/M1, but age-only remains stronger by ROC AUC.
-No model establishes stable 0.95 sensitivity on unseen folds.
-The architecture is fixed for this research iteration; performance requires a
-larger independent cohort before any stronger product claim.
+M2Q is a research-draft decision-support model, not a clinical-validation claim.
+Age is an important risk signal and must remain visible in model review.
+No current result establishes stable 0.95 sensitivity on unseen patients.
+A larger independent cohort is required before any stronger product claim.
 ```
 
-## Train-All Diagnostic
+## Current 0.2.4 Evaluation Record
 
-The following values use the same `C1=0.1`, `C2=0.3` settings on all 175 target
-cases. They describe fitted-cohort separation only and are not validation.
+The current packaged artifact was evaluated on the T100 biopsy-patient cohort
+using the fixed 100 patient-safe folds. The target threshold was derived on the
+training patients in each fold and then applied once to that fold's held-out
+patients.
 
-| model | ROC AUC | sensitivity | specificity |
-|---|---:|---:|---:|
-| A0 | 0.700 | 0.961 | 0.242 |
-| M0 | 0.832 | 0.961 | 0.374 |
-| M1 | 0.854 | 0.961 | 0.485 |
-| M2Q | 0.867 | 0.961 | 0.465 |
+| metric | mean across 100 folds | pooled held-out cases (95% bootstrap CI) |
+|---|---:|---:|
+| ROC AUC | 0.662 +/- 0.069 | 0.673 (0.592 to 0.750) |
+| sensitivity | 0.819 +/- 0.099 | 0.855 (0.769 to 0.932) |
+| specificity | 0.383 +/- 0.116 | 0.323 (0.231 to 0.422) |
 
-Train-all is useful for inspecting the fitted artifact and threshold behavior.
-It must not replace patient-safe outer-fold metrics.
+These are research-draft evaluation results, not a clinical performance claim.
+
+## Final Fit
+
+`final_fit` always writes patient-safe evaluation artifacts first, then fits
+the frozen M2Q recipe on all accepted cases and derives the deployment
+threshold. The model joblib stores executable estimators, frozen threshold,
+resolved training YAML, historical preprocessing YAML, prediction
+preprocessing YAML, prediction contract, and H5 lineage. Fold metrics and
+predictions remain beside the model in `evaluation.*` files, not inside the
+joblib.
+
+Train-all is useful for inspecting fitted-artifact separation and threshold
+behavior. It must not replace patient-safe evaluation.
 
 ## Related Documents
 
 ```text
-current_model_pipeline_and_risks_v0_1.md
-  product interpretation and guards
-
-training_pipeline_classes_v0_1.md
-  sklearn-like implementation and artifact layout
-
 sk_symmetry_features_v0_1.md
   Core4 definitions
+
+../contracts/training_config_v0_1.md
+  fixed training and evaluation contract
+
+../product_development_rules.md
+  product controls and known limitations
 ```

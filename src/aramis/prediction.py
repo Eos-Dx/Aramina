@@ -182,8 +182,8 @@ def _score_model(
     missing = [column for column in columns if column not in feature_row.columns]
     if missing:
         raise ValueError(f"Prediction feature row is missing columns: {missing}")
-    if model_name in {"M0", "M0Q"}:
-        return float(feature_row["profile_p_cancer_logit_average"].iloc[0])
+    if model_name != "M2Q":
+        raise ValueError(f"Unsupported product model: {model_name!r}")
     final_model = route_info.get("final_model")
     if final_model is None:
         raise ValueError(f"Model {model_name} is missing final_model.")

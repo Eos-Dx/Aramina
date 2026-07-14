@@ -2,15 +2,13 @@
 
 Status: research draft.
 
-This folder contains model rationale, selected-candidate evidence, and
-prediction/training contracts. Product readers should start here:
+This folder contains the current model record, cohort definition, feature
+definitions, and prediction-report contract. Product readers should start here:
 
 ```text
-../machine_learning_concept.md
 m2q_gated_target_case_model_v0_1.md
 prediction_pipeline_v0_1.md
-training_pipeline_classes_v0_1.md
-current_model_pipeline_and_risks_v0_1.md
+current_model_dataframe_v0_1.md
 ```
 
 ## Development Candidate
@@ -30,9 +28,9 @@ Current development decision record:
 m2q_gated_target_case_model_v0_1.md
 ```
 
-The packaged research-draft artifact is
-`aramis_m2q_t100_0_2_3_beta.joblib`. Synthetic H5
-smoke tests use a separate raw-array artifact.
+The packaged research-draft artifact and its `model_description.yaml` are in
+`examples/prediction_models/`. The exact artifact ID is derived from the model
+joblib SHA256 and recorded in its generated description and reports.
 
 ## Current Evidence
 
@@ -50,14 +48,14 @@ sk_symmetry_features_v0_1.md
 ## Product Contracts
 
 ```text
-training_pipeline_classes_v0_1.md
-  sklearn-like training classes and artifact structure
+../contracts/training_config_v0_1.md
+  training YAML, fixed evaluation, final-fit artifact structure
 
 prediction_pipeline_v0_1.md
   one-patient H5 prediction route and report schema
 
-current_model_pipeline_and_risks_v0_1.md
-  known limitations and required interpretation guards
+../product_development_rules.md
+  product controls, limitations, and change requirements
 ```
 
 Historical candidate models, threshold comparisons, and generated experiment

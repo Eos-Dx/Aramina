@@ -6,8 +6,12 @@ and colleague onboarding.
 Tracked artifacts:
 
 ```text
-aramis_m2q_t100_0_2_3_beta.joblib
+aramis_m2q_t100_0_2_4_beta.joblib
   current packaged M2Q artifact with embedded GFRM prediction preprocessing
+
+aramis_m2q_t100_0_2_4_beta_model_description.yaml
+  human-readable immutable identity, SHA256, feature schema, threshold, and
+  pointers to the separately retained evaluation artifacts
 ```
 
 This research-draft decision-support artifact contains the M2Q model, model

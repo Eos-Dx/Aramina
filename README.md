@@ -127,13 +127,11 @@ docs/data_preprocessing.md
 config/preprocessing/README.md
 ```
 
-Model concept and candidate choice:
+Model and evidence:
 
 ```text
-docs/machine_learning_concept.md
 docs/modeling/m2q_gated_target_case_model_v0_1.md
-docs/modeling/current_model_pipeline_and_risks_v0_1.md
-docs/documentation_audit_v0_1.md
+docs/modeling/current_model_dataframe_v0_1.md
 ```
 
 Prediction route and report schema:
@@ -143,10 +141,10 @@ docs/modeling/prediction_pipeline_v0_1.md
 config/prediction/README.md
 ```
 
-Training route:
+Training contract:
 
 ```text
-docs/modeling/training_pipeline_classes_v0_1.md
+docs/contracts/training_config_v0_1.md
 config/training/README.md
 ```
 

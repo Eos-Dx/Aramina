@@ -34,10 +34,6 @@ Product notebooks:
   marimo
   matplotlib
 
-ML tracking and baseline models:
-  mlflow
-  lightgbm
-
 Development / validation:
   pytest
   ruff

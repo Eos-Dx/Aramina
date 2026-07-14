@@ -8,7 +8,11 @@ from xrd_preprocessing import build_pipeline_steps_from_config, load_preprocessi
 from xrd_preprocessing.transformers import H5BlobDataFrameTransformer, KeepColumnsTransformer
 
 from aramis.__main__ import main
-from aramis.pipelines import AramisPreprocessingPipeline, _config_path
+from aramis.pipelines import (
+    AramisPreprocessingPipeline,
+    _config_path,
+    run_preprocessing_artifact_from_config,
+)
 from aramis.workflows import _load_workflow_config
 
 from .synthetic_aramis_h5 import load_synthetic_config, write_known_synthetic_h5
@@ -137,6 +141,25 @@ def test_preprocess_cli_can_write_minimal_output_columns(tmp_path):
     df = load_preprocessing_dataframe(output_path)
     assert df.columns.tolist() == output_columns
     assert not df["radial_profile_data_raw"].equals(df["radial_profile_data"])
+
+
+def test_preprocessing_artifact_runner_uses_configured_h5_and_output(tmp_path):
+    h5_path = tmp_path / "known_synthetic_aramis.h5"
+    output_path = tmp_path / "out" / "artifact.joblib"
+    config_path = tmp_path / "preprocess.yaml"
+    config = load_synthetic_config()
+    config["io"] = {
+        "input_h5_path": h5_path.name,
+        "output_joblib_path": "out/artifact.joblib",
+    }
+    config["raw_data"]["h5_dataset_candidates"]["npy"] = ["processed/data"]
+    config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+    write_known_synthetic_h5(h5_path)
+
+    artifact = run_preprocessing_artifact_from_config(config_path)
+
+    assert output_path.exists()
+    assert artifact["dataframe"].equals(load_preprocessing_dataframe(output_path))
 
 
 def test_workflow_contract_rejects_unknown_fields(tmp_path):

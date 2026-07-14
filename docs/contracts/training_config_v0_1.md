@@ -21,7 +21,7 @@ preprocessing.
 | `training.clinical_stage` | string | `research draft` for current work |
 | `training.intended_use` | string | required decision-support statement |
 | `training.mode` | string | `evaluation`, `final_fit` |
-| `input.dataframe_joblib_path` | path | preprocessing artifact or plain DataFrame joblib |
+| `input.dataframe_joblib_path` | path | Aramis preprocessing artifact joblib |
 | `output.folder` | path | parent for unique run folder |
 | `model.recipe` | string | ID from code-owned model recipe registry |
 | `evaluation.method` | string | `repeated_stratified_kfold` |
@@ -38,14 +38,18 @@ errors.
 
 ## Input validation
 
-Training requires the recipe columns, two labels, finite fixed-length radial
-profiles, and patient-safe grouping. Missing age is imputed from the training
-fold median and represented by `age_available=false`. Technical contract errors
-stop the run. Weak metrics do not block a `research draft` final fit.
+Training requires an Aramis preprocessing artifact with the resolved
+preprocessing YAML and input-H5 SHA256, recipe columns, two labels, finite
+fixed-length radial profiles, and patient-safe grouping. Missing age is imputed
+from the training-fold median and represented by `age_available=false`.
+Technical contract errors stop the run. Weak metrics do not block a `research
+draft` final fit.
 
 ## Thresholds
 
-Evaluation folds choose their threshold from each train fold and report metrics
-only on held-out patients. `final_fit` trains on the complete accepted cohort,
-then freezes the threshold from train-all scores at recipe target sensitivity
-`>=0.95`. The in-sample result is not an independent validation claim.
+Evaluation is fixed to patient-safe repeated stratified `5-fold x20` with seed
+`42`. Each fold chooses its threshold from the training patients and reports
+metrics only on held-out patients. `final_fit` runs this evaluation first, then
+trains on the complete accepted cohort and freezes the threshold from train-all
+scores at recipe target sensitivity `>=0.95`. The in-sample result is not an
+independent validation claim.

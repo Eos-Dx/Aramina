@@ -38,11 +38,11 @@ config/preprocessing/exclusions/agbh_quality_exclusions_t100_v0_1.yaml
 monochromaticity_max_score: 0.0075
 ```
 
-Rationale: T100 is the middle-ground AgBH monochromaticity threshold. T70 was
-slightly better in M1Q model-selection experiments but removed about 17% of the
-T130 biopsy-patient cohort. T130 kept the most data but gave weaker specificity
-and ROC in the current M1Q checks. T100 keeps more data than T70 while still
-removing more questionable calibration days than T130.
+Rationale: T100 is the selected middle-ground AgBH monochromaticity threshold.
+It retains more model-input data than the strict T70 setting while excluding
+more questionable calibration days than T130. The comparative experiments that
+led to this choice are retained in the `experiment` branch, not in the product
+source tree.
 
 ## Cohort Rule
 

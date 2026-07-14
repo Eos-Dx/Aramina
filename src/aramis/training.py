@@ -29,8 +29,6 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import (
     RepeatedStratifiedKFold,
-    StratifiedKFold,
-    StratifiedShuffleSplit,
 )
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
@@ -44,6 +42,7 @@ from .model_utils import (
     compute_binary_thresholds,
     profile_matrix,
 )
+from .m2q_model import GatedSymmetryLogistic, SK_CORE4_FEATURE_COLUMNS
 from .training_config import (
     load_training_config,
     resolve_training_recipe,
@@ -55,7 +54,7 @@ PATIENT_BOOTSTRAP_SAMPLES = 2_000
 
 
 class PatientModelInputBuilder(BaseEstimator):
-    """Build target-breast cases used by Aramis M0/M1/M2 models.
+    """Build target-breast cases used by the fixed Aramis M2Q model.
 
     The input is a preprocessed measurement-level DataFrame. The builder first
     selects LR1 training rows according to the product policy, trains the profile
@@ -142,12 +141,12 @@ class PatientModelInputBuilder(BaseEstimator):
         return self.fit(x, y).transform(x)
 
 
-class PatientModelSetTrainer(BaseEstimator):
-    """Train selected Aramis target-breast models.
+class M2QModelTrainer(BaseEstimator):
+    """Train the fixed M2Q target-breast decision-support model.
 
     The trainer consumes the target-case feature table from
-    `PatientModelInputBuilder` and its retained LR1 measurement rows. M1/M1Q
-    and M2/M2Q use one final LogisticRegression. It receives SK terms only as
+    `PatientModelInputBuilder` and its retained LR1 measurement rows. M2Q uses
+    one final LogisticRegression. It receives SK terms only as
     a gated optional refinement: all SK terms are zero when contralateral data
     is unavailable. Reliability remains a report field, not a model feature.
     """
@@ -155,7 +154,6 @@ class PatientModelSetTrainer(BaseEstimator):
     def __init__(
         self,
         *,
-        selected_models: Sequence[str] = ("M0", "M0Q", "M1", "M1Q", "M2", "M2Q"),
         profile_column: str = "radial_profile_data",
         label_column: str = "product_status_group",
         lr1_logreg_c: float = 1.0,
@@ -163,7 +161,6 @@ class PatientModelSetTrainer(BaseEstimator):
         random_state: int = 42,
         target_sensitivity: float = 0.95,
     ) -> None:
-        self.selected_models = list(selected_models)
         self.profile_column = profile_column
         self.label_column = label_column
         self.lr1_logreg_c = lr1_logreg_c
@@ -175,35 +172,34 @@ class PatientModelSetTrainer(BaseEstimator):
         self,
         feature_table: pd.DataFrame,
         lr1_rows: pd.DataFrame,
-    ) -> "PatientModelSetTrainer":
-        """Fit final target-breast models and store them in `models_`."""
-        self.models_ = _fit_patient_model_set(
-            feature_table,
-            lr1_rows,
-            profile_column=self.profile_column,
-            label_column=self.label_column,
-            lr1_logreg_c=self.lr1_logreg_c,
-            lr2_logreg_c=self.lr2_logreg_c,
-            random_state=self.random_state,
-            target_sensitivity=self.target_sensitivity,
-            selected_models=self.selected_models,
-        )
+    ) -> "M2QModelTrainer":
+        """Fit the final M2Q model and store it in `models_`."""
+        self.models_ = {
+            "M2Q": _fit_m2q_model(
+                feature_table,
+                lr1_rows,
+                profile_column=self.profile_column,
+                label_column=self.label_column,
+                lr1_logreg_c=self.lr1_logreg_c,
+                lr2_logreg_c=self.lr2_logreg_c,
+                random_state=self.random_state,
+                target_sensitivity=self.target_sensitivity,
+            )
+        }
         return self
 
 
-class PatientModelSetEvaluator(BaseEstimator):
-    """Evaluate selected patient models under the requested validation mode.
+class M2QModelEvaluator(BaseEstimator):
+    """Evaluate M2Q with patient-safe repeated stratified K-fold.
 
-    Supported modes are `all_on_all`, `loovm`, `stratified_kfold`, and repeated
-    stratified patient-level 70/30 splits. All split modes operate at patient
-    level, so measurements from one patient cannot appear in both train and test.
+    All splits operate at patient level, so measurements from one patient cannot
+    appear in both train and test.
     """
 
     def __init__(
         self,
         *,
         config: dict[str, Any],
-        selected_models: Sequence[str],
         profile_column: str = "radial_profile_data",
         label_column: str = "product_status_group",
         group_column: str = "patientId",
@@ -219,7 +215,6 @@ class PatientModelSetEvaluator(BaseEstimator):
         target_sensitivity: float = 0.95,
     ) -> None:
         self.config = config
-        self.selected_models = list(selected_models)
         self.profile_column = profile_column
         self.label_column = label_column
         self.group_column = group_column
@@ -234,9 +229,9 @@ class PatientModelSetEvaluator(BaseEstimator):
         self.random_state = random_state
         self.target_sensitivity = target_sensitivity
 
-    def fit(self, x: pd.DataFrame, y: Any = None) -> "PatientModelSetEvaluator":
-        """Run evaluation and store `split_metrics_` and `split_predictions_`."""
-        self.split_metrics_, self.split_predictions_ = _evaluate_patient_model_set(
+    def fit(self, x: pd.DataFrame, y: Any = None) -> "M2QModelEvaluator":
+        """Store M2Q fold metrics and held-out predictions."""
+        self.split_metrics_, self.split_predictions_ = _evaluate_m2q_model(
             x,
             config=self.config,
             profile_column=self.profile_column,
@@ -252,7 +247,6 @@ class PatientModelSetEvaluator(BaseEstimator):
             lr2_logreg_c=self.lr2_logreg_c,
             random_state=self.random_state,
             target_sensitivity=self.target_sensitivity,
-            selected_models=self.selected_models,
         )
         return self
 
@@ -261,9 +255,8 @@ class AramisPatientTrainingPipeline(BaseEstimator):
     """Complete sklearn-compatible training estimator for Aramis patient models.
 
     This estimator is the product-level training unit. It receives a
-    measurement-level preprocessing DataFrame, builds the patient feature table,
-    fits selected M0/M0Q/M1/M1Q/M2/M2Q models, evaluates them, and exposes the
-    final traceable model artifact as `artifact_`.
+    measurement-level preprocessing DataFrame, builds target-breast features,
+    evaluates fixed M2Q, and exposes the final traceable model artifact.
     """
 
     def __init__(
@@ -295,33 +288,11 @@ class AramisPatientTrainingPipeline(BaseEstimator):
         age_column = str(model_config.get("age_column", "age"))
         biopsy_column = str(model_config.get("biopsy_column", "biopsy"))
         lr1_row_policy = str(model_config.get("lr1_row_policy", "all_rows"))
-        selected_models = _selected_patient_models(model_config)
         default_logreg_c = float(model_config.get("logreg_c", 1.0))
         lr1_logreg_c = float(model_config.get("lr1_logreg_c", default_logreg_c))
         lr2_logreg_c = float(model_config.get("lr2_logreg_c", default_logreg_c))
         random_state = int(evaluation_config.get("random_state", 42))
         target_sensitivity = float(evaluation_config.get("target_sensitivity", 0.95))
-        self.hyperparameter_selection_ = None
-        if evaluation_config.get("nested", {}).get("enabled", False):
-            self.hyperparameter_selection_ = _select_nested_hyperparameters(
-                x,
-                selected_models=selected_models,
-                evaluation_config=evaluation_config,
-                profile_column=profile_column,
-                label_column=label_column,
-                group_column=group_column,
-                specimen_column=specimen_column,
-                side_column=side_column,
-                q_column=q_column,
-                age_column=age_column,
-                biopsy_column=biopsy_column,
-                lr1_row_policy=lr1_row_policy,
-                random_state=random_state,
-                target_sensitivity=target_sensitivity,
-            )
-            lr1_logreg_c = float(self.hyperparameter_selection_["lr1_c"])
-            lr2_logreg_c = float(self.hyperparameter_selection_["lr2_c"])
-
         self.input_builder_ = PatientModelInputBuilder(
             profile_column=profile_column,
             label_column=label_column,
@@ -336,9 +307,8 @@ class AramisPatientTrainingPipeline(BaseEstimator):
             random_state=random_state,
         )
         self.feature_table_ = self.input_builder_.fit_transform(x)
-        self.evaluator_ = PatientModelSetEvaluator(
+        self.evaluator_ = M2QModelEvaluator(
             config=self.config,
-            selected_models=selected_models,
             profile_column=profile_column,
             label_column=label_column,
             group_column=group_column,
@@ -354,8 +324,7 @@ class AramisPatientTrainingPipeline(BaseEstimator):
             target_sensitivity=target_sensitivity,
         )
         self.evaluator_.fit(x)
-        self.model_trainer_ = PatientModelSetTrainer(
-            selected_models=selected_models,
+        self.model_trainer_ = M2QModelTrainer(
             profile_column=profile_column,
             label_column=label_column,
             lr1_logreg_c=lr1_logreg_c,
@@ -371,13 +340,11 @@ class AramisPatientTrainingPipeline(BaseEstimator):
             input_dataframe_joblib_path=self.input_dataframe_joblib_path,
             preprocessing_artifact=self.preprocessing_artifact,
             prediction_preprocessing=self.prediction_preprocessing,
-            selected_models=selected_models,
             models=self.model_trainer_.models_,
             feature_table=self.feature_table_,
             lr1_rows=self.input_builder_.lr1_rows_,
             split_metrics=self.evaluator_.split_metrics_,
             split_predictions=self.evaluator_.split_predictions_,
-            hyperparameter_selection=self.hyperparameter_selection_,
         )
         return self
 
@@ -442,16 +409,12 @@ def run_training_from_config(
         dataframe, loaded_artifact = _load_training_dataframe(input_path)
         preprocessing_artifact = preprocessing_artifact or loaded_artifact
     df = dataframe
-    if preprocessing_artifact is None:
-        preprocessing_artifact = {
-            "preprocessing_config_yaml": None,
-            "metadata": {"preprocessing_provenance": "unavailable"},
-        }
+    _require_preprocessing_lineage(preprocessing_artifact)
 
     model_type = str(config["model"]["type"])
-    if model_type != "patient_m0_m1_m2_logistic_set":
+    if model_type != "m2q_gated_target_case":
         raise ValueError(f"Unsupported training model.type: {model_type!r}")
-    artifact = train_patient_m0_m1_m2_model_artifact(
+    artifact = train_m2q_model_artifact(
         df,
         config=config,
         config_text=config_text,
@@ -492,7 +455,7 @@ def run_training_from_config(
     return model_artifact
 
 
-def train_patient_m0_m1_m2_model_artifact(
+def train_m2q_model_artifact(
     df: pd.DataFrame,
     *,
     config: dict[str, Any],
@@ -501,7 +464,7 @@ def train_patient_m0_m1_m2_model_artifact(
     preprocessing_artifact: dict[str, Any],
     prediction_preprocessing: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Train one artifact containing M0, M1, and M2 target-breast models."""
+    """Train one traceable M2Q target-breast model artifact."""
     pipeline = build_patient_training_pipeline(
         config=config,
         config_text=config_text,
@@ -514,15 +477,27 @@ def train_patient_m0_m1_m2_model_artifact(
 
 
 def _load_training_dataframe(path: Path) -> tuple[pd.DataFrame, dict[str, Any]]:
-    """Load a preprocessing artifact or explicitly unsupported-provenance DataFrame."""
+    """Load a traceable preprocessing artifact for product training."""
     value = joblib.load(path)
     if isinstance(value, pd.DataFrame):
-        return value, {
-            "preprocessing_config_yaml": None,
-            "metadata": {"preprocessing_provenance": "unavailable"},
-        }
+        raise ValueError(
+            "Training requires a preprocessing artifact joblib, not a plain DataFrame. "
+            "Run `aramis preprocess` or `aramis preprocess-train` first."
+        )
     artifact = load_preprocessing_artifact(path)
+    _require_preprocessing_lineage(artifact)
     return load_preprocessing_dataframe(path), artifact
+
+
+def _require_preprocessing_lineage(artifact: dict[str, Any] | None) -> None:
+    """Require the resolved preprocessing YAML and input H5 checksum."""
+    if not isinstance(artifact, dict):
+        raise ValueError("Training requires a preprocessing artifact with provenance.")
+    if not isinstance(artifact.get("preprocessing_config_yaml"), str):
+        raise ValueError("Training artifact is missing preprocessing_config_yaml.")
+    metadata = artifact.get("metadata")
+    if not isinstance(metadata, dict) or not metadata.get("input_h5_sha256"):
+        raise ValueError("Training artifact is missing metadata.input_h5_sha256.")
 
 
 def _patient_training_artifact(
@@ -533,13 +508,11 @@ def _patient_training_artifact(
     input_dataframe_joblib_path: str | Path,
     preprocessing_artifact: dict[str, Any],
     prediction_preprocessing: dict[str, Any] | None,
-    selected_models: Sequence[str],
     models: dict[str, Any],
     feature_table: pd.DataFrame,
     lr1_rows: pd.DataFrame,
     split_metrics: pd.DataFrame,
     split_predictions: pd.DataFrame,
-    hyperparameter_selection: dict[str, Any] | None,
 ) -> dict[str, Any]:
     """Build the traceable joblib payload for target-breast model training."""
     evaluation_config = config.get("evaluation", {})
@@ -553,15 +526,19 @@ def _patient_training_artifact(
     )
     dataset_summary = _patient_dataset_summary(df, feature_table, lr1_rows)
     model_descriptions = {
-        name: description
-        for name, description in _patient_model_descriptions().items()
-        if name in selected_models
+        "M2Q": {
+            "name": "M2Q profile, gated SK Core4 refinement, and age",
+            "description": (
+                "One final model: profile and age are always evaluated; SK Core4 "
+                "adds a neutral-gated refinement only when paired symmetry is available."
+            ),
+        }
     }
     return {
         "kind": "aramis_training_artifact",
         "version": "0.3",
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "model_type": "patient_m0_m1_m2_logistic_set",
+        "model_type": "m2q_gated_target_case",
         "model_columns": {
             key: config["model"][key]
             for key in (
@@ -574,8 +551,8 @@ def _patient_training_artifact(
         },
         "models": models,
         "model_descriptions": model_descriptions,
-        "feature_schema": _patient_model_feature_schema(selected_models),
-        "warnings": _patient_model_warnings(config, selected_models, feature_table),
+        "feature_schema": _m2q_feature_schema(),
+        "warnings": _m2q_warnings(config, feature_table),
         "training_config_yaml": config_text,
         "prediction_contract_yaml": yaml.safe_dump(
             config["prediction_contract"], sort_keys=False
@@ -589,7 +566,6 @@ def _patient_training_artifact(
         "metric_summary": metric_summary,
         "split_metrics": split_metrics,
         "split_predictions": split_predictions,
-        "hyperparameter_selection": hyperparameter_selection,
         "metadata": {
             "aramis_version": _aramis_version(),
             "aramis_git_sha": _aramis_git_sha(),
@@ -645,7 +621,7 @@ def _fit_patient_model_input(
     return feature_table, lr1_rows
 
 
-def _fit_patient_model_set(
+def _fit_m2q_model(
     feature_table: pd.DataFrame,
     lr1_rows: pd.DataFrame,
     *,
@@ -655,75 +631,29 @@ def _fit_patient_model_set(
     lr2_logreg_c: float,
     random_state: int,
     target_sensitivity: float,
-    selected_models: Sequence[str],
 ) -> dict[str, Any]:
+    """Fit the fixed two-layer M2Q model on all accepted target cases."""
     lr1_model = _profile_logistic(logreg_c=lr1_logreg_c, random_state=random_state)
     lr1_model.fit(profile_matrix(lr1_rows, profile_column), _row_labels(lr1_rows, label_column))
     y = feature_table["label"].to_numpy(dtype=int)
-    models = {}
-    for model_name in ("M0", "M0Q"):
-        if model_name not in selected_models:
-            continue
-        models[model_name] = {
-            "name": _patient_model_descriptions()[model_name]["name"],
-            "lr1_model": lr1_model,
-            "final_model": None,
-            "feature_columns": ["profile_p_cancer_logit_average"],
-            "thresholds": compute_binary_thresholds(
-                y,
-                feature_table["profile_p_cancer_logit_average"].to_numpy(dtype=float),
-                target_sensitivity=target_sensitivity,
-            ),
-        }
-    for model_name, columns in _patient_model_feature_columns().items():
-        if model_name not in selected_models:
-            continue
-        if model_name == "M0Q":
-            continue
-        if model_name in _gated_model_names():
-            final_model = GatedSymmetryLogistic(
-                include_age=model_name in {"M2", "M2Q"},
-                logreg_c=lr2_logreg_c,
-                random_state=random_state,
-            ).fit(feature_table, y)
-            score = final_model.predict_proba(feature_table)[:, 1]
-            models[model_name] = {
-                "name": _patient_model_descriptions()[model_name]["name"],
-                "lr1_model": lr1_model,
-                "final_model": final_model,
-                "feature_columns": _gated_model_input_columns(model_name),
-                "symmetry_policy": "single_model_gated_optional_refinement",
-                "symmetry_gate": "symmetry_available",
-                "thresholds": compute_binary_thresholds(
-                    y,
-                    score,
-                    target_sensitivity=target_sensitivity,
-                ),
-            }
-            continue
-        final_model = _scalar_logistic(logreg_c=lr2_logreg_c, random_state=random_state)
-        final_model.fit(feature_table[columns], y)
-        score = final_model.predict_proba(feature_table[columns])[:, 1]
-        models[model_name] = {
-            "name": _patient_model_descriptions()[model_name]["name"],
-            "lr1_model": lr1_model,
-            "final_model": final_model,
-            "feature_columns": columns,
-            "thresholds": compute_binary_thresholds(
-                y,
-                score,
-                target_sensitivity=target_sensitivity,
-            ),
-        }
-    return models
-
-
-def _apply_oof_thresholds(
-    models: dict[str, Any],
-    thresholds_by_model: dict[str, dict[str, dict[str, Any]]],
-) -> None:
-    for model_name, route_thresholds in thresholds_by_model.items():
-        models[model_name]["thresholds"] = dict(route_thresholds["default"])
+    final_model = GatedSymmetryLogistic(
+        logreg_c=lr2_logreg_c,
+        random_state=random_state,
+    ).fit(feature_table, y)
+    score = final_model.predict_proba(feature_table)[:, 1]
+    return {
+        "name": "M2Q profile, gated SK Core4 refinement, and age",
+        "lr1_model": lr1_model,
+        "final_model": final_model,
+        "feature_columns": _m2q_model_input_columns(),
+        "symmetry_policy": "single_model_gated_optional_refinement",
+        "symmetry_gate": "symmetry_available",
+        "thresholds": compute_binary_thresholds(
+            y,
+            score,
+            target_sensitivity=target_sensitivity,
+        ),
+    }
 
 
 def _fit_split_feature_tables(
@@ -796,215 +726,7 @@ def _fit_split_feature_tables(
     return train_features, test_features
 
 
-def _select_nested_hyperparameters(
-    df: pd.DataFrame,
-    *,
-    selected_models: Sequence[str],
-    evaluation_config: dict[str, Any],
-    profile_column: str,
-    label_column: str,
-    group_column: str,
-    specimen_column: str,
-    side_column: str,
-    q_column: str,
-    age_column: str,
-    biopsy_column: str,
-    lr1_row_policy: str,
-    random_state: int,
-    target_sensitivity: float,
-) -> dict[str, Any]:
-    nested = evaluation_config.get("nested", {})
-    c1_grid = [float(value) for value in nested.get("lr1_c_grid", [0.1, 0.3])]
-    c2_grid = [float(value) for value in nested.get("lr2_c_grid", [0.1, 0.3])]
-    inner_n_splits = int(nested.get("inner_n_splits", 4))
-    inner_n_repeats = int(nested.get("inner_n_repeats", 1))
-    candidates = []
-    for lr1_c in c1_grid:
-        for lr2_c in c2_grid:
-            oof = _inner_oof_model_scores(
-                df,
-                selected_models=["M2Q"],
-                profile_column=profile_column,
-                label_column=label_column,
-                group_column=group_column,
-                specimen_column=specimen_column,
-                side_column=side_column,
-                q_column=q_column,
-                age_column=age_column,
-                biopsy_column=biopsy_column,
-                lr1_row_policy=lr1_row_policy,
-                lr1_logreg_c=lr1_c,
-                lr2_logreg_c=lr2_c,
-                n_splits=inner_n_splits,
-                n_repeats=inner_n_repeats,
-                random_state=random_state,
-            )["M2Q"]
-            candidates.append(
-                {
-                    "lr1_c": lr1_c,
-                    "lr2_c": lr2_c,
-                    "roc_auc": float(
-                        roc_auc_score(oof["label"], oof["operational_score"])
-                    ),
-                }
-            )
-    selected = max(
-        candidates,
-        key=lambda row: (row["roc_auc"], -row["lr1_c"], -row["lr2_c"]),
-    )
-    selected_oof = _inner_oof_model_scores(
-        df,
-        selected_models=selected_models,
-        profile_column=profile_column,
-        label_column=label_column,
-        group_column=group_column,
-        specimen_column=specimen_column,
-        side_column=side_column,
-        q_column=q_column,
-        age_column=age_column,
-        biopsy_column=biopsy_column,
-        lr1_row_policy=lr1_row_policy,
-        lr1_logreg_c=selected["lr1_c"],
-        lr2_logreg_c=selected["lr2_c"],
-        n_splits=inner_n_splits,
-        n_repeats=inner_n_repeats,
-        random_state=random_state,
-    )
-    return {
-        **selected,
-        "selection_metric": "inner_oof_operational_roc_auc",
-        "candidate_metrics": candidates,
-        "thresholds": {
-            model_name: _oof_thresholds(
-                frame,
-                target_sensitivity=target_sensitivity,
-            )
-            for model_name, frame in selected_oof.items()
-        },
-    }
-
-
-def _inner_oof_model_scores(
-    df: pd.DataFrame,
-    *,
-    selected_models: Sequence[str],
-    profile_column: str,
-    label_column: str,
-    group_column: str,
-    specimen_column: str,
-    side_column: str,
-    q_column: str,
-    age_column: str,
-    biopsy_column: str,
-    lr1_row_policy: str,
-    lr1_logreg_c: float,
-    lr2_logreg_c: float,
-    n_splits: int,
-    n_repeats: int,
-    random_state: int,
-) -> dict[str, pd.DataFrame]:
-    base_features = _patient_feature_table(
-        df,
-        _empty_lr1_scores(
-            df,
-            group_column=group_column,
-            side_column=side_column,
-            label_column=label_column,
-            biopsy_column=biopsy_column,
-        ),
-        profile_column=profile_column,
-        label_column=label_column,
-        group_column=group_column,
-        specimen_column=specimen_column,
-        side_column=side_column,
-        q_column=q_column,
-        age_column=age_column,
-        biopsy_column=biopsy_column,
-    )
-    records: dict[str, list[pd.DataFrame]] = {
-        model_name: [] for model_name in selected_models
-    }
-    for split_id, (train_idx, test_idx) in enumerate(
-        _patient_split_pairs(
-            mode="stratified_kfold",
-            base_features=base_features,
-            y_patients=base_features["label"].to_numpy(dtype=int),
-            n_splits=n_splits,
-            n_repeats=n_repeats,
-            test_size=0.30,
-            random_state=random_state,
-        )
-    ):
-        train_patients = set(base_features.iloc[train_idx]["patientId"].astype(str))
-        test_patients = set(base_features.iloc[test_idx]["patientId"].astype(str))
-        train_df = df[df[group_column].astype(str).isin(train_patients)].copy()
-        test_df = df[df[group_column].astype(str).isin(test_patients)].copy()
-        train_features, test_features = _fit_split_feature_tables(
-            train_df,
-            test_df,
-            profile_column=profile_column,
-            label_column=label_column,
-            group_column=group_column,
-            specimen_column=specimen_column,
-            side_column=side_column,
-            q_column=q_column,
-            age_column=age_column,
-            biopsy_column=biopsy_column,
-            lr1_row_policy=lr1_row_policy,
-            lr1_logreg_c=lr1_logreg_c,
-            random_state=random_state + split_id,
-        )
-        for model_name in selected_models:
-            (
-                _,
-                test_score,
-                _,
-                test_routes,
-                _,
-                test_route_scores,
-            ) = _split_model_scores(
-                model_name,
-                train_features,
-                test_features,
-                lr2_logreg_c=lr2_logreg_c,
-                random_state=random_state + split_id,
-            )
-            out = test_features[[TARGET_CASE_ID, "patientId", "label"]].copy()
-            out["operational_score"] = test_score
-            out["model_route"] = test_routes
-            records[model_name].append(out)
-    return {
-        model_name: _average_oof_target_case_scores(pd.concat(frames, ignore_index=True))
-        for model_name, frames in records.items()
-    }
-
-
-def _average_oof_target_case_scores(frame: pd.DataFrame) -> pd.DataFrame:
-    aggregations: dict[str, tuple[str, str]] = {
-        "patientId": ("patientId", "first"),
-        "label": ("label", "first"),
-        "operational_score": ("operational_score", "mean"),
-        "model_route": ("model_route", "first"),
-    }
-    return frame.groupby(TARGET_CASE_ID, as_index=False).agg(**aggregations)
-
-
-def _oof_thresholds(
-    oof: pd.DataFrame,
-    *,
-    target_sensitivity: float,
-) -> dict[str, dict[str, Any]]:
-    y = oof["label"].to_numpy(dtype=int)
-    return {
-        "default": compute_binary_thresholds(
-            y,
-            oof["operational_score"].to_numpy(dtype=float),
-            target_sensitivity=target_sensitivity,
-        )
-    }
-
-
-def _evaluate_patient_model_set(
+def _evaluate_m2q_model(
     df: pd.DataFrame,
     *,
     config: dict[str, Any],
@@ -1021,14 +743,11 @@ def _evaluate_patient_model_set(
     lr2_logreg_c: float,
     random_state: int,
     target_sensitivity: float,
-    selected_models: Sequence[str],
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     evaluation_config = config.get("evaluation", {})
     mode = _evaluation_mode(evaluation_config)
-    n_splits = int(evaluation_config.get("n_splits", 20))
-    n_repeats = int(evaluation_config.get("n_repeats", 1))
-    test_size = float(evaluation_config.get("test_size", 0.30))
-    nested_enabled = bool(evaluation_config.get("nested", {}).get("enabled", False))
+    n_splits = int(evaluation_config["n_splits"])
+    n_repeats = int(evaluation_config["n_repeats"])
     base_features = _patient_feature_table(
         df,
         _empty_lr1_scores(
@@ -1047,24 +766,6 @@ def _evaluate_patient_model_set(
         age_column=age_column,
         biopsy_column=biopsy_column,
     )
-    if mode == "all_on_all":
-        return _evaluate_patient_all_on_all(
-            df,
-            profile_column=profile_column,
-            label_column=label_column,
-            group_column=group_column,
-            specimen_column=specimen_column,
-            side_column=side_column,
-            q_column=q_column,
-            age_column=age_column,
-            biopsy_column=biopsy_column,
-            lr1_row_policy=lr1_row_policy,
-            lr1_logreg_c=lr1_logreg_c,
-            lr2_logreg_c=lr2_logreg_c,
-            random_state=random_state,
-            target_sensitivity=target_sensitivity,
-            selected_models=selected_models,
-        )
     metrics = []
     predictions = []
     y_patients = base_features["label"].to_numpy(dtype=int)
@@ -1074,7 +775,6 @@ def _evaluate_patient_model_set(
         y_patients=y_patients,
         n_splits=n_splits,
         n_repeats=n_repeats,
-        test_size=test_size,
         random_state=random_state,
     )
     for split_id, (train_idx, test_idx) in enumerate(split_pairs):
@@ -1086,28 +786,6 @@ def _evaluate_patient_model_set(
             set(test_df[group_column].astype(str))
         ):
             raise RuntimeError("Patient leakage detected in training split.")
-        nested_selection = None
-        split_lr1_c = lr1_logreg_c
-        split_lr2_c = lr2_logreg_c
-        if nested_enabled:
-            nested_selection = _select_nested_hyperparameters(
-                train_df,
-                selected_models=selected_models,
-                evaluation_config=evaluation_config,
-                profile_column=profile_column,
-                label_column=label_column,
-                group_column=group_column,
-                specimen_column=specimen_column,
-                side_column=side_column,
-                q_column=q_column,
-                age_column=age_column,
-                biopsy_column=biopsy_column,
-                lr1_row_policy=lr1_row_policy,
-                random_state=random_state + split_id,
-                target_sensitivity=target_sensitivity,
-            )
-            split_lr1_c = float(nested_selection["lr1_c"])
-            split_lr2_c = float(nested_selection["lr2_c"])
         train_features, test_features = _fit_split_feature_tables(
             train_df,
             test_df,
@@ -1120,167 +798,61 @@ def _evaluate_patient_model_set(
             age_column=age_column,
             biopsy_column=biopsy_column,
             lr1_row_policy=lr1_row_policy,
-            lr1_logreg_c=split_lr1_c,
+            lr1_logreg_c=lr1_logreg_c,
             random_state=random_state + split_id,
         )
-        for model_name in selected_models:
-            (
-                train_score,
-                test_score,
-                train_routes,
-                test_routes,
-                train_route_scores,
-                test_route_scores,
-            ) = _split_model_scores(
-                model_name,
+        final_model = GatedSymmetryLogistic(
+            logreg_c=lr2_logreg_c,
+            random_state=random_state + split_id,
+        ).fit(train_features, train_features["label"].to_numpy(dtype=int))
+        train_score = final_model.predict_proba(train_features)[:, 1]
+        test_score = final_model.predict_proba(test_features)[:, 1]
+        thresholds = compute_binary_thresholds(
+            train_features["label"].to_numpy(dtype=int),
+            train_score,
+            target_sensitivity=target_sensitivity,
+        )
+        thresholds["selected_lr1_c"] = lr1_logreg_c
+        thresholds["selected_lr2_c"] = lr2_logreg_c
+        test_thresholds = np.full(
+            len(test_features),
+            thresholds["threshold_target"],
+            dtype=float,
+        )
+        metrics.append(
+            _patient_metric_row(
+                "M2Q",
+                split_id,
                 train_features,
                 test_features,
-                lr2_logreg_c=split_lr2_c,
-                random_state=random_state + split_id,
+                test_score,
+                thresholds,
+                test_thresholds,
+                evaluation_mode=mode,
+                evaluation_view="operational",
             )
-            route_thresholds = (
-                nested_selection["thresholds"][model_name]
-                if nested_selection is not None
-                else _route_thresholds(
-                    train_features["label"].to_numpy(dtype=int),
-                    train_route_scores,
-                    target_sensitivity=target_sensitivity,
-                )
+        )
+        predictions.append(
+            _patient_prediction_frame(
+                "M2Q",
+                split_id,
+                test_features,
+                test_score,
+                thresholds,
+                _default_routes(test_features),
+                test_thresholds,
+                evaluation_mode=mode,
+                evaluation_view="operational",
             )
-            thresholds = _threshold_summary(route_thresholds)
-            thresholds["selected_lr1_c"] = split_lr1_c
-            thresholds["selected_lr2_c"] = split_lr2_c
-            test_thresholds = _route_threshold_values(test_routes, route_thresholds)
-            if mode != "loovm":
-                metrics.append(
-                    _patient_metric_row(
-                        model_name,
-                        split_id,
-                        train_features,
-                        test_features,
-                        test_score,
-                        thresholds,
-                        test_thresholds,
-                        evaluation_mode=mode,
-                        evaluation_view="operational",
-                    )
-                )
-            predictions.append(
-                _patient_prediction_frame(
-                    model_name,
-                    split_id,
-                    test_features,
-                    test_score,
-                    thresholds,
-                    test_routes,
-                    test_thresholds,
-                    evaluation_mode=mode,
-                    evaluation_view="operational",
-                )
-            )
+        )
     prediction_frame = pd.concat(predictions, ignore_index=True)
-    if mode == "loovm":
-        return (
-            _pooled_patient_metrics(prediction_frame, evaluation_mode=mode),
-            prediction_frame,
-        )
-    return (
-        pd.DataFrame(metrics),
-        prediction_frame,
-    )
-
-
-def _split_model_scores(
-    model_name: str,
-    train_features: pd.DataFrame,
-    test_features: pd.DataFrame,
-    *,
-    lr2_logreg_c: float,
-    random_state: int,
-) -> tuple[
-    np.ndarray,
-    np.ndarray,
-    np.ndarray,
-    np.ndarray,
-    dict[str, np.ndarray],
-    dict[str, np.ndarray],
-]:
-    if model_name in {"M0", "M0Q"}:
-        train_score = train_features["profile_p_cancer_logit_average"].to_numpy(dtype=float)
-        test_score = test_features["profile_p_cancer_logit_average"].to_numpy(dtype=float)
-        return (
-            train_score,
-            test_score,
-            _default_routes(train_score),
-            _default_routes(test_score),
-            {"default": train_score},
-            {"default": test_score},
-        )
-    if model_name in _gated_model_names():
-        model = GatedSymmetryLogistic(
-            include_age=model_name in {"M2", "M2Q"},
-            logreg_c=lr2_logreg_c,
-            random_state=random_state,
-        ).fit(train_features, train_features["label"].to_numpy(dtype=int))
-        train_score = model.predict_proba(train_features)[:, 1]
-        test_score = model.predict_proba(test_features)[:, 1]
-        return (
-            train_score,
-            test_score,
-            _default_routes(train_features),
-            _default_routes(test_features),
-            {"default": train_score},
-            {"default": test_score},
-        )
-    columns = _patient_model_feature_columns()[model_name]
-    model = _scalar_logistic(logreg_c=lr2_logreg_c, random_state=random_state)
-    model.fit(train_features[columns], train_features["label"].to_numpy(dtype=int))
-    return (
-        model.predict_proba(train_features[columns])[:, 1],
-        model.predict_proba(test_features[columns])[:, 1],
-        _default_routes(train_features),
-        _default_routes(test_features),
-        {"default": model.predict_proba(train_features[columns])[:, 1]},
-        {"default": model.predict_proba(test_features[columns])[:, 1]},
-    )
-
-
-def _selected_patient_models(model_config: dict[str, Any]) -> list[str]:
-    selected = model_config.get(
-        "selected_models",
-        ["M1Q"],
-    )
-    if isinstance(selected, str):
-        selected = [selected]
-    out = [str(model_name).upper() for model_name in selected]
-    supported = {"A0", "M0", "M0Q", "M1", "M1Q", "M2", "M2Q"}
-    unknown = [model_name for model_name in out if model_name not in supported]
-    if unknown:
-        raise ValueError(f"Unsupported patient models: {unknown}")
-    return out
+    return pd.DataFrame(metrics), prediction_frame
 
 
 def _evaluation_mode(evaluation_config: dict[str, Any]) -> str:
-    mode = str(evaluation_config.get("mode", "repeated_stratified_shuffle")).lower()
-    aliases = {
-        "70_30": "repeated_stratified_shuffle",
-        "repeated_70_30": "repeated_stratified_shuffle",
-        "patient_70_30": "repeated_stratified_shuffle",
-        "loo": "loovm",
-        "loocv": "loovm",
-        "leave_one_out": "loovm",
-        "leave_one_patient_out": "loovm",
-        "train_all": "all_on_all",
-        "train-on-all": "all_on_all",
-        "all-on-all": "all_on_all",
-        "kfold": "stratified_kfold",
-        "stratified-kfold": "stratified_kfold",
-    }
-    mode = aliases.get(mode, mode)
-    supported = {"repeated_stratified_shuffle", "stratified_kfold", "loovm", "all_on_all"}
-    if mode not in supported:
-        raise ValueError(f"Unsupported evaluation.mode: {mode!r}")
-    return mode
+    if evaluation_config.get("mode") != "stratified_kfold":
+        raise ValueError("The product evaluator supports only stratified_kfold.")
+    return "stratified_kfold"
 
 
 def _patient_split_pairs(
@@ -1290,7 +862,6 @@ def _patient_split_pairs(
     y_patients: np.ndarray,
     n_splits: int,
     n_repeats: int,
-    test_size: float,
     random_state: int,
 ) -> list[tuple[np.ndarray, np.ndarray]]:
     patient_table = (
@@ -1298,7 +869,6 @@ def _patient_split_pairs(
         .max()
         .assign(patientId=lambda frame: frame["patientId"].astype(str))
     )
-    patient_indices = np.arange(len(patient_table))
     patient_labels = patient_table["label"].to_numpy(dtype=int)
 
     def case_indices(patient_index: np.ndarray) -> np.ndarray:
@@ -1307,220 +877,25 @@ def _patient_split_pairs(
             base_features["patientId"].astype(str).isin(patient_ids)
         ].to_numpy()
 
-    if mode == "repeated_stratified_shuffle":
-        splitter = StratifiedShuffleSplit(
-            n_splits=n_splits,
-            test_size=test_size,
-            random_state=random_state,
-        )
-        return [
-            (case_indices(train_index), case_indices(test_index))
-            for train_index, test_index in splitter.split(patient_table, patient_labels)
-        ]
-    if mode == "stratified_kfold":
-        if n_repeats > 1:
-            splitter = RepeatedStratifiedKFold(
-                n_splits=n_splits,
-                n_repeats=n_repeats,
-                random_state=random_state,
-            )
-            return [
-                (case_indices(train_index), case_indices(test_index))
-                for train_index, test_index in splitter.split(patient_table, patient_labels)
-            ]
-        splitter = StratifiedKFold(
-            n_splits=n_splits,
-            shuffle=True,
-            random_state=random_state,
-        )
-        return [
-            (case_indices(train_index), case_indices(test_index))
-            for train_index, test_index in splitter.split(patient_table, patient_labels)
-        ]
-    if mode == "loovm":
-        return [
-            (case_indices(np.delete(patient_indices, test_idx)), case_indices(np.asarray([test_idx])))
-            for test_idx in range(len(patient_indices))
-        ]
-    raise ValueError(f"Unsupported split mode: {mode!r}")
-
-
-def _evaluate_patient_all_on_all(
-    df: pd.DataFrame,
-    *,
-    profile_column: str,
-    label_column: str,
-    group_column: str,
-    specimen_column: str,
-    side_column: str,
-    q_column: str,
-    age_column: str,
-    biopsy_column: str,
-    lr1_row_policy: str,
-    lr1_logreg_c: float,
-    lr2_logreg_c: float,
-    random_state: int,
-    target_sensitivity: float,
-    selected_models: Sequence[str],
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    feature_table, lr1_rows = _fit_patient_model_input(
-        df,
-        profile_column=profile_column,
-        label_column=label_column,
-        group_column=group_column,
-        specimen_column=specimen_column,
-        side_column=side_column,
-        q_column=q_column,
-        age_column=age_column,
-        biopsy_column=biopsy_column,
-        lr1_row_policy=lr1_row_policy,
-        lr1_logreg_c=lr1_logreg_c,
+    if mode != "stratified_kfold":
+        raise ValueError(f"Unsupported product split mode: {mode!r}")
+    splitter = RepeatedStratifiedKFold(
+        n_splits=n_splits,
+        n_repeats=n_repeats,
         random_state=random_state,
     )
-    lr1_model = _profile_logistic(logreg_c=lr1_logreg_c, random_state=random_state)
-    lr1_model.fit(profile_matrix(lr1_rows, profile_column), _row_labels(lr1_rows, label_column))
-    metrics = []
-    predictions = []
-    for model_name in selected_models:
-        (
-            train_score,
-            score,
-            train_routes,
-            routes,
-            train_route_scores,
-            route_scores,
-        ) = _split_model_scores(
-            model_name,
-            feature_table,
-            feature_table,
-            lr2_logreg_c=lr2_logreg_c,
-            random_state=random_state,
-        )
-        route_thresholds = _route_thresholds(
-            feature_table["label"].to_numpy(dtype=int),
-            train_route_scores,
-            target_sensitivity=target_sensitivity,
-        )
-        thresholds = _threshold_summary(route_thresholds)
-        decision_thresholds = _route_threshold_values(routes, route_thresholds)
-        metrics.append(
-            _patient_metric_row(
-                model_name,
-                0,
-                feature_table,
-                feature_table,
-                score,
-                thresholds,
-                decision_thresholds,
-                evaluation_mode="all_on_all",
-                evaluation_view="operational",
-            )
-        )
-        predictions.append(
-            _patient_prediction_frame(
-                model_name,
-                0,
-                feature_table,
-                score,
-                thresholds,
-                routes,
-                decision_thresholds,
-                evaluation_mode="all_on_all",
-                evaluation_view="operational",
-            )
-        )
-    return pd.DataFrame(metrics), pd.concat(predictions, ignore_index=True)
+    return [
+        (case_indices(train_index), case_indices(test_index))
+        for train_index, test_index in splitter.split(patient_table, patient_labels)
+    ]
 
 
-SK_CORE4_FEATURE_COLUMNS = (
-    "sk_wasserstein_distance_full_q2",
-    "sk_weightedrms1",
-    "sk_weightedrms2",
-    "sk_mean_peak_value_abs_delta",
-)
-
-
-class GatedSymmetryLogistic(BaseEstimator):
-    """One LR2 model with a neutral symmetry correction when pairing is absent.
-
-    The base profile and optional age terms are always evaluated. SK Core4
-    terms are standardized from paired training cases only and are set to zero
-    whenever `symmetry_available` is false. The availability flag is therefore
-    a gate, not a learned diagnostic predictor and not a second LR2 route.
-    """
-
-    def __init__(
-        self,
-        *,
-        include_age: bool,
-        logreg_c: float = 0.1,
-        random_state: int = 42,
-    ) -> None:
-        self.include_age = include_age
-        self.logreg_c = logreg_c
-        self.random_state = random_state
-
-    def fit(self, x: pd.DataFrame, y: np.ndarray) -> "GatedSymmetryLogistic":
-        base = x.loc[:, self.base_feature_columns_].apply(pd.to_numeric, errors="coerce")
-        self.base_fill_values_ = base.median().fillna(0.0)
-        base_values = base.fillna(self.base_fill_values_).to_numpy(dtype=float)
-        self.base_scaler_ = StandardScaler().fit(base_values)
-
-        paired = x["symmetry_available"].astype(bool).to_numpy()
-        symmetry = x.loc[:, SK_CORE4_FEATURE_COLUMNS].apply(pd.to_numeric, errors="coerce")
-        paired_values = symmetry.loc[paired]
-        self.symmetry_means_ = paired_values.mean().fillna(0.0)
-        self.symmetry_scales_ = paired_values.std(ddof=0).replace(0.0, 1.0).fillna(1.0)
-
-        self.logreg_ = LogisticRegression(
-            C=float(self.logreg_c),
-            class_weight="balanced",
-            max_iter=5000,
-            random_state=int(self.random_state),
-            solver="lbfgs",
-        ).fit(self._matrix(x), np.asarray(y, dtype=int))
-        self.feature_names_ = [
-            *self.base_feature_columns_,
-            *(f"gated_{column}" for column in SK_CORE4_FEATURE_COLUMNS),
-        ]
-        return self
-
-    @property
-    def base_feature_columns_(self) -> list[str]:
-        return [
-            "profile_p_cancer_logit_average",
-            *( ["age", "age_available"] if self.include_age else [] ),
-        ]
-
-    def predict_proba(self, x: pd.DataFrame) -> np.ndarray:
-        return self.logreg_.predict_proba(self._matrix(x))
-
-    def _matrix(self, x: pd.DataFrame) -> np.ndarray:
-        base = x.loc[:, self.base_feature_columns_].apply(pd.to_numeric, errors="coerce")
-        base_scaled = self.base_scaler_.transform(
-            base.fillna(self.base_fill_values_).to_numpy(dtype=float)
-        )
-        paired = x["symmetry_available"].astype(bool).to_numpy()
-        symmetry = x.loc[:, SK_CORE4_FEATURE_COLUMNS].apply(
-            pd.to_numeric,
-            errors="coerce",
-        ).fillna(self.symmetry_means_)
-        symmetry_scaled = (
-            symmetry.to_numpy(dtype=float) - self.symmetry_means_.to_numpy(dtype=float)
-        ) / self.symmetry_scales_.to_numpy(dtype=float)
-        symmetry_scaled[~paired, :] = 0.0
-        return np.hstack([base_scaled, symmetry_scaled])
-
-
-def _gated_model_names() -> set[str]:
-    return {"M1", "M1Q", "M2", "M2Q"}
-
-
-def _gated_model_input_columns(model_name: str) -> list[str]:
-    include_age = model_name in {"M2", "M2Q"}
+def _m2q_model_input_columns() -> list[str]:
+    """Return the fixed M2Q feature contract in report order."""
     return [
         "profile_p_cancer_logit_average",
-        *(["age", "age_available"] if include_age else []),
+        "age",
+        "age_available",
         *SK_CORE4_FEATURE_COLUMNS,
         "symmetry_available",
     ]
@@ -1530,98 +905,16 @@ def _default_routes(values: Any) -> np.ndarray:
     return np.full(len(values), "default", dtype=object)
 
 
-def _route_thresholds(
-    labels: np.ndarray,
-    route_scores: dict[str, np.ndarray],
-    *,
-    target_sensitivity: float,
-) -> dict[str, dict[str, Any]]:
+def _m2q_feature_schema() -> dict[str, Any]:
     return {
-        "default": compute_binary_thresholds(
-            labels,
-            route_scores["default"],
-            target_sensitivity=target_sensitivity,
-        )
-    }
-
-
-def _route_threshold_values(
-    routes: np.ndarray,
-    route_thresholds: dict[str, dict[str, Any]],
-) -> np.ndarray:
-    return np.asarray(
-        [route_thresholds[str(route)]["threshold_target"] for route in routes],
-        dtype=float,
-    )
-
-
-def _threshold_summary(route_thresholds: dict[str, dict[str, Any]]) -> dict[str, Any]:
-    return dict(route_thresholds["default"])
-
-
-def _patient_model_feature_columns() -> dict[str, list[str]]:
-    sk_symmetry = [
-        "profile_p_cancer_logit_average",
-        *SK_CORE4_FEATURE_COLUMNS,
-    ]
-    return {
-        "A0": ["age", "age_available"],
-        "M0Q": ["profile_p_cancer_logit_average"],
-        "M1": sk_symmetry,
-        "M1Q": sk_symmetry,
-        "M2": [*sk_symmetry, "age", "age_available"],
-        "M2Q": [*sk_symmetry, "age", "age_available"],
-    }
-
-
-def _patient_model_descriptions() -> dict[str, dict[str, Any]]:
-    return {
-        "M0": {
-            "name": "M0 profile only",
-            "description": "LR1 profile LogisticRegression, logit-averaged to patient p_cancer.",
-        },
-        "A0": {
-            "name": "A0 age only",
-            "description": "Age and age availability only; shortcut-risk control model.",
-        },
-        "M0Q": {
-            "name": "M0Q profile with separate reliability reporting",
-            "description": "Same prediction as M0; measurement count affects reliability reporting only.",
-        },
-        "M1": {
-            "name": "M1 profile plus SK symmetry",
-            "description": "LR1 target-breast p_cancer plus same-patient target/contralateral SK symmetry block.",
-        },
-        "M1Q": {
-            "name": "M1Q profile plus gated SK Core4 with reliability reporting",
-            "description": "One final model: SK Core4 refines the profile score only when paired symmetry is available; measurement counts affect reliability reporting only.",
-        },
-        "M2": {
-            "name": "M2 profile plus SK symmetry plus age",
-            "description": "M1 plus age and age availability flag.",
-        },
         "M2Q": {
-            "name": "M2Q profile, gated SK Core4 refinement, and age with reliability reporting",
-            "description": "One final model: profile and age are always evaluated; SK Core4 adds a neutral-gated refinement only when paired symmetry is available. Measurement counts affect reliability reporting only.",
-        },
-    }
-
-
-def _patient_model_feature_schema(selected_models: Sequence[str]) -> dict[str, Any]:
-    feature_columns = {"M0": ["profile_p_cancer_logit_average"]}
-    feature_columns.update(_patient_model_feature_columns())
-    schema = {
-        model_name: {
-            "feature_columns": feature_columns[model_name],
-            "unit": "target_breast_case",
-            "label": "BENIGN vs CANCER decision-support class",
-        }
-        for model_name in selected_models
-    }
-    for model_name in _gated_model_names().intersection(schema):
-        schema[model_name] = {
-            "feature_columns": _gated_model_input_columns(model_name),
-            "learned_feature_columns": _patient_model_feature_columns()[model_name],
+            "feature_columns": _m2q_model_input_columns(),
+            "learned_feature_columns": [
+                "profile_p_cancer_logit_average",
+                "age",
+                "age_available",
+                *SK_CORE4_FEATURE_COLUMNS,
+            ],
             "symmetry_gate": "symmetry_available",
             "symmetry_policy": "single_model_gated_optional_refinement",
             "reliability_fields": [
@@ -1633,27 +926,24 @@ def _patient_model_feature_schema(selected_models: Sequence[str]) -> dict[str, A
             "unit": "target_breast_case",
             "label": "BENIGN vs CANCER decision-support class",
         }
-    return schema
+    }
 
 
-def _patient_model_warnings(
+def _m2q_warnings(
     config: dict[str, Any],
-    selected_models: Sequence[str],
     feature_table: pd.DataFrame,
 ) -> list[str]:
     warnings = [
         "Research-draft decision support only; requires radiologist review.",
         "Not for autonomous diagnosis.",
     ]
-    mode = _evaluation_mode(config.get("evaluation", {}))
-    if mode == "all_on_all":
-        warnings.append("all_on_all is an optimistic discovery ceiling, not validation.")
-    if any(model_name in selected_models for model_name in ["M2", "M2Q"]):
-        warnings.append("M2 includes age; age contribution must be reviewed separately.")
-    if any(model_name in selected_models for model_name in ["M1Q", "M2Q"]):
-        warnings.append(
-            "Q models report measurement sufficiency separately; reliability fields are not model predictors."
-        )
+    _ = config
+    warnings.extend(
+        [
+            "M2Q includes age; its contribution must be reviewed separately.",
+            "Measurement sufficiency is reported separately; reliability fields are not model predictors.",
+        ]
+    )
     unavailable = int((feature_table["symmetry_available"] == 0).sum())
     if unavailable:
         warnings.append(
@@ -2497,25 +1787,6 @@ def _profile_logistic(*, logreg_c: float, random_state: int) -> Pipeline:
     )
 
 
-def _scalar_logistic(*, logreg_c: float, random_state: int) -> Pipeline:
-    return Pipeline(
-        [
-            ("imputer", SimpleImputer(strategy="median")),
-            ("scaler", StandardScaler()),
-            (
-                "logreg",
-                LogisticRegression(
-                    C=float(logreg_c),
-                    class_weight="balanced",
-                    max_iter=5000,
-                    random_state=int(random_state),
-                    solver="lbfgs",
-                ),
-            ),
-        ]
-    )
-
-
 def _patient_metric_row(
     model_name: str,
     split_id: int,
@@ -2589,56 +1860,6 @@ def _patient_prediction_frame(
     return out
 
 
-def _pooled_patient_metrics(
-    predictions: pd.DataFrame,
-    *,
-    evaluation_mode: str,
-) -> pd.DataFrame:
-    rows = []
-    for (model_name, evaluation_view), group in predictions.groupby(
-        ["model_name", "evaluation_view"], sort=False
-    ):
-        y = group["label"].to_numpy(dtype=int)
-        score = group["p_cancer"].to_numpy(dtype=float)
-        pred = group["y_pred_target"].to_numpy(dtype=int)
-        tn, fp, fn, tp = confusion_matrix(y, pred, labels=[0, 1]).ravel()
-        sensitivity = _ratio(tp, tp + fn)
-        specificity = _ratio(tn, tn + fp)
-        calibration_intercept, calibration_slope = _calibration_parameters(y, score)
-        rows.append(
-            {
-                "model_name": model_name,
-                "split_id": -1,
-                "evaluation_mode": evaluation_mode,
-                "evaluation_view": evaluation_view,
-                "roc_auc": float(roc_auc_score(y, score)),
-                "pr_auc": float(average_precision_score(y, score)),
-                "brier_score": float(brier_score_loss(y, score)),
-                "log_loss": float(log_loss(y, score, labels=[0, 1])),
-                "calibration_intercept": calibration_intercept,
-                "calibration_slope": calibration_slope,
-                "sensitivity_target": sensitivity,
-                "specificity_target": specificity,
-                "balanced_accuracy_target": _mean_finite([sensitivity, specificity]),
-                "ppv_target": _ratio(tp, tp + fp),
-                "npv_target": _ratio(tn, tn + fn),
-                "tp_target": int(tp),
-                "tn_target": int(tn),
-                "fp_target": int(fp),
-                "fn_target": int(fn),
-                "train_patients": None,
-                "test_patients": int(group["patientId"].nunique()),
-                "train_target_cases": None,
-                "test_target_cases": int(len(group)),
-                "train_cancer_target_cases": None,
-                "test_cancer_target_cases": int((group["label"] == 1).sum()),
-                "threshold_youden": float(group["threshold_youden"].median()),
-                "threshold_target": float(group["threshold_target"].median()),
-            }
-        )
-    return pd.DataFrame(rows)
-
-
 def _summarize_patient_model_metrics(
     split_metrics: pd.DataFrame,
     split_predictions: pd.DataFrame,
@@ -2656,11 +1877,7 @@ def _summarize_patient_model_metrics(
                 "model_name": model_name,
                 "evaluation_mode": evaluation_modes[0] if len(evaluation_modes) == 1 else ",".join(evaluation_modes),
                 "evaluation_view": evaluation_view,
-                "evidence_status": (
-                    "fit_diagnostic_only"
-                    if evaluation_modes == ["all_on_all"]
-                    else "patient_safe_validation"
-                ),
+                "evidence_status": "patient_safe_validation",
                 "splits": int(len(group)),
                 "roc_auc_mean": float(group["roc_auc"].mean()),
                 "roc_auc_std": float(group["roc_auc"].std(ddof=0)),
@@ -3090,7 +2307,6 @@ def _pipeline_summary(model: Pipeline | GatedSymmetryLogistic | None) -> dict[st
     if isinstance(model, GatedSymmetryLogistic):
         return {
             "type": type(model).__name__,
-            "include_age": bool(model.include_age),
             "base_feature_columns": list(model.base_feature_columns_),
             "symmetry_feature_columns": list(SK_CORE4_FEATURE_COLUMNS),
             "symmetry_gate": "symmetry_available",
