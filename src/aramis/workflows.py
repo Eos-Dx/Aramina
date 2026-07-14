@@ -38,6 +38,7 @@ def run_preprocess_train_from_config(config_path: str | Path) -> dict[str, Any]:
         preprocessing_artifact=preprocessing_artifact,
         dataframe_joblib_path=dataframe_path,
         output_folder=run_folder / "training",
+        workflow_config_yaml=config_path.read_text(encoding="utf-8"),
     )
     return {
         "workflow_config_path": config_path,

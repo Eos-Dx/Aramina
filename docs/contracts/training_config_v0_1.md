@@ -57,3 +57,15 @@ independent validation claim.
 The final model joblib stores this immutable evaluation protocol and compact
 metric summary. Detailed fold metrics and held-out predictions remain in the
 separate `evaluation.*` artifacts beside the model.
+
+## Reproducibility record
+
+Every final model includes `reproducibility`, a portable machine-readable
+record. It contains the input-H5 filename and SHA256, resolved historical and
+prediction preprocessing YAML, training YAML, the optional preprocess-train
+workflow YAML, SHA256 values for each YAML snapshot, Aramis source commit,
+installed XRD-preprocessing provenance, Python/platform details, and versions
+of the runtime packages used by the model. Absolute local paths are not used as
+identity. A direct `train` run records `preprocessed_artifact_train`; a
+`preprocess-train` run records `raw_h5_preprocess_train` and preserves the
+workflow YAML that connects raw H5 to the model.

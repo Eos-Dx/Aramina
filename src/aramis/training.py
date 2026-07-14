@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import json
+import platform
 import subprocess
 import tomllib
 from collections.abc import Sequence
 from datetime import datetime, timezone
 from hashlib import sha256
-from importlib.metadata import PackageNotFoundError, version
+from importlib.metadata import PackageNotFoundError, distribution, version
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -267,12 +269,14 @@ class AramisPatientTrainingPipeline(BaseEstimator):
         input_dataframe_joblib_path: str | Path,
         preprocessing_artifact: dict[str, Any],
         prediction_preprocessing: dict[str, Any] | None = None,
+        workflow_config_yaml: str | None = None,
     ) -> None:
         self.config = config
         self.config_text = config_text
         self.input_dataframe_joblib_path = input_dataframe_joblib_path
         self.preprocessing_artifact = preprocessing_artifact
         self.prediction_preprocessing = prediction_preprocessing
+        self.workflow_config_yaml = workflow_config_yaml
 
     def fit(self, x: pd.DataFrame, y: Any = None) -> "AramisPatientTrainingPipeline":
         """Fit the full target-breast training route and build `artifact_`."""
@@ -345,6 +349,7 @@ class AramisPatientTrainingPipeline(BaseEstimator):
             lr1_rows=self.input_builder_.lr1_rows_,
             split_metrics=self.evaluator_.split_metrics_,
             split_predictions=self.evaluator_.split_predictions_,
+            workflow_config_yaml=self.workflow_config_yaml,
         )
         return self
 
@@ -356,6 +361,7 @@ def build_patient_training_pipeline(
     input_dataframe_joblib_path: str | Path,
     preprocessing_artifact: dict[str, Any],
     prediction_preprocessing: dict[str, Any] | None = None,
+    workflow_config_yaml: str | None = None,
 ) -> Pipeline:
     """Return one sklearn Pipeline for patient-safe target-breast training."""
     return Pipeline(
@@ -368,6 +374,7 @@ def build_patient_training_pipeline(
                     input_dataframe_joblib_path=input_dataframe_joblib_path,
                     preprocessing_artifact=preprocessing_artifact,
                     prediction_preprocessing=prediction_preprocessing,
+                    workflow_config_yaml=workflow_config_yaml,
                 ),
             )
         ]
@@ -381,6 +388,7 @@ def run_training_from_config(
     preprocessing_artifact: dict[str, Any] | None = None,
     dataframe_joblib_path: str | Path | None = None,
     output_folder: str | Path | None = None,
+    workflow_config_yaml: str | None = None,
 ) -> dict[str, Any]:
     """Evaluate or final-fit one immutable Aramis model recipe."""
     config_path = Path(config_path).expanduser().resolve()
@@ -421,6 +429,7 @@ def run_training_from_config(
         input_dataframe_joblib_path=input_path,
         preprocessing_artifact=preprocessing_artifact,
         prediction_preprocessing=prediction_preprocessing,
+        workflow_config_yaml=workflow_config_yaml,
     )
     evaluation_artifact = _evaluation_artifact(
         artifact,
@@ -463,6 +472,7 @@ def train_m2q_model_artifact(
     input_dataframe_joblib_path: str | Path,
     preprocessing_artifact: dict[str, Any],
     prediction_preprocessing: dict[str, Any] | None = None,
+    workflow_config_yaml: str | None = None,
 ) -> dict[str, Any]:
     """Train one traceable M2Q target-breast model artifact."""
     pipeline = build_patient_training_pipeline(
@@ -471,6 +481,7 @@ def train_m2q_model_artifact(
         input_dataframe_joblib_path=input_dataframe_joblib_path,
         preprocessing_artifact=preprocessing_artifact,
         prediction_preprocessing=prediction_preprocessing,
+        workflow_config_yaml=workflow_config_yaml,
     )
     pipeline.fit(df)
     return pipeline.named_steps["patient_training"].artifact_
@@ -513,6 +524,7 @@ def _patient_training_artifact(
     lr1_rows: pd.DataFrame,
     split_metrics: pd.DataFrame,
     split_predictions: pd.DataFrame,
+    workflow_config_yaml: str | None,
 ) -> dict[str, Any]:
     """Build the traceable joblib payload for target-breast model training."""
     evaluation_config = config.get("evaluation", {})
@@ -570,6 +582,12 @@ def _patient_training_artifact(
             "aramis_version": _aramis_version(),
             "aramis_git_sha": _aramis_git_sha(),
         },
+        "reproducibility": _reproducibility_manifest(
+            preprocessing_artifact=preprocessing_artifact,
+            training_config_yaml=config_text,
+            prediction_preprocessing=prediction_preprocessing,
+            workflow_config_yaml=workflow_config_yaml,
+        ),
     }
 
 
@@ -2085,6 +2103,104 @@ def _preprocessing_lineage_fields(
     return fields
 
 
+def _reproducibility_manifest(
+    *,
+    preprocessing_artifact: dict[str, Any],
+    training_config_yaml: str,
+    prediction_preprocessing: dict[str, Any] | None,
+    workflow_config_yaml: str | None,
+) -> dict[str, Any]:
+    """Record inputs required to repeat this research-draft training run."""
+    historical_preprocessing_yaml = str(
+        preprocessing_artifact["preprocessing_config_yaml"]
+    )
+    prediction_preprocessing_yaml = (
+        str(prediction_preprocessing["yaml"])
+        if prediction_preprocessing is not None
+        else None
+    )
+    source_metadata = dict(preprocessing_artifact.get("metadata", {}))
+    source_path = source_metadata.get("input_h5_path")
+    configs = {
+        "workflow_yaml": workflow_config_yaml,
+        "training_yaml": training_config_yaml,
+        "historical_preprocessing_yaml": historical_preprocessing_yaml,
+        "prediction_preprocessing_yaml": prediction_preprocessing_yaml,
+    }
+    return {
+        "contract": "aramis_reproducibility_v0_1",
+        "reproduction_mode": (
+            "raw_h5_preprocess_train"
+            if workflow_config_yaml is not None
+            else "preprocessed_artifact_train"
+        ),
+        "source_h5": {
+            "filename": Path(str(source_path)).name if source_path else "unknown",
+            "sha256": str(source_metadata["input_h5_sha256"]),
+        },
+        "source_code": {
+            "aramis": {
+                "version": _aramis_version(),
+                "git_sha": _aramis_git_sha(),
+            },
+            "xrd_preprocessing": _distribution_provenance("xrd-preprocessing"),
+        },
+        "runtime": {
+            "python": platform.python_version(),
+            "platform": platform.platform(),
+            "packages": {
+                name: _installed_version(name)
+                for name in (
+                    "numpy",
+                    "pandas",
+                    "scipy",
+                    "scikit-learn",
+                    "joblib",
+                    "h5py",
+                    "pyFAI",
+                    "fabio",
+                    "PyYAML",
+                )
+            },
+        },
+        "configs": configs,
+        "checksums": {
+            f"{name}_sha256": _text_sha256(text)
+            for name, text in configs.items()
+            if text is not None
+        },
+    }
+
+
+def _distribution_provenance(distribution_name: str) -> dict[str, Any]:
+    """Return installed package identity and pip's VCS provenance when present."""
+    result: dict[str, Any] = {"version": _installed_version(distribution_name)}
+    try:
+        payload = distribution(distribution_name).read_text("direct_url.json")
+    except PackageNotFoundError:
+        return result
+    if payload is None:
+        return result
+    direct_url = json.loads(payload)
+    result["url"] = direct_url.get("url")
+    vcs_info = direct_url.get("vcs_info")
+    if isinstance(vcs_info, dict):
+        result["requested_revision"] = vcs_info.get("requested_revision")
+        result["git_commit"] = vcs_info.get("commit_id")
+    return result
+
+
+def _installed_version(distribution_name: str) -> str:
+    try:
+        return version(distribution_name)
+    except PackageNotFoundError:
+        return "unavailable"
+
+
+def _text_sha256(value: str) -> str:
+    return sha256(value.encode("utf-8")).hexdigest()
+
+
 def _validate_training_config(config: dict[str, Any], config_path: Path) -> None:
     """Backward-compatible import target for the current public validator."""
     from .training_config import validate_training_config
@@ -2227,6 +2343,7 @@ def _final_model_artifact(
         ),
         "preprocessing_metadata": artifact.get("preprocessing_metadata", {}),
         "metadata": artifact["metadata"],
+        "reproducibility": artifact["reproducibility"],
     }
 
 

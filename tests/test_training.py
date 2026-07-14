@@ -170,6 +170,12 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
         "random_seed": 42,
     }
     assert artifact["evaluation"]["summary"][0]["splits"] == 100
+    reproducibility = artifact["reproducibility"]
+    assert reproducibility["contract"] == "aramis_reproducibility_v0_1"
+    assert reproducibility["reproduction_mode"] == "preprocessed_artifact_train"
+    assert reproducibility["source_h5"]["sha256"] == "abc"
+    assert reproducibility["configs"]["training_yaml"] == artifact["training_config_yaml"]
+    assert reproducibility["checksums"]["training_yaml_sha256"]
     assert "training_config" not in artifact
     assert "training_config_sha256" not in artifact
     assert "split_predictions" not in artifact

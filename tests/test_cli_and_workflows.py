@@ -113,6 +113,7 @@ def test_workflow_passes_preprocessing_dataframe_directly_to_training(
     assert received["dataframe"] is frame
     assert received["preprocessing_artifact"] is preprocessing_artifact
     assert Path(received["dataframe_joblib_path"]).name == "dataframe.joblib"
+    assert received["workflow_config_yaml"] == config_path.read_text(encoding="utf-8")
     assert result["preprocessing_dataframe"] is frame
 
 
