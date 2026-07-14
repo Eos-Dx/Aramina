@@ -270,7 +270,8 @@ Regeneration rule:
 regenerate with Aramis_Preprocessing_v0_1.py or equivalent scripted export
 update the JSON provenance block
 rerun Aramis tests and marimo checks
-rebuild eosproduct_onboarding_bundle.tar.gz
+rebuild aramis_reproducible_training_bundle_0_2_6_beta.zip when full-H5
+reproducibility material changes
 ```
 
 Thickness policy:
