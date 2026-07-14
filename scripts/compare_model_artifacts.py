@@ -32,6 +32,13 @@ def main() -> int:
 
 def _differences(reference: dict[str, Any], candidate: dict[str, Any]) -> list[str]:
     differences: list[str] = []
+    for label, artifact in (("reference", reference), ("candidate", candidate)):
+        if "reproducibility" not in artifact:
+            differences.append(
+                f"{label} artifact has no reproducibility record; retrain it with Aramis 0.2.6-beta or later."
+            )
+    if differences:
+        return differences
     _compare_value(
         differences,
         "model_identity.recipe",

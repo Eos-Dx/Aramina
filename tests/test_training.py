@@ -174,6 +174,7 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
     assert reproducibility["contract"] == "aramis_reproducibility_v0_1"
     assert reproducibility["reproduction_mode"] == "preprocessed_artifact_train"
     assert reproducibility["source_h5"]["sha256"] == "abc"
+    assert reproducibility["source_h5"]["filename"] == "unknown"
     assert reproducibility["configs"]["training_yaml"] == artifact["training_config_yaml"]
     assert reproducibility["checksums"]["training_yaml_sha256"]
     assert "training_config" not in artifact

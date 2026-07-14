@@ -2120,7 +2120,8 @@ def _reproducibility_manifest(
         else None
     )
     source_metadata = dict(preprocessing_artifact.get("metadata", {}))
-    source_path = source_metadata.get("input_h5_path")
+    historical_preprocessing = yaml.safe_load(historical_preprocessing_yaml)
+    source_path = historical_preprocessing.get("io", {}).get("input_h5_path")
     configs = {
         "workflow_yaml": workflow_config_yaml,
         "training_yaml": training_config_yaml,
