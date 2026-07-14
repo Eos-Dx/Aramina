@@ -60,7 +60,7 @@ present in `/session/sets/set_*`.
 Prediction tests also verify that `patient.patient_id` must match the H5
 patientId, `patient.target_side` controls which breast is scored by LR1, and
 H5 prediction requires the model artifact to carry
-`prediction_preprocessing_config` and `prediction_contract`. Predict YAML
+`prediction_preprocessing_yaml` and `prediction_contract_yaml`. Predict YAML
 cannot override preprocessing, reports, the H5 contract, or decision threshold.
 
 The H5 is preprocessed by the same transformer lineage as training:
@@ -114,7 +114,7 @@ does not duplicate these immutable model fields. The fixed development model is
 aramis.__main__.main
 -> run_prediction_from_config(config_path)
 -> load model joblib
--> read prediction_preprocessing_config from model joblib
+-> parse resolved prediction_preprocessing_yaml from model joblib
 -> run prediction preprocessing, when io.input_h5_path is present
 -> joblib.load(io.input_model_joblib_path)
 -> build_patient_prediction_feature_row(...)

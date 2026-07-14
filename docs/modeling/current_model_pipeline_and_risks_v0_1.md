@@ -1,6 +1,6 @@
 # Current Aramis Model Pipeline And Risks v0.1
 
-Status: research draft. Packaged as `0.2.2-beta`.
+Status: research draft. Packaged as `0.2.3-beta`.
 
 This document records how the current candidate works and what must not be
 overclaimed.
@@ -8,7 +8,7 @@ overclaimed.
 ## Candidate Summary
 
 The packaged artifact is
-`aramis_m2q_t100_gated_sk_core4_nested_c1_0p1_c2_0p3.joblib`. It uses one
+`aramis_m2q_t100_0_2_3_beta.joblib`. It uses one
 gated M2Q architecture documented in
 `m2q_gated_target_case_model_v0_1.md`.
 
@@ -45,8 +45,6 @@ contralateral rows are still kept for symmetry
 Each biopsied breast becomes one training case. A patient with bilateral
 biopsies contributes two target-breast cases, but patient-safe splitters keep
 both cases in one fold.
-
-`all_patients` is exploratory only.
 
 ## Why M2Q
 
@@ -117,7 +115,7 @@ LOOVM:
 
 train-all:
   refits the selected architecture after nested validation
-  uses inner out-of-fold thresholds
+  chooses threshold inside each train fold before scoring held-out patients
   fitted-cohort metrics remain diagnostics, not validation
 ```
 

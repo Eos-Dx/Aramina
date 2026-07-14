@@ -15,8 +15,6 @@ run_aramis() {
   echo "Testing Aramis"
   (cd "${TARGET_ROOT}/Aramis" && conda run -n "${ENV_NAME}" python -m ruff check .)
   (cd "${TARGET_ROOT}/Aramis" && conda run -n "${ENV_NAME}" pytest -q)
-  (cd "${TARGET_ROOT}/Aramis" && conda run -n "${ENV_NAME}" python -m marimo check examples/aramis_dataframe_all_patients_v0_1.py)
-  (cd "${TARGET_ROOT}/Aramis" && conda run -n "${ENV_NAME}" python -m marimo check examples/aramis_dataframe_biopsy_patients_v0_1.py)
 }
 
 case "${SCOPE}" in

@@ -21,63 +21,6 @@ Rot2: 0
 Rot3: 0
 Wavelength: 1e-10
 """
-ONE_TO_MANY_OUTPUT_COLUMNS = {
-    "age",
-    "azimuthal_mask_pixels",
-    "azimuthal_mask_source",
-    "azimuthal_mode",
-    "azimuthal_npt",
-    "azimuthal_npt_azimuthal",
-    "biopsy",
-    "birads",
-    "breast_density",
-    "calculated_distance",
-    "calibrant_thickness_mm",
-    "faulty_pixel_mask",
-    "id",
-    "interpolation_q_range",
-    "meas_name",
-    "measurementDate",
-    "measurement_data_source",
-    "noise_std",
-    "patientId",
-    "patient_product_diagnosis",
-    "patient_specimen_valid",
-    "patient_specimen_validity_reason",
-    "patient_valid_specimen_count",
-    "poni_q_max_nm_inv",
-    "position",
-    "product_diagnosis",
-    "product_status_group",
-    "q_range",
-    "radial_profile_data_raw",
-    "radial_profile_data",
-    "radial_profile_sigma",
-    "sample_biopsy",
-    "sample_biopsy_type",
-    "sample_height_in",
-    "sample_thickness_mm",
-    "sample_weight_lb",
-    "set_name",
-    "side",
-    "snr_db",
-    "snr_linear",
-    "snr_method_used",
-    "specimen_measurement_count",
-    "specimenId",
-    "specimen_status",
-    "started_at",
-    "thickness_adjusted_distance_m",
-    "thickness_adjustment_applied",
-    "thickness_adjustment_reliable",
-    "thickness_adjustment_warning",
-    "thickness_reference_mm",
-    "thickness_reference_source",
-}
-ONE_TO_ONE_OUTPUT_COLUMNS = ONE_TO_MANY_OUTPUT_COLUMNS | {
-    "one_to_one_pair_type",
-    "patient_valid_specimen_count",
-}
 PAYLOAD_COLUMNS = {
     "measurement_data",
     "raw_data",
@@ -87,12 +30,11 @@ PAYLOAD_COLUMNS = {
 }
 
 
-def load_synthetic_config(branch: str = "biopsy_patients") -> dict:
+def load_synthetic_config(cohort: str = "biopsy_patients") -> dict:
     config_file = {
-        "all_patients": "aramis_all_patients_model_input_v0_1.yaml",
         "biopsy_patients": "aramis_biopsy_patients_model_input_v0_1.yaml",
         "prediction_patient": "aramis_prediction_patient_model_input_v0_1.yaml",
-    }[branch]
+    }[cohort]
     config_path = Path(__file__).parents[1] / "config" / "preprocessing" / config_file
     config = load_preprocessing_config(config_path)
     config["raw_data"]["source"] = "npy"

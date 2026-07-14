@@ -37,11 +37,6 @@ config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
   map NORMAL to BENIGN
   apply T100 AgBH quality exclusions
 
-config/preprocessing/aramis_all_patients_model_input_v0_1.yaml
-  exploratory model-development dataset
-  keep labelled patients after quality filters
-  map NORMAL to BENIGN
-
 config/preprocessing/aramis_prediction_patient_model_input_v0_1.yaml
   one incoming prediction patient
   no historical date, diagnosis, biopsy, or AgBH cohort filters
@@ -49,8 +44,7 @@ config/preprocessing/aramis_prediction_patient_model_input_v0_1.yaml
 ```
 
 The fixed M2Q development model uses the biopsy-patient preprocessing cohort.
-The preprocessing YAML layout itself will be revised in the next configuration
-stage without changing this cohort decision.
+Experimental all-patient cohorts remain outside the development branch.
 
 ## Product Label Mapping
 
@@ -102,7 +96,9 @@ docs/agbh_quality_exclusions.md
 Ordered YAML-declared route:
 
 ```text
-H5ToDataFrameTransformer
+H5PoniGeometryCalculatorTransformer
+-> H5SessionSelectorTransformer
+-> H5ToDataFrameTransformer
 -> ProductColumnBuilder
 -> q-range / position / thickness filters
 -> optional biopsy / patient / specimen filters
@@ -140,7 +136,7 @@ required PONI q max: 23 nm^-1
 error model: poisson
 sample thickness column: sample_thickness_mm
 calibrant thickness column: calibrant_thickness_mm
-calibrant thickness safety range: 10..40 mm
+calibrant thickness safety range: 2..40 mm
 SNR method: poisson
 SNR threshold: 18 dB
 normalization: median value in q=6.7..7.1 nm^-1
@@ -204,13 +200,12 @@ mammography_suspicious_field
 `aramis preprocess` writes a joblib with:
 
 ```text
+kind / version / created_at
 dataframe
-resolved preprocessing_config
-preprocessing_config_text
-preprocessing_config_sha256
-input_h5_sha256
-Aramis version / git SHA
-branch
+preprocessing_config_yaml   # fully resolved effective YAML
+metadata.input_h5_sha256
+metadata.aramis_version
+metadata.aramis_git_sha
 ```
 
 This artifact is the input to training. The same kind of artifact is written

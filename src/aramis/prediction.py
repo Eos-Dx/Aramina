@@ -17,7 +17,7 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from .modeling import profile_matrix
+from .model_utils import profile_matrix
 from .pipelines import run_preprocessing_pipeline
 from .training import build_patient_prediction_feature_row
 
@@ -35,7 +35,7 @@ def run_prediction_from_config(config_path: str | Path) -> dict[str, Any]:
         key="input_model_joblib_path",
     )
     model_artifact = joblib.load(model_path)
-    model_id, model_name, model_version = _model_identity(model_artifact)
+    model_id, model_name, model_version = _model_identity(model_artifact, model_path)
     output_paths = _prediction_output_paths(config, config_path, model_id=model_id)
     model_info = _model_info(model_artifact, model_name)
     df = _prediction_dataframe(
@@ -139,12 +139,14 @@ def _prediction_dataframe(
 
 def _prediction_preprocessing_config(model_artifact: dict[str, Any]) -> dict[str, Any]:
     """Return the preprocessing contract embedded at model training time."""
-    model_config = model_artifact.get("prediction_preprocessing_config")
-    if not isinstance(model_config, dict):
+    config_yaml = model_artifact.get("prediction_preprocessing_yaml")
+    if not isinstance(config_yaml, str):
         raise ValueError(
-            "Model artifact has no prediction_preprocessing_config. Retrain model "
-            "with io.prediction_preprocessing_config_path."
+            "Model artifact has no prediction_preprocessing_yaml. Retrain model."
         )
+    model_config = yaml.safe_load(config_yaml)
+    if not isinstance(model_config, dict):
+        raise ValueError("Model prediction_preprocessing_yaml is not a YAML mapping.")
     return deepcopy(model_config)
 
 
@@ -290,7 +292,7 @@ def _internal_report(
     final_prediction = {
         "p_cancer": p_cancer,
         "decision_threshold_id": _decision_threshold_id(threshold_key),
-        "threshold": threshold,
+        "decision_threshold": threshold,
         "suggested_class": suggested_class,
     }
     if model_route is not None:
@@ -417,7 +419,7 @@ def _decision_threshold_id(threshold_key: str) -> str:
 
 
 def _prediction_columns(model_artifact: dict[str, Any]) -> dict[str, str]:
-    model_config = dict(model_artifact.get("training_config", {}).get("model", {}))
+    model_config = dict(model_artifact.get("model_columns", {}))
     return {
         "profile_column": str(model_config.get("profile_column", "radial_profile_data")),
         "group_column": str(model_config.get("group_column", "patientId")),
@@ -543,25 +545,26 @@ def _model_info(model_artifact: dict[str, Any], model_name: str) -> dict[str, An
     return models[model_name]
 
 
-def _model_identity(model_artifact: dict[str, Any]) -> tuple[str, str, str]:
+def _model_identity(
+    model_artifact: dict[str, Any], model_path: Path
+) -> tuple[str, str, str]:
     """Read the immutable one-model identity from a prediction artifact."""
-    artifact_model_id = (
-        model_artifact.get("training_config", {})
-        .get("training", {})
-        .get("name")
-    )
-    artifact_model_version = (
-        model_artifact.get("training_config", {}).get("training", {}).get("version")
-    )
-    if not artifact_model_id or artifact_model_version in {None, ""}:
-        raise ValueError("Prediction model artifact has no training.name model_id.")
+    identity = model_artifact.get("model_identity", {})
+    artifact_model_name = identity.get("name")
+    artifact_model_version = identity.get("version")
+    if not artifact_model_name or artifact_model_version in {None, ""}:
+        raise ValueError("Prediction model artifact has no model_identity.")
     model_names = sorted(model_artifact.get("models", {}))
     if len(model_names) != 1:
         raise ValueError(
             "Prediction model artifact must contain exactly one selected model; "
             f"available={model_names}"
         )
-    return str(artifact_model_id), model_names[0], str(artifact_model_version)
+    artifact_sha = _file_sha256(model_path)
+    model_id = _safe_stem(
+        f"{artifact_model_name}_{artifact_model_version}_{artifact_sha[:12]}"
+    )
+    return model_id, model_names[0], str(artifact_model_version)
 
 
 def _model_threshold(
@@ -632,6 +635,26 @@ def _validate_prediction_config(config: dict[str, Any], config_path: Path) -> No
         raise ValueError(
             "Predict YAML cannot override model-held sections: " f"{forbidden}"
         )
+    _reject_unknown_fields(
+        config["run"],
+        allowed={"analysis_author", "synthetic_test_mode"},
+        where="run",
+    )
+    _reject_unknown_fields(
+        config["io"],
+        allowed={
+            "input_h5_path",
+            "input_dataframe_joblib_path",
+            "input_model_joblib_path",
+            "output_folder",
+        },
+        where="io",
+    )
+    _reject_unknown_fields(
+        config["patient"],
+        allowed={"patient_id", "target_side"},
+        where="patient",
+    )
     has_h5 = bool(config.get("io", {}).get("input_h5_path"))
     has_dataframe = bool(config.get("io", {}).get("input_dataframe_joblib_path"))
     if has_h5 == has_dataframe:
@@ -698,15 +721,29 @@ def _validate_h5_container_contract(
 
 
 def _prediction_contract(model_artifact: dict[str, Any]) -> dict[str, Any]:
-    contract = model_artifact.get("prediction_contract")
+    contract_yaml = model_artifact.get("prediction_contract_yaml")
+    contract = yaml.safe_load(contract_yaml) if isinstance(contract_yaml, str) else None
     if not isinstance(contract, dict):
         raise ValueError(
-            "Model artifact has no prediction_contract. Retrain with prediction_contract."
+            "Model artifact has no prediction_contract_yaml. Retrain model."
         )
     for key in ("container", "reporting", "decision"):
         if not isinstance(contract.get(key), dict):
             raise ValueError(f"Model prediction_contract has no {key} section.")
     return contract
+
+
+def _reject_unknown_fields(
+    value: Any,
+    *,
+    allowed: set[str],
+    where: str,
+) -> None:
+    if not isinstance(value, dict):
+        raise TypeError(f"Prediction {where} must be a mapping.")
+    unknown = sorted(set(value).difference(allowed))
+    if unknown:
+        raise ValueError(f"Unknown prediction {where} fields: {unknown}")
 
 
 def _required_container_value(container: dict[str, Any], key: str) -> Any:

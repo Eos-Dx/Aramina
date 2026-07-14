@@ -1,8 +1,8 @@
 xrd_preprocessing:
   version: local
-  release_tag: v0.1.6-beta
+  release_tag: v0.1.7-beta
 io:
-  input_h5_path: ../../../data/combined_archive.h5
+  input_h5_path: ../../../eos_play/jupyter_notebooks/Clinical_trials/data/product-aramis-data/combined_archive.h5
 raw_data:
   source: gfrm
   location: h5_blob
@@ -26,7 +26,7 @@ filters:
   require_sample_thickness_mm: true
   require_calibrant_thickness_mm: true
   calibrant_thickness_range_mm:
-  - 10.0
+  - 2.0
   - 40.0
   thickness:
     sample:
@@ -36,7 +36,7 @@ filters:
     calibrant:
       column: calibrant_thickness_mm
       require: true
-      min_mm: 10.0
+      min_mm: 2.0
       max_mm: 40.0
 labels:
   product_column_builder:
@@ -68,7 +68,7 @@ integration:
     require_sample_thickness: true
     require_calibrant_thickness: true
     calibrant_thickness_range_mm:
-    - 10.0
+    - 2.0
     - 40.0
 snr:
   method: poisson
@@ -82,6 +82,6 @@ normalization:
 profile_gate:
   q_nm_inv: 14.0
   min_value: 2.0
-branch_settings:
+cohort_settings:
   filter_by_specimen_status: true
   filter_by_product_status_group: true

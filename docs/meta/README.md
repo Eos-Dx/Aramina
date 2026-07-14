@@ -23,7 +23,6 @@ Aramis/config/preprocessing/
 Current runnable preprocessing YAMLs:
 
 ```text
-config/preprocessing/aramis_all_patients_model_input_v0_1.yaml
 config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
 config/preprocessing/aramis_prediction_patient_model_input_v0_1.yaml
 ```
@@ -36,11 +35,11 @@ shared/aramis_pipeline_v0_1.yaml    ordered transformer steps
 exclusions/agbh_quality_exclusions_t100_v0_1.yaml
 outputs/model_input_output_v0_1.yaml
 outputs/prediction_model_input_output_v0_1.yaml
-branches/*.yaml                     cohort rules
+cohorts/*.yaml                      cohort rules
 ```
 
 Runnable root YAMLs extend shared policy, pipeline, output schema, exclusion,
-and branch fragments.
+and cohort fragments.
 
 Short file map:
 
@@ -91,25 +90,6 @@ product filtering policy
 Use this file when deciding whether a measurement batch is product-usable for a
 K-alpha-only Aramis workflow.
 
-### `config/preprocessing/aramis_all_patients_model_input_v0_1.yaml`
-
-Purpose:
-
-```text
-Aramis all-patients model-input preprocessing config
-row unit: measurementId
-grouping unit: specimenId
-decision unit: patientId during model selection
-NORMAL -> BENIGN product-label policy
-thickness correction requirements
-SNR / normalization / profile-gate parameters
-quality_exclusions by linked AgBH session ID with date fallback
-```
-
-This is the broader comparison dataset. It keeps labelled patients after
-product quality filters and preserves enough patient/specimen metadata for
-patient-safe model selection and symmetry feature engineering.
-
 ### `config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml`
 
 Purpose:
@@ -152,10 +132,10 @@ joblibs and used by `python -m aramis predict --config <predict.yaml>`.
 Reusable preprocessing YAML template/contract is owned by XRD-preprocessing:
 
 ```text
-XRD-preprocessing/src/xrd_preprocessing/configs/preprocessing_branch_config_template.yaml
+XRD-preprocessing/src/xrd_preprocessing/configs/preprocessing_pipeline_config_template.yaml
 ```
 
-These files are the concrete Aramis branch configs that follow that template.
+These files are the concrete Aramis product configs that follow that template.
 Each preprocessing YAML owns its own runtime paths:
 
 ```text
@@ -166,14 +146,14 @@ io.output_joblib_path
 The product command should receive only the YAML path:
 
 ```text
-python -m aramis preprocess --config config/preprocessing/<branch>.yaml
+python -m aramis preprocess --config config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
 ```
 
 Current XRD-preprocessing dependency marker:
 
 ```text
 version: local
-release_tag: v0.1.6-beta
+release_tag: v0.1.7-beta
 ```
 
 Raw-data policy:
@@ -206,7 +186,7 @@ Canonical location:
 Aramis/docs/meta/aramis_preprocessing_v0_1_config.json
 ```
 
-The runtime preprocessing configs are the Aramis branch YAML files. Their
+The runtime preprocessing configs are the Aramis product YAML files. Their
 `filters.quality_exclusions` blocks hold the controlled exclusion lists. This
 JSON explains how those lists were produced.
 
@@ -235,9 +215,8 @@ Aramis/docs/agbh_quality_exclusions.md
 Used by:
 
 ```text
-Aramis/examples/aramis_dataframe_all_patients_v0_1.py
-Aramis/examples/aramis_dataframe_biopsy_patients_v0_1.py
-Aramis/packaging/eosproduct_bundle/scripts/run_aramis_notebooks.sh
+Aramis/config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
+Aramis/config/preprocessing/aramis_prediction_patient_model_input_v0_1.yaml
 ```
 
 ### `aramis_agbh_kbeta_batch5_6_exclusion_justification_v0_1.py`
@@ -309,7 +288,7 @@ integration.thickness_correction.calibrant_thickness_column
   these names are passed directly to AzimuthalIntegration
 ```
 
-Current AgBH calibrant safety range is `10..40 mm`. Missing sample thickness,
+Current AgBH calibrant safety range is `2..40 mm`. Missing sample thickness,
 missing calibrant thickness, or calibrant thickness outside this range means the
 measurement cannot enter thickness-corrected azimuthal integration.
 

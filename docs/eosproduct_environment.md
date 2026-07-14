@@ -46,7 +46,7 @@ Development / validation:
 Current Aramis product config references:
 
 ```text
-xrd_preprocessing.release_tag = v0.1.6-beta
+xrd_preprocessing.release_tag = v0.1.7-beta
 ```
 
 For local development, `environment.yml` installs:
@@ -60,7 +60,7 @@ For local development, `environment.yml` installs:
 For reproducible package metadata, `pyproject.toml` points Aramis to:
 
 ```text
-xrd-preprocessing @ git+https://github.com/Eos-Dx/XRD-preprocessing.git@v0.1.6-beta
+xrd-preprocessing @ git+https://github.com/Eos-Dx/XRD-preprocessing.git@v0.1.7-beta
 ```
 
 Validation commands:
@@ -68,5 +68,5 @@ Validation commands:
 ```text
 python -m ruff check .
 pytest -q
-python -m marimo check examples/aramis_dataframe_all_patients_v0_1.py examples/aramis_dataframe_biopsy_patients_v0_1.py
+python -m aramis predict --config examples/prediction_h5/cancer_predict.yaml
 ```

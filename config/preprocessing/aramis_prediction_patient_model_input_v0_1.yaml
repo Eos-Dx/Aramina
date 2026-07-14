@@ -2,11 +2,10 @@ extends:
 - shared/aramis_policy_v0_1.yaml
 - shared/aramis_pipeline_v0_1.yaml
 - outputs/prediction_model_input_output_v0_1.yaml
-- branches/prediction_patient_v0_1.yaml
+- cohorts/prediction_patient_v0_1.yaml
 aramis_preprocessing:
   name: aramis_prediction_patient_model_input
   version: 0.1
-  branch: one_to_many
   clinical_stage: research draft
 provenance:
   status: research draft prediction preprocessing config
@@ -25,5 +24,5 @@ filters:
       excluded_values: []
     fallback_date:
       excluded_dates: []
-branch_settings:
+cohort_settings:
   output_columns: []

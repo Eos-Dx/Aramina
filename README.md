@@ -43,15 +43,15 @@ one-patient H5
 ```
 
 Training uses the same preprocessing family but a historical model-development
-cohort. Current untagged development evaluation is:
+cohort. Current development recipe is:
 
 ```text
-architecture_id: m2q_gated_target_case_v0_1
-evaluation_run: aramis_t100_honest_nested_operational_experiment
+recipe: m2q_gated_target_case_v0_1
 preprocessing: T100 biopsy-patient model-input DataFrame
 selected_model: M2Q
 regularization: LR1 L2 C=0.1; LR2 L2 C=0.3
-threshold: derived from inner patient-safe out-of-fold predictions at target sensitivity 0.95
+evaluation: repeated patient-safe stratified 5-fold x20
+deployment threshold: train-all scores at target sensitivity >=0.95
 training unit: one biopsied target breast
 ```
 
@@ -94,7 +94,7 @@ INSTALL.md
 ```bash
 python -m aramis preprocess --config config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
 python -m aramis train --config config/training/aramis_m2q_t100_primary_train_v0_1.yaml
-python -m aramis run --config config/workflows/aramis_biopsy_patients_primary_workflow_v0_1.yaml
+python -m aramis preprocess-train --config config/workflows/aramis_biopsy_patients_primary_workflow_v0_1.yaml
 python -m aramis predict --config examples/prediction_h5/cancer_predict.yaml
 ```
 
@@ -108,16 +108,9 @@ Prediction template for a new patient H5:
 config/prediction/aramis_predict_from_h5_template_v0_1.yaml
 ```
 
-Working one-patient prediction examples use:
-
-```text
-examples/prediction_h5/cancer_one_patient.h5
-examples/prediction_models/aramis_m2q_t100_gated_sk_core4_synthetic_h5_example.joblib
-```
-
-The synthetic artifact is for repository smoke tests only. The product artifact
-is `aramis_m2q_t100_gated_sk_core4_nested_c1_0p1_c2_0p3.joblib` and embeds the
-production GFRM preprocessing contract.
+`final_fit` creates a unique run folder with `model.joblib`,
+`model_description.yaml`, and separate evaluation artifacts. Use that generated
+model path in prediction YAML.
 
 ## Documentation Map
 
@@ -161,8 +154,7 @@ Evidence for choices:
 
 ```text
 docs/agbh_quality_exclusions.md
-docs/modeling/m1q_regularization_experiment_v0_1.md
-docs/modeling/m1q_threshold_mode_comparison_v0_1.md
+docs/modeling/m2q_gated_target_case_model_v0_1.md
 docs/modeling/current_model_dataframe_v0_1.md
 docs/meta/README.md
 ```
@@ -174,7 +166,7 @@ src/aramis/pipelines.py
   YAML-governed preprocessing wrapper around XRD-preprocessing transformers
 
 src/aramis/training.py
-  patient-safe target-breast M0/M0Q/M1/M1Q/M2/M2Q training artifact builder
+  patient-safe target-breast M2Q training artifact builder
 
 src/aramis/prediction.py
   one-patient prediction route and report writer

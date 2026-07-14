@@ -1,0 +1,34 @@
+contract: aramis_model_recipe_registry_v0_1
+recipes:
+  m2q_gated_target_case_v0_1:
+    description: M2Q target-breast model with gated Core4 SK symmetry and age.
+    model:
+      type: patient_m0_m1_m2_logistic_set
+      profile_column: radial_profile_data
+      label_column: product_status_group
+      group_column: patientId
+      specimen_column: specimenId
+      side_column: side
+      q_column: q_range
+      age_column: age
+      biopsy_column: biopsy
+      lr1_row_policy: biopsy_only
+      selected_models:
+      - M2Q
+      lr1_logreg_c: 0.1
+      lr2_logreg_c: 0.3
+    target_sensitivity: 0.95
+    prediction_preprocessing_config_path: config/preprocessing/aramis_prediction_patient_model_input_v0_1.yaml
+    prediction_contract:
+      container:
+        schema_version: "0.3"
+        format: xrd-session
+      reporting:
+        external_report:
+          version: "0.1"
+          reference_doc: docs/modeling/prediction_pipeline_v0_1.md
+        internal_report:
+          version: "0.1"
+          reference_doc: docs/modeling/internal_clinical_report_content_v0_1.md
+      decision:
+        threshold_key: threshold_target

@@ -1,46 +1,20 @@
+contract: aramis_training_config_v0_1
 training:
-  name: aramis_m2q_t100_gated_sk_core4_synthetic_h5_example
-  version: 0.2.2-beta
-  branch: one_to_many
+  name: aramis_m2q_t100_synthetic_smoke_test
+  version: 0.2.3-beta
+  created_by: Sergey Denisov
+  created_at: "2026-07-14"
   clinical_stage: research draft
-  intended_use: synthetic H5 smoke-test only; not a clinical product model
-
-io:
-  input_dataframe_joblib_path: ../../examples/outputs/model_selection_m1q_v0_1/preprocessing/aramis_t100_biopsy_patients_model_input.joblib
-  output_model_joblib_path: ../../examples/prediction_models/aramis_m2q_t100_gated_sk_core4_synthetic_h5_example.joblib
-  prediction_preprocessing_config_path: ../../examples/prediction_h5/aramis_prediction_patient_raw_h5_example_v0_1.yaml
-
+  intended_use: Synthetic smoke test only; not a product model.
+  mode: evaluation
+input:
+  dataframe_joblib_path: ../../examples/outputs/model_input/aramis_biopsy_patients_model_input_v0_1.joblib
+output:
+  folder: ../../examples/outputs/training/synthetic
 model:
-  type: patient_m0_m1_m2_logistic_set
-  profile_column: radial_profile_data
-  label_column: product_status_group
-  group_column: patientId
-  specimen_column: specimenId
-  side_column: side
-  q_column: q_range
-  age_column: age
-  biopsy_column: biopsy
-  lr1_row_policy: all_rows
-  selected_models:
-  - M2Q
-  lr1_logreg_c: 0.1
-  lr2_logreg_c: 0.3
-
+  recipe: m2q_gated_target_case_v0_1
 evaluation:
-  mode: train_all
-  random_state: 42
-  target_sensitivity: 0.95
-
-prediction_contract:
-  container:
-    schema_version: "0.3"
-    format: xrd-session
-  reporting:
-    external_report:
-      version: "0.1"
-      reference_doc: docs/modeling/prediction_pipeline_v0_1.md
-    internal_report:
-      version: "0.1"
-      reference_doc: docs/modeling/internal_clinical_report_content_v0_1.md
-  decision:
-    threshold_key: threshold_target
+  method: repeated_stratified_kfold
+  folds: 5
+  repeats: 1
+  random_seed: 42

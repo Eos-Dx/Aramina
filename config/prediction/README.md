@@ -72,9 +72,9 @@ H5 root @schema_version and @format must match model-held contract
 exactly one patient must be present in the H5 container
 ```
 
-The training YAML defines `prediction_contract`. Training embeds that contract,
-the prediction preprocessing YAML, report versions, and decision threshold in
-the model joblib. Product Predict YAML cannot override those model-held
+The selected model recipe defines `prediction_contract`. Final fit embeds that
+contract, resolved prediction preprocessing YAML, report versions, and decision
+threshold in the model joblib. Product Predict YAML cannot override model-held
 settings or model identity. `io.input_dataframe_joblib_path` is allowed only
 for synthetic unit tests with `run.synthetic_test_mode: true`; it is not a
 product input contract.
@@ -84,7 +84,7 @@ Product v0.1 route:
 ```text
 one-patient H5
 -> clinician-supplied patient.target_side from predict YAML
--> prediction_preprocessing_config from model joblib
+-> resolved prediction_preprocessing_yaml from model joblib
 -> PONI geometry and H5 session selection
 -> hot/faulty pixel detection
 -> azimuthal integration with sample/calibrant thickness correction

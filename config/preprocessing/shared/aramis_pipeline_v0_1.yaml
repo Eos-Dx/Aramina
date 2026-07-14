@@ -28,16 +28,16 @@ pipeline:
           values:
             $ref: filters.quality_exclusions.fallback_date.excluded_dates
       - enabled:
-          $ref: branch_settings.require_biopsy_rows
+          $ref: cohort_settings.require_biopsy_rows
         column: biopsy
         op: ==
         value: true
       - enabled:
-          $ref: branch_settings.filter_by_specimen_status
+          $ref: cohort_settings.filter_by_specimen_status
         column: specimen_status
         op: in
         values:
-          $ref: branch_settings.specimen_status_keep
+          $ref: cohort_settings.specimen_status_keep
       - column: calibrant_thickness_mm
         op: notna
       - column: calibrant_thickness_mm
@@ -103,7 +103,7 @@ pipeline:
   - name: biopsy_filter
     transformer: ColumnValueFilter
     enabled:
-      $ref: branch_settings.require_biopsy_rows
+      $ref: cohort_settings.require_biopsy_rows
     params:
       column: biopsy
       op: ==
@@ -111,7 +111,7 @@ pipeline:
   - name: patient_biopsy_filter
     transformer: GroupValueFilter
     enabled:
-      $ref: branch_settings.require_biopsy_patient
+      $ref: cohort_settings.require_biopsy_patient
     params:
       group_column: patientId
       column: biopsy
@@ -120,26 +120,26 @@ pipeline:
   - name: specimen_status_filter
     transformer: ColumnValueFilter
     enabled:
-      $ref: branch_settings.filter_by_specimen_status
+      $ref: cohort_settings.filter_by_specimen_status
     params:
       column: specimen_status
       op: in
       values:
-        $ref: branch_settings.specimen_status_keep
+        $ref: cohort_settings.specimen_status_keep
   - name: product_status_filter
     transformer: ProductStatusGroupFilter
     enabled:
-      $ref: branch_settings.filter_by_product_status_group
+      $ref: cohort_settings.filter_by_product_status_group
     params:
       allowed:
-        $ref: branch_settings.product_status_group_keep
+        $ref: cohort_settings.product_status_group_keep
   - name: paired_patient_filter
     transformer: PairedGroupFilter
     enabled:
-      $ref: branch_settings.require_patient_pair
+      $ref: cohort_settings.require_patient_pair
     params:
       allowed_pairs:
-        $ref: branch_settings.patient_pair_keep
+        $ref: cohort_settings.patient_pair_keep
   - name: faulty_pixels
     transformer: FaultyPixelDetector
     params:
@@ -183,9 +183,9 @@ pipeline:
     transformer: PatientSpecimenValidityFilter
     params:
       min_measurements_per_specimen:
-        $ref: branch_settings.min_measurements_per_specimen_after_snr
+        $ref: cohort_settings.min_measurements_per_specimen_after_snr
       min_specimens_per_patient:
-        $ref: branch_settings.min_specimens_per_patient_after_snr
+        $ref: cohort_settings.min_specimens_per_patient_after_snr
   - name: normalization
     transformer: QRangeValueNormalizer
     params:
@@ -211,6 +211,6 @@ pipeline:
       columns:
         $concat:
         - $ref: metadata.output_columns
-        - $ref: branch_settings.output_columns
+        - $ref: cohort_settings.output_columns
       errors:
         $ref: metadata.keep_columns_errors

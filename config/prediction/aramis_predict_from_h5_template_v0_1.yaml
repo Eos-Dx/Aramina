@@ -3,7 +3,7 @@ run:
 
 io:
   input_h5_path: /path/to/one_patient_left_right_breasts.h5
-  input_model_joblib_path: ../../examples/prediction_models/aramis_m2q_t100_gated_sk_core4_nested_c1_0p1_c2_0p3.joblib
+  input_model_joblib_path: ../../examples/prediction_models/aramis_m2q_t100_0_2_3_beta.joblib
   output_folder: ../../examples/outputs/prediction
 
 patient:

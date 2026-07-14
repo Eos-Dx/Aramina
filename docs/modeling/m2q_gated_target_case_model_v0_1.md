@@ -55,6 +55,10 @@ patient remain together in every patient-safe fold.
 
 ## Honest Nested Validation
 
+This historical experiment selected the frozen recipe regularization. Current
+development training does not repeat hyperparameter selection; it evaluates the
+fixed `C1=0.1`, `C2=0.3` recipe with repeated patient-safe stratified k-fold.
+
 Evaluation:
 
 ```text
@@ -63,7 +67,8 @@ inner selection: patient-safe 4-fold
 LR1 C grid: [0.1, 0.3]
 LR2 C grid: [0.1, 0.3]
 selection metric: inner out-of-fold operational ROC AUC
-threshold: inner out-of-fold threshold targeting sensitivity 0.95
+evaluation threshold: train-fold threshold applied to held-out fold
+deployment threshold: train-all threshold targeting sensitivity >=0.95
 ```
 
 The full-cohort inner selection chose:
@@ -119,7 +124,4 @@ training_pipeline_classes_v0_1.md
 
 sk_symmetry_features_v0_1.md
   Core4 definitions
-
-honest_operational_model_experiment_v0_1.md
-  historical paired/fallback experiment, retained for comparison only
 ```

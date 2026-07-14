@@ -167,7 +167,8 @@ architecture_id: m2q_gated_target_case_v0_1
 preprocessing: T100 biopsy-patient model input
 model: M2Q
 regularization: selected inside patient-safe nested CV
-target sensitivity: 0.95 threshold derived from inner out-of-fold predictions
+evaluation threshold: derived within each train fold for held-out metrics
+deployment threshold: derived from final train-all scores at target sensitivity >=0.95
 ```
 
 M2Q combines profile score, optional SK Core4 symmetry, and age. Measurement

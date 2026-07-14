@@ -6,8 +6,8 @@ tests and colleague onboarding.
 Tracked artifacts:
 
 ```text
-aramis_m2q_t100_gated_sk_core4_nested_c1_0p1_c2_0p3.joblib
-  packaged product artifact with embedded GFRM preprocessing
+aramis_m2q_t100_0_2_3_beta.joblib
+  current packaged M2Q product artifact with embedded GFRM preprocessing
 
 aramis_m2q_t100_gated_sk_core4_synthetic_h5_example.joblib
   synthetic H5 smoke-test artifact with embedded raw-array preprocessing

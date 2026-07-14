@@ -21,18 +21,9 @@ Reviewed for the gated M2Q target-case model on 2026-07-13.
 | `docs/modeling/prediction_pipeline_v0_1.md` | prediction contract | retained; current model-artifact reference deferred to config stage |
 | `docs/modeling/sk_symmetry_features_v0_1.md` | SK mathematical definitions | retained; Core4 remains current block |
 | `docs/modeling/internal_clinical_report_content_v0_1.md` | internal-report reference | retained; final target-side result and LR1-only contralateral output remain valid |
-| `docs/modeling/final_candidate_model_artifact_v0_1.md` | old unrestricted-SK artifact | explicitly historical |
-| `docs/modeling/m2q_age_candidate_update_v0_1.md` | old age experiment | explicitly historical |
-| `docs/modeling/m2q_core4_optional_symmetry_candidate_v0_1_9.md` | v0.1.9 artifact | explicitly historical |
-| `docs/modeling/m2q_core4_paired_candidate_v0_1_8.md` | paired-only artifact | historical |
-| `docs/modeling/m1q_regularization_experiment_v0_1.md` | M1Q regularization evidence | historical |
-| `docs/modeling/m1q_threshold_mode_comparison_v0_1.md` | M1Q threshold evidence | historical |
-| `docs/modeling/honest_operational_model_experiment_v0_1.md` | routed-model experiment | historical |
-| `docs/modeling/age_conditional_incremental_value_v0_1.md` | routed-model age analysis | historical |
-| `docs/modeling/results/m1q_threshold_mode_comparison_v0_1.csv` | generated M1Q table | retained as historical result data, not API evidence |
 | `docs/modeling/Aramis_model_status_and_validation_limitations_v0_1.docx` | generated Word draft | retained outside the Markdown source-of-truth set |
 | `docs/meta/*.json`, `*.csv`, `*.py` | controlled metadata and audit evidence | reviewed as data/source artifacts; metadata index remains `docs/meta/README.md` |
 
-The next configuration phase will revise preprocessing, training, and prediction
-YAML layout and then replace the tracked prediction artifact reference. That
-work is intentionally not included in this architecture lock.
+Historical experiment records are retained in
+`experiment/aramis-model-selection-v0.1`, not in this product-development
+branch.

@@ -1,21 +1,18 @@
 aramis_preprocessing:
   product: Aramis
   clinical_stage: research draft
-  branch: one_to_many
-  decision_unit: patientId
+  decision_unit: target breast
   row_unit: measurementId
   grouping_unit: specimenId
   cohort: prediction_patient
-branch_settings:
+cohort_settings:
   specimen_status_keep: []
   product_status_group_keep: []
   filter_by_specimen_status: false
   filter_by_product_status_group: false
   require_patient_pair: false
   patient_pair_keep: []
-  patient_pair_exclude: []
   min_measurements_per_specimen_after_snr: 1
   min_specimens_per_patient_after_snr: 1
-  require_biopsy: false
   require_biopsy_rows: false
   require_biopsy_patient: false

@@ -10,6 +10,7 @@ from hashlib import sha256
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import joblib
 import numpy as np
@@ -35,17 +36,22 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from xrd_preprocessing import (
     load_preprocessing_artifact,
-    load_preprocessing_config,
     load_preprocessing_dataframe,
 )
 
-from .modeling import (
+from .model_utils import (
     LABEL_MAP,
     compute_binary_thresholds,
     profile_matrix,
 )
+from .training_config import (
+    load_training_config,
+    resolve_training_recipe,
+    resolved_recipe_path,
+)
 
 TARGET_CASE_ID = "target_case_id"
+PATIENT_BOOTSTRAP_SAMPLES = 2_000
 
 
 class PatientModelInputBuilder(BaseEstimator):
@@ -330,21 +336,6 @@ class AramisPatientTrainingPipeline(BaseEstimator):
             random_state=random_state,
         )
         self.feature_table_ = self.input_builder_.fit_transform(x)
-        self.model_trainer_ = PatientModelSetTrainer(
-            selected_models=selected_models,
-            profile_column=profile_column,
-            label_column=label_column,
-            lr1_logreg_c=lr1_logreg_c,
-            lr2_logreg_c=lr2_logreg_c,
-            random_state=random_state,
-            target_sensitivity=target_sensitivity,
-        )
-        self.model_trainer_.fit(self.feature_table_, self.input_builder_.lr1_rows_)
-        if self.hyperparameter_selection_ is not None:
-            _apply_oof_thresholds(
-                self.model_trainer_.models_,
-                self.hyperparameter_selection_["thresholds"],
-            )
         self.evaluator_ = PatientModelSetEvaluator(
             config=self.config,
             selected_models=selected_models,
@@ -363,6 +354,16 @@ class AramisPatientTrainingPipeline(BaseEstimator):
             target_sensitivity=target_sensitivity,
         )
         self.evaluator_.fit(x)
+        self.model_trainer_ = PatientModelSetTrainer(
+            selected_models=selected_models,
+            profile_column=profile_column,
+            label_column=label_column,
+            lr1_logreg_c=lr1_logreg_c,
+            lr2_logreg_c=lr2_logreg_c,
+            random_state=random_state,
+            target_sensitivity=target_sensitivity,
+        )
+        self.model_trainer_.fit(self.feature_table_, self.input_builder_.lr1_rows_)
         self.artifact_ = _patient_training_artifact(
             df=x,
             config=self.config,
@@ -411,34 +412,43 @@ def run_training_from_config(
     *,
     dataframe: pd.DataFrame | None = None,
     preprocessing_artifact: dict[str, Any] | None = None,
+    dataframe_joblib_path: str | Path | None = None,
+    output_folder: str | Path | None = None,
 ) -> dict[str, Any]:
-    """Run Aramis training using paths and parameters stored in YAML."""
-    config_path = Path(config_path)
-    config_text = config_path.read_text(encoding="utf-8")
-    config = yaml.safe_load(config_text)
-    _validate_training_config(config, config_path)
-
-    branch = config["training"]["branch"]
-    if branch != "one_to_many":
-        raise ValueError(f"Unsupported training branch: {branch}")
-
-    input_path = _config_path(config, config_path, "input_dataframe_joblib_path")
-    output_path = _config_path(config, config_path, "output_model_joblib_path")
-    output_json_path = _optional_config_path(config, config_path, "output_json_path")
-    output_yaml_path = _optional_config_path(config, config_path, "output_yaml_path")
-    prediction_preprocessing_config_path = _optional_config_path(
-        config,
-        config_path,
-        "prediction_preprocessing_config_path",
+    """Evaluate or final-fit one immutable Aramis model recipe."""
+    config_path = Path(config_path).expanduser().resolve()
+    public_config, config_text = load_training_config(config_path)
+    recipe_id = str(public_config["model"]["recipe"])
+    recipe, registry_path = resolve_training_recipe(recipe_id)
+    config = _effective_training_config(public_config, recipe)
+    input_path = Path(dataframe_joblib_path).resolve() if dataframe_joblib_path else (
+        _public_config_path(
+            public_config, config_path, section="input", key="dataframe_joblib_path"
+        )
+    )
+    output_root = Path(output_folder).resolve() if output_folder else (
+        _public_config_path(
+            public_config, config_path, section="output", key="folder"
+        )
+    )
+    run_folder = _new_training_run_folder(output_root, public_config["training"])
+    prediction_preprocessing_config_path = resolved_recipe_path(
+        str(recipe["prediction_preprocessing_config_path"]), registry_path
     )
     prediction_preprocessing = _prediction_preprocessing_payload(
         prediction_preprocessing_config_path
     )
-    df = dataframe if dataframe is not None else load_preprocessing_dataframe(input_path)
+    if dataframe is None:
+        dataframe, loaded_artifact = _load_training_dataframe(input_path)
+        preprocessing_artifact = preprocessing_artifact or loaded_artifact
+    df = dataframe
     if preprocessing_artifact is None:
-        preprocessing_artifact = load_preprocessing_artifact(input_path)
+        preprocessing_artifact = {
+            "preprocessing_config_yaml": None,
+            "metadata": {"preprocessing_provenance": "unavailable"},
+        }
 
-    model_type = str(config.get("model", {}).get("type", "patient_m0_m1_m2_logistic_set"))
+    model_type = str(config["model"]["type"])
     if model_type != "patient_m0_m1_m2_logistic_set":
         raise ValueError(f"Unsupported training model.type: {model_type!r}")
     artifact = train_patient_m0_m1_m2_model_artifact(
@@ -449,13 +459,37 @@ def run_training_from_config(
         preprocessing_artifact=preprocessing_artifact,
         prediction_preprocessing=prediction_preprocessing,
     )
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    joblib.dump(artifact, output_path)
-    if output_json_path is not None:
-        _write_json_summary(artifact, output_json_path)
-    if output_yaml_path is not None:
-        _write_yaml_description(artifact, output_yaml_path)
-    return artifact
+    evaluation_artifact = _evaluation_artifact(
+        artifact,
+        recipe_id=recipe_id,
+        training_config_yaml=config_text,
+    )
+    _write_evaluation_outputs(evaluation_artifact, run_folder)
+    if public_config["training"]["mode"] == "evaluation":
+        evaluation_artifact["run_folder"] = str(run_folder)
+        return evaluation_artifact
+
+    model_artifact = _final_model_artifact(
+        artifact,
+        public_config=public_config,
+        recipe_id=recipe_id,
+        training_config_yaml=config_text,
+    )
+    model_path = run_folder / "model.joblib"
+    joblib.dump(model_artifact, model_path)
+    model_sha = _file_sha256(model_path)
+    model_id = _model_artifact_id(public_config["training"], model_sha)
+    description = _model_description(
+        model_artifact,
+        model_id=model_id,
+        model_sha=model_sha,
+        model_path=model_path,
+    )
+    _write_yaml(run_folder / "model_description.yaml", description)
+    model_artifact["run_folder"] = str(run_folder)
+    model_artifact["model_path"] = str(model_path)
+    model_artifact["model_id"] = model_id
+    return model_artifact
 
 
 def train_patient_m0_m1_m2_model_artifact(
@@ -477,6 +511,18 @@ def train_patient_m0_m1_m2_model_artifact(
     )
     pipeline.fit(df)
     return pipeline.named_steps["patient_training"].artifact_
+
+
+def _load_training_dataframe(path: Path) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """Load a preprocessing artifact or explicitly unsupported-provenance DataFrame."""
+    value = joblib.load(path)
+    if isinstance(value, pd.DataFrame):
+        return value, {
+            "preprocessing_config_yaml": None,
+            "metadata": {"preprocessing_provenance": "unavailable"},
+        }
+    artifact = load_preprocessing_artifact(path)
+    return load_preprocessing_dataframe(path), artifact
 
 
 def _patient_training_artifact(
@@ -501,7 +547,9 @@ def _patient_training_artifact(
         split_metrics,
         split_predictions,
         random_state=int(evaluation_config.get("random_state", 42)),
-        bootstrap_samples=int(evaluation_config.get("bootstrap_samples", 0)),
+        bootstrap_samples=int(
+            evaluation_config.get("bootstrap_samples", PATIENT_BOOTSTRAP_SAMPLES)
+        ),
     )
     dataset_summary = _patient_dataset_summary(df, feature_table, lr1_rows)
     model_descriptions = {
@@ -509,37 +557,40 @@ def _patient_training_artifact(
         for name, description in _patient_model_descriptions().items()
         if name in selected_models
     }
-    prediction_contract = _prediction_contract_payload(config["prediction_contract"])
-
     return {
         "kind": "aramis_training_artifact",
-        "version": "0.2",
+        "version": "0.3",
         "created_at": datetime.now(timezone.utc).isoformat(),
         "model_type": "patient_m0_m1_m2_logistic_set",
+        "model_columns": {
+            key: config["model"][key]
+            for key in (
+                "profile_column",
+                "group_column",
+                "specimen_column",
+                "side_column",
+                "age_column",
+            )
+        },
         "models": models,
         "model_descriptions": model_descriptions,
         "feature_schema": _patient_model_feature_schema(selected_models),
         "warnings": _patient_model_warnings(config, selected_models, feature_table),
-        "training_config": config,
         "training_config_yaml": config_text,
-        "training_config_text": config_text,
-        "training_config_sha256": sha256(config_text.encode("utf-8")).hexdigest(),
-        "prediction_contract": prediction_contract["contract"],
-        "prediction_contract_yaml": prediction_contract["yaml"],
-        "prediction_contract_sha256": prediction_contract["sha256"],
+        "prediction_contract_yaml": yaml.safe_dump(
+            config["prediction_contract"], sort_keys=False
+        ),
         **_preprocessing_lineage_fields(
             preprocessing_artifact,
             prediction_preprocessing,
         ),
         "input_dataframe_joblib_sha256": _file_sha256(input_dataframe_joblib_path),
         "dataset_summary": dataset_summary,
-        "feature_table": feature_table,
         "metric_summary": metric_summary,
         "split_metrics": split_metrics,
         "split_predictions": split_predictions,
         "hyperparameter_selection": hyperparameter_selection,
         "metadata": {
-            "branch": "one_to_many",
             "aramis_version": _aramis_version(),
             "aramis_git_sha": _aramis_git_sha(),
         },
@@ -2662,32 +2713,44 @@ def _patient_bootstrap_intervals(
     for (model_name, evaluation_view), group in predictions.groupby(
         ["model_name", "evaluation_view"], sort=False
     ):
-        patient = (
-            group.groupby("patientId", as_index=False)
+        cases = (
+            group.groupby(TARGET_CASE_ID, as_index=False)
             .agg(
+                patientId=("patientId", "first"),
                 label=("label", "first"),
                 p_cancer=("p_cancer", "mean"),
                 threshold_target=("threshold_target", "mean"),
             )
             .reset_index(drop=True)
         )
-        y = patient["label"].to_numpy(dtype=int)
-        score = patient["p_cancer"].to_numpy(dtype=float)
-        threshold = patient["threshold_target"].to_numpy(dtype=float)
+        y = cases["label"].to_numpy(dtype=int)
+        score = cases["p_cancer"].to_numpy(dtype=float)
+        threshold = cases["threshold_target"].to_numpy(dtype=float)
         point = _binary_metric_values(y, score, threshold)
         sampled = {name: [] for name in point}
         for _ in range(max(0, bootstrap_samples)):
-            indices = rng.integers(0, len(patient), size=len(patient))
-            if np.unique(y[indices]).size != 2:
+            patient_ids = cases["patientId"].drop_duplicates().to_numpy()
+            sampled_ids = rng.choice(patient_ids, size=len(patient_ids), replace=True)
+            sample = pd.concat(
+                [cases.loc[cases["patientId"] == patient_id] for patient_id in sampled_ids],
+                ignore_index=True,
+            )
+            sample_y = sample["label"].to_numpy(dtype=int)
+            if np.unique(sample_y).size != 2:
                 continue
-            values = _binary_metric_values(y[indices], score[indices], threshold[indices])
+            values = _binary_metric_values(
+                sample_y,
+                sample["p_cancer"].to_numpy(dtype=float),
+                sample["threshold_target"].to_numpy(dtype=float),
+            )
             for name, value in values.items():
                 if np.isfinite(value):
                     sampled[name].append(value)
         row: dict[str, Any] = {
             "model_name": model_name,
             "evaluation_view": evaluation_view,
-            "pooled_patients": int(len(patient)),
+            "pooled_patients": int(cases["patientId"].nunique()),
+            "pooled_target_cases": int(len(cases)),
         }
         for name, value in point.items():
             values = sampled[name]
@@ -2780,23 +2843,12 @@ def _calibration_parameters(y: np.ndarray, score: np.ndarray) -> tuple[float, fl
 def _prediction_preprocessing_payload(config_path: Path | None) -> dict[str, Any] | None:
     if config_path is None:
         return None
-    config_text = config_path.read_text(encoding="utf-8")
+    from xrd_preprocessing import load_preprocessing_config
+
     config = load_preprocessing_config(config_path)
     return {
         "path": str(config_path),
-        "config": config,
-        "config_text": config_text,
-        "config_sha256": sha256(config_text.encode("utf-8")).hexdigest(),
-    }
-
-
-def _prediction_contract_payload(contract: dict[str, Any]) -> dict[str, Any]:
-    """Serialize the immutable prediction contract embedded in a model artifact."""
-    contract_yaml = yaml.safe_dump(contract, sort_keys=True)
-    return {
-        "contract": contract,
-        "yaml": contract_yaml,
-        "sha256": sha256(contract_yaml.encode("utf-8")).hexdigest(),
+        "yaml": yaml.safe_dump(config, sort_keys=False),
     }
 
 
@@ -2804,179 +2856,203 @@ def _preprocessing_lineage_fields(
     preprocessing_artifact: dict[str, Any],
     prediction_preprocessing: dict[str, Any] | None,
 ) -> dict[str, Any]:
-    training_config = preprocessing_artifact.get("preprocessing_config")
-    training_config_text = preprocessing_artifact.get("preprocessing_config_text")
-    training_config_sha256 = preprocessing_artifact.get("preprocessing_config_sha256")
+    training_config_yaml = preprocessing_artifact.get("preprocessing_config_yaml")
     fields = {
-        "preprocessing_config_sha256": training_config_sha256,
-        "training_preprocessing_config": training_config,
-        "training_preprocessing_config_text": training_config_text,
-        "training_preprocessing_config_sha256": training_config_sha256,
+        "historical_preprocessing_yaml": training_config_yaml,
         "preprocessing_metadata": preprocessing_artifact.get("metadata", {}),
     }
     if prediction_preprocessing is None:
-        fields.update(
-            {
-                "prediction_preprocessing_config": None,
-                "prediction_preprocessing_config_text": None,
-                "prediction_preprocessing_config_sha256": None,
-                "prediction_preprocessing_config_path": None,
-            }
-        )
+        fields["prediction_preprocessing_yaml"] = None
         return fields
-    fields.update(
-        {
-            "prediction_preprocessing_config": prediction_preprocessing["config"],
-            "prediction_preprocessing_config_text": prediction_preprocessing[
-                "config_text"
-            ],
-            "prediction_preprocessing_config_sha256": prediction_preprocessing[
-                "config_sha256"
-            ],
-            "prediction_preprocessing_config_path": prediction_preprocessing["path"],
-        }
-    )
+    fields["prediction_preprocessing_yaml"] = prediction_preprocessing["yaml"]
     return fields
 
 
 def _validate_training_config(config: dict[str, Any], config_path: Path) -> None:
-    if not isinstance(config, dict):
-        raise TypeError(f"Training config must be a mapping: {config_path}")
-    missing = [
-        section
-        for section in ("training", "io", "model", "evaluation", "prediction_contract")
-        if section not in config
-    ]
-    if missing:
-        raise ValueError(f"Missing training config sections: {missing}")
-    if not config.get("io", {}).get("input_dataframe_joblib_path"):
-        raise ValueError(f"Missing io.input_dataframe_joblib_path in {config_path}")
-    if not config.get("io", {}).get("output_model_joblib_path"):
-        raise ValueError(f"Missing io.output_model_joblib_path in {config_path}")
-    if not config.get("io", {}).get("prediction_preprocessing_config_path"):
-        raise ValueError(
-            f"Missing io.prediction_preprocessing_config_path in {config_path}"
-        )
-    _validate_prediction_contract(config["prediction_contract"], config_path)
-    nested = config.get("evaluation", {}).get("nested", {})
-    if nested.get("enabled", False):
-        selected_models = _selected_patient_models(config.get("model", {}))
-        if "M2Q" not in selected_models:
-            raise ValueError("Nested model selection currently requires selected_models M2Q.")
-        for key in ("lr1_c_grid", "lr2_c_grid"):
-            values = nested.get(key)
-            if not isinstance(values, list) or not values:
-                raise ValueError(f"evaluation.nested.{key} must be a non-empty list.")
-            if any(float(value) <= 0.0 for value in values):
-                raise ValueError(f"evaluation.nested.{key} values must be positive.")
-        if int(nested.get("inner_n_splits", 4)) < 2:
-            raise ValueError("evaluation.nested.inner_n_splits must be at least 2.")
-    if int(config.get("evaluation", {}).get("bootstrap_samples", 0)) < 0:
-        raise ValueError("evaluation.bootstrap_samples must be non-negative.")
+    """Backward-compatible import target for the current public validator."""
+    from .training_config import validate_training_config
+
+    validate_training_config(config, config_path)
 
 
-def _validate_prediction_contract(contract: Any, config_path: Path) -> None:
-    """Require the model-held H5, report, and decision contract at training time."""
-    if not isinstance(contract, dict):
-        raise ValueError(f"prediction_contract must be a mapping in {config_path}")
-    container = contract.get("container")
-    if not isinstance(container, dict):
-        raise ValueError(f"Missing prediction_contract.container in {config_path}")
-    for key in ("schema_version", "format"):
-        if container.get(key) in {None, ""}:
-            raise ValueError(
-                f"Missing prediction_contract.container.{key} in {config_path}"
-            )
-    reporting = contract.get("reporting")
-    if not isinstance(reporting, dict):
-        raise ValueError(f"Missing prediction_contract.reporting in {config_path}")
-    for report_key in ("external_report", "internal_report"):
-        report = reporting.get(report_key)
-        if not isinstance(report, dict) or not report.get("version") or not report.get(
-            "reference_doc"
-        ):
-            raise ValueError(
-                f"Missing prediction_contract.reporting.{report_key} details in {config_path}"
-            )
-    if contract.get("decision", {}).get("threshold_key") in {None, ""}:
-        raise ValueError(
-            f"Missing prediction_contract.decision.threshold_key in {config_path}"
-        )
+def _effective_training_config(
+    public_config: dict[str, Any],
+    recipe: dict[str, Any],
+) -> dict[str, Any]:
+    evaluation = public_config["evaluation"]
+    return {
+        "training": dict(public_config["training"]),
+        "model": dict(recipe["model"]),
+        "evaluation": {
+            "mode": "stratified_kfold",
+            "n_splits": int(evaluation["folds"]),
+            "n_repeats": int(evaluation["repeats"]),
+            "random_state": int(evaluation["random_seed"]),
+            "target_sensitivity": float(recipe["target_sensitivity"]),
+            "bootstrap_samples": PATIENT_BOOTSTRAP_SAMPLES,
+        },
+        "prediction_contract": dict(recipe["prediction_contract"]),
+    }
 
 
-def _config_path(config: dict[str, Any], config_path: Path, key: str) -> Path:
-    value = config.get("io", {}).get(key)
-    path = Path(str(value)).expanduser()
-    if path.is_absolute():
-        return path
-    return (config_path.parent / path).resolve()
-
-
-def _optional_config_path(
+def _public_config_path(
     config: dict[str, Any],
     config_path: Path,
+    *,
+    section: str,
     key: str,
-) -> Path | None:
-    value = config.get("io", {}).get(key)
-    if value in {None, ""}:
-        return None
+) -> Path:
+    value = config[section][key]
     path = Path(str(value)).expanduser()
-    if path.is_absolute():
-        return path
-    return (config_path.parent / path).resolve()
+    return path if path.is_absolute() else (config_path.parent / path).resolve()
 
 
-def _write_json_summary(artifact: dict[str, Any], output_path: Path) -> None:
+def _new_training_run_folder(output_root: Path, training: dict[str, Any]) -> Path:
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stem = _safe_artifact_stem(f"{training['name']}_{training['version']}")
+    folder = output_root / f"{stem}_{stamp}_{uuid4().hex[:8]}"
+    folder.mkdir(parents=True, exist_ok=False)
+    return folder
+
+
+def _safe_artifact_stem(value: str) -> str:
+    return "".join(
+        char if char.isalnum() or char in {"-", "_"} else "_" for char in value
+    ).strip("_")
+
+
+def _evaluation_artifact(
+    artifact: dict[str, Any],
+    *,
+    recipe_id: str,
+    training_config_yaml: str,
+) -> dict[str, Any]:
+    return {
+        "kind": "aramis_evaluation_artifact",
+        "version": "0.1",
+        "created_at": artifact["created_at"],
+        "recipe": recipe_id,
+        "training_config_yaml": training_config_yaml,
+        "historical_preprocessing_yaml": artifact.get(
+            "historical_preprocessing_yaml"
+        ),
+        "dataset_summary": artifact["dataset_summary"],
+        "metric_summary": artifact["metric_summary"],
+        "split_metrics": artifact["split_metrics"],
+        "split_predictions": artifact["split_predictions"],
+        "metadata": artifact["metadata"],
+    }
+
+
+def _write_evaluation_outputs(artifact: dict[str, Any], folder: Path) -> None:
+    joblib.dump(artifact, folder / "evaluation.joblib")
+    artifact["split_metrics"].to_csv(folder / "evaluation_metrics.csv", index=False)
+    artifact["split_predictions"].to_csv(
+        folder / "evaluation_predictions.csv", index=False
+    )
+    summary = {
+        "kind": artifact["kind"],
+        "version": artifact["version"],
+        "created_at": artifact["created_at"],
+        "recipe": artifact["recipe"],
+        "dataset_summary": _records(artifact["dataset_summary"]),
+        "metric_summary": _records(artifact["metric_summary"]),
+        "files": {
+            "joblib": "evaluation.joblib",
+            "metrics": "evaluation_metrics.csv",
+            "predictions": "evaluation_predictions.csv",
+        },
+    }
+    _write_json(folder / "evaluation.json", summary)
+    _write_yaml(folder / "evaluation.yaml", summary)
+
+
+def _final_model_artifact(
+    artifact: dict[str, Any],
+    *,
+    public_config: dict[str, Any],
+    recipe_id: str,
+    training_config_yaml: str,
+) -> dict[str, Any]:
+    return {
+        "kind": "aramis_training_artifact",
+        "version": "0.3",
+        "created_at": artifact["created_at"],
+        "model_type": artifact["model_type"],
+        "model_columns": artifact["model_columns"],
+        "model_identity": {
+            "name": public_config["training"]["name"],
+            "version": str(public_config["training"]["version"]),
+            "recipe": recipe_id,
+        },
+        "models": artifact["models"],
+        "model_descriptions": artifact["model_descriptions"],
+        "feature_schema": artifact["feature_schema"],
+        "warnings": artifact["warnings"],
+        "dataset_summary": artifact["dataset_summary"],
+        "training_config_yaml": training_config_yaml,
+        "historical_preprocessing_yaml": artifact.get(
+            "historical_preprocessing_yaml"
+        ),
+        "prediction_preprocessing_yaml": artifact["prediction_preprocessing_yaml"],
+        "prediction_contract_yaml": artifact["prediction_contract_yaml"],
+        "input_dataframe_joblib_sha256": artifact.get(
+            "input_dataframe_joblib_sha256"
+        ),
+        "preprocessing_metadata": artifact.get("preprocessing_metadata", {}),
+        "metadata": artifact["metadata"],
+    }
+
+
+def _model_artifact_id(training: dict[str, Any], model_sha: str) -> str:
+    return _safe_artifact_stem(
+        f"{training['name']}_{training['version']}_{model_sha[:12]}"
+    )
+
+
+def _model_description(
+    artifact: dict[str, Any],
+    *,
+    model_id: str,
+    model_sha: str,
+    model_path: Path,
+) -> dict[str, Any]:
+    model_name = next(iter(artifact["models"]))
+    model = artifact["models"][model_name]
+    return {
+        "kind": "aramis_model_description",
+        "version": "0.1",
+        "model_id": model_id,
+        "model_name": artifact["model_identity"]["name"],
+        "model_version": artifact["model_identity"]["version"],
+        "model_recipe": artifact["model_identity"]["recipe"],
+        "selected_model": model_name,
+        "model_summary": _model_summary(model),
+        "model_joblib": model_path.name,
+        "model_joblib_sha256": model_sha,
+        "decision_thresholds": _jsonable(model.get("thresholds", {})),
+        "feature_schema": _jsonable(artifact["feature_schema"]),
+        "dataset_summary": _records(artifact["dataset_summary"]),
+        "evaluation_artifacts": {
+            "summary": "evaluation.yaml",
+            "metrics": "evaluation_metrics.csv",
+            "predictions": "evaluation_predictions.csv",
+        },
+        "clinical_stage": "research draft",
+        "requires_radiologist_review": True,
+    }
+
+
+def _write_json(path: Path, payload: dict[str, Any]) -> None:
     import json
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(
-        json.dumps(_training_summary_payload(artifact), indent=2),
-        encoding="utf-8",
+    path.write_text(json.dumps(_jsonable(payload), indent=2), encoding="utf-8")
+
+
+def _write_yaml(path: Path, payload: dict[str, Any]) -> None:
+    path.write_text(
+        yaml.safe_dump(_jsonable(payload), sort_keys=False), encoding="utf-8"
     )
-
-
-def _write_yaml_description(artifact: dict[str, Any], output_path: Path) -> None:
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(
-        yaml.safe_dump(_training_summary_payload(artifact), sort_keys=False),
-        encoding="utf-8",
-    )
-
-
-def _training_summary_payload(artifact: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "kind": artifact.get("kind"),
-        "version": artifact.get("version"),
-        "created_at": artifact.get("created_at"),
-        "model_type": artifact.get("model_type"),
-        "model_descriptions": artifact.get("model_descriptions", {}),
-        "model_registry": _model_registry_summary(artifact.get("models", {})),
-        "feature_schema": _jsonable(artifact.get("feature_schema", {})),
-        "dataset_summary": _records(artifact.get("dataset_summary")),
-        "metric_summary": _records(artifact.get("metric_summary")),
-        "hyperparameter_selection": _jsonable(
-            artifact.get("hyperparameter_selection")
-        ),
-        "training_config_sha256": artifact.get("training_config_sha256"),
-        "preprocessing_config_sha256": artifact.get("preprocessing_config_sha256"),
-        "training_preprocessing_config_sha256": artifact.get(
-            "training_preprocessing_config_sha256"
-        ),
-        "prediction_preprocessing_config_sha256": artifact.get(
-            "prediction_preprocessing_config_sha256"
-        ),
-        "input_dataframe_joblib_sha256": artifact.get("input_dataframe_joblib_sha256"),
-        "metadata": artifact.get("metadata", {}),
-    }
-
-
-def _model_registry_summary(models: dict[str, Any]) -> dict[str, Any]:
-    """Return the serializable trained-model details for the training YAML."""
-    return {
-        model_name: _model_summary(model_info)
-        for model_name, model_info in models.items()
-    }
 
 
 def _model_summary(model_info: dict[str, Any]) -> dict[str, Any]:

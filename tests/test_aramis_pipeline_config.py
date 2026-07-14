@@ -9,13 +9,13 @@ from xrd_preprocessing.transformers import H5BlobDataFrameTransformer, KeepColum
 
 from aramis.__main__ import main
 from aramis.pipelines import AramisPreprocessingPipeline, _config_path
-from aramis.workflows import run_workflow_from_config
+from aramis.workflows import _load_workflow_config
 
 from .synthetic_aramis_h5 import load_synthetic_config, write_known_synthetic_h5
 
 
 def test_yaml_pipeline_steps_build_registered_transformers():
-    config = load_synthetic_config("all_patients")
+    config = load_synthetic_config()
 
     steps = build_pipeline_steps_from_config(config)
     names = [name for name, _ in steps]
@@ -28,13 +28,13 @@ def test_yaml_pipeline_steps_build_registered_transformers():
 
 
 def test_yaml_pipeline_rejects_missing_or_unknown_transformer():
-    config = load_synthetic_config("all_patients")
+    config = load_synthetic_config()
     config["pipeline"]["steps"][0]["transformer"] = "NoSuchTransformer"
 
     with pytest.raises(ValueError, match="Unknown pipeline transformer"):
         build_pipeline_steps_from_config(config)
 
-    config = load_synthetic_config("all_patients")
+    config = load_synthetic_config()
     del config["pipeline"]["steps"][0]["transformer"]
 
     with pytest.raises(ValueError, match="missing transformer"):
@@ -42,7 +42,7 @@ def test_yaml_pipeline_rejects_missing_or_unknown_transformer():
 
 
 def test_yaml_pipeline_skips_disabled_steps():
-    config = load_synthetic_config("all_patients")
+    config = load_synthetic_config()
     step = next(
         step
         for step in config["pipeline"]["steps"]
@@ -57,7 +57,7 @@ def test_yaml_pipeline_skips_disabled_steps():
 
 def test_output_columns_are_mandatory(tmp_path):
     h5_path = tmp_path / "known_synthetic_aramis.h5"
-    config = load_synthetic_config("all_patients")
+    config = load_synthetic_config()
     config["metadata"]["output_columns"] = []
     write_known_synthetic_h5(h5_path)
 
@@ -81,12 +81,12 @@ def test_config_path_resolves_absolute_relative_and_missing(tmp_path):
 
 def test_preprocess_cli_reads_input_and_output_from_yaml(tmp_path):
     h5_path = tmp_path / "known_synthetic_aramis.h5"
-    output_path = tmp_path / "out" / "one_to_many.joblib"
+    output_path = tmp_path / "out" / "model_input.joblib"
     config_path = tmp_path / "preprocess.yaml"
-    config = load_synthetic_config("all_patients")
+    config = load_synthetic_config()
     config["io"] = {
         "input_h5_path": "known_synthetic_aramis.h5",
-        "output_joblib_path": "out/one_to_many.joblib",
+        "output_joblib_path": "out/model_input.joblib",
     }
     config["raw_data"]["h5_dataset_candidates"]["npy"] = ["processed/data"]
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
@@ -100,10 +100,9 @@ def test_preprocess_cli_reads_input_and_output_from_yaml(tmp_path):
     df = load_preprocessing_dataframe(output_path)
     assert isinstance(artifact, dict)
     assert isinstance(artifact["dataframe"], pd.DataFrame)
-    assert artifact["preprocessing_config"]["aramis_preprocessing"]["branch"] == "one_to_many"
-    assert artifact["preprocessing_config_text"]
-    assert artifact["preprocessing_config_sha256"]
-    assert artifact["metadata"]["branch"] == "one_to_many"
+    resolved = yaml.safe_load(artifact["preprocessing_config_yaml"])
+    assert resolved["pipeline"]["steps"]
+    assert "extends" not in resolved
     assert len(artifact["metadata"]["input_h5_sha256"]) == 64
     assert artifact["metadata"]["aramis_version"]
     assert artifact["metadata"]["aramis_git_sha"]
@@ -121,7 +120,7 @@ def test_preprocess_cli_can_write_minimal_output_columns(tmp_path):
         "radial_profile_data_raw",
         "radial_profile_data",
     ]
-    config = load_synthetic_config("all_patients")
+    config = load_synthetic_config()
     config["io"] = {
         "input_h5_path": "known_synthetic_aramis.h5",
         "output_joblib_path": "out/minimal.joblib",
@@ -140,109 +139,25 @@ def test_preprocess_cli_can_write_minimal_output_columns(tmp_path):
     assert not df["radial_profile_data_raw"].equals(df["radial_profile_data"])
 
 
-@pytest.mark.parametrize("mode", ["memory", "artifact"])
-def test_run_workflow_yaml_can_run_preprocessing_modes(tmp_path, mode: str):
-    h5_path = tmp_path / "known_synthetic_aramis.h5"
-    output_path = tmp_path / f"{mode}_preprocessed.joblib"
-    preprocessing_config_path = tmp_path / f"{mode}_preprocess.yaml"
-    training_config_path = tmp_path / f"{mode}_train.yaml"
-    workflow_config_path = tmp_path / f"{mode}_workflow.yaml"
-    config = load_synthetic_config("all_patients")
-    config["io"] = {
-        "input_h5_path": str(h5_path),
-        "output_joblib_path": str(output_path),
-    }
-    config["raw_data"]["h5_dataset_candidates"]["npy"] = ["processed/data"]
-    preprocessing_config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
-    training_config_path.write_text(
-        yaml.safe_dump({"io": {"input_dataframe_joblib_path": str(output_path)}}),
-        encoding="utf-8",
-    )
+def test_workflow_contract_rejects_unknown_fields(tmp_path):
+    workflow_config_path = tmp_path / "workflow.yaml"
     workflow_config_path.write_text(
         yaml.safe_dump(
             {
+                "contract": "aramis_preprocess_train_workflow_v0_1",
                 "workflow": {
-                    "name": f"test_{mode}_workflow",
-                    "mode": mode,
-                    "run_preprocessing": True,
-                    "run_training": False,
-                    "validate_io_match": True,
+                    "name": "test",
+                    "created_by": "tester",
+                    "created_at": "2026-07-14",
+                    "output_folder": "outputs",
+                    "mode": "legacy",
                 },
-                "preprocessing": {"config_path": str(preprocessing_config_path)},
-                "training": {"config_path": str(training_config_path)},
-            }
-        ),
-        encoding="utf-8",
-    )
-    write_known_synthetic_h5(h5_path)
-
-    exit_code = main(["run", "--config", str(workflow_config_path)])
-
-    assert exit_code == 0
-    assert output_path.exists()
-    assert len(load_preprocessing_dataframe(output_path)) == 6
-
-
-def test_run_workflow_rejects_unsupported_mode(tmp_path):
-    output_path = tmp_path / "preprocessed.joblib"
-    preprocessing_config_path = tmp_path / "preprocess.yaml"
-    training_config_path = tmp_path / "train.yaml"
-    workflow_config_path = tmp_path / "workflow.yaml"
-    preprocessing_config = load_synthetic_config("all_patients")
-    preprocessing_config["io"] = {
-        "input_h5_path": str(tmp_path / "input.h5"),
-        "output_joblib_path": str(output_path),
-    }
-    preprocessing_config_path.write_text(
-        yaml.safe_dump(preprocessing_config),
-        encoding="utf-8",
-    )
-    training_config_path.write_text(
-        yaml.safe_dump({"io": {"input_dataframe_joblib_path": str(output_path)}}),
-        encoding="utf-8",
-    )
-    workflow_config_path.write_text(
-        yaml.safe_dump(
-            {
-                "workflow": {"mode": "bad_mode"},
-                "preprocessing": {"config_path": str(preprocessing_config_path)},
-                "training": {"config_path": str(training_config_path)},
+                "preprocessing_config_path": "preprocess.yaml",
+                "training_config_path": "train.yaml",
             }
         ),
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="Unsupported workflow.mode"):
-        run_workflow_from_config(workflow_config_path)
-
-
-def test_run_workflow_rejects_preprocess_train_io_mismatch(tmp_path):
-    preprocessing_config_path = tmp_path / "preprocess.yaml"
-    training_config_path = tmp_path / "train.yaml"
-    workflow_config_path = tmp_path / "workflow.yaml"
-    preprocessing_config = load_synthetic_config("all_patients")
-    preprocessing_config["io"] = {
-        "input_h5_path": str(tmp_path / "input.h5"),
-        "output_joblib_path": str(tmp_path / "a.joblib"),
-    }
-    preprocessing_config_path.write_text(
-        yaml.safe_dump(preprocessing_config),
-        encoding="utf-8",
-    )
-    training_config_path.write_text(
-        yaml.safe_dump({"io": {"input_dataframe_joblib_path": str(tmp_path / "b.joblib")}}),
-        encoding="utf-8",
-    )
-    workflow_config_path.write_text(
-        yaml.safe_dump(
-            {
-                "workflow": {"validate_io_match": True},
-                "preprocessing": {"config_path": str(preprocessing_config_path)},
-                "training": {"config_path": str(training_config_path)},
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    with pytest.raises(ValueError, match="does not match"):
-        run_workflow_from_config(workflow_config_path)
+    with pytest.raises(ValueError, match="Unknown workflow fields"):
+        _load_workflow_config(workflow_config_path)

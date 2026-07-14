@@ -37,7 +37,7 @@ def test_log_product_run_dry_run_writes_required_artifacts(tmp_path):
         run_name="unit",
         product_name="Aramis",
         preprocessing_config={"raw_data": {"source": "npy"}},
-        product_filter_rules={"branch": "one_to_many"},
+        product_filter_rules={"cohort": "biopsy_patients"},
         dataset_df=df,
         model=model,
         metrics={"roc_auc": 0.5},

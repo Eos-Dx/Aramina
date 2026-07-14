@@ -8,7 +8,8 @@ from pathlib import Path
 from .pipelines import run_preprocessing_from_config
 from .prediction import run_prediction_from_config
 from .training import run_training_from_config
-from .workflows import run_workflow_from_config
+from .training_config import available_model_recipes, describe_model_recipe
+from .workflows import run_preprocess_train_from_config
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -31,15 +32,24 @@ def main(argv: list[str] | None = None) -> int:
     )
     train.add_argument(
         "--config",
-        required=True,
         type=Path,
         help="Path to Aramis training YAML.",
     )
-    run = subparsers.add_parser(
-        "run",
+    train.add_argument(
+        "--list-recipes",
+        action="store_true",
+        help="List model recipes available in this Aramis version.",
+    )
+    train.add_argument(
+        "--describe-recipe",
+        metavar="RECIPE_ID",
+        help="Print one immutable model recipe.",
+    )
+    preprocess_train = subparsers.add_parser(
+        "preprocess-train",
         help="Run an Aramis preprocess+train workflow YAML.",
     )
-    run.add_argument(
+    preprocess_train.add_argument(
         "--config",
         required=True,
         type=Path,
@@ -64,32 +74,30 @@ def main(argv: list[str] | None = None) -> int:
         print(f"config={args.config}")
         return 0
     if args.command == "train":
+        if args.list_recipes:
+            print("\n".join(available_model_recipes()))
+            return 0
+        if args.describe_recipe:
+            print(describe_model_recipe(args.describe_recipe), end="")
+            return 0
+        if args.config is None:
+            train.error("--config is required unless listing or describing recipes")
         artifact = run_training_from_config(args.config)
-        print(f"model_type={artifact['model_type']}")
-        print(f"branch={artifact['metadata']['branch']}")
-        metric_summary = artifact["metric_summary"]
-        if "model_name" in metric_summary.columns:
-            for row in metric_summary.itertuples(index=False):
-                print(
-                    f"{row.model_name}/{row.evaluation_view}: "
-                    f"roc_auc_mean={row.roc_auc_mean:.6f} "
-                    f"specificity_target_mean={row.specificity_target_mean:.6f}"
-                )
-        else:
-            row = metric_summary.iloc[0]
-            print(f"roc_auc_mean={row['roc_auc_mean']:.6f}")
+        print(f"artifact_kind={artifact['kind']}")
+        print(f"run_folder={artifact['run_folder']}")
+        if artifact["kind"] == "aramis_training_artifact":
+            print(f"model_id={artifact['model_id']}")
+            print(f"model_path={artifact['model_path']}")
         print(f"config={args.config}")
         return 0
-    if args.command == "run":
-        result = run_workflow_from_config(args.config)
+    if args.command == "preprocess-train":
+        result = run_preprocess_train_from_config(args.config)
         preprocessing_df = result["preprocessing_dataframe"]
         training_artifact = result["training_artifact"]
-        if preprocessing_df is not None:
-            print(f"preprocess_rows={len(preprocessing_df)}")
-            print(f"preprocess_columns={len(preprocessing_df.columns)}")
-        if training_artifact is not None:
-            print(f"model_type={training_artifact['model_type']}")
-            print(f"branch={training_artifact['metadata']['branch']}")
+        print(f"preprocess_rows={len(preprocessing_df)}")
+        print(f"preprocess_columns={len(preprocessing_df.columns)}")
+        print(f"training_artifact_kind={training_artifact['kind']}")
+        print(f"run_folder={result['run_folder']}")
         print(f"config={args.config}")
         return 0
     if args.command == "predict":

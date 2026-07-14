@@ -1,15 +1,8 @@
+contract: aramis_preprocess_train_workflow_v0_1
 workflow:
-  name: aramis_biopsy_patients_m2q_gated_train
-  version: 0.2.2-beta
-  clinical_stage: research draft
-  intended_use: decision-support p_cancer research draft; requires radiologist review
-  mode: memory
-  run_preprocessing: true
-  run_training: true
-  validate_io_match: true
-
-preprocessing:
-  config_path: ../preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
-
-training:
-  config_path: ../training/aramis_m2q_t100_primary_train_v0_1.yaml
+  name: aramis_m2q_t100_preprocess_train
+  created_by: Sergey Denisov
+  created_at: "2026-07-14"
+  output_folder: ../../examples/outputs/workflows
+preprocessing_config_path: ../preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
+training_config_path: ../training/aramis_m2q_t100_primary_train_v0_1.yaml

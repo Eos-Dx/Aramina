@@ -1,106 +1,60 @@
-# Aramis Preprocessing YAML
+# Aramis preprocessing YAML
 
-Status: research draft.
-
-Aramis preprocessing is YAML-governed. Aramis loads a concrete YAML, resolves
-its shared fragments through `xrd_preprocessing.load_preprocessing_config(...)`,
-builds the sklearn-style transformer route with
-`xrd_preprocessing.build_pipeline_from_config(...)`, and writes a DataFrame
-joblib artifact.
-
-## Runnable Product Configs
+Current development configs:
 
 ```text
-aramis_all_patients_model_input_v0_1.yaml
 aramis_biopsy_patients_model_input_v0_1.yaml
 aramis_prediction_patient_model_input_v0_1.yaml
 ```
 
-`aramis_biopsy_patients_model_input_v0_1.yaml` is the current primary
-development training dataset config. It keeps patients with at least one biopsy
-row, keeps contralateral rows for symmetry features, maps NORMAL to BENIGN,
-applies AgBH T100 monochromaticity exclusions, and outputs model/audit columns.
+The first config builds the T100 historical training cohort. It keeps patients
+with at least one biopsied breast, retains contralateral measurements, and maps
+NORMAL to BENIGN. The prediction config performs only measurement QC and signal
+preparation for one incoming patient. It has no historical diagnosis, biopsy,
+date, or AgBH exclusion filter.
 
-`aramis_all_patients_model_input_v0_1.yaml` is the broader comparison dataset.
-It keeps all labelled patients, maps NORMAL to BENIGN, applies the same T100
-quality exclusions, and writes the same model-input schema.
-
-`aramis_prediction_patient_model_input_v0_1.yaml` is stored inside trained model
-joblibs and is used by `aramis predict`. It has no historical date, diagnosis,
-biopsy, or AgBH cohort filters. The predict YAML supplies the incoming one-
-patient H5 path, target side, analysis author, and one output folder. Model
-identity, prediction preprocessing, report contract, and decision threshold are
-read only from the selected model joblib.
-
-## Shared Fragments
+Both top-level files use `extends` only for repository readability. At runtime,
+`xrd_preprocessing.load_preprocessing_config` resolves them into one mapping.
+`pipeline.steps` is the executable order. Steps may be added, removed, disabled,
+or reordered when the transformer contract allows it. XRD-preprocessing does
+not impose an Aramis branch concept.
 
 ```text
-shared/aramis_policy_v0_1.yaml
-shared/aramis_pipeline_v0_1.yaml
-branches/one_to_many_all_patients_normal_as_benign_v0_1.yaml
-branches/one_to_many_biopsy_patients_normal_as_benign_v0_1.yaml
-branches/prediction_patient_v0_1.yaml
-outputs/model_input_output_v0_1.yaml
-outputs/prediction_model_input_output_v0_1.yaml
-exclusions/agbh_quality_exclusions_t100_v0_1.yaml
+shared/       common XRD settings and ordered transformer pipeline
+cohorts/      training-cohort or one-patient selection policy
+exclusions/   T100 AgBH quality exclusions and evidence reference
+outputs/      explicit retained DataFrame columns
 ```
 
-T100 is the current development default. It is a middle-ground
-monochromaticity threshold: stricter than T130, less data-hungry than T70, and
-keeps enough biopsy-patient cases for patient-safe model selection.
-
-## Canonical Product Order
-
-The shared product pipeline expresses this canonical order explicitly:
+Canonical product constraints:
 
 ```text
-H5PoniGeometryCalculatorTransformer
--> H5SessionSelectorTransformer
--> H5ToDataFrameTransformer
--> ProductColumnBuilder and product filters
--> FaultyPixelDetector
--> AzimuthalIntegration
--> SNRTransformer and SNRFilter
--> PatientSpecimenValidityFilter
--> QRangeValueNormalizer
--> RadialProfileValueFilter
--> KeepColumnsTransformer
+raw source: GFRM only
+positions: P1, P2, P3
+PONI coverage: q_max >= 23 nm^-1
+sample thickness: required and >0 mm
+calibrant thickness: required and 2-40 mm
+integration: Poisson error model, 100 q points, 2-23 nm^-1
+SNR: Poisson, >=18 dB
+normalization: median value in 6.7-7.1 nm^-1
 ```
 
-`H5PoniGeometryCalculatorTransformer` calculates `poni_q_max_nm_inv` from the
-PONI geometry with pyFAI before H5 data frames are decoded. The following
-session selector can therefore reject sessions that do not cover the required
-q range without reading GFRM payloads. This is the current Aramis product
-order, not a global restriction on every XRD-preprocessing YAML: another
-workflow may declare another explicit pipeline order when its data contract
-requires one.
-
-## Commands
+Run:
 
 ```bash
-python -m aramis preprocess --config config/preprocessing/aramis_all_patients_model_input_v0_1.yaml
-python -m aramis preprocess --config config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
+python -m aramis preprocess \
+  --config config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
 ```
 
-Prediction preprocessing is normally not run directly. It is embedded in the
-trained model joblib and invoked by:
-
-```bash
-python -m aramis predict --config config/prediction/aramis_predict_from_h5_template_v0_1.yaml
-```
-
-## Output Artifacts
-
-Preprocessing joblibs contain:
+Output joblib contains:
 
 ```text
+kind
+version
+created_at
 dataframe
-resolved preprocessing YAML
-original YAML text
-preprocessing_config_sha256
-input_h5_sha256
-Aramis version / git SHA
-branch metadata
+preprocessing_config_yaml   # fully resolved effective YAML
+metadata                    # input H5 SHA256, Aramis version, git SHA
 ```
 
-These are data-preparation artifacts, not trained classifiers.
+Contract details: `docs/data_preprocessing.md`.
