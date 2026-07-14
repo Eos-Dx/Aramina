@@ -20,6 +20,38 @@ from aramis.training import run_training_from_config
 from .synthetic_aramis_h5 import write_v0_3_one_patient_h5
 
 
+PREDICTION_EXAMPLE_ROOT = Path(__file__).parents[1] / "examples" / "prediction_h5"
+FINAL_EXAMPLE_MODEL = (
+    Path(__file__).parents[1]
+    / "examples"
+    / "prediction_models"
+    / "aramis_m2q_t100_0_2_3_beta.joblib"
+)
+
+
+def test_tracked_prediction_examples_use_final_m2q_artifact():
+    configs = sorted(PREDICTION_EXAMPLE_ROOT.glob("*_predict.yaml"))
+    assert [path.name for path in configs] == [
+        "atypical_predict.yaml",
+        "benign_predict.yaml",
+        "cancer_predict.yaml",
+    ]
+
+    for config_path in configs:
+        config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+        h5_path = config_path.parent / config["io"]["input_h5_path"]
+        model_path = (config_path.parent / config["io"]["input_model_joblib_path"]).resolve()
+
+        assert model_path == FINAL_EXAMPLE_MODEL.resolve()
+        with h5py.File(h5_path, "r") as h5:
+            assert h5.attrs["schema_version"] == "0.3"
+            assert h5.attrs["format"] == "xrd-session"
+            assert h5.attrs["fixture_patient_id"] == config["patient"]["patient_id"]
+            sets = h5["session/sets"]
+            sides = {str(group.attrs["side"]).casefold() for group in sets.values()}
+            assert sides == {"left", "right"}
+
+
 def _patient_frame() -> pd.DataFrame:
     rows = []
     q = np.linspace(2.0, 23.0, 100)

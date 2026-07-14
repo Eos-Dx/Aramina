@@ -18,10 +18,10 @@ H5 template for a new patient:
 config/prediction/aramis_predict_from_h5_template_v0_1.yaml
 ```
 
-The H5 smoke-test examples use a synthetic-only model artifact:
+The three tracked H5 examples use the packaged product artifact:
 
 ```text
-examples/prediction_models/aramis_m2q_t100_gated_sk_core4_synthetic_h5_example.joblib
+examples/prediction_models/aramis_m2q_t100_0_2_3_beta.joblib
 ```
 
 The general H5 template points to the packaged product artifact, which embeds
@@ -75,9 +75,7 @@ exactly one patient must be present in the H5 container
 The selected model recipe defines `prediction_contract`. Final fit embeds that
 contract, resolved prediction preprocessing YAML, report versions, and decision
 threshold in the model joblib. Product Predict YAML cannot override model-held
-settings or model identity. `io.input_dataframe_joblib_path` is allowed only
-for synthetic unit tests with `run.synthetic_test_mode: true`; it is not a
-product input contract.
+settings or model identity.
 
 Product v0.1 route:
 

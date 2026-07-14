@@ -8,7 +8,7 @@ artifact:
 
 ```text
 examples/prediction_h5/
-examples/prediction_models/aramis_m2q_t100_core4_optional_symmetry_c1_0p1_c2_0p1.joblib
+examples/prediction_models/aramis_m2q_t100_0_2_3_beta.joblib
 ```
 
 ## macOS / Linux
@@ -45,12 +45,9 @@ python -m aramis predict --config examples/prediction_h5/cancer_predict.yaml
 ## Prediction Examples
 
 ```bash
-python -m aramis predict --config examples/prediction_h5/px01_predict.yaml
-python -m aramis predict --config examples/prediction_h5/px02_predict.yaml
-python -m aramis predict --config examples/prediction_h5/px03_predict.yaml
+python -m aramis predict --config examples/prediction_h5/benign_predict.yaml
 python -m aramis predict --config examples/prediction_h5/cancer_predict.yaml
 python -m aramis predict --config examples/prediction_h5/atypical_predict.yaml
-python -m aramis predict --config examples/prediction_h5/benign_predict.yaml
 ```
 
 Reports are written to:
@@ -59,6 +56,6 @@ Reports are written to:
 examples/outputs/prediction_h5_examples/
 ```
 
-These H5 files are synthetic smoke-test fixtures. They prove installation,
-preprocessing, prediction, and report writing. They are not clinical validation
-examples.
+These are real one-patient GFRM fixtures extracted from the larger archive.
+They prove installation, preprocessing, prediction and report writing. They
+are not clinical validation examples.

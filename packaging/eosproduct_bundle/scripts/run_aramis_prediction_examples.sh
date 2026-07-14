@@ -8,12 +8,9 @@ ARAMIS_ROOT="${TARGET_ROOT}/Aramis"
 cd "${ARAMIS_ROOT}"
 
 for config in \
-  examples/prediction_h5/px01_predict.yaml \
-  examples/prediction_h5/px02_predict.yaml \
-  examples/prediction_h5/px03_predict.yaml \
+  examples/prediction_h5/benign_predict.yaml \
   examples/prediction_h5/cancer_predict.yaml \
-  examples/prediction_h5/atypical_predict.yaml \
-  examples/prediction_h5/benign_predict.yaml
+  examples/prediction_h5/atypical_predict.yaml
 do
   echo "--- ${config}"
   conda run --no-capture-output -n "${ENV_NAME}" python -m aramis predict --config "${config}"

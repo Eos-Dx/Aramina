@@ -1,33 +1,31 @@
 # Aramis Prediction H5 Examples
 
 These files are small one-patient H5 v0.3 containers for `aramis predict`
-smoke tests.
+examples. They are extracted from the larger study archive without modifying
+the source archive. Each contains real embedded GFRM frames, PONI geometry,
+sample thicknesses, calibrant thickness and both breast sides for one patient.
 
-They are synthetic fixtures. They test API behavior, preprocessing, reporting,
-and one-patient container validation. They are not clinical examples.
+They are integration examples, not clinical validation cases. Historical
+specimen status is included only to show the fixture type; prediction output is
+decision support and must not be interpreted as a retrospective validation.
 
 Files:
 
 ```text
-px01_one_patient.h5
-px02_one_patient.h5
-px03_one_patient.h5
+benign_one_patient.h5
 cancer_one_patient.h5
 atypical_one_patient.h5
-benign_one_patient.h5
 ```
 
 Each H5 contains:
 
 ```text
 one patientId
-left breast measurements
-right breast measurements
-3 measurements per breast
-raw/data arrays
-sample_thickness_mm
-calibrant_thickness_mm
-PONI text
+two specimenIds: left and right breast
+three measurements per breast
+embedded GFRM measurement payloads
+sample_thickness_mm and calibrant_thickness_mm
+PONI text for every measurement
 schema_version = 0.3
 format = xrd-session
 ```
@@ -38,23 +36,24 @@ Run:
 cd Aramis
 conda activate eosproduct
 
-python -m aramis predict --config examples/prediction_h5/px01_predict.yaml
-python -m aramis predict --config examples/prediction_h5/px02_predict.yaml
-python -m aramis predict --config examples/prediction_h5/px03_predict.yaml
-
+python -m aramis predict --config examples/prediction_h5/benign_predict.yaml
 python -m aramis predict --config examples/prediction_h5/cancer_predict.yaml
 python -m aramis predict --config examples/prediction_h5/atypical_predict.yaml
-python -m aramis predict --config examples/prediction_h5/benign_predict.yaml
 ```
 
-The YAML files use the tracked example model:
+All three YAML files use the tracked final M2Q model artifact:
 
 ```text
-examples/prediction_models/aramis_m2q_t100_gated_sk_core4_synthetic_h5_example.joblib
+examples/prediction_models/aramis_m2q_t100_0_2_3_beta.joblib
 ```
 
-The H5 files are synthetic API fixtures. Their `p_cancer` values only prove that
-the prediction route runs; they are not clinical example scores.
+The fixture-builder script is provided for reproducibility. It requires local
+access to the large source archive and is not part of normal installation:
+
+```bash
+python examples/prediction_h5/create_gfrm_prediction_fixtures.py \
+  /path/to/combined_archive.h5
+```
 
 Reports are written to:
 
@@ -62,11 +61,5 @@ Reports are written to:
 examples/outputs/prediction_h5_examples/
 ```
 
-Note:
-
-```text
-aramis_prediction_patient_raw_h5_example_v0_1.yaml
-```
-
-is example-only. It uses embedded `raw/data` arrays. Product H5 preprocessing
-uses the prediction preprocessing config embedded in the trained model artifact.
+Product preprocessing is read from the model artifact; it is not overridden by
+these example YAML files.

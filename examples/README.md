@@ -10,7 +10,7 @@ prediction_h5/
 prediction_models/
 ```
 
-Run a complete synthetic H5 smoke test:
+Run a complete one-patient H5 prediction example:
 
 ```bash
 python -m aramis predict --config examples/prediction_h5/cancer_predict.yaml

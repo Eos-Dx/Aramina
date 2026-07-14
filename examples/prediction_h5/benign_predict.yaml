@@ -3,9 +3,9 @@ run:
 
 io:
   input_h5_path: benign_one_patient.h5
-  input_model_joblib_path: ../prediction_models/aramis_m2q_t100_gated_sk_core4_synthetic_h5_example.joblib
+  input_model_joblib_path: ../prediction_models/aramis_m2q_t100_0_2_3_beta.joblib
   output_folder: ../outputs/prediction_h5_examples
 
 patient:
-  patient_id: PRED_BENIGN
-  target_side: left
+  patient_id: Nova_227
+  target_side: right

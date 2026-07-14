@@ -1,27 +1,24 @@
 # Aramis Prediction Model Examples
 
-This folder stores small tracked model artifacts for `aramis predict` smoke
-tests and colleague onboarding.
+This folder stores the tracked model artifact used by `aramis predict` examples
+and colleague onboarding.
 
 Tracked artifacts:
 
 ```text
 aramis_m2q_t100_0_2_3_beta.joblib
-  current packaged M2Q product artifact with embedded GFRM preprocessing
-
-aramis_m2q_t100_gated_sk_core4_synthetic_h5_example.joblib
-  synthetic H5 smoke-test artifact with embedded raw-array preprocessing
+  current packaged M2Q artifact with embedded GFRM prediction preprocessing
 ```
 
-Both are research-draft decision-support artifacts. Each contains the M2Q
-model, model metadata, thresholds, embedded prediction preprocessing, and an
-immutable prediction contract. The synthetic artifact is used by:
+This research-draft decision-support artifact contains the M2Q model, model
+metadata, thresholds, embedded prediction preprocessing and immutable
+prediction contract. It is used by:
 
 ```text
 examples/prediction_h5/*_predict.yaml
 ```
 
-`config/prediction/aramis_predict_from_h5_template_v0_1.yaml` uses the product
-artifact. The synthetic examples test installation, H5 reading,
-preprocessing, scoring, and report generation. They are not clinical
+`config/prediction/aramis_predict_from_h5_template_v0_1.yaml` and the three
+real one-patient examples use this same artifact. They test installation, H5
+reading, preprocessing, scoring and report generation; they are not clinical
 validation examples.
