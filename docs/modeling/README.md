@@ -19,6 +19,16 @@ t100_m2q_pairwise_cosine_experiment_v0_1.md
 t100_m0q_m1q_m2q_controlled_comparison_v0_1.md
 ```
 
+Additional archived decision records retained on this branch:
+
+```text
+age_conditional_incremental_value_v0_1.md
+honest_operational_model_experiment_v0_1.md
+m2q_age_candidate_update_v0_1.md
+m2q_core4_optional_symmetry_candidate_v0_1_9.md
+m2q_core4_paired_candidate_v0_1_8.md
+```
+
 Archived experiment documents may still mention removed result CSVs. Their full
 source tables and exploratory scripts are preserved on:
 
