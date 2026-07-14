@@ -6,7 +6,7 @@ Public contract: `aramis_training_config_v0_1`.
 contract: aramis_training_config_v0_1
 training:
   name: aramis_m2q_t100
-  version: 0.2.4-beta
+  version: 0.2.5-beta
   created_by: Sergey Denisov
   created_at: "2026-07-14"
   clinical_stage: research draft
