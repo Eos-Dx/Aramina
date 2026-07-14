@@ -41,8 +41,12 @@ function Ensure-Conda {
 function Find-Git {
     $Command = Get-Command git -ErrorAction SilentlyContinue
     if ($Command) { return $Command.Source }
-    $Candidate = Join-Path $env:ProgramFiles "Git\cmd\git.exe"
-    if (Test-Path $Candidate) { return $Candidate }
+    foreach ($Candidate in @(
+        (Join-Path $env:ProgramFiles "Git\cmd\git.exe"),
+        (Join-Path $env:LOCALAPPDATA "Programs\Git\cmd\git.exe")
+    )) {
+        if (Test-Path $Candidate) { return $Candidate }
+    }
     return $null
 }
 
