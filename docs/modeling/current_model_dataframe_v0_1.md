@@ -5,31 +5,44 @@ the Aramis model-development code. It is not clinical validation.
 
 ## Current Training Cohort
 
-The current product-clean training YAMLs use the biopsy-patient model-input
-DataFrame:
+The current product-clean preprocessing YAML produces the biopsy-patient
+model-input DataFrame:
 
 ```text
 config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
 examples/outputs/model_input/aramis_biopsy_patients_model_input_v0_1.joblib
 ```
 
-Training configs point to this artifact, for example:
-
-```text
-config/training/aramis_biopsy_patients_m0_m1_m2_v0_1.yaml
-config/training/aramis_v0_1_beta_primary_train.yaml
-```
+The existing training YAML name is retained as a runnable development fixture.
+Its layout and final model-artifact name will be revised in the next
+configuration stage; it does not replace the fixed model record in
+`m2q_gated_target_case_model_v0_1.md`.
 
 Current counts:
 
 | item | count |
 |---|---:|
-| measurement rows | 968 |
-| patients | 180 |
-| specimens / breasts | 342 |
-| patients with two breasts | 162 |
-| patients with one breast | 18 |
+| measurement rows | 893 |
+| patients | 164 |
+| specimens / breasts | 314 |
+| patients with two breasts | 150 |
+| patients with one breast | 14 |
 | DataFrame columns | 30 |
+
+## Monochromaticity Threshold
+
+Current development default is `T100`:
+
+```text
+config/preprocessing/exclusions/agbh_quality_exclusions_t100_v0_1.yaml
+monochromaticity_max_score: 0.0075
+```
+
+Rationale: T100 is the middle-ground AgBH monochromaticity threshold. T70 was
+slightly better in M1Q model-selection experiments but removed about 17% of the
+T130 biopsy-patient cohort. T130 kept the most data but gave weaker specificity
+and ROC in the current M1Q checks. T100 keeps more data than T70 while still
+removing more questionable calibration days than T130.
 
 ## Cohort Rule
 
@@ -59,20 +72,21 @@ side = Left or Right breast
 position = measurement position within breast
 ```
 
-The training code then builds patient-level features:
+The training code then builds target-breast cases:
 
 ```text
 measurement rows
 -> specimen/breast profile scores
--> patient-level profile logit-average
--> inferred target breast from biopsy/status metadata
+-> target-breast profile logit-average
+-> one case per biopsied target breast
 -> optional target/contralateral symmetry features
 -> optional age feature
--> patient-level p_cancer research score
+-> target-breast p_cancer research score
 ```
 
-Split-based evaluation is patient-safe: rows from one `patientId` must not be
-split between train and test.
+Each biopsied breast contributes one historical target case. Bilateral-biopsy
+patients therefore contribute two cases. Split-based evaluation is patient-safe:
+all cases and measurements from one `patientId` remain in the same fold.
 
 ## Label Mapping
 
@@ -80,11 +94,11 @@ Original specimen statuses in the current DataFrame:
 
 | specimen_status | specimens / breasts |
 |---|---:|
-| BENIGN | 163 |
-| NORMAL | 91 |
-| CANCER | 68 |
-| PRE_CANCEROUS | 12 |
-| ATYPICAL | 8 |
+| BENIGN | 152 |
+| NORMAL | 85 |
+| CANCER | 60 |
+| PRE_CANCEROUS | 11 |
+| ATYPICAL | 6 |
 
 Product label mapping:
 
@@ -97,8 +111,8 @@ Mapped product groups:
 
 | product_status_group | specimens / breasts | measurement rows |
 |---|---:|---:|
-| BENIGN | 254 | 714 |
-| CANCER | 88 | 254 |
+| BENIGN | 237 | 671 |
+| CANCER | 77 | 222 |
 
 ## Biopsy Flags
 
@@ -106,8 +120,8 @@ Biopsy availability in the current model-input DataFrame:
 
 | biopsy | specimens / breasts | measurement rows |
 |---|---:|---:|
-| True | 193 | 546 |
-| False | 149 | 422 |
+| True | 175 | 496 |
+| False | 139 | 397 |
 
 The `False` rows are mainly contralateral context rows retained because the
 patient has at least one biopsy-positive breast/specimen.
@@ -165,41 +179,19 @@ sample_thickness_mm
 
 Other columns are metadata, provenance, or quality-control context.
 
-## Archived Wide-Pool Audit Cohort
-
-For patient-pair inventory and sanity checks, a separate wide cleaned artifact
-was used during the experimental phase:
-
-```text
-experiment/aramis-v0.1-research-state
-```
-
-The biopsy-patient subset derived from that wide pool has:
-
-| item | count |
-|---|---:|
-| measurement rows | 893 |
-| patients | 164 |
-| specimens / breasts | 314 |
-| patients with two breasts | 150 |
-| patients with one breast | 14 |
-
-This wide-pool subset was useful for auditing breast-pair composition. It is not
-the artifact used by the current training YAMLs. If we decide that this
-wide-derived cohort is the canonical model cohort, preprocessing YAMLs and the
-model grid must be updated and rerun.
-
 ## Current Modeling Decision
 
 Current model-development default:
 
 ```text
 primary cohort: aramis_biopsy_patients_model_input_v0_1.joblib
-patients: 180
+patients: 164
+specimens / breasts: 314
+measurement rows: 893
 endpoint: BENIGN vs CANCER decision-support p_cancer
 row unit: measurement
 grouping unit: patientId
-decision-support level under discussion: target breast / patient workflow
+decision-support level: target breast with patient-internal symmetry context
 status: research draft, requires radiologist review
 ```
 
@@ -207,7 +199,7 @@ Training target-side rule:
 
 ```text
 primary cohort: biopsy_patients
-inferred target breast: biopsied breast
+historical target breast: biopsied breast
 reason: biopsied breast is the clinically suspicious breast and has endpoint
 prediction target breast: must be supplied by clinician/config, not inferred
 ```

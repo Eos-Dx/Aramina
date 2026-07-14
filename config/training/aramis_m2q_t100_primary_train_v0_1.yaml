@@ -1,0 +1,20 @@
+contract: aramis_training_config_v0_1
+training:
+  name: aramis_m2q_t100
+  version: 0.2.3-beta
+  created_by: Sergey Denisov
+  created_at: "2026-07-14"
+  clinical_stage: research draft
+  intended_use: Breast cancer decision support; requires radiologist review.
+  mode: final_fit
+input:
+  dataframe_joblib_path: ../../examples/outputs/model_input/aramis_biopsy_patients_model_input_v0_1.joblib
+output:
+  folder: ../../examples/outputs/training
+model:
+  recipe: m2q_gated_target_case_v0_1
+evaluation:
+  method: repeated_stratified_kfold
+  folds: 5
+  repeats: 20
+  random_seed: 42

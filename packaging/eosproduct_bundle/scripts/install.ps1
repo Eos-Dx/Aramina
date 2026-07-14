@@ -122,8 +122,8 @@ if ((Ensure-Git) -and (Ask-YesNo "Use git to clone/update repos?" "y")) {
     $script:UseGit = "yes"
 }
 
-Copy-OrUpdateRepo "XRD-preprocessing" "https://github.com/Eos-Dx/XRD-preprocessing.git" (Join-Path $TargetRoot "XRD-preprocessing") "src\xrd_preprocessing\configs\preprocessing_branch_config_template.yaml" "v0.1.6-beta"
-Copy-OrUpdateRepo "Aramis" "https://github.com/Eos-Dx/Aramis.git" (Join-Path $TargetRoot "Aramis") "examples\aramis_dataframe_one_to_one_v0_1.py" "0.1.3-beta"
+Copy-OrUpdateRepo "XRD-preprocessing" "https://github.com/Eos-Dx/XRD-preprocessing.git" (Join-Path $TargetRoot "XRD-preprocessing") "src\xrd_preprocessing\configs\preprocessing_pipeline_config_template.yaml" "v0.1.7-beta"
+Copy-OrUpdateRepo "Aramis" "https://github.com/Eos-Dx/Aramis.git" (Join-Path $TargetRoot "Aramis") "examples\prediction_models\aramis_m2q_t100_0_2_3_beta.joblib" "0.2.3-beta"
 Copy-OrUpdateRepo "container" "https://github.com/Eos-Dx/container.git" (Join-Path $TargetRoot "container") "pyproject.toml" "feat/v0_3-eoscan-session-container"
 New-Item -ItemType Directory -Force -Path (Join-Path $TargetRoot "Bremen") | Out-Null
 
@@ -152,17 +152,17 @@ if (Ask-YesNo "Create/update conda env $EnvName?" "y") {
 
 Write-Host "Ready: $TargetRoot"
 Write-Host "Run tests: .\run_tests.ps1 -TargetRoot `"$TargetRoot`" -Mode all -EnvName $EnvName"
-Write-Host "Run notebooks: .\run_aramis_notebooks.ps1 -TargetRoot `"$TargetRoot`" -EnvName $EnvName"
+Write-Host "Run prediction examples: .\run_aramis_prediction_examples.ps1 -TargetRoot `"$TargetRoot`" -EnvName $EnvName"
 
 if ($AutoRun) {
     Start-Process powershell -ArgumentList "-NoExit", "-Command", "`$env:ENV_NAME='$EnvName'; & '$BundleDir\run_tests.ps1' -TargetRoot '$TargetRoot' -Mode all"
-    & "$BundleDir\run_aramis_notebooks.ps1" -TargetRoot $TargetRoot -EnvName $EnvName
+    & "$BundleDir\run_aramis_prediction_examples.ps1" -TargetRoot $TargetRoot -EnvName $EnvName
     exit 0
 }
 
 if (Ask-YesNo "Run XRD-preprocessing and Aramis tests now?" "n") {
     Start-Process powershell -ArgumentList "-NoExit", "-Command", "`$env:ENV_NAME='$EnvName'; & '$BundleDir\run_tests.ps1' -TargetRoot '$TargetRoot' -Mode all"
 }
-if (Ask-YesNo "Launch Aramis marimo notebooks now?" "n") {
-    & "$BundleDir\run_aramis_notebooks.ps1" -TargetRoot $TargetRoot -EnvName $EnvName
+if (Ask-YesNo "Run Aramis prediction examples now?" "n") {
+    & "$BundleDir\run_aramis_prediction_examples.ps1" -TargetRoot $TargetRoot -EnvName $EnvName
 }

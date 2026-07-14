@@ -21,14 +21,13 @@ ARAMIS_CONFIG = (
     Path(__file__).parents[1]
     / "config"
     / "preprocessing"
-    / "aramis_one_to_many_max_v0_1.yaml"
+    / "aramis_biopsy_patients_model_input_v0_1.yaml"
 )
 
 
 def test_real_h5_subset_uses_gfrm_reader_and_xrd_transformers():
     config = load_preprocessing_config(ARAMIS_CONFIG)
     config["filters"]["accepted_dates"] = ["2026-01-28"]
-    config["labels"]["keep_after_grouping"] = ["BENIGN", "CANCER"]
     calibrant_min_mm, calibrant_max_mm = config["filters"][
         "calibrant_thickness_range_mm"
     ]
@@ -53,22 +52,26 @@ def test_real_h5_subset_uses_gfrm_reader_and_xrd_transformers():
         set_category="SAMPLE",
     )
     raw_df = reader.fit_transform(REAL_H5_SUBSET)
-    product_builder = ProductColumnBuilder()
+    product_builder = ProductColumnBuilder(
+        cancer_values=config["labels"]["product_column_builder"]["cancer_values"],
+        benign_values=config["labels"]["product_column_builder"]["benign_values"],
+        normal_values=config["labels"]["product_column_builder"]["normal_values"],
+    )
     product_df = product_builder.fit_transform(raw_df)
     label_filter = ProductStatusGroupFilter(
-        config["labels"]["keep_after_grouping"],
+        config["cohort_settings"]["product_status_group_keep"],
     )
     binary_df = label_filter.fit_transform(product_df)
 
     session_df = list_h5_sessions(REAL_H5_SUBSET)
-    assert config["xrd_preprocessing"]["release_tag"] == "v0.1.6-beta"
+    assert config["xrd_preprocessing"]["release_tag"] == "v0.1.7-beta"
     assert len(session_df) == 11
     assert session_df["category"].value_counts().to_dict() == {
         "SAMPLE": 10,
         "CALIBRATION": 1,
     }
     assert len(raw_df) == 30
-    assert len(binary_df) == 21
+    assert len(binary_df) == 30
     assert set(product_df["patientId"]) == {
         "Nova_376",
         "Nova_378",
@@ -77,8 +80,7 @@ def test_real_h5_subset_uses_gfrm_reader_and_xrd_transformers():
         "Nova_384",
     }
     assert product_df["product_status_group"].value_counts().to_dict() == {
-        "BENIGN": 15,
-        "NORMAL": 9,
+        "BENIGN": 24,
         "CANCER": 6,
     }
     assert set(binary_df["product_status_group"]) == {"BENIGN", "CANCER"}
@@ -89,4 +91,4 @@ def test_real_h5_subset_uses_gfrm_reader_and_xrd_transformers():
     }
     assert product_df["measurement_data"].iloc[0].shape == (512, 768)
     assert reader.stats_["measurement_rows"] == 30
-    assert label_filter.stats_["rows_fail"] == 9
+    assert label_filter.stats_["rows_fail"] == 0

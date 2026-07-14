@@ -2,16 +2,54 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import joblib
 import h5py
+import joblib
 import numpy as np
 import pandas as pd
+import pytest
 import yaml
-from xrd_preprocessing import load_preprocessing_config
 from xrd_preprocessing import save_preprocessing_artifact
 
-from aramis.__main__ import main
-from .synthetic_aramis_h5 import write_known_synthetic_h5
+from aramis.prediction import (
+    _validate_h5_container_contract,
+    _validate_prediction_config,
+    run_prediction_from_config,
+)
+from aramis.training import run_training_from_config
+
+from .synthetic_aramis_h5 import write_v0_3_one_patient_h5
+
+
+PREDICTION_EXAMPLE_ROOT = Path(__file__).parents[1] / "examples" / "prediction_h5"
+FINAL_EXAMPLE_MODEL = (
+    Path(__file__).parents[1]
+    / "examples"
+    / "prediction_models"
+    / "aramis_m2q_t100_0_2_3_beta.joblib"
+)
+
+
+def test_tracked_prediction_examples_use_final_m2q_artifact():
+    configs = sorted(PREDICTION_EXAMPLE_ROOT.glob("*_predict.yaml"))
+    assert [path.name for path in configs] == [
+        "atypical_predict.yaml",
+        "benign_predict.yaml",
+        "cancer_predict.yaml",
+    ]
+
+    for config_path in configs:
+        config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+        h5_path = config_path.parent / config["io"]["input_h5_path"]
+        model_path = (config_path.parent / config["io"]["input_model_joblib_path"]).resolve()
+
+        assert model_path == FINAL_EXAMPLE_MODEL.resolve()
+        with h5py.File(h5_path, "r") as h5:
+            assert h5.attrs["schema_version"] == "0.3"
+            assert h5.attrs["format"] == "xrd-session"
+            assert h5.attrs["fixture_patient_id"] == config["patient"]["patient_id"]
+            sets = h5["session/sets"]
+            sides = {str(group.attrs["side"]).casefold() for group in sets.values()}
+            assert sides == {"left", "right"}
 
 
 def _patient_frame() -> pd.DataFrame:
@@ -43,45 +81,26 @@ def _patient_frame() -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def _training_config(
-    input_path: Path,
-    output_path: Path,
-    prediction_preprocessing_config_path: Path | None = None,
-) -> dict:
-    io = {
-        "input_dataframe_joblib_path": str(input_path),
-        "output_model_joblib_path": str(output_path),
-    }
-    if prediction_preprocessing_config_path is not None:
-        io["prediction_preprocessing_config_path"] = str(
-            prediction_preprocessing_config_path
-        )
+def _training_config(input_path: Path, output_folder: Path) -> dict:
     return {
+        "contract": "aramis_training_config_v0_1",
         "training": {
-            "name": "test_predict_train",
-            "version": 0.1,
-            "branch": "one_to_many",
+            "name": "test_prediction_m2q",
+            "version": "0.1-beta",
+            "created_by": "test",
+            "created_at": "2026-07-14",
+            "clinical_stage": "research draft",
+            "intended_use": "Synthetic decision-support test.",
+            "mode": "final_fit",
         },
-        "io": io,
-        "model": {
-            "type": "patient_m0_m1_m2_logistic_set",
-            "profile_column": "radial_profile_data",
-            "label_column": "product_status_group",
-            "group_column": "patientId",
-            "specimen_column": "specimenId",
-            "side_column": "side",
-            "age_column": "age",
-            "biopsy_column": "biopsy",
-            "lr1_row_policy": "all_rows",
-            "selected_models": ["M1Q"],
-            "logreg_c": 1.0,
-        },
+        "input": {"dataframe_joblib_path": str(input_path)},
+        "output": {"folder": str(output_folder)},
+        "model": {"recipe": "m2q_gated_target_case_v0_1"},
         "evaluation": {
-            "mode": "stratified_kfold",
-            "n_splits": 3,
-            "test_size": 0.30,
-            "random_state": 7,
-            "target_sensitivity": 0.95,
+            "method": "repeated_stratified_kfold",
+            "folds": 3,
+            "repeats": 1,
+            "random_seed": 7,
         },
     }
 
@@ -89,179 +108,182 @@ def _training_config(
 def _prediction_config(
     dataframe_path: Path,
     model_path: Path,
-    output_json_path: Path,
-    output_yaml_path: Path,
+    output_folder: Path,
+    *,
+    patient_id: str = "P00",
+    target_side: str = "Left",
 ) -> dict:
     return {
-        "prediction": {
-            "name": "test_predict",
-            "version": 0.1,
-            "clinical_stage": "research draft",
-        },
+        "run": {"analysis_author": "Test Author", "synthetic_test_mode": True},
         "io": {
             "input_dataframe_joblib_path": str(dataframe_path),
             "input_model_joblib_path": str(model_path),
-            "output_json_path": str(output_json_path),
-            "output_yaml_path": str(output_yaml_path),
+            "output_folder": str(output_folder),
         },
-        "patient": {"patient_id": "P00", "target_side": "Left"},
-        "model": {"selected_model": "M1Q"},
-        "decision": {"threshold_key": "threshold_target"},
+        "patient": {"patient_id": patient_id, "target_side": target_side},
     }
 
 
-def _h5_prediction_config(
-    h5_path: Path,
-    dataframe_path: Path,
-    model_path: Path,
-    output_json_path: Path,
-    output_yaml_path: Path,
-) -> dict:
-    return {
-        "prediction": {
-            "name": "test_predict_from_h5",
-            "version": 0.1,
-            "clinical_stage": "research draft",
-        },
-        "io": {
-            "input_h5_path": str(h5_path),
-            "output_dataframe_joblib_path": str(dataframe_path),
-            "input_model_joblib_path": str(model_path),
-            "output_json_path": str(output_json_path),
-            "output_yaml_path": str(output_yaml_path),
-        },
-        "patient": {"patient_id": "P1", "target_side_column": "target_side"},
-        "model": {"selected_model": "M1Q"},
-        "decision": {"threshold_key": "threshold_target"},
-    }
-
-
-def test_predict_cli_writes_decision_support_report(tmp_path: Path):
-    dataframe_path = tmp_path / "preprocessed.joblib"
-    model_path = tmp_path / "model.joblib"
-    training_config_path = tmp_path / "train.yaml"
-    prediction_config_path = tmp_path / "predict.yaml"
-    output_json_path = tmp_path / "report.json"
-    output_yaml_path = tmp_path / "report.yaml"
+@pytest.fixture(scope="module")
+def trained_model(tmp_path_factory):
+    root = tmp_path_factory.mktemp("prediction_model")
+    dataframe_path = root / "training.joblib"
+    config_path = root / "train.yaml"
     save_preprocessing_artifact(
         _patient_frame(),
         dataframe_path,
-        preprocessing_config={"aramis_preprocessing": {"branch": "one_to_many"}},
-        preprocessing_config_text="aramis_preprocessing:\n  branch: one_to_many\n",
-        metadata={"branch": "one_to_many"},
+        preprocessing_config_text="pipeline:\n  steps:\n  - name: test\n",
     )
-    training_config_path.write_text(
-        yaml.safe_dump(_training_config(dataframe_path, model_path)),
+    config_path.write_text(
+        yaml.safe_dump(_training_config(dataframe_path, root / "runs")),
         encoding="utf-8",
     )
-    prediction_config_path.write_text(
+    result = run_training_from_config(config_path)
+    return Path(result["model_path"]), dataframe_path
+
+
+def test_prediction_contract_rejects_unknown_nested_fields(tmp_path: Path):
+    config = _prediction_config(
+        tmp_path / "data.joblib",
+        tmp_path / "model.joblib",
+        tmp_path / "outputs",
+    )
+    config["io"]["output_json_path"] = "forbidden.json"
+
+    with pytest.raises(ValueError, match="Unknown prediction io fields"):
+        _validate_prediction_config(config, tmp_path / "predict.yaml")
+
+
+def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_model):
+    model_path, dataframe_path = trained_model
+    config_path = tmp_path / "predict.yaml"
+    output_folder = tmp_path / "outputs"
+    config_path.write_text(
+        yaml.safe_dump(_prediction_config(dataframe_path, model_path, output_folder)),
+        encoding="utf-8",
+    )
+
+    reports = run_prediction_from_config(config_path)
+    external = reports["external_report"]
+    internal = reports["internal_report"]
+
+    assert external["output_type"] == "aramis_external_report"
+    assert external["suggested_class"] in {"BENIGN", "CANCER"}
+    assert "p_cancer" not in external
+    assert external["reliability"] in {"low", "medium", "high"}
+    assert 0.0 <= internal["final_prediction"]["p_cancer"] <= 1.0
+    assert "decision_threshold" in internal["final_prediction"]
+    assert "threshold" not in internal["final_prediction"]
+    assert internal["model"]["artifact_sha256"]
+    assert len(list(output_folder.glob("*_external_report.yaml"))) == 1
+    assert len(list(output_folder.glob("*_internal_report.yaml"))) == 1
+
+
+def test_predict_target_side_controls_profile_evidence(tmp_path: Path, trained_model):
+    model_path, dataframe_path = trained_model
+    left_config = tmp_path / "left.yaml"
+    right_config = tmp_path / "right.yaml"
+    left_config.write_text(
         yaml.safe_dump(
             _prediction_config(
                 dataframe_path,
                 model_path,
-                output_json_path,
-                output_yaml_path,
+                tmp_path / "left",
+                target_side="Left",
+            )
+        ),
+        encoding="utf-8",
+    )
+    right_config.write_text(
+        yaml.safe_dump(
+            _prediction_config(
+                dataframe_path,
+                model_path,
+                tmp_path / "right",
+                target_side="Right",
             )
         ),
         encoding="utf-8",
     )
 
-    assert main(["train", "--config", str(training_config_path)]) == 0
-    assert main(["predict", "--config", str(prediction_config_path)]) == 0
-    report = yaml.safe_load(output_yaml_path.read_text(encoding="utf-8"))
-    model_artifact = joblib.load(model_path)
+    left = run_prediction_from_config(left_config)["internal_report"]
+    right = run_prediction_from_config(right_config)["internal_report"]
 
-    assert output_json_path.exists()
-    assert report["kind"] == "aramis_prediction_report"
-    assert report["patient_id"] == "P00"
-    assert report["target_side"] == "Left"
-    assert report["model_name"] == "M1Q"
-    assert 0.0 <= report["p_cancer"] <= 1.0
-    assert report["suggested_class"] in {"BENIGN", "CANCER"}
-    assert report["reliability"] == "high"
-    assert report["requires_radiologist_review"] is True
-    assert report["provenance"]["training_config_sha256"] == model_artifact[
-        "training_config_sha256"
-    ]
+    assert left["evidence"]["target_profile"]["profile_p_cancer"] != right[
+        "evidence"
+    ]["target_profile"]["profile_p_cancer"]
 
 
-def test_predict_cli_can_preprocess_one_patient_h5_before_scoring(tmp_path: Path):
+def test_predict_without_contralateral_uses_unavailable_symmetry(
+    tmp_path: Path,
+    trained_model,
+):
+    model_path, training_dataframe_path = trained_model
+    frame = joblib.load(training_dataframe_path)["dataframe"]
+    frame = frame[
+        ~((frame["patientId"] == "P00") & (frame["side"] == "Right"))
+    ].copy()
+    dataframe_path = tmp_path / "unpaired.joblib"
+    save_preprocessing_artifact(frame, dataframe_path)
+    config_path = tmp_path / "predict.yaml"
+    config_path.write_text(
+        yaml.safe_dump(
+            _prediction_config(dataframe_path, model_path, tmp_path / "outputs")
+        ),
+        encoding="utf-8",
+    )
+
+    report = run_prediction_from_config(config_path)["internal_report"]
+
+    assert report["evidence"]["symmetry"]["available"] is False
+    assert report["evidence"]["reliability"]["level"] == "low"
+
+
+def test_h5_contract_requires_one_matching_patient(tmp_path: Path, trained_model):
+    model_path, _ = trained_model
+    artifact = joblib.load(model_path)
     h5_path = tmp_path / "patient.h5"
-    training_dataframe_path = tmp_path / "training_preprocessed.joblib"
-    prediction_dataframe_path = tmp_path / "prediction_preprocessed.joblib"
-    model_path = tmp_path / "model.joblib"
-    training_config_path = tmp_path / "train.yaml"
-    prediction_config_path = tmp_path / "predict_from_h5.yaml"
-    preprocessing_config_path = tmp_path / "prediction_preprocessing.yaml"
-    output_json_path = tmp_path / "report.json"
-    output_yaml_path = tmp_path / "report.yaml"
+    write_v0_3_one_patient_h5(
+        h5_path,
+        patient_id="PX01",
+        left_status="BENIGN",
+        right_status="CANCER",
+        target_side="Left",
+        seed=20,
+    )
 
-    write_known_synthetic_h5(h5_path)
+    _validate_h5_container_contract(
+        artifact, h5_path, expected_patient_id="PX01"
+    )
+    with pytest.raises(ValueError, match="does not match H5 patientId"):
+        _validate_h5_container_contract(
+            artifact, h5_path, expected_patient_id="WRONG"
+        )
+
     with h5py.File(h5_path, "a") as h5:
-        for group in h5["measurements"].values():
-            if group.attrs.get("patientId") == "P1":
-                group.attrs["target_side"] = "Left"
+        h5["session/sets/set_006_sample_main"].attrs["patientId"] = "PX02"
+    with pytest.raises(ValueError, match="exactly one patient"):
+        _validate_h5_container_contract(
+            artifact, h5_path, expected_patient_id="PX01"
+        )
 
-    preprocessing_config = load_preprocessing_config(
-        Path(__file__).parents[1]
-        / "config"
-        / "preprocessing"
-        / "aramis_prediction_patient_model_input_v0_1.yaml"
-    )
-    preprocessing_config["raw_data"]["source"] = "npy"
-    preprocessing_config["raw_data"]["allowed_sources"] = ["gfrm", "npy"]
-    preprocessing_config["raw_data"]["h5_dataset_candidates"]["npy"] = ["processed/data"]
-    preprocessing_config["pipeline"]["steps"][0] = {
-        "name": "h5_blob_to_df",
-        "transformer": "H5BlobDataFrameTransformer",
-        "params": {
-            "source": {"$ref": "raw_data.source"},
-            "dataset_candidates": {"$ref": "raw_data.h5_dataset_candidates.npy"},
-        },
-    }
-    preprocessing_config["snr"]["min_snr_db"] = -100.0
-    preprocessing_config["profile_gate"]["min_value"] = -1_000_000.0
-    preprocessing_config_path.write_text(
-        yaml.safe_dump(preprocessing_config),
-        encoding="utf-8",
-    )
 
-    save_preprocessing_artifact(
-        _patient_frame(),
-        training_dataframe_path,
-        preprocessing_config={"aramis_preprocessing": {"branch": "one_to_many"}},
-        preprocessing_config_text="aramis_preprocessing:\n  branch: one_to_many\n",
-        metadata={"branch": "one_to_many"},
+def test_h5_contract_rejects_schema_mismatch(tmp_path: Path, trained_model):
+    model_path, _ = trained_model
+    artifact = joblib.load(model_path)
+    h5_path = tmp_path / "patient.h5"
+    write_v0_3_one_patient_h5(
+        h5_path,
+        patient_id="PX01",
+        left_status="BENIGN",
+        right_status="CANCER",
+        target_side="Left",
+        seed=21,
     )
-    training_config_path.write_text(
-        yaml.safe_dump(
-            _training_config(
-                training_dataframe_path,
-                model_path,
-                preprocessing_config_path,
-            )
-        ),
-        encoding="utf-8",
-    )
-    prediction_config_path.write_text(
-        yaml.safe_dump(
-            _h5_prediction_config(
-                h5_path,
-                prediction_dataframe_path,
-                model_path,
-                output_json_path,
-                output_yaml_path,
-            )
-        ),
-        encoding="utf-8",
-    )
+    with h5py.File(h5_path, "a") as h5:
+        h5.attrs["schema_version"] = "0.4"
 
-    assert main(["train", "--config", str(training_config_path)]) == 0
-    assert main(["predict", "--config", str(prediction_config_path)]) == 0
-    report = yaml.safe_load(output_yaml_path.read_text(encoding="utf-8"))
-
-    assert prediction_dataframe_path.exists()
-    assert report["patient_id"] == "P1"
-    assert report["target_side"] == "Left"
-    assert "input_h5_sha256" in report["provenance"]
-    assert report["provenance"]["prediction_preprocessing_config_sha256"]
+    with pytest.raises(ValueError, match="schema_version does not match"):
+        _validate_h5_container_contract(
+            artifact, h5_path, expected_patient_id="PX01"
+        )

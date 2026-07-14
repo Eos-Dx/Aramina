@@ -1,1 +1,28 @@
-../XRD-preprocessing/environment.yml
+name: eosproduct
+channels:
+  - conda-forge
+dependencies:
+  - python=3.13
+  - numpy>=1.26,<3
+  - pandas>=2.2
+  - scipy>=1.14
+  - scikit-learn>=1.5
+  - joblib>=1.4
+  - h5py>=3.12
+  - pyfai>=2025.1
+  - fabio>=2025.10
+  - pyarrow>=17
+  - pyyaml>=6.0
+  - marimo>=0.10
+  - matplotlib>=3.9
+  - markdown-it-py
+  - jsonschema
+  - tqdm
+  - pytest>=8.3
+  - ruff>=0.8
+  - pip
+  - pip:
+      - mlflow>=2.20
+      - fastjsonschema
+      - opencv-python-headless
+      - scikit-image

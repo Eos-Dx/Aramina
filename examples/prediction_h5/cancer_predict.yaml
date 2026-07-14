@@ -1,0 +1,11 @@
+run:
+  analysis_author: Sergey Denisov
+
+io:
+  input_h5_path: cancer_one_patient.h5
+  input_model_joblib_path: ../prediction_models/aramis_m2q_t100_0_2_3_beta.joblib
+  output_folder: ../outputs/prediction_h5_examples
+
+patient:
+  patient_id: Nova_214
+  target_side: left

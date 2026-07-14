@@ -16,9 +16,8 @@
       "Aramis/examples/README.md"
     ],
     "used_by": [
-      "Aramis/examples/aramis_dataframe_one_to_one_v0_1.py",
-      "Aramis/examples/aramis_dataframe_one_to_many_v0_1.py",
-      "Aramis/packaging/eosproduct_bundle/scripts/run_aramis_notebooks.sh"
+      "Aramis/config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml",
+      "Aramis/config/preprocessing/aramis_prediction_patient_model_input_v0_1.yaml"
     ],
     "generation_summary": [
       "Load AgBH calibration H5/session data and associated PONI metadata.",
@@ -27,7 +26,7 @@
       "Keep days with score <= parameters.max_score and detector distance compatible with required product q-range.",
       "Record accepted dates, rejected dates, reference AgBH rows, and calibrant-thickness policy."
     ],
-    "reproducibility_note": "Regenerate this file only through the referenced Aramis preprocessing notebook or an equivalent scripted export, then update this provenance block and rerun Aramis tests/notebook checks.",
+    "reproducibility_note": "Regenerate this file only through the referenced preprocessing analysis or an equivalent scripted export, then update this provenance block and rerun Aramis tests.",
     "clinical_safety_note": "This configuration is for research draft decision-support preprocessing only; it is not clinical validation and not for autonomous diagnosis."
   },
   "source": {

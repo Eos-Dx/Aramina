@@ -30,8 +30,6 @@ if ($Mode -eq "aramis" -or $Mode -eq "all") {
         Push-Location "$TargetRoot\Aramis"
         conda run -n $EnvName python -m ruff check .
         conda run -n $EnvName pytest -q
-        conda run -n $EnvName python -m marimo check examples/aramis_dataframe_one_to_one_v0_1.py
-        conda run -n $EnvName python -m marimo check examples/aramis_dataframe_one_to_many_v0_1.py
         Pop-Location
     }
 }

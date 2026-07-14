@@ -1,27 +1,11 @@
-prediction:
-  name: aramis_predict_example
-  version: 0.1
-  clinical_stage: research draft
-  intended_use: decision-support p_cancer research draft; requires radiologist review
+run:
+  analysis_author: Sergey Denisov
 
 io:
-  input_dataframe_joblib_path: ../../examples/outputs/model_input/aramis_biopsy_patients_model_input_v0_1.joblib
-  input_model_joblib_path: ../../examples/outputs/training/aramis_biopsy_patients_m0_m1_m2_v0_1.joblib
-  output_json_path: ../../examples/outputs/prediction/aramis_predict_example_v0_1.json
-  output_yaml_path: ../../examples/outputs/prediction/aramis_predict_example_v0_1.yaml
+  input_h5_path: ../../examples/prediction_h5/cancer_one_patient.h5
+  input_model_joblib_path: ../../examples/prediction_models/aramis_m2q_t100_0_2_3_beta.joblib
+  output_folder: ../../examples/outputs/prediction_h5_examples
 
 patient:
   patient_id: Nova_214
-  target_side: Left
-
-model:
-  selected_model: M1Q
-  profile_column: radial_profile_data
-  group_column: patientId
-  specimen_column: specimenId
-  side_column: side
-  q_column: q_range
-  age_column: age
-
-decision:
-  threshold_key: threshold_target
+  target_side: left

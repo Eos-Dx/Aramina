@@ -8,16 +8,14 @@ from xrd_preprocessing import build_pipeline_steps_from_config, load_preprocessi
 from xrd_preprocessing.transformers import H5BlobDataFrameTransformer, KeepColumnsTransformer
 
 from aramis.__main__ import main
-from aramis.pipelines import (
-    AramisOneToManyPreprocessingPipeline,
-    _config_path,
-)
+from aramis.pipelines import AramisPreprocessingPipeline, _config_path
+from aramis.workflows import _load_workflow_config
 
 from .synthetic_aramis_h5 import load_synthetic_config, write_known_synthetic_h5
 
 
 def test_yaml_pipeline_steps_build_registered_transformers():
-    config = load_synthetic_config("one_to_many_benign_cancer")
+    config = load_synthetic_config()
 
     steps = build_pipeline_steps_from_config(config)
     names = [name for name, _ in steps]
@@ -30,13 +28,13 @@ def test_yaml_pipeline_steps_build_registered_transformers():
 
 
 def test_yaml_pipeline_rejects_missing_or_unknown_transformer():
-    config = load_synthetic_config("one_to_many_benign_cancer")
+    config = load_synthetic_config()
     config["pipeline"]["steps"][0]["transformer"] = "NoSuchTransformer"
 
     with pytest.raises(ValueError, match="Unknown pipeline transformer"):
         build_pipeline_steps_from_config(config)
 
-    config = load_synthetic_config("one_to_many_benign_cancer")
+    config = load_synthetic_config()
     del config["pipeline"]["steps"][0]["transformer"]
 
     with pytest.raises(ValueError, match="missing transformer"):
@@ -44,8 +42,13 @@ def test_yaml_pipeline_rejects_missing_or_unknown_transformer():
 
 
 def test_yaml_pipeline_skips_disabled_steps():
-    config = load_synthetic_config("one_to_many_benign_cancer")
-    config["pipeline"]["steps"][1]["enabled"] = False
+    config = load_synthetic_config()
+    step = next(
+        step
+        for step in config["pipeline"]["steps"]
+        if step["name"] == "product_columns"
+    )
+    step["enabled"] = False
 
     names = [name for name, _ in build_pipeline_steps_from_config(config)]
 
@@ -54,11 +57,11 @@ def test_yaml_pipeline_skips_disabled_steps():
 
 def test_output_columns_are_mandatory(tmp_path):
     h5_path = tmp_path / "known_synthetic_aramis.h5"
-    config = load_synthetic_config("one_to_many_benign_cancer")
+    config = load_synthetic_config()
     config["metadata"]["output_columns"] = []
     write_known_synthetic_h5(h5_path)
 
-    pipeline = AramisOneToManyPreprocessingPipeline(config=config)
+    pipeline = AramisPreprocessingPipeline(config=config)
 
     with pytest.raises(ValueError, match="requires metadata.output_columns"):
         pipeline.fit_transform(h5_path)
@@ -78,12 +81,12 @@ def test_config_path_resolves_absolute_relative_and_missing(tmp_path):
 
 def test_preprocess_cli_reads_input_and_output_from_yaml(tmp_path):
     h5_path = tmp_path / "known_synthetic_aramis.h5"
-    output_path = tmp_path / "out" / "one_to_many.joblib"
+    output_path = tmp_path / "out" / "model_input.joblib"
     config_path = tmp_path / "preprocess.yaml"
-    config = load_synthetic_config("one_to_many_benign_cancer")
+    config = load_synthetic_config()
     config["io"] = {
         "input_h5_path": "known_synthetic_aramis.h5",
-        "output_joblib_path": "out/one_to_many.joblib",
+        "output_joblib_path": "out/model_input.joblib",
     }
     config["raw_data"]["h5_dataset_candidates"]["npy"] = ["processed/data"]
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
@@ -97,10 +100,9 @@ def test_preprocess_cli_reads_input_and_output_from_yaml(tmp_path):
     df = load_preprocessing_dataframe(output_path)
     assert isinstance(artifact, dict)
     assert isinstance(artifact["dataframe"], pd.DataFrame)
-    assert artifact["preprocessing_config"]["aramis_preprocessing"]["branch"] == "one_to_many"
-    assert artifact["preprocessing_config_text"]
-    assert artifact["preprocessing_config_sha256"]
-    assert artifact["metadata"]["branch"] == "one_to_many"
+    resolved = yaml.safe_load(artifact["preprocessing_config_yaml"])
+    assert resolved["pipeline"]["steps"]
+    assert "extends" not in resolved
     assert len(artifact["metadata"]["input_h5_sha256"]) == 64
     assert artifact["metadata"]["aramis_version"]
     assert artifact["metadata"]["aramis_git_sha"]
@@ -118,7 +120,7 @@ def test_preprocess_cli_can_write_minimal_output_columns(tmp_path):
         "radial_profile_data_raw",
         "radial_profile_data",
     ]
-    config = load_synthetic_config("one_to_many_benign_cancer")
+    config = load_synthetic_config()
     config["io"] = {
         "input_h5_path": "known_synthetic_aramis.h5",
         "output_joblib_path": "out/minimal.joblib",
@@ -135,3 +137,27 @@ def test_preprocess_cli_can_write_minimal_output_columns(tmp_path):
     df = load_preprocessing_dataframe(output_path)
     assert df.columns.tolist() == output_columns
     assert not df["radial_profile_data_raw"].equals(df["radial_profile_data"])
+
+
+def test_workflow_contract_rejects_unknown_fields(tmp_path):
+    workflow_config_path = tmp_path / "workflow.yaml"
+    workflow_config_path.write_text(
+        yaml.safe_dump(
+            {
+                "contract": "aramis_preprocess_train_workflow_v0_1",
+                "workflow": {
+                    "name": "test",
+                    "created_by": "tester",
+                    "created_at": "2026-07-14",
+                    "output_folder": "outputs",
+                    "mode": "legacy",
+                },
+                "preprocessing_config_path": "preprocess.yaml",
+                "training_config_path": "train.yaml",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Unknown workflow fields"):
+        _load_workflow_config(workflow_config_path)

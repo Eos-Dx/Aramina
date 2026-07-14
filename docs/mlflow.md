@@ -1,129 +1,80 @@
-# MLflow In Aramis
+# MLflow Traceability Plan
 
-MLflow stores one complete product run.
+Status: planned after product-clean preprocess/train/predict route.
 
-That means:
+MLflow is not required to run the current CLI, but the product run must later
+record preprocessing and model training together. Preprocessing defines the
+dataset; a model artifact without preprocessing lineage is not reproducible.
 
-```text
-input H5
-product split/filter
-preprocessing
-model-ready dataset
-model
-metrics
-predictions
-```
+## One Run
 
-## Why Preprocessing Goes Into MLflow
-
-The same H5 container can feed several products.
-
-Example:
+One Aramis MLflow run should represent:
 
 ```text
-EOS H5 v0.3
-├── Aramis dataset
-│   ├── label / status filter
-│   ├── BENIGN vs CANCER labels
-│   └── Aramis classifier
-└── Bremen dataset
-    ├── different product filter
-    ├── different labels or target
-    └── Bremen model
+one dataset build
+one model training/evaluation run
+one fixed feature schema
+one label mapping
+one threshold policy
 ```
 
-So MLflow must record:
+## Required Artifacts
 
 ```text
-which H5 was used
-which rows were selected
-which rows were dropped
-which preprocessing parameters were used
-which model was trained
-which metrics came out
-```
-
-Without preprocessing lineage, the model is not reproducible.
-
-## Local Draft
-
-Run local MLflow UI:
-
-```bash
-cd /Users/sad/dev/Aramis
-mlflow ui --backend-store-uri ./mlruns --port 5000
-```
-
-Open:
-
-```text
-http://127.0.0.1:5000
-```
-
-Notebook:
-
-```bash
-python -m aramis train --config config/training/aramis_v0_1_beta_primary_train.yaml
-```
-
-Default mode is `dry_run`.
-
-It writes the exact artifacts locally but does not call MLflow.
-
-Uncheck `dry run` after MLflow is installed.
-
-## Logged Artifacts
-
-```text
-preprocessed_dataset.parquet
-preprocessed_dataset.csv, fallback when parquet engine is not installed
-preprocessing_config.json
-product_filter_rules.json
+preprocessing_config.yaml/json
+training_config.yaml/json
+prediction_preprocessing_config.yaml/json
+selected_measurement_ids.csv
+dropped_measurements.csv
+preprocessed_dataset.parquet or csv
 feature_schema.json
-params.json
-metrics.json
+label_mapping.json
+split_manifest.csv
 model.joblib
+metrics.json
+predictions.csv
+prediction_report_schema.json
 ```
 
-## Logged Metrics
-
-Draft:
+## Required Tags / Params
 
 ```text
-roc_auc
-balanced_accuracy
+product = Aramis
+clinical_stage = research draft
+model_id
+selected_model
+input_h5_checksum
+preprocessing_config_sha256
+training_config_sha256
+prediction_preprocessing_config_sha256
+aramis_git_sha
+xrd_preprocessing_version
+dataset_fingerprint
+threshold_key
+threshold_value
 ```
 
-Later:
+## Current State
+
+Current Aramis joblibs already store the key pieces needed for MLflow:
 
 ```text
-sensitivity
-specificity
-PPV
-NPV
-threshold
-calibration metrics
-confidence intervals
+preprocessing joblib:
+  preprocessing YAML text and SHA256
+  input H5 SHA256
+
+training joblib:
+  training YAML text and SHA256
+  training preprocessing YAML
+  prediction preprocessing YAML
+  feature schema
+  metrics
+  model objects
+
+prediction report:
+  input H5/model/data/config SHA256 provenance
 ```
 
-## Aramis First Classifier
+MLflow should be connected after the product-clean candidate model and report
+schema are stable.
 
-Output:
-
-```text
-p_cancer
-suggested_class = BENIGN if p_cancer < threshold
-suggested_class = CANCER if p_cancer >= threshold
-requires radiologist review
-```
-
-Later output:
-
-```text
-p_cancer
-suggested_class
-decision_threshold
-confidence interval
-model version
-preprocessing version
-```

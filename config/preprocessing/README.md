@@ -1,68 +1,60 @@
-# Aramis Preprocessing YAML
+# Aramis preprocessing YAML
 
-Status: research draft.
-
-Runnable root YAMLs extend shared fragments from this folder. Aramis passes the
-resolved YAML to `xrd_preprocessing`, which builds the sklearn-style transformer
-pipeline and writes a preprocessing artifact joblib.
-
-Product-clean model-input configs:
+Current development configs:
 
 ```text
-aramis_all_patients_model_input_v0_1.yaml
 aramis_biopsy_patients_model_input_v0_1.yaml
 aramis_prediction_patient_model_input_v0_1.yaml
 ```
 
-Current primary training data uses:
+The first config builds the T100 historical training cohort. It keeps patients
+with at least one biopsied breast, retains contralateral measurements, and maps
+NORMAL to BENIGN. The prediction config performs only measurement QC and signal
+preparation for one incoming patient. It has no historical diagnosis, biopsy,
+date, or AgBH exclusion filter.
+
+Both top-level files use `extends` only for repository readability. At runtime,
+`xrd_preprocessing.load_preprocessing_config` resolves them into one mapping.
+`pipeline.steps` is the executable order. Steps may be added, removed, disabled,
+or reordered when the transformer contract allows it. XRD-preprocessing does
+not impose an Aramis branch concept.
 
 ```text
-aramis_biopsy_patients_model_input_v0_1.yaml
+shared/       common XRD settings and ordered transformer pipeline
+cohorts/      training-cohort or one-patient selection policy
+exclusions/   T100 AgBH quality exclusions and evidence reference
+outputs/      explicit retained DataFrame columns
 ```
 
-It keeps patients with at least one biopsy row, includes contralateral breast
-rows for same-patient symmetry features, maps NORMAL to BENIGN, applies AgBH
-T130 monochromaticity exclusions, and outputs only model/audit columns.
-
-Prediction uses:
+Canonical product constraints:
 
 ```text
-aramis_prediction_patient_model_input_v0_1.yaml
+raw source: GFRM only
+positions: P1, P2, P3
+PONI coverage: q_max >= 23 nm^-1
+sample thickness: required and >0 mm
+calibrant thickness: required and 2-40 mm
+integration: Poisson error model, 100 q points, 2-23 nm^-1
+SNR: Poisson, >=18 dB
+normalization: median value in 6.7-7.1 nm^-1
 ```
 
-This config is stored inside trained model joblibs. `aramis predict` loads it
-from the model artifact, injects the incoming patient H5 path and output path,
-then runs the same preprocessing lineage needed by the model.
+Run:
 
-Legacy notebook/dataframe examples kept for inspection:
+```bash
+python -m aramis preprocess \
+  --config config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
+```
+
+Output joblib contains:
 
 ```text
-aramis_one_to_one_max_v0_1.yaml
-aramis_one_to_one_min_v0_1.yaml
-aramis_one_to_one_biopsy_max_v0_1.yaml
-aramis_one_to_one_biopsy_min_v0_1.yaml
-aramis_one_to_many_max_v0_1.yaml
-aramis_one_to_many_min_v0_1.yaml
-aramis_one_to_many_biopsy_max_v0_1.yaml
-aramis_one_to_many_biopsy_min_v0_1.yaml
+kind
+version
+created_at
+dataframe
+preprocessing_config_yaml   # fully resolved effective YAML
+metadata                    # input H5 SHA256, Aramis version, git SHA
 ```
 
-Shared fragments:
-
-```text
-shared/aramis_policy_v0_1.yaml
-shared/aramis_pipeline_v0_1.yaml
-outputs/max_output_v0_1.yaml
-outputs/min_output_v0_1.yaml
-outputs/model_input_output_v0_1.yaml
-outputs/prediction_model_input_output_v0_1.yaml
-branches/*.yaml
-exclusions/agbh_quality_exclusions_v0_1.yaml
-exclusions/agbh_quality_exclusions_t130_v0_1.yaml
-```
-
-Experimental threshold grids and old FDA-like cohorts are archived on branch:
-
-```text
-experiment/aramis-v0.1-research-state
-```
+Contract details: `docs/data_preprocessing.md`.

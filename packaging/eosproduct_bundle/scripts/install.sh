@@ -190,8 +190,8 @@ if command -v git >/dev/null 2>&1 && ask_yes_no "Use git to clone/update repos?"
   USE_GIT="yes"
 fi
 
-copy_or_update_repo "XRD-preprocessing" "https://github.com/Eos-Dx/XRD-preprocessing.git" "${TARGET_ROOT}/XRD-preprocessing" "src/xrd_preprocessing/configs/preprocessing_branch_config_template.yaml" "v0.1.6-beta"
-copy_or_update_repo "Aramis" "https://github.com/Eos-Dx/Aramis.git" "${TARGET_ROOT}/Aramis" "examples/aramis_dataframe_one_to_one_v0_1.py" "0.1.3-beta"
+copy_or_update_repo "XRD-preprocessing" "https://github.com/Eos-Dx/XRD-preprocessing.git" "${TARGET_ROOT}/XRD-preprocessing" "src/xrd_preprocessing/configs/preprocessing_pipeline_config_template.yaml" "v0.1.7-beta"
+copy_or_update_repo "Aramis" "https://github.com/Eos-Dx/Aramis.git" "${TARGET_ROOT}/Aramis" "examples/prediction_models/aramis_m2q_t100_0_2_3_beta.joblib" "0.2.3-beta"
 copy_or_update_repo "container" "https://github.com/Eos-Dx/container.git" "${TARGET_ROOT}/container" "pyproject.toml" "feat/v0_3-eoscan-session-container"
 mkdir -p "${TARGET_ROOT}/Bremen"
 
@@ -216,17 +216,17 @@ fi
 
 echo "Ready: ${TARGET_ROOT}"
 echo "Run tests: ${BUNDLE_DIR}/run_tests.sh ${TARGET_ROOT}"
-echo "Run notebooks: ${BUNDLE_DIR}/run_aramis_notebooks.sh ${TARGET_ROOT}"
+echo "Run prediction examples: ${BUNDLE_DIR}/run_aramis_prediction_examples.sh ${TARGET_ROOT}"
 
 if [[ "${AUTO_RUN}" == "1" ]]; then
   run_in_terminal "EOS product tests" "ENV_NAME='${ENV_NAME}' '${BUNDLE_DIR}/run_tests.sh' '${TARGET_ROOT}' all"
-  "${BUNDLE_DIR}/run_aramis_notebooks.sh" "${TARGET_ROOT}"
+  "${BUNDLE_DIR}/run_aramis_prediction_examples.sh" "${TARGET_ROOT}"
   exit 0
 fi
 
 if ask_yes_no "Run XRD-preprocessing and Aramis tests now?" "n"; then
   run_in_terminal "EOS product tests" "ENV_NAME='${ENV_NAME}' '${BUNDLE_DIR}/run_tests.sh' '${TARGET_ROOT}' all"
 fi
-if ask_yes_no "Launch Aramis marimo notebooks now?" "n"; then
-  "${BUNDLE_DIR}/run_aramis_notebooks.sh" "${TARGET_ROOT}"
+if ask_yes_no "Run Aramis prediction examples now?" "n"; then
+  "${BUNDLE_DIR}/run_aramis_prediction_examples.sh" "${TARGET_ROOT}"
 fi

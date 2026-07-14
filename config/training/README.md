@@ -1,64 +1,82 @@
-# Aramis Training YAML
+# Aramis training YAML
 
-Status: research draft.
+Public contract: `aramis_training_config_v0_1`.
 
-Training is driven by YAML and sklearn-style transformers/classes in
-`src/aramis/training.py`. A training run reads one preprocessing artifact
-joblib, builds patient-level model inputs, trains selected model variants, and
-writes a model artifact joblib plus optional JSON/YAML summaries.
-
-Current product-clean training config:
-
-```text
-aramis_v0_1_beta_primary_train.yaml
+```yaml
+contract: aramis_training_config_v0_1
+training:
+  name: aramis_m2q_t100
+  version: 0.2.3-beta
+  created_by: Sergey Denisov
+  created_at: "2026-07-14"
+  clinical_stage: research draft
+  intended_use: Breast cancer decision support; requires radiologist review.
+  mode: final_fit
+input:
+  dataframe_joblib_path: ../../examples/outputs/model_input/aramis_biopsy_patients_model_input_v0_1.joblib
+output:
+  folder: ../../examples/outputs/training
+model:
+  recipe: m2q_gated_target_case_v0_1
+evaluation:
+  method: repeated_stratified_kfold
+  folds: 5
+  repeats: 20
+  random_seed: 42
 ```
 
-Current comparison configs:
+`training.mode`:
+
+| Value | Result |
+|---|---|
+| `evaluation` | Patient-safe evaluation artifacts only. |
+| `final_fit` | Evaluation first, then one train-all model and frozen threshold. |
+
+Development exposes one evaluation method:
 
 ```text
-aramis_biopsy_patients_m0_m1_m2_v0_1.yaml
-aramis_all_patients_m0_m1_m2_v0_1.yaml
-aramis_one_to_many_logistic_v0_1.yaml
+repeated_stratified_kfold
 ```
 
-Primary route:
+Patients never cross train/test folds. The recipe, not the run YAML, fixes M2Q,
+feature schema, LR1/LR2 regularization, label policy, prediction preprocessing,
+and target sensitivity `0.95`.
+
+List or inspect recipes:
+
+```bash
+python -m aramis train --list-recipes
+python -m aramis train --describe-recipe m2q_gated_target_case_v0_1
+```
+
+Run:
+
+```bash
+python -m aramis train \
+  --config config/training/aramis_m2q_t100_primary_train_v0_1.yaml
+```
+
+Every run creates a unique folder. `evaluation` writes:
 
 ```text
-input DataFrame: examples/outputs/model_input/aramis_biopsy_patients_model_input_v0_1.joblib
-model family: patient_m0_m1_m2_logistic_set
-selected product candidates: M0, M1
-primary candidate under discussion: M1Q / M1-style profile plus quality-aware symmetry
-validation: patient-safe repeated 70/30, target sensitivity 0.95
+evaluation.joblib
+evaluation.json
+evaluation.yaml
+evaluation_metrics.csv
+evaluation_predictions.csv
 ```
 
-Model meanings:
+`final_fit` also writes:
 
 ```text
-M0: profile p_cancer only
-M0Q: M0 + reliability/quality counters
-M1: profile p_cancer + same-patient SK symmetry block
-M1Q: M1 + reliability/quality counters
-M2: M1 + age and age_available
-M2Q: M1Q + age and age_available
+model.joblib
+model_description.yaml
 ```
 
-Risk and reliability are separate. `p_cancer` is the decision-support risk
-score. Reliability fields describe whether enough valid target and
-contralateral measurements support that score.
+The model joblib excludes fold predictions and metrics. It contains executable
+M2Q, feature schema, frozen train-all threshold, and resolved training,
+historical preprocessing, prediction preprocessing, and prediction-contract
+YAML snapshots.
 
-Training artifacts store:
-
-```text
-training YAML text and SHA256
-prediction preprocessing YAML text and SHA256
-model entries
-feature schema
-metrics
-dataset summary
-```
-
-Full historical model grids are archived on branch:
-
-```text
-experiment/aramis-v0.1-research-state
-```
+Full contract: `docs/contracts/training_config_v0_1.md`.
+Recipe details: `docs/modeling/model_recipes_v0_1.md`.

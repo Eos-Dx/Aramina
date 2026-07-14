@@ -55,12 +55,15 @@ cp "${SCRIPT_DIR}/scripts/install.sh" "${WORK_DIR}/install.sh"
 cp "${SCRIPT_DIR}/scripts/install.ps1" "${WORK_DIR}/install.ps1"
 cp "${SCRIPT_DIR}/scripts/run_tests.sh" "${WORK_DIR}/run_tests.sh"
 cp "${SCRIPT_DIR}/scripts/run_tests.ps1" "${WORK_DIR}/run_tests.ps1"
-cp "${SCRIPT_DIR}/scripts/run_aramis_notebooks.sh" "${WORK_DIR}/run_aramis_notebooks.sh"
-cp "${SCRIPT_DIR}/scripts/run_aramis_notebooks.ps1" "${WORK_DIR}/run_aramis_notebooks.ps1"
+cp "${SCRIPT_DIR}/scripts/run_aramis_prediction_examples.sh" "${WORK_DIR}/run_aramis_prediction_examples.sh"
+cp "${SCRIPT_DIR}/scripts/run_aramis_prediction_examples.ps1" "${WORK_DIR}/run_aramis_prediction_examples.ps1"
 cp "${SCRIPT_DIR}/environment.yml" "${WORK_DIR}/environment.yml"
 cp "${SCRIPT_DIR}/docs/INSTALL.md" "${WORK_DIR}/docs/INSTALL.md"
 cp "${SCRIPT_DIR}/docs/INSTALL.md" "${WORK_DIR}/README.md"
-chmod +x "${WORK_DIR}/install.sh" "${WORK_DIR}/run_tests.sh" "${WORK_DIR}/run_aramis_notebooks.sh"
+chmod +x \
+  "${WORK_DIR}/install.sh" \
+  "${WORK_DIR}/run_tests.sh" \
+  "${WORK_DIR}/run_aramis_prediction_examples.sh"
 
 (
   cd "${DIST_DIR}"
