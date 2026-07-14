@@ -163,6 +163,13 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
     assert artifact["historical_preprocessing_yaml"]
     assert artifact["prediction_preprocessing_yaml"]
     assert artifact["prediction_contract_yaml"]
+    assert artifact["evaluation"]["protocol"] == {
+        "method": "repeated_stratified_kfold",
+        "folds": 5,
+        "repeats": 20,
+        "random_seed": 42,
+    }
+    assert artifact["evaluation"]["summary"][0]["splits"] == 100
     assert "training_config" not in artifact
     assert "training_config_sha256" not in artifact
     assert "split_predictions" not in artifact

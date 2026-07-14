@@ -2213,6 +2213,15 @@ def _final_model_artifact(
         ),
         "prediction_preprocessing_yaml": artifact["prediction_preprocessing_yaml"],
         "prediction_contract_yaml": artifact["prediction_contract_yaml"],
+        "evaluation": {
+            "protocol": dict(public_config["evaluation"]),
+            "summary": _records(artifact["metric_summary"]),
+            "artifacts": {
+                "summary": "evaluation.yaml",
+                "metrics": "evaluation_metrics.csv",
+                "predictions": "evaluation_predictions.csv",
+            },
+        },
         "input_dataframe_joblib_sha256": artifact.get(
             "input_dataframe_joblib_sha256"
         ),

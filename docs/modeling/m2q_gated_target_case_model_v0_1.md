@@ -91,7 +91,7 @@ No current result establishes stable 0.95 sensitivity on unseen patients.
 A larger independent cohort is required before any stronger product claim.
 ```
 
-## Current 0.2.4 Evaluation Record
+## Current 0.2.5 Evaluation Record
 
 The current packaged artifact was evaluated on the T100 biopsy-patient cohort
 using the fixed 100 patient-safe folds. The target threshold was derived on the

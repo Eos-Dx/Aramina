@@ -53,3 +53,7 @@ metrics only on held-out patients. `final_fit` runs this evaluation first, then
 trains on the complete accepted cohort and freezes the threshold from train-all
 scores at recipe target sensitivity `>=0.95`. The in-sample result is not an
 independent validation claim.
+
+The final model joblib stores this immutable evaluation protocol and compact
+metric summary. Detailed fold metrics and held-out predictions remain in the
+separate `evaluation.*` artifacts beside the model.
