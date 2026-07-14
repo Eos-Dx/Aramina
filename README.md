@@ -112,6 +112,11 @@ config/prediction/aramis_predict_from_h5_template_v0_1.yaml
 `model_description.yaml`, and separate evaluation artifacts. Use that generated
 model path in prediction YAML.
 
+The packaged model also records full raw-H5 training reproducibility: H5
+SHA256, YAML snapshots and checksums, code/dependency provenance, runtime
+versions, and evaluation summary. The Windows full-H5 reproduction bundle is
+built with `packaging/reproducible_training_bundle/make_bundle.sh`.
+
 ## Documentation Map
 
 Product API and developer contract:

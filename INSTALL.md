@@ -8,7 +8,7 @@ artifact:
 
 ```text
 examples/prediction_h5/
-examples/prediction_models/aramis_m2q_t100_0_2_3_beta.joblib
+examples/prediction_models/aramis_m2q_t100_0_2_6_beta.joblib
 ```
 
 ## macOS / Linux
@@ -59,3 +59,10 @@ examples/outputs/prediction_h5_examples/
 These are real one-patient GFRM fixtures extracted from the larger archive.
 They prove installation, preprocessing, prediction and report writing. They
 are not clinical validation examples.
+
+## Full Training Reproduction
+
+`packaging/reproducible_training_bundle/make_bundle.sh` creates a separate ZIP
+with the full historical H5. On Windows, `install_and_train.bat` installs the
+environment, runs the fixed `preprocess-train` workflow and compares its
+generated model with the tracked reference artifact.

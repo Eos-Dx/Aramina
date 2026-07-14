@@ -25,7 +25,7 @@ FINAL_EXAMPLE_MODEL = (
     Path(__file__).parents[1]
     / "examples"
     / "prediction_models"
-    / "aramis_m2q_t100_0_2_5_beta.joblib"
+    / "aramis_m2q_t100_0_2_6_beta.joblib"
 )
 
 

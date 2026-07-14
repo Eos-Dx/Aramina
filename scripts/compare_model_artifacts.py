@@ -65,6 +65,12 @@ def _differences(reference: dict[str, Any], candidate: dict[str, Any]) -> list[s
     )
     _compare_value(
         differences,
+        "evaluation.summary",
+        reference["evaluation"]["summary"],
+        candidate["evaluation"]["summary"],
+    )
+    _compare_value(
+        differences,
         "reproducibility.checksums",
         reference["reproducibility"]["checksums"],
         candidate["reproducibility"]["checksums"],

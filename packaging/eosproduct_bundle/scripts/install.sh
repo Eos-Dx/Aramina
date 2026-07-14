@@ -191,7 +191,7 @@ if command -v git >/dev/null 2>&1 && ask_yes_no "Use git to clone/update repos?"
 fi
 
 copy_or_update_repo "XRD-preprocessing" "https://github.com/Eos-Dx/XRD-preprocessing.git" "${TARGET_ROOT}/XRD-preprocessing" "src/xrd_preprocessing/configs/preprocessing_pipeline_config_template.yaml" "v0.1.7-beta"
-copy_or_update_repo "Aramis" "https://github.com/Eos-Dx/Aramis.git" "${TARGET_ROOT}/Aramis" "examples/prediction_models/aramis_m2q_t100_0_2_3_beta.joblib" "0.2.3-beta"
+copy_or_update_repo "Aramis" "https://github.com/Eos-Dx/Aramis.git" "${TARGET_ROOT}/Aramis" "examples/prediction_models/aramis_m2q_t100_0_2_6_beta.joblib" "0.2.6-beta"
 copy_or_update_repo "container" "https://github.com/Eos-Dx/container.git" "${TARGET_ROOT}/container" "pyproject.toml" "feat/v0_3-eoscan-session-container"
 mkdir -p "${TARGET_ROOT}/Bremen"
 
