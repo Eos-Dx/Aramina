@@ -7,8 +7,10 @@ XRD_ROOT="${XRD_ROOT:-${ARAMIS_ROOT}/../XRD-preprocessing}"
 SOURCE_H5="${SOURCE_H5:-${ARAMIS_ROOT}/../eos_play/jupyter_notebooks/Clinical_trials/data/product-aramis-data/combined_archive.h5}"
 DIST_DIR="${DIST_DIR:-${ARAMIS_ROOT}/dist}"
 BUNDLE_NAME="aramis_docker_training_bundle_0_2_8_beta"
-IMAGE_TAG="eosdx/aramis-training:0.2.8-beta"
-IMAGE_ARCHIVE="aramis_training_linux_0_2_8_beta.tar"
+AMD64_IMAGE_TAG="eosdx/aramis-training:0.2.8-beta-amd64"
+AMD64_IMAGE_ARCHIVE="aramis_training_linux_amd64_0_2_8_beta.tar"
+ARM64_IMAGE_TAG="eosdx/aramis-training:0.2.8-beta-arm64"
+ARM64_IMAGE_ARCHIVE="aramis_training_linux_arm64_0_2_8_beta.tar"
 WORK_DIR="${DIST_DIR}/${BUNDLE_NAME}"
 ARCHIVE_PATH="${DIST_DIR}/${BUNDLE_NAME}.zip"
 BUILD_CONTEXT="$(mktemp -d)"
@@ -48,15 +50,17 @@ rsync -a \
 cp "${SCRIPT_DIR}/assets/Dockerfile" "${BUILD_CONTEXT}/Dockerfile"
 cp "${SCRIPT_DIR}/assets/run_training_docker.sh" "${BUILD_CONTEXT}/run_training_docker.sh"
 
-docker build --tag "${IMAGE_TAG}" "${BUILD_CONTEXT}"
-docker save --output "${WORK_DIR}/${IMAGE_ARCHIVE}" "${IMAGE_TAG}"
+docker buildx build --platform linux/amd64 --load --tag "${AMD64_IMAGE_TAG}" "${BUILD_CONTEXT}"
+docker save --output "${WORK_DIR}/${AMD64_IMAGE_ARCHIVE}" "${AMD64_IMAGE_TAG}"
+docker buildx build --platform linux/arm64 --load --tag "${ARM64_IMAGE_TAG}" "${BUILD_CONTEXT}"
+docker save --output "${WORK_DIR}/${ARM64_IMAGE_ARCHIVE}" "${ARM64_IMAGE_TAG}"
 
-python - "${WORK_DIR}/bundle_manifest.json" "${ARAMIS_COMMIT}" "${XRD_COMMIT}" "${SOURCE_H5}" "${WORK_DIR}/${IMAGE_ARCHIVE}" <<'PY'
+python - "${WORK_DIR}/bundle_manifest.json" "${ARAMIS_COMMIT}" "${XRD_COMMIT}" "${SOURCE_H5}" "${WORK_DIR}/${AMD64_IMAGE_ARCHIVE}" "${WORK_DIR}/${ARM64_IMAGE_ARCHIVE}" <<'PY'
 from hashlib import sha256
 import json
 import sys
 
-path, aramis_commit, xrd_commit, h5_path, image_path = sys.argv[1:]
+path, aramis_commit, xrd_commit, h5_path, amd64_image_path, arm64_image_path = sys.argv[1:]
 
 def digest(source):
     result = sha256()
@@ -70,9 +74,14 @@ payload = {
     "aramis_commit": aramis_commit,
     "xrd_preprocessing_commit": xrd_commit,
     "h5_sha256": digest(h5_path),
-    "image_tag": "eosdx/aramis-training:0.2.8-beta",
-    "image_archive": "aramis_training_linux_0_2_8_beta.tar",
-    "image_archive_sha256": digest(image_path),
+    "image_amd64_tag": "eosdx/aramis-training:0.2.8-beta-amd64",
+    "image_amd64_platform": "linux/amd64",
+    "image_amd64_archive": "aramis_training_linux_amd64_0_2_8_beta.tar",
+    "image_amd64_archive_sha256": digest(amd64_image_path),
+    "image_arm64_tag": "eosdx/aramis-training:0.2.8-beta-arm64",
+    "image_arm64_platform": "linux/arm64",
+    "image_arm64_archive": "aramis_training_linux_arm64_0_2_8_beta.tar",
+    "image_arm64_archive_sha256": digest(arm64_image_path),
 }
 with open(path, "w", encoding="utf-8") as handle:
     json.dump(payload, handle, indent=2)

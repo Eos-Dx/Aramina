@@ -29,10 +29,17 @@ sha256_file() {
   fi
 }
 
-IMAGE_TAG="$(read_manifest image_tag)"
-IMAGE_ARCHIVE="${BUNDLE_DIR}/$(read_manifest image_archive)"
+case "$(uname -m)" in
+  x86_64|amd64) IMAGE_ARCH="amd64" ;;
+  arm64|aarch64) IMAGE_ARCH="arm64" ;;
+  *) echo "Unsupported host architecture: $(uname -m)" >&2; exit 1 ;;
+esac
+
+IMAGE_TAG="$(read_manifest "image_${IMAGE_ARCH}_tag")"
+IMAGE_PLATFORM="$(read_manifest "image_${IMAGE_ARCH}_platform")"
+IMAGE_ARCHIVE="${BUNDLE_DIR}/$(read_manifest "image_${IMAGE_ARCH}_archive")"
 EXPECTED_H5="$(read_manifest h5_sha256)"
-EXPECTED_IMAGE="$(read_manifest image_archive_sha256)"
+EXPECTED_IMAGE="$(read_manifest "image_${IMAGE_ARCH}_archive_sha256")"
 
 command -v docker >/dev/null || { echo "Docker is required." >&2; exit 1; }
 docker version >/dev/null || { echo "Docker Linux engine is not running." >&2; exit 1; }
@@ -50,7 +57,7 @@ fi
 
 stage "Run Linux preprocessing and training"
 mkdir -p "${OUTPUT_DIR}"
-docker run --rm \
+docker run --rm --platform "${IMAGE_PLATFORM}" \
   --mount "type=bind,src=${DATA_DIR},dst=/opt/data,readonly" \
   --mount "type=bind,src=${OUTPUT_DIR},dst=/opt/Aramis/examples/outputs" \
   "${IMAGE_TAG}" \
