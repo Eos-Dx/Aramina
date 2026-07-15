@@ -21,6 +21,14 @@ PY
 
 stage() { printf '\n=== %s ===\n' "$1"; }
 
+sha256_file() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  else
+    shasum -a 256 "$1" | awk '{print $1}'
+  fi
+}
+
 IMAGE_TAG="$(read_manifest image_tag)"
 IMAGE_ARCHIVE="${BUNDLE_DIR}/$(read_manifest image_archive)"
 EXPECTED_H5="$(read_manifest h5_sha256)"
@@ -30,12 +38,12 @@ command -v docker >/dev/null || { echo "Docker is required." >&2; exit 1; }
 docker version >/dev/null || { echo "Docker Linux engine is not running." >&2; exit 1; }
 
 stage "Verify bundled H5"
-ACTUAL_H5="$(sha256sum "${DATA_DIR}/combined_archive.h5" | awk '{print $1}')"
+ACTUAL_H5="$(sha256_file "${DATA_DIR}/combined_archive.h5")"
 [[ "${ACTUAL_H5}" == "${EXPECTED_H5}" ]] || { echo "H5 SHA256 mismatch." >&2; exit 1; }
 
 if ! docker image inspect "${IMAGE_TAG}" >/dev/null 2>&1; then
   stage "Load validated Linux runtime image"
-  ACTUAL_IMAGE="$(sha256sum "${IMAGE_ARCHIVE}" | awk '{print $1}')"
+  ACTUAL_IMAGE="$(sha256_file "${IMAGE_ARCHIVE}")"
   [[ "${ACTUAL_IMAGE}" == "${EXPECTED_IMAGE}" ]] || { echo "Docker image SHA256 mismatch." >&2; exit 1; }
   docker load --input "${IMAGE_ARCHIVE}"
 fi
