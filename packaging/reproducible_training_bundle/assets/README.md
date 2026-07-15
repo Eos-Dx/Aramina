@@ -28,6 +28,32 @@ to `outputs/` beside this README.
 If Docker Desktop already exists but its Linux engine is stopped, the script
 starts it and waits up to five minutes for it to become ready.
 
+## Select a configuration
+
+The bundle includes its complete `config/` directory beside the Docker images.
+Select one workflow YAML; it names the preprocessing and training YAMLs that
+will be used. Those relative references are resolved within this bundled
+configuration tree.
+
+Windows:
+
+```powershell
+.\install_and_train.ps1 -WorkflowConfig config/workflows/aramis_biopsy_patients_primary_workflow_v0_1.yaml
+```
+
+macOS/Linux:
+
+```bash
+./install_and_train.sh --workflow-config config/workflows/aramis_biopsy_patients_primary_workflow_v0_1.yaml
+```
+
+To use a different evaluation, copy the standard training YAML, change only
+its `evaluation` section, then create a workflow YAML under `config/workflows/`
+which points to that training YAML and the desired preprocessing YAML. The
+model recipe is fixed inside the Docker image. A custom workflow is saved in
+the generated model artifacts; it deliberately skips comparison to the fixed
+reference model.
+
 ## macOS/Linux
 
 Run:

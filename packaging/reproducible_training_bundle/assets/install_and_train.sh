@@ -10,6 +10,30 @@ mkdir -p "${LOG_DIR}"
 LOG_PATH="${LOG_DIR}/install_and_train_$(date -u +%Y%m%dT%H%M%SZ).log"
 exec > >(tee -a "${LOG_PATH}") 2>&1
 
+DEFAULT_WORKFLOW_CONFIG="config/workflows/aramis_biopsy_patients_primary_workflow_v0_1.yaml"
+WORKFLOW_CONFIG="${DEFAULT_WORKFLOW_CONFIG}"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --workflow-config)
+      WORKFLOW_CONFIG="$2"
+      shift 2
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      exit 2
+      ;;
+  esac
+done
+
+case "${WORKFLOW_CONFIG}" in
+  config/workflows/*.yaml|config/workflows/*.yml) ;;
+  *) echo "Workflow config must be under config/workflows/: ${WORKFLOW_CONFIG}" >&2; exit 2 ;;
+esac
+[[ -f "${BUNDLE_DIR}/${WORKFLOW_CONFIG}" ]] || {
+  echo "Missing workflow config: ${BUNDLE_DIR}/${WORKFLOW_CONFIG}" >&2
+  exit 2
+}
+
 read_manifest() {
   python3 - "${MANIFEST}" "$1" <<'PY'
 import json
@@ -59,8 +83,9 @@ stage "Run Linux preprocessing and training"
 mkdir -p "${OUTPUT_DIR}"
 docker run --rm --platform "${IMAGE_PLATFORM}" \
   --mount "type=bind,src=${DATA_DIR},dst=/opt/data,readonly" \
+  --mount "type=bind,src=${BUNDLE_DIR}/config,dst=/opt/Aramis/config,readonly" \
   --mount "type=bind,src=${OUTPUT_DIR},dst=/opt/Aramis/examples/outputs" \
   "${IMAGE_TAG}" \
-  bash /opt/aramis-bundle/run_training_docker.sh
+  bash /opt/aramis-bundle/run_training_docker.sh --workflow-config "${WORKFLOW_CONFIG}"
 
 printf 'Log saved to: %s\n' "${LOG_PATH}"

@@ -1,4 +1,6 @@
-param()
+param(
+    [string]$WorkflowConfig = "config/workflows/aramis_biopsy_patients_primary_workflow_v0_1.yaml"
+)
 
 $ErrorActionPreference = "Stop"
 $BundleDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -6,6 +8,7 @@ $Manifest = Get-Content (Join-Path $BundleDir "bundle_manifest.json") -Raw | Con
 $DataDir = Join-Path $BundleDir "data"
 $OutputDir = Join-Path $BundleDir "outputs"
 $LogDir = Join-Path $OutputDir "logs"
+$ConfigDir = Join-Path $BundleDir "config"
 $ImageTag = $Manifest.image_amd64_tag
 $ImagePlatform = $Manifest.image_amd64_platform
 $ImageArchive = Join-Path $BundleDir $Manifest.image_amd64_archive
@@ -110,12 +113,29 @@ function Ensure-DockerDesktop {
     throw "Docker Desktop is installed but its Linux engine did not start within five minutes. Open Docker Desktop, resolve its shown error, then rerun this script."
 }
 
+function Resolve-WorkflowConfig {
+    param([string]$Value)
+    $configRoot = (Resolve-Path -LiteralPath $ConfigDir).Path
+    $candidate = Join-Path $BundleDir $Value
+    $workflowPath = (Resolve-Path -LiteralPath $candidate -ErrorAction Stop).Path
+    if (-not $workflowPath.StartsWith($configRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "Workflow config must be inside bundled config/: $Value"
+    }
+    $relative = [System.IO.Path]::GetRelativePath($BundleDir, $workflowPath)
+    if (-not $relative.Replace("\\", "/").StartsWith("config/workflows/")) {
+        throw "Workflow config must be inside bundled config/workflows/: $Value"
+    }
+    return $relative.Replace("\\", "/")
+}
+
 try {
     Write-Stage "Aramis Docker reproducible training bundle"
     Write-Host "Log: $LogPath"
 
     $script:DockerExe = Ensure-DockerDesktop
     & $script:DockerExe version | Out-Host
+    $ResolvedWorkflowConfig = Resolve-WorkflowConfig $WorkflowConfig
+    Write-Host "Workflow config: $ResolvedWorkflowConfig"
 
     $H5Path = Join-Path $DataDir "combined_archive.h5"
     if (-not (Test-Path $H5Path)) {
@@ -146,9 +166,10 @@ try {
     Invoke-Docker "Run Linux preprocessing and training" @(
         "run", "--rm", "--platform", $ImagePlatform,
         "--mount", "type=bind,src=$DataDir,dst=/opt/data,readonly",
+        "--mount", "type=bind,src=$ConfigDir,dst=/opt/Aramis/config,readonly",
         "--mount", "type=bind,src=$OutputDir,dst=/opt/Aramis/examples/outputs",
         $ImageTag,
-        "bash", "/opt/aramis-bundle/run_training_docker.sh"
+        "bash", "/opt/aramis-bundle/run_training_docker.sh", "--workflow-config", $ResolvedWorkflowConfig
     )
 
     Write-Stage "Bundle completed"
