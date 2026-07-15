@@ -40,7 +40,6 @@ ARAMIS_REPOSITORY="$(read_manifest aramis_repository)"
 ARAMIS_COMMIT="$(read_manifest aramis_commit)"
 XRD_REPOSITORY="$(read_manifest xrd_preprocessing_repository)"
 XRD_COMMIT="$(read_manifest xrd_preprocessing_commit)"
-H5_SHA256="$(read_manifest h5_sha256)"
 WORKFLOW_CONFIG="$(read_manifest workflow_config)"
 REFERENCE_MODEL="$(read_manifest reference_model_relative_path)"
 
@@ -103,25 +102,27 @@ ensure_git() {
   fi
 }
 
-sha256_file() {
-  if command -v shasum >/dev/null 2>&1; then
-    shasum -a 256 "$1" | awk '{print $1}'
-  else
-    sha256sum "$1" | awk '{print $1}'
+link_bundle_data() {
+  local source="${BUNDLE_DIR}/data"
+  local destination="${WORKSPACE}/data"
+  [[ -f "${source}/combined_archive.h5" ]] || {
+    echo "Missing bundled H5 input: ${source}/combined_archive.h5" >&2
+    return 1
+  }
+  if [[ -L "${destination}" ]]; then
+    if [[ "$(cd "${destination}" && pwd -P)" == "$(cd "${source}" && pwd -P)" ]]; then
+      stage "Reuse bundle data link"
+      return
+    fi
+    echo "Workspace data link targets a different directory: ${destination}" >&2
+    return 1
   fi
-}
-
-sync_h5() {
-  local source="${BUNDLE_DIR}/data/combined_archive.h5"
-  local destination="${WORKSPACE}/data/combined_archive.h5"
-  mkdir -p "$(dirname "${destination}")"
-  if [[ -f "${destination}" && "$(sha256_file "${destination}")" == "${H5_SHA256}" ]]; then
-    stage "Reuse verified H5 input"
-    return
+  if [[ -e "${destination}" ]]; then
+    echo "Workspace data path already exists and is not a bundle data link: ${destination}" >&2
+    return 1
   fi
-  stage "Copy H5 input"
-  cp -f "${source}" "${destination}"
-  [[ "$(sha256_file "${destination}")" == "${H5_SHA256}" ]]
+  stage "Link bundled H5 input"
+  ln -s "${source}" "${destination}"
 }
 
 sync_repository() {
@@ -147,7 +148,7 @@ ensure_git
 ARAMIS_REPO="${WORKSPACE}/Aramis"
 XRD_REPO="${WORKSPACE}/XRD-preprocessing"
 
-sync_h5
+link_bundle_data
 sync_repository "${ARAMIS_REPOSITORY}" "${ARAMIS_REPO}" "${ARAMIS_COMMIT}" "Aramis"
 sync_repository "${XRD_REPOSITORY}" "${XRD_REPO}" "${XRD_COMMIT}" "XRD-preprocessing"
 

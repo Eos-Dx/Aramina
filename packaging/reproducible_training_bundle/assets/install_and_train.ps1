@@ -117,26 +117,28 @@ function Sync-Repository {
     Invoke-External "Reset $Name checkout" $Git @("-C", $Path, "reset", "--hard", $Commit)
 }
 
-function Sync-H5 {
+function Link-BundleData {
     param(
         [string]$Source,
-        [string]$Destination,
-        [string]$ExpectedSha256
+        [string]$Destination
     )
-    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Destination) | Out-Null
+    if (-not (Test-Path (Join-Path $Source "combined_archive.h5"))) {
+        throw "Missing bundled H5 input: $(Join-Path $Source 'combined_archive.h5')"
+    }
     if (Test-Path $Destination) {
-        $ActualSha256 = (Get-FileHash -Algorithm SHA256 -Path $Destination).Hash.ToLower()
-        if ($ActualSha256 -eq $ExpectedSha256.ToLower()) {
-            Write-Stage "Reuse verified H5 input"
-            Write-Host "H5 checksum matches bundle manifest."
+        $ResolvedDestination = (Resolve-Path $Destination).Path
+        $ResolvedSource = (Resolve-Path $Source).Path
+        if ($ResolvedDestination -eq $ResolvedSource) {
+            Write-Stage "Reuse bundle data link"
             return
         }
+        throw "Workspace data path already exists and does not reference bundle data: $Destination"
     }
-    Write-Stage "Copy H5 input"
-    Copy-Item -Force $Source $Destination
-    $ActualSha256 = (Get-FileHash -Algorithm SHA256 -Path $Destination).Hash.ToLower()
-    if ($ActualSha256 -ne $ExpectedSha256.ToLower()) {
-        throw "Copied H5 checksum does not match bundle manifest."
+    Write-Stage "Link bundled H5 input"
+    try {
+        New-Item -ItemType Junction -Path $Destination -Target $Source | Out-Null
+    } catch {
+        throw "Unable to create a workspace data junction. Use a local NTFS workspace: $($_.Exception.Message)"
     }
 }
 
@@ -149,10 +151,10 @@ try {
     $Git = Ensure-Git
     $AramisRepo = Join-Path $Workspace "Aramis"
     $XrdRepo = Join-Path $Workspace "XRD-preprocessing"
-    $ExpectedH5 = Join-Path $Workspace "data\combined_archive.h5"
-    $BundledH5 = Join-Path $BundleDir "data\combined_archive.h5"
+    $WorkspaceData = Join-Path $Workspace "data"
+    $BundledData = Join-Path $BundleDir "data"
 
-    Sync-H5 $BundledH5 $ExpectedH5 $Manifest.h5_sha256
+    Link-BundleData $BundledData $WorkspaceData
     Sync-Repository $Manifest.aramis_repository $AramisRepo $Manifest.aramis_commit "Aramis" $Git
     Sync-Repository $Manifest.xrd_preprocessing_repository $XrdRepo $Manifest.xrd_preprocessing_commit "XRD-preprocessing" $Git
 
