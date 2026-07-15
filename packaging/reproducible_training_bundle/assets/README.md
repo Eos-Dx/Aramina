@@ -15,6 +15,8 @@ and compares the generated model with the reference model from the selected
 Aramis checkout. The console shows each stage and writes the same output to
 `workspace/logs/install_and_train_<timestamp>.log`.
 
+The full input archive is stored at `workspace/data/combined_archive.h5`.
+
 The comparison requires equal H5 SHA256, recipe, YAML checksums, evaluation
 summary, thresholds, and executable LR1/LR2 parameters. `created_at` and the
 joblib file SHA are intentionally not compared because they change for each run.

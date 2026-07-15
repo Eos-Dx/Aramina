@@ -113,7 +113,7 @@ sha256_file() {
 
 sync_h5() {
   local source="${BUNDLE_DIR}/data/combined_archive.h5"
-  local destination="${WORKSPACE}/eos_play/jupyter_notebooks/Clinical_trials/data/product-aramis-data/combined_archive.h5"
+  local destination="${WORKSPACE}/data/combined_archive.h5"
   mkdir -p "$(dirname "${destination}")"
   if [[ -f "${destination}" && "$(sha256_file "${destination}")" == "${H5_SHA256}" ]]; then
     stage "Reuse verified H5 input"

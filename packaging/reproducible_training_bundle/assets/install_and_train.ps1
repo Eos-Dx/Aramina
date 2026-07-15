@@ -149,7 +149,7 @@ try {
     $Git = Ensure-Git
     $AramisRepo = Join-Path $Workspace "Aramis"
     $XrdRepo = Join-Path $Workspace "XRD-preprocessing"
-    $ExpectedH5 = Join-Path $Workspace "eos_play\jupyter_notebooks\Clinical_trials\data\product-aramis-data\combined_archive.h5"
+    $ExpectedH5 = Join-Path $Workspace "data\combined_archive.h5"
     $BundledH5 = Join-Path $BundleDir "data\combined_archive.h5"
 
     Sync-H5 $BundledH5 $ExpectedH5 $Manifest.h5_sha256
