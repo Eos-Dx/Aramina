@@ -116,8 +116,9 @@ specimen-level split is insufficient when patient leakage is possible
 Current product evaluation policy:
 
 ```text
-use repeated patient-safe stratified 5-fold x20 with random_seed=42
-  to evaluate the frozen M2Q recipe
+use repeated patient-safe stratified k-fold to evaluate the frozen M2Q recipe
+default/current config: 5-fold x20 with random_seed=42
+record actual folds/repeats/random_seed in evaluation artifacts and model joblib
 use train-all only after evaluation to fit the final packaged artifact
 derive the deployment threshold from train-all scores at sensitivity >=0.95
 state clearly that train-all is fitted-cohort evidence, not validation
@@ -129,28 +130,29 @@ Prediction must require:
 
 ```text
 one patient per H5
-H5 schema_version / format matching predict YAML
+H5 schema_version / format matching the model-held prediction contract
 patient.patient_id matching H5 patientId
 patient.target_side supplied by predict YAML
 model identity derived from the selected model artifact SHA256
 prediction_preprocessing_config stored inside model artifact
 ```
 
-Prediction must output:
+External prediction report must output:
 
 ```text
-p_cancer
 suggested_class
-threshold_key
-threshold
-risk_level
 reliability
 reliability_reason
-provenance checksums
+report_id
+created_at
 decision-support limitations
 ```
 
-Risk and reliability must remain separate.
+Internal prediction report additionally carries target-side `p_cancer`, the
+decision threshold, target/contralateral profile evidence, selected symmetry
+features, QC/reliability fields, and model/report identifiers. Model feature
+schema, coefficients, config snapshots, and provenance checksums belong to the
+model artifact and `model_description.yaml`, not to the clinical report.
 
 ## Stop Conditions
 

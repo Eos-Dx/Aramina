@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import subprocess
 from hashlib import sha256
 from importlib.metadata import PackageNotFoundError, version
@@ -18,11 +19,20 @@ from xrd_preprocessing import (
 )
 
 
+logger = logging.getLogger(__name__)
+
+
 class AramisPreprocessingPipeline(TransformerMixin, BaseEstimator):
     """Aramis preprocessing route declared by YAML `pipeline.steps`."""
 
-    def __init__(self, *, config: dict[str, Any] | str | Path) -> None:
+    def __init__(
+        self,
+        *,
+        config: dict[str, Any] | str | Path,
+        verbose: bool = False,
+    ) -> None:
         self.config = config
+        self.verbose = verbose
 
     def fit(self, X: str | Path, y: Any = None):
         _ = X
@@ -33,8 +43,15 @@ class AramisPreprocessingPipeline(TransformerMixin, BaseEstimator):
         config = _load_config(self.config)
         _require_output_columns(config)
         self.config_ = config
-        self.pipeline_ = build_pipeline_from_config(config)
-        return self.pipeline_.fit_transform(X)
+        self.pipeline_ = build_pipeline_from_config(config, verbose=self.verbose)
+        logger.info("Preprocessing input H5: %s", X)
+        logger.info(
+            "Preprocessing steps: %s",
+            ", ".join(self.pipeline_.named_steps),
+        )
+        df = self.pipeline_.fit_transform(X)
+        logger.info("Preprocessing complete: rows=%d columns=%d", len(df), len(df.columns))
+        return df
 
 
 def run_preprocessing_pipeline(
@@ -42,9 +59,10 @@ def run_preprocessing_pipeline(
     config: dict[str, Any] | str | Path,
     *,
     output_joblib_path: str | Path | None = None,
+    verbose: bool = False,
 ) -> pd.DataFrame:
     """Build the Aramis preprocessing DataFrame declared by YAML."""
-    pipeline = AramisPreprocessingPipeline(config=config)
+    pipeline = AramisPreprocessingPipeline(config=config, verbose=verbose)
     df = pipeline.fit_transform(h5_path)
     _write_joblib_if_requested(
         df,
@@ -59,6 +77,7 @@ def run_preprocessing_artifact_from_config(
     config_path: str | Path,
     *,
     output_joblib_path: str | Path | None = None,
+    verbose: bool = False,
 ) -> dict[str, Any]:
     """Run preprocessing and return the written artifact without reloading joblib."""
     config_path = Path(config_path)
@@ -67,7 +86,7 @@ def run_preprocessing_artifact_from_config(
     output_joblib_path = output_joblib_path or _config_path(
         config, config_path, "output_joblib_path"
     )
-    pipeline = AramisPreprocessingPipeline(config=config)
+    pipeline = AramisPreprocessingPipeline(config=config, verbose=verbose)
     df = pipeline.fit_transform(h5_path)
     return _write_joblib_if_requested(
         df,
@@ -77,7 +96,11 @@ def run_preprocessing_artifact_from_config(
     )
 
 
-def run_preprocessing_from_config(config_path: str | Path) -> pd.DataFrame:
+def run_preprocessing_from_config(
+    config_path: str | Path,
+    *,
+    verbose: bool = False,
+) -> pd.DataFrame:
     """Run Aramis preprocessing using only paths stored in YAML."""
     config_path = Path(config_path)
     config = load_preprocessing_config(config_path)
@@ -87,6 +110,7 @@ def run_preprocessing_from_config(config_path: str | Path) -> pd.DataFrame:
         h5_path,
         config,
         output_joblib_path=output_joblib_path,
+        verbose=verbose,
     )
 
 

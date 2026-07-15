@@ -163,11 +163,21 @@ def _validate_evaluation(evaluation: Any) -> None:
         allowed={"method", "folds", "repeats", "random_seed"},
         where="evaluation",
     )
-    if evaluation != PRODUCT_EVALUATION:
+    if evaluation["method"] != PRODUCT_EVALUATION["method"]:
         raise ValueError(
-            "The M2Q product recipe requires evaluation "
-            "repeated_stratified_kfold, folds=5, repeats=20, random_seed=42."
+            "evaluation.method must be 'repeated_stratified_kfold' for this "
+            "training contract."
         )
+    _validate_int_at_least(evaluation["folds"], 2, "evaluation.folds")
+    _validate_int_at_least(evaluation["repeats"], 1, "evaluation.repeats")
+    _validate_int_at_least(evaluation["random_seed"], 0, "evaluation.random_seed")
+
+
+def _validate_int_at_least(value: Any, minimum: int, where: str) -> None:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"{where} must be an integer.")
+    if value < minimum:
+        raise ValueError(f"{where} must be >= {minimum}.")
 
 
 def _validate_recipe(recipe_id: str, recipe: Any) -> None:
@@ -223,4 +233,3 @@ def _exact_keys(
     unknown = sorted(set(value).difference(allowed))
     if unknown:
         raise ValueError(f"Unknown {where} fields: {unknown}")
-

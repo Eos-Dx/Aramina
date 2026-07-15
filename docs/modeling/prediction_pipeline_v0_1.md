@@ -216,8 +216,7 @@ evidence.target_profile.profile_p_cancer
 
 Estimator summaries, model weights, raw feature rows, and training configuration
 are intentionally not duplicated in an internal prediction report. They remain
-in the ML-classifier training output YAML under `model_registry`; the joblib is
-the executable model artifact.
+in `model_description.yaml` and the executable model joblib artifact.
 
 Internal report excludes profile statistics, filesystem paths, generic
 provenance, and output-file paths.

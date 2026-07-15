@@ -149,9 +149,9 @@ final_prediction:
 ```
 
 `final_prediction` is a result, not a serialized final-model object. The
-training output YAML under `model_registry` remains the source of truth for
-feature schema, regularization, threshold derivation, evaluation metrics,
-coefficients, and training configuration. The model joblib remains executable.
+paired `model_description.yaml` and executable model joblib remain the source
+of truth for feature schema, regularization, threshold derivation, evaluation
+metrics, coefficients, and training configuration.
 
 ## Explicit Exclusions
 

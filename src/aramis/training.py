@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import platform
 import subprocess
 import tomllib
@@ -53,6 +54,7 @@ from .training_config import (
 
 TARGET_CASE_ID = "target_case_id"
 PATIENT_BOOTSTRAP_SAMPLES = 2_000
+logger = logging.getLogger(__name__)
 
 
 class PatientModelInputBuilder(BaseEstimator):
@@ -422,6 +424,18 @@ def run_training_from_config(
     model_type = str(config["model"]["type"])
     if model_type != "m2q_gated_target_case":
         raise ValueError(f"Unsupported training model.type: {model_type!r}")
+    logger.info(
+        "Training recipe=%s rows=%d patients=%d",
+        recipe_id,
+        len(df),
+        df["patientId"].astype(str).nunique(),
+    )
+    logger.info(
+        "Evaluation: repeated stratified %d-fold x%d (seed=%d)",
+        config["evaluation"]["n_splits"],
+        config["evaluation"]["n_repeats"],
+        config["evaluation"]["random_state"],
+    )
     artifact = train_m2q_model_artifact(
         df,
         config=config,
@@ -437,6 +451,7 @@ def run_training_from_config(
         training_config_yaml=config_text,
     )
     _write_evaluation_outputs(evaluation_artifact, run_folder)
+    logger.info("Evaluation artifacts written: %s", run_folder)
     if public_config["training"]["mode"] == "evaluation":
         evaluation_artifact["run_folder"] = str(run_folder)
         return evaluation_artifact
@@ -458,6 +473,7 @@ def run_training_from_config(
         model_path=model_path,
     )
     _write_yaml(run_folder / "model_description.yaml", description)
+    logger.info("Final model written: %s", model_path)
     model_artifact["run_folder"] = str(run_folder)
     model_artifact["model_path"] = str(model_path)
     model_artifact["model_id"] = model_id

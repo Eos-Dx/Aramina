@@ -56,9 +56,13 @@ python -m aramis train \
   --config config/training/aramis_m2q_t100_primary_train_v0_1.yaml
 ```
 
-Every run uses patient-safe repeated stratified `5-fold x20` with seed `42`.
-The public YAML cannot override these fixed M2Q recipe settings. `evaluation`
-creates a unique folder and writes:
+The default development run uses patient-safe repeated stratified `5-fold x20`
+with seed `42`. The public YAML may change `folds`, `repeats`, and
+`random_seed`; the selected values are stored in the evaluation artifact and in
+the final model joblib. The public YAML cannot override fixed M2Q recipe
+settings: architecture, feature schema, regularization, label policy,
+prediction preprocessing, or target sensitivity. `evaluation` creates a unique
+folder and writes:
 
 ```text
 evaluation.joblib

@@ -47,12 +47,15 @@ draft` final fit.
 
 ## Thresholds
 
-Evaluation is fixed to patient-safe repeated stratified `5-fold x20` with seed
-`42`. Each fold chooses its threshold from the training patients and reports
-metrics only on held-out patients. `final_fit` runs this evaluation first, then
-trains on the complete accepted cohort and freezes the threshold from train-all
-scores at recipe target sensitivity `>=0.95`. The in-sample result is not an
-independent validation claim.
+Evaluation method is fixed to patient-safe repeated stratified k-fold. The
+current default product YAML uses `5-fold x20` with seed `42`, but `folds`,
+`repeats`, and `random_seed` are run parameters. The exact values used for a
+run are stored in the evaluation artifact and final model joblib. Each fold
+chooses its threshold from the training patients and reports metrics only on
+held-out patients. `final_fit` runs this evaluation first, then trains on the
+complete accepted cohort and freezes the threshold from train-all scores at
+recipe target sensitivity `>=0.95`. The in-sample result is not an independent
+validation claim.
 
 The final model joblib stores this immutable evaluation protocol and compact
 metric summary. Detailed fold metrics and held-out predictions remain in the

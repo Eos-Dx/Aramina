@@ -89,11 +89,27 @@ def _write_training_input(path: Path) -> None:
 def test_training_contract_rejects_unknown_fields(tmp_path: Path):
     config_path = tmp_path / "train.yaml"
     config = _training_config(tmp_path / "input.joblib", tmp_path, mode="evaluation")
-    config["evaluation"]["folds"] = 3
+    config["evaluation"]["shuffle"] = True
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
 
-    with pytest.raises(ValueError, match="M2Q product recipe requires"):
+    with pytest.raises(ValueError, match="Unknown evaluation fields"):
         load_training_config(config_path)
+
+
+def test_training_contract_allows_custom_repeated_stratified_kfold(tmp_path: Path):
+    config_path = tmp_path / "train.yaml"
+    config = _training_config(tmp_path / "input.joblib", tmp_path, mode="evaluation")
+    config["evaluation"] = {
+        "method": "repeated_stratified_kfold",
+        "folds": 3,
+        "repeats": 2,
+        "random_seed": 7,
+    }
+    config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+
+    loaded, _text = load_training_config(config_path)
+
+    assert loaded["evaluation"] == config["evaluation"]
 
 
 def test_training_contract_requires_intended_use(tmp_path: Path):
@@ -112,7 +128,30 @@ def test_training_contract_allows_only_product_evaluation_method(tmp_path: Path)
     config["evaluation"]["method"] = "leave_one_out"
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
 
-    with pytest.raises(ValueError, match="M2Q product recipe requires"):
+    with pytest.raises(ValueError, match="evaluation.method"):
+        load_training_config(config_path)
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("folds", 1, "evaluation.folds must be >= 2"),
+        ("repeats", 0, "evaluation.repeats must be >= 1"),
+        ("random_seed", -1, "evaluation.random_seed must be >= 0"),
+    ],
+)
+def test_training_contract_rejects_invalid_evaluation_values(
+    tmp_path: Path,
+    field: str,
+    value: int,
+    message: str,
+):
+    config_path = tmp_path / "train.yaml"
+    config = _training_config(tmp_path / "input.joblib", tmp_path, mode="evaluation")
+    config["evaluation"][field] = value
+    config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+
+    with pytest.raises(ValueError, match=message):
         load_training_config(config_path)
 
 

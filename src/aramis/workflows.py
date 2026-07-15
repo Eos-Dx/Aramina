@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import logging
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -14,9 +15,14 @@ from .training import run_training_from_config
 
 
 WORKFLOW_CONTRACT = "aramis_preprocess_train_workflow_v0_1"
+logger = logging.getLogger(__name__)
 
 
-def run_preprocess_train_from_config(config_path: str | Path) -> dict[str, Any]:
+def run_preprocess_train_from_config(
+    config_path: str | Path,
+    *,
+    verbose: bool = False,
+) -> dict[str, Any]:
     """Preprocess once, persist the DataFrame, then pass it directly to training."""
     config_path = Path(config_path).expanduser().resolve()
     config = _load_workflow_config(config_path)
@@ -28,10 +34,16 @@ def run_preprocess_train_from_config(config_path: str | Path) -> dict[str, Any]:
     dataframe_path = run_folder / "preprocessing" / "dataframe.joblib"
     dataframe_path.parent.mkdir(parents=True)
 
+    logger.info("Workflow config: %s", config_path)
+    logger.info("Workflow output: %s", run_folder)
+    logger.info("Stage 1/2: preprocessing")
+    preprocessing_kwargs = {"verbose": True} if verbose else {}
     preprocessing_artifact = run_preprocessing_artifact_from_config(
         preprocessing_config_path,
         output_joblib_path=dataframe_path,
+        **preprocessing_kwargs,
     )
+    logger.info("Stage 2/2: training")
     training_artifact = run_training_from_config(
         training_config_path,
         dataframe=preprocessing_artifact["dataframe"],
@@ -40,6 +52,7 @@ def run_preprocess_train_from_config(config_path: str | Path) -> dict[str, Any]:
         output_folder=run_folder / "training",
         workflow_config_yaml=config_path.read_text(encoding="utf-8"),
     )
+    logger.info("Workflow complete: %s", run_folder)
     return {
         "workflow_config_path": config_path,
         "preprocessing_config_path": preprocessing_config_path,

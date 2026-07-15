@@ -50,7 +50,7 @@ recipe: m2q_gated_target_case_v0_1
 preprocessing: T100 biopsy-patient model-input DataFrame
 selected_model: M2Q
 regularization: LR1 L2 C=0.1; LR2 L2 C=0.3
-evaluation: repeated patient-safe stratified 5-fold x20
+default evaluation: repeated patient-safe stratified 5-fold x20
 deployment threshold: train-all scores at target sensitivity >=0.95
 training unit: one biopsied target breast
 ```
@@ -114,8 +114,10 @@ model path in prediction YAML.
 
 The packaged model also records full raw-H5 training reproducibility: H5
 SHA256, YAML snapshots and checksums, code/dependency provenance, runtime
-versions, and evaluation summary. The Windows full-H5 reproduction bundle is
-built with `packaging/reproducible_training_bundle/make_bundle.sh`.
+versions, and evaluation summary. The full-H5 reproduction bundle is built with
+`packaging/reproducible_training_bundle/make_bundle.sh`; its Windows and
+macOS/Linux launchers reuse existing environments, refresh pinned code commits,
+and write a stage-by-stage training log.
 
 ## Documentation Map
 

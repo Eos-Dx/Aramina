@@ -68,6 +68,19 @@ def test_cli_train_requires_config_when_not_listing_recipes(capsys):
     assert "--config is required" in capsys.readouterr().err
 
 
+def test_cli_verbose_preprocess_forwards_progress_flag(monkeypatch, tmp_path: Path):
+    config = tmp_path / "config.yaml"
+    received: dict[str, object] = {}
+    monkeypatch.setattr(
+        cli,
+        "run_preprocessing_from_config",
+        lambda _, **kwargs: received.update(kwargs) or pd.DataFrame(),
+    )
+
+    assert cli.main(["preprocess", "--config", str(config), "--verbose"]) == 0
+    assert received == {"verbose": True}
+
+
 def test_workflow_passes_preprocessing_dataframe_directly_to_training(
     monkeypatch,
     tmp_path: Path,

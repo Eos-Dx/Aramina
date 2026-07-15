@@ -63,6 +63,7 @@ are not clinical validation examples.
 ## Full Training Reproduction
 
 `packaging/reproducible_training_bundle/make_bundle.sh` creates a separate ZIP
-with the full historical H5. On Windows, `install_and_train.bat` installs the
-environment, runs the fixed `preprocess-train` workflow and compares its
-generated model with the tracked reference artifact.
+with the full historical H5. Run `install_and_train.bat` on Windows or
+`./install_and_train.sh` on macOS/Linux. Repeated runs reuse the environment and
+workspace, refresh the exact commits declared in `bundle_manifest.json`, and
+write a timestamped log under `workspace/logs/`.

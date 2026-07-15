@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 from pathlib import Path
 
 from .pipelines import run_preprocessing_from_config
@@ -10,6 +11,22 @@ from .prediction import run_prediction_from_config
 from .training import run_training_from_config
 from .training_config import available_model_recipes, describe_model_recipe
 from .workflows import run_preprocess_train_from_config
+
+
+def _add_verbose_argument(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Show preprocessing and training progress.",
+    )
+
+
+def _configure_logging(verbose: bool) -> None:
+    if verbose:
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -26,6 +43,7 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         help="Path to Aramis preprocessing YAML.",
     )
+    _add_verbose_argument(preprocess)
     train = subparsers.add_parser(
         "train",
         help="Train an Aramis research-draft model from a YAML config.",
@@ -45,6 +63,7 @@ def main(argv: list[str] | None = None) -> int:
         metavar="RECIPE_ID",
         help="Print one immutable model recipe.",
     )
+    _add_verbose_argument(train)
     preprocess_train = subparsers.add_parser(
         "preprocess-train",
         help="Run an Aramis preprocess+train workflow YAML.",
@@ -55,6 +74,7 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         help="Path to Aramis workflow YAML.",
     )
+    _add_verbose_argument(preprocess_train)
     predict = subparsers.add_parser(
         "predict",
         help="Run one-patient Aramis research-draft decision support.",
@@ -65,10 +85,13 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         help="Path to Aramis prediction YAML.",
     )
+    _add_verbose_argument(predict)
 
     args = parser.parse_args(argv)
+    _configure_logging(args.verbose)
     if args.command == "preprocess":
-        df = run_preprocessing_from_config(args.config)
+        kwargs = {"verbose": True} if args.verbose else {}
+        df = run_preprocessing_from_config(args.config, **kwargs)
         print(f"rows={len(df)}")
         print(f"columns={len(df.columns)}")
         print(f"config={args.config}")
@@ -91,7 +114,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"config={args.config}")
         return 0
     if args.command == "preprocess-train":
-        result = run_preprocess_train_from_config(args.config)
+        kwargs = {"verbose": True} if args.verbose else {}
+        result = run_preprocess_train_from_config(args.config, **kwargs)
         preprocessing_df = result["preprocessing_dataframe"]
         training_artifact = result["training_artifact"]
         print(f"preprocess_rows={len(preprocessing_df)}")

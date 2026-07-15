@@ -4,7 +4,11 @@ import joblib
 import pandas as pd
 import pytest
 import yaml
-from xrd_preprocessing import build_pipeline_steps_from_config, load_preprocessing_dataframe
+from xrd_preprocessing import (
+    build_pipeline_from_config,
+    build_pipeline_steps_from_config,
+    load_preprocessing_dataframe,
+)
 from xrd_preprocessing.transformers import H5BlobDataFrameTransformer, KeepColumnsTransformer
 
 from aramis.__main__ import main
@@ -29,6 +33,12 @@ def test_yaml_pipeline_steps_build_registered_transformers():
     assert names[-1] == "keep_columns"
     assert isinstance(steps[-1][1], KeepColumnsTransformer)
     assert steps[-1][1].columns == tuple(config["metadata"]["output_columns"])
+
+
+def test_yaml_pipeline_can_emit_sklearn_step_progress():
+    pipeline = build_pipeline_from_config(load_synthetic_config(), verbose=True)
+
+    assert pipeline.verbose is True
 
 
 def test_yaml_pipeline_rejects_missing_or_unknown_transformer():
