@@ -121,11 +121,11 @@ function Resolve-WorkflowConfig {
     if (-not $workflowPath.StartsWith($configRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
         throw "Workflow config must be inside bundled config/: $Value"
     }
-    $relative = [System.IO.Path]::GetRelativePath($BundleDir, $workflowPath)
-    if (-not $relative.Replace("\\", "/").StartsWith("config/workflows/")) {
+    $relative = [System.IO.Path]::GetRelativePath($configRoot, $workflowPath).Replace("\\", "/")
+    if (-not $relative.StartsWith("workflows/")) {
         throw "Workflow config must be inside bundled config/workflows/: $Value"
     }
-    return $relative.Replace("\\", "/")
+    return "/opt/aramis-bundle-config/$relative"
 }
 
 try {
@@ -166,7 +166,7 @@ try {
     Invoke-Docker "Run Linux preprocessing and training" @(
         "run", "--rm", "--platform", $ImagePlatform,
         "--mount", "type=bind,src=$DataDir,dst=/opt/data,readonly",
-        "--mount", "type=bind,src=$ConfigDir,dst=/opt/Aramis/config,readonly",
+        "--mount", "type=bind,src=$ConfigDir,dst=/opt/aramis-bundle-config,readonly",
         "--mount", "type=bind,src=$OutputDir,dst=/opt/Aramis/examples/outputs",
         $ImageTag,
         "bash", "/opt/aramis-bundle/run_training_docker.sh", "--workflow-config", $ResolvedWorkflowConfig

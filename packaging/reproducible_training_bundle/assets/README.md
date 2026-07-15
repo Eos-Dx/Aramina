@@ -30,10 +30,11 @@ starts it and waits up to five minutes for it to become ready.
 
 ## Select a configuration
 
-The bundle includes its complete `config/` directory beside the Docker images.
-Select one workflow YAML; it names the preprocessing and training YAMLs that
-will be used. Those relative references are resolved within this bundled
-configuration tree.
+The bundle includes twelve YAML files: the training workflow and its required
+configs, plus the prediction preprocessing config and its required `extends`
+fragments. Select one workflow YAML; it names the preprocessing and training
+YAMLs that will be used. Those relative references are resolved within this
+bundled configuration tree.
 
 Windows:
 

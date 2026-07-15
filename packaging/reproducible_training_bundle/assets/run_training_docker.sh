@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DEFAULT_WORKFLOW_CONFIG="config/workflows/aramis_biopsy_patients_primary_workflow_v0_1.yaml"
+CONFIG_ROOT="/opt/aramis-bundle-config"
+DEFAULT_WORKFLOW_CONFIG="${CONFIG_ROOT}/workflows/aramis_biopsy_patients_primary_workflow_v0_1.yaml"
 WORKFLOW_CONFIG="${DEFAULT_WORKFLOW_CONFIG}"
 
 while [[ $# -gt 0 ]]; do
@@ -18,9 +19,9 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "${WORKFLOW_CONFIG}" in
-  config/workflows/*.yaml|config/workflows/*.yml) ;;
+  "${CONFIG_ROOT}"/workflows/*.yaml|"${CONFIG_ROOT}"/workflows/*.yml) ;;
   *)
-    echo "Workflow config must be under config/workflows/: ${WORKFLOW_CONFIG}" >&2
+    echo "Workflow config must be under ${CONFIG_ROOT}/workflows/: ${WORKFLOW_CONFIG}" >&2
     exit 2
     ;;
 esac

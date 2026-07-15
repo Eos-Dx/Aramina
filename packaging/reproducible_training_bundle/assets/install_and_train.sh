@@ -33,6 +33,7 @@ esac
   echo "Missing workflow config: ${BUNDLE_DIR}/${WORKFLOW_CONFIG}" >&2
   exit 2
 }
+CONTAINER_WORKFLOW_CONFIG="/opt/aramis-bundle-config/${WORKFLOW_CONFIG#config/}"
 
 read_manifest() {
   python3 - "${MANIFEST}" "$1" <<'PY'
@@ -83,9 +84,9 @@ stage "Run Linux preprocessing and training"
 mkdir -p "${OUTPUT_DIR}"
 docker run --rm --platform "${IMAGE_PLATFORM}" \
   --mount "type=bind,src=${DATA_DIR},dst=/opt/data,readonly" \
-  --mount "type=bind,src=${BUNDLE_DIR}/config,dst=/opt/Aramis/config,readonly" \
+  --mount "type=bind,src=${BUNDLE_DIR}/config,dst=/opt/aramis-bundle-config,readonly" \
   --mount "type=bind,src=${OUTPUT_DIR},dst=/opt/Aramis/examples/outputs" \
   "${IMAGE_TAG}" \
-  bash /opt/aramis-bundle/run_training_docker.sh --workflow-config "${WORKFLOW_CONFIG}"
+  bash /opt/aramis-bundle/run_training_docker.sh --workflow-config "${CONTAINER_WORKFLOW_CONFIG}"
 
 printf 'Log saved to: %s\n' "${LOG_PATH}"
