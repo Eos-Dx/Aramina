@@ -6,18 +6,20 @@ ARAMIS_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 XRD_ROOT="${XRD_ROOT:-${ARAMIS_ROOT}/../XRD-preprocessing}"
 SOURCE_H5="${SOURCE_H5:-${ARAMIS_ROOT}/../eos_play/jupyter_notebooks/Clinical_trials/data/product-aramis-data/combined_archive.h5}"
 DIST_DIR="${DIST_DIR:-${ARAMIS_ROOT}/dist}"
-BUNDLE_NAME="aramis_reproducible_training_bundle_0_2_7_beta"
+BUNDLE_NAME="aramis_docker_training_bundle_0_2_8_beta"
+IMAGE_TAG="eosdx/aramis-training:0.2.8-beta"
+IMAGE_ARCHIVE="aramis_training_linux_0_2_8_beta.tar"
 WORK_DIR="${DIST_DIR}/${BUNDLE_NAME}"
 ARCHIVE_PATH="${DIST_DIR}/${BUNDLE_NAME}.zip"
+BUILD_CONTEXT="$(mktemp -d)"
 
-if [[ ! -f "${SOURCE_H5}" ]]; then
-  echo "Missing source H5: ${SOURCE_H5}" >&2
-  exit 1
-fi
-if [[ ! -d "${XRD_ROOT}/.git" ]]; then
-  echo "Missing XRD-preprocessing checkout: ${XRD_ROOT}" >&2
-  exit 1
-fi
+cleanup() { rm -rf "${BUILD_CONTEXT}"; }
+trap cleanup EXIT
+
+command -v docker >/dev/null || { echo "Docker is required to build this bundle." >&2; exit 1; }
+docker info >/dev/null || { echo "Docker Linux engine is not running." >&2; exit 1; }
+[[ -f "${SOURCE_H5}" ]] || { echo "Missing source H5: ${SOURCE_H5}" >&2; exit 1; }
+[[ -d "${XRD_ROOT}/.git" ]] || { echo "Missing XRD-preprocessing checkout: ${XRD_ROOT}" >&2; exit 1; }
 
 ARAMIS_COMMIT="$(git -C "${ARAMIS_ROOT}" rev-parse HEAD)"
 XRD_COMMIT="$(git -C "${XRD_ROOT}" rev-parse HEAD)"
@@ -28,30 +30,49 @@ cp "${SOURCE_H5}" "${WORK_DIR}/data/combined_archive.h5"
 cp "${SCRIPT_DIR}/assets/install_and_train.bat" "${WORK_DIR}/install_and_train.bat"
 cp "${SCRIPT_DIR}/assets/install_and_train.ps1" "${WORK_DIR}/install_and_train.ps1"
 cp "${SCRIPT_DIR}/assets/install_and_train.sh" "${WORK_DIR}/install_and_train.sh"
-chmod +x "${WORK_DIR}/install_and_train.sh"
 cp "${SCRIPT_DIR}/assets/README.md" "${WORK_DIR}/README.md"
-cp "${ARAMIS_ROOT}/environment.yml" "${WORK_DIR}/environment.yml"
+chmod +x "${WORK_DIR}/install_and_train.sh"
 
-python - "${WORK_DIR}/bundle_manifest.json" "${ARAMIS_COMMIT}" "${XRD_COMMIT}" "${SOURCE_H5}" <<'PY'
+rsync -a \
+  --exclude '.git' \
+  --exclude 'dist' \
+  --exclude 'examples/outputs' \
+  --exclude '__pycache__' \
+  --exclude '.pytest_cache' \
+  "${ARAMIS_ROOT}/" "${BUILD_CONTEXT}/Aramis/"
+rsync -a \
+  --exclude '.git' \
+  --exclude '__pycache__' \
+  --exclude '.pytest_cache' \
+  "${XRD_ROOT}/" "${BUILD_CONTEXT}/XRD-preprocessing/"
+cp "${SCRIPT_DIR}/assets/Dockerfile" "${BUILD_CONTEXT}/Dockerfile"
+cp "${SCRIPT_DIR}/assets/run_training_docker.sh" "${BUILD_CONTEXT}/run_training_docker.sh"
+
+docker build --tag "${IMAGE_TAG}" "${BUILD_CONTEXT}"
+docker save --output "${WORK_DIR}/${IMAGE_ARCHIVE}" "${IMAGE_TAG}"
+
+python - "${WORK_DIR}/bundle_manifest.json" "${ARAMIS_COMMIT}" "${XRD_COMMIT}" "${SOURCE_H5}" "${WORK_DIR}/${IMAGE_ARCHIVE}" <<'PY'
 from hashlib import sha256
 import json
 import sys
 
-path, aramis_commit, xrd_commit, h5_path = sys.argv[1:]
-digest = sha256()
-with open(h5_path, "rb") as handle:
-    for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-        digest.update(chunk)
+path, aramis_commit, xrd_commit, h5_path, image_path = sys.argv[1:]
+
+def digest(source):
+    result = sha256()
+    with open(source, "rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            result.update(chunk)
+    return result.hexdigest()
+
 payload = {
-    "contract": "aramis_reproducible_training_bundle_v0_1",
-    "environment_name": "aramis_repro_0_2_7",
-    "aramis_repository": "https://github.com/Eos-Dx/Aramis.git",
+    "contract": "aramis_docker_reproducible_training_bundle_v0_1",
     "aramis_commit": aramis_commit,
-    "xrd_preprocessing_repository": "https://github.com/Eos-Dx/XRD-preprocessing.git",
     "xrd_preprocessing_commit": xrd_commit,
-    "h5_sha256": digest.hexdigest(),
-    "workflow_config": "config/workflows/aramis_biopsy_patients_primary_workflow_v0_1.yaml",
-    "reference_model_relative_path": "examples/prediction_models/aramis_m2q_t100_0_2_7_beta.joblib",
+    "h5_sha256": digest(h5_path),
+    "image_tag": "eosdx/aramis-training:0.2.8-beta",
+    "image_archive": "aramis_training_linux_0_2_8_beta.tar",
+    "image_archive_sha256": digest(image_path),
 }
 with open(path, "w", encoding="utf-8") as handle:
     json.dump(payload, handle, indent=2)

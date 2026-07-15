@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from numbers import Real
 from pathlib import Path
 from typing import Any
 
@@ -125,8 +126,26 @@ def _compare_model(
 def _compare_value(
     differences: list[str], name: str, reference: Any, candidate: Any
 ) -> None:
-    if reference != candidate:
+    if not _values_match(reference, candidate):
         differences.append(f"{name} differs: {reference!r} != {candidate!r}")
+
+
+def _values_match(reference: Any, candidate: Any) -> bool:
+    """Compare nested artifact metadata, allowing harmless float round-off."""
+    if isinstance(reference, bool) or isinstance(candidate, bool):
+        return reference is candidate
+    if isinstance(reference, Real) and isinstance(candidate, Real):
+        return bool(np.isclose(reference, candidate, rtol=1e-12, atol=1e-12))
+    if isinstance(reference, dict) and isinstance(candidate, dict):
+        return (
+            reference.keys() == candidate.keys()
+            and all(_values_match(reference[key], candidate[key]) for key in reference)
+        )
+    if isinstance(reference, (list, tuple)) and isinstance(candidate, (list, tuple)):
+        return len(reference) == len(candidate) and all(
+            _values_match(left, right) for left, right in zip(reference, candidate)
+        )
+    return reference == candidate
 
 
 def _compare_array(

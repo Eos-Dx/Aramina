@@ -1,27 +1,35 @@
-# Aramis Reproducible Training Bundle
+# Aramis Docker Reproducible Training Bundle
 
-Status: research draft decision-support prototype.
+Status: research-draft decision-support prototype.
 
-Run `install_and_train.bat` on Windows or `./install_and_train.sh` on macOS/Linux.
-The launchers install Miniforge and Git when required, then check out the exact
-Aramis and XRD-preprocessing commits in `bundle_manifest.json`. Existing bundle
-workspaces and conda environments are reused: the repositories are fetched and
-reset to the selected commits, while editable package installation refreshes the
-two Python packages without recreating the environment.
+## Windows
 
-The launcher verifies the SHA256 of the bundled H5 before it starts. The H5
-archive is not copied into the workspace. `workspace/data` is a link to
-the bundled `data` folder, so preprocessing reads `bundle/data/combined_archive.h5`
-directly. Each run deletes only prior generated workflow outputs, runs the full
-H5 preprocessing and M2Q `preprocess-train` workflow, and compares the generated
-model with the reference model from the selected Aramis checkout. The console
-shows each stage and writes the same output to
-`workspace/logs/install_and_train_<timestamp>.log`.
+1. Install Docker Desktop once.
+2. In Docker Desktop settings, enable the WSL 2 Linux engine.
+3. Extract the entire ZIP to a local drive with sufficient free space.
+4. Double-click `install_and_train.bat`, or run:
 
-The full input archive remains at `bundle/data/combined_archive.h5`.
+   ```powershell
+   .\install_and_train.ps1
+   ```
 
-The comparison requires equal H5 SHA256, recipe, YAML checksums, evaluation
-summary, thresholds, and executable LR1/LR2 parameters. `created_at` and the
-joblib file SHA are intentionally not compared because they change for each run.
+The script verifies the bundled H5 checksum, loads the bundled Linux runtime
+image on first use, and runs preprocessing plus training. It does not install
+Conda, Git, Python, pyFAI, Aramis, or XRD-preprocessing on Windows.
 
-Do not edit the bundled H5 or any YAML before the comparison.
+The H5 archive is mounted read-only from `data/combined_archive.h5`; it is
+never copied into the Docker image. Generated artifacts and logs are written
+to `outputs/` beside this README.
+
+If Docker Desktop is not running, start it and wait until its Linux engine is
+ready before rerunning the script.
+
+## macOS/Linux
+
+Run:
+
+```bash
+./install_and_train.sh
+```
+
+Docker is required on these systems as well.

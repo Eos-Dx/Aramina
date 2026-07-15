@@ -1,16 +1,13 @@
-param(
-    [string]$Workspace = ""
-)
+param()
 
 $ErrorActionPreference = "Stop"
 $BundleDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Manifest = Get-Content (Join-Path $BundleDir "bundle_manifest.json") -Raw | ConvertFrom-Json
+$DataDir = Join-Path $BundleDir "data"
+$OutputDir = Join-Path $BundleDir "outputs"
+$LogDir = Join-Path $OutputDir "logs"
+$ImageArchive = Join-Path $BundleDir $Manifest.image_archive
 
-if ([string]::IsNullOrWhiteSpace($Workspace)) {
-    $Workspace = Join-Path $BundleDir "workspace"
-}
-
-$LogDir = Join-Path $Workspace "logs"
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 $LogPath = Join-Path $LogDir ("install_and_train_{0}.log" -f (Get-Date -Format "yyyyMMddTHHmmss"))
 Start-Transcript -Path $LogPath | Out-Null
@@ -21,195 +18,63 @@ function Write-Stage {
     Write-Host "=== $Message ==="
 }
 
-function Invoke-External {
-    param(
-        [string]$Description,
-        [string]$FilePath,
-        [string[]]$Arguments
-    )
+function Invoke-Docker {
+    param([string]$Description, [string[]]$Arguments)
     Write-Stage $Description
-    & $FilePath @Arguments
+    & docker @Arguments
     if ($LASTEXITCODE -ne 0) {
         throw "$Description failed with exit code $LASTEXITCODE."
     }
 }
 
-function Find-Conda {
-    $Command = Get-Command conda -ErrorAction SilentlyContinue
-    if ($Command) { return $Command.Source }
-    foreach ($Candidate in @(
-        "$HOME\miniforge3\Scripts\conda.exe",
-        "$HOME\miniconda3\Scripts\conda.exe",
-        "$HOME\anaconda3\Scripts\conda.exe"
-    )) {
-        if (Test-Path $Candidate) { return $Candidate }
-    }
-    return $null
-}
+try {
+    Write-Stage "Aramis Docker reproducible training bundle"
+    Write-Host "Log: $LogPath"
 
-function Install-Miniforge {
-    $Prefix = "$HOME\miniforge3"
-    $Installer = Join-Path $env:TEMP "Miniforge3-Windows-x86_64.exe"
-    Write-Stage "Installing Miniforge"
-    Invoke-WebRequest -Uri "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Windows-x86_64.exe" -OutFile $Installer
-    $Process = Start-Process -FilePath $Installer -ArgumentList "/InstallationType=JustMe", "/RegisterPython=0", "/S", "/D=$Prefix" -Wait -PassThru
-    if ($Process.ExitCode -ne 0) {
-        throw "Miniforge installation failed with exit code $($Process.ExitCode)."
+    if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
+        throw "Docker Desktop is required. Install it, enable the WSL 2 Linux engine, start Docker Desktop, then rerun this script."
     }
-    return "$Prefix\Scripts\conda.exe"
-}
-
-function Ensure-Conda {
-    $Conda = Find-Conda
-    if ($Conda) { return $Conda }
-    Write-Host "conda not found; installing Miniforge for the current user."
-    return Install-Miniforge
-}
-
-function Find-Git {
-    $Command = Get-Command git -ErrorAction SilentlyContinue
-    if ($Command) { return $Command.Source }
-    foreach ($Candidate in @(
-        (Join-Path $env:ProgramFiles "Git\cmd\git.exe"),
-        (Join-Path $env:LOCALAPPDATA "Programs\Git\cmd\git.exe")
-    )) {
-        if (Test-Path $Candidate) { return $Candidate }
-    }
-    return $null
-}
-
-function Ensure-Git {
-    $Git = Find-Git
-    if ($Git) { return $Git }
-    $Winget = Get-Command winget -ErrorAction SilentlyContinue
-    if (-not $Winget) {
-        throw "Git is required. Install Git for Windows, then rerun install_and_train.bat."
-    }
-    Write-Stage "Installing Git for Windows"
-    & $Winget.Source install --id Git.Git -e --source winget --accept-package-agreements --accept-source-agreements
+    & docker version | Out-Host
     if ($LASTEXITCODE -ne 0) {
-        throw "Git for Windows installation failed with exit code $LASTEXITCODE."
+        throw "Docker Desktop is installed but its Linux engine is not running. Start Docker Desktop, wait until it reports Engine running, then rerun this script."
     }
-    $Git = Find-Git
-    if (-not $Git) {
-        throw "Git installation completed but git.exe is not available. Open a new terminal and rerun install_and_train.bat."
-    }
-    return $Git
-}
 
-function Sync-Repository {
-    param(
-        [string]$Repository,
-        [string]$Path,
-        [string]$Commit,
-        [string]$Name,
-        [string]$Git
-    )
-    if (Test-Path $Path) {
-        if (-not (Test-Path (Join-Path $Path ".git"))) {
-            throw "$Name path exists but is not a Git checkout: $Path"
-        }
-        Invoke-External "Fetch $Name" $Git @("-C", $Path, "fetch", "--tags", "--prune", "origin")
-    } else {
-        Invoke-External "Clone $Name" $Git @("clone", $Repository, $Path)
+    $H5Path = Join-Path $DataDir "combined_archive.h5"
+    if (-not (Test-Path $H5Path)) {
+        throw "Missing bundled H5 input: $H5Path"
     }
-    Invoke-External "Checkout $Name commit $Commit" $Git @("-C", $Path, "checkout", "--detach", $Commit)
-    Invoke-External "Reset $Name checkout" $Git @("-C", $Path, "reset", "--hard", $Commit)
-}
-
-function Link-BundleData {
-    param(
-        [string]$Source,
-        [string]$Destination
-    )
-    if (-not (Test-Path (Join-Path $Source "combined_archive.h5"))) {
-        throw "Missing bundled H5 input: $(Join-Path $Source 'combined_archive.h5')"
-    }
-    if (Test-Path $Destination) {
-        $ResolvedDestination = (Resolve-Path $Destination).Path
-        $ResolvedSource = (Resolve-Path $Source).Path
-        if ($ResolvedDestination -eq $ResolvedSource) {
-            Write-Stage "Reuse bundle data link"
-            return
-        }
-        throw "Workspace data path already exists and does not reference bundle data: $Destination"
-    }
-    Write-Stage "Link bundled H5 input"
-    try {
-        New-Item -ItemType Junction -Path $Destination -Target $Source | Out-Null
-    } catch {
-        throw "Unable to create a workspace data junction. Use a local NTFS workspace: $($_.Exception.Message)"
-    }
-}
-
-function Verify-BundledH5 {
-    param(
-        [string]$Path,
-        [string]$ExpectedSha256
-    )
-    Write-Stage "Verify bundled H5 checksum"
-    $ActualSha256 = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
-    if ($ActualSha256 -ne $ExpectedSha256.ToLowerInvariant()) {
-        throw "Bundled H5 SHA256 mismatch. Expected $ExpectedSha256, got $ActualSha256. Extract a fresh bundle."
+    $ActualSha256 = (Get-FileHash -LiteralPath $H5Path -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($ActualSha256 -ne $Manifest.h5_sha256.ToLowerInvariant()) {
+        throw "Bundled H5 SHA256 mismatch. Expected $($Manifest.h5_sha256), got $ActualSha256. Extract a fresh bundle."
     }
     Write-Host "Bundled H5 SHA256 verified: $ActualSha256"
-}
 
-try {
-    Write-Stage "Aramis reproducible training bundle"
-    Write-Host "Workspace: $Workspace"
-    Write-Host "Log: $LogPath"
-    Write-Host "Expected input H5 SHA256: $($Manifest.h5_sha256)"
-
-    $Conda = Ensure-Conda
-    $Git = Ensure-Git
-    $AramisRepo = Join-Path $Workspace "Aramis"
-    $XrdRepo = Join-Path $Workspace "XRD-preprocessing"
-    $WorkspaceData = Join-Path $Workspace "data"
-    $BundledData = Join-Path $BundleDir "data"
-
-    Verify-BundledH5 (Join-Path $BundledData "combined_archive.h5") $Manifest.h5_sha256
-    Link-BundleData $BundledData $WorkspaceData
-    Sync-Repository $Manifest.aramis_repository $AramisRepo $Manifest.aramis_commit "Aramis" $Git
-    Sync-Repository $Manifest.xrd_preprocessing_repository $XrdRepo $Manifest.xrd_preprocessing_commit "XRD-preprocessing" $Git
-
-    $EnvNames = & $Conda env list
+    & docker image inspect $Manifest.image_tag *> $null
     if ($LASTEXITCODE -ne 0) {
-        throw "Unable to list conda environments."
-    }
-    $EnvironmentFile = Join-Path $BundleDir "environment.yml"
-    if ($EnvNames -match "(?m)^$($Manifest.environment_name)\s") {
-        Write-Stage "Reuse conda environment $($Manifest.environment_name)"
+        if (-not (Test-Path $ImageArchive)) {
+            throw "Missing Docker image archive: $ImageArchive"
+        }
+        $ArchiveSha256 = (Get-FileHash -LiteralPath $ImageArchive -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($ArchiveSha256 -ne $Manifest.image_archive_sha256.ToLowerInvariant()) {
+            throw "Docker image SHA256 mismatch. Expected $($Manifest.image_archive_sha256), got $ArchiveSha256. Extract a fresh bundle."
+        }
+        Invoke-Docker "Load validated Linux runtime image" @("load", "--input", $ImageArchive)
     } else {
-        Invoke-External "Create conda environment $($Manifest.environment_name)" $Conda @("env", "create", "-n", $Manifest.environment_name, "-f", $EnvironmentFile)
+        Write-Stage "Reuse loaded Linux runtime image"
+        Write-Host $Manifest.image_tag
     }
 
-    $XrdInstall = "${XrdRepo}[dev]"
-    $AramisInstall = "${AramisRepo}[dev]"
-    Invoke-External "Install XRD-preprocessing from selected commit" $Conda @("run", "--no-capture-output", "-n", $Manifest.environment_name, "python", "-m", "pip", "install", "-e", $XrdInstall)
-    Invoke-External "Install Aramis from selected commit" $Conda @("run", "--no-capture-output", "-n", $Manifest.environment_name, "python", "-m", "pip", "install", "--no-deps", "-e", $AramisInstall)
-    Invoke-External "Verify Python imports" $Conda @("run", "--no-capture-output", "-n", $Manifest.environment_name, "python", "-c", "import aramis, xrd_preprocessing; print('aramis', aramis.__file__); print('xrd_preprocessing', xrd_preprocessing.__file__)")
-
-    $WorkflowOutput = Join-Path $AramisRepo "examples\outputs\workflows"
-    if (Test-Path $WorkflowOutput) {
-        Write-Stage "Remove prior generated workflow outputs"
-        Remove-Item -Recurse -Force $WorkflowOutput
-    }
-
-    Push-Location $AramisRepo
-    try {
-        Invoke-External "Run preprocessing and training" $Conda @("run", "--no-capture-output", "-n", $Manifest.environment_name, "python", "-m", "aramis", "preprocess-train", "--config", $Manifest.workflow_config, "--verbose")
-        $LatestTraining = Get-ChildItem -Path "examples\outputs\workflows" -Filter "model.joblib" -Recurse |
-            Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
-        if (-not $LatestTraining) { throw "No generated model.joblib was found." }
-        $ReferenceModel = Join-Path $AramisRepo $Manifest.reference_model_relative_path
-        Invoke-External "Compare generated model with reference" $Conda @("run", "--no-capture-output", "-n", $Manifest.environment_name, "python", "scripts\compare_model_artifacts.py", "--reference", $ReferenceModel, "--candidate", $LatestTraining.FullName)
-        Write-Host "Generated model: $($LatestTraining.FullName)"
-    } finally {
-        Pop-Location
-    }
+    New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
+    Invoke-Docker "Run Linux preprocessing and training" @(
+        "run", "--rm",
+        "--mount", "type=bind,src=$DataDir,dst=/opt/data,readonly",
+        "--mount", "type=bind,src=$OutputDir,dst=/opt/Aramis/examples/outputs",
+        $Manifest.image_tag,
+        "bash", "/opt/aramis-bundle/run_training_docker.sh"
+    )
 
     Write-Stage "Bundle completed"
+    Write-Host "Outputs: $OutputDir"
     Write-Host "Log saved to: $LogPath"
 } finally {
     Stop-Transcript | Out-Null
