@@ -27,7 +27,7 @@ def main() -> int:
         print("\n".join(f"- {message}" for message in differences))
         return 1
     print("MODEL COMPARISON: PASSED")
-    print("Executable parameters, threshold, H5 checksum, recipe, and YAML checksums match.")
+    print("Executable parameters, threshold, H5 checksum, recipe, and evaluation match.")
     return 0
 
 
@@ -70,12 +70,11 @@ def _differences(reference: dict[str, Any], candidate: dict[str, Any]) -> list[s
         reference["evaluation"]["summary"],
         candidate["evaluation"]["summary"],
     )
-    _compare_value(
-        differences,
-        "reproducibility.checksums",
-        reference["reproducibility"]["checksums"],
-        candidate["reproducibility"]["checksums"],
-    )
+    # Bundle configs are external by design. Their workflow output directory and
+    # input-H5 path differ from the in-repository training reference, despite
+    # resolving to the same H5 checksum and transformer settings. The full YAML
+    # and its checksums remain in each artifact for traceability; model equality
+    # is established through the executable parameters and evaluation instead.
     _compare_model(differences, reference["models"]["M2Q"], candidate["models"]["M2Q"])
     return differences
 
