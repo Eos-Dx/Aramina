@@ -125,6 +125,24 @@ link_bundle_data() {
   ln -s "${source}" "${destination}"
 }
 
+verify_bundled_h5() {
+  local source="${BUNDLE_DIR}/data/combined_archive.h5"
+  local expected="$(read_manifest h5_sha256)"
+  local actual
+  [[ -f "${source}" ]] || { echo "Missing bundled H5 input: ${source}" >&2; return 1; }
+  stage "Verify bundled H5 checksum"
+  if command -v sha256sum >/dev/null 2>&1; then
+    actual="$(sha256sum "${source}" | awk '{print $1}')"
+  else
+    actual="$(shasum -a 256 "${source}" | awk '{print $1}')"
+  fi
+  if [[ "${actual}" != "${expected}" ]]; then
+    echo "Bundled H5 SHA256 mismatch. Expected ${expected}, got ${actual}. Extract a fresh bundle." >&2
+    return 1
+  fi
+  echo "Bundled H5 SHA256 verified: ${actual}"
+}
+
 sync_repository() {
   local repository="$1" path="$2" commit="$3" name="$4"
   if [[ -d "${path}" ]]; then
@@ -143,11 +161,13 @@ sync_repository() {
 stage "Aramis reproducible training bundle"
 echo "Workspace: ${WORKSPACE}"
 echo "Log: ${LOG_PATH}"
+echo "Expected input H5 SHA256: $(read_manifest h5_sha256)"
 CONDA="$(ensure_conda)"
 ensure_git
 ARAMIS_REPO="${WORKSPACE}/Aramis"
 XRD_REPO="${WORKSPACE}/XRD-preprocessing"
 
+verify_bundled_h5
 link_bundle_data
 sync_repository "${ARAMIS_REPOSITORY}" "${ARAMIS_REPO}" "${ARAMIS_COMMIT}" "Aramis"
 sync_repository "${XRD_REPOSITORY}" "${XRD_REPO}" "${XRD_COMMIT}" "XRD-preprocessing"

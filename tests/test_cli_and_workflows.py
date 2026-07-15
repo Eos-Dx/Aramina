@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -128,6 +129,14 @@ def test_workflow_passes_preprocessing_dataframe_directly_to_training(
     assert Path(received["dataframe_joblib_path"]).name == "dataframe.joblib"
     assert received["workflow_config_yaml"] == config_path.read_text(encoding="utf-8")
     assert result["preprocessing_dataframe"] is frame
+    summary = json.loads(
+        (Path(result["run_folder"]) / "preprocessing" / "cohort_summary.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert summary["rows"] == 1
+    assert summary["patients"] == 1
+    assert summary["input_h5_sha256"] == "abc"
 
 
 @pytest.mark.parametrize(

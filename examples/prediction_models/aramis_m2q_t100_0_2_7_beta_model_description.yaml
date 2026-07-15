@@ -2,7 +2,7 @@ kind: aramis_model_description
 version: '0.1'
 model_id: aramis_m2q_t100_0_2_6-beta_dbdea3738bbf
 model_name: aramis_m2q_t100
-model_version: 0.2.6-beta
+model_version: 0.2.7-beta
 model_recipe: m2q_gated_target_case_v0_1
 selected_model: M2Q
 model_summary:

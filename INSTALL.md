@@ -8,7 +8,7 @@ artifact:
 
 ```text
 examples/prediction_h5/
-examples/prediction_models/aramis_m2q_t100_0_2_6_beta.joblib
+examples/prediction_models/aramis_m2q_t100_0_2_7_beta.joblib
 ```
 
 ## macOS / Linux

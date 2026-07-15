@@ -14,6 +14,7 @@ from aramis.training import (
     PatientModelInputBuilder,
     _logit_average_probability,
     _patient_split_pairs,
+    _lr1_training_rows,
     run_training_from_config,
 )
 from aramis.training_config import load_training_config
@@ -262,6 +263,19 @@ def test_logit_average_probability_preserves_consistent_evidence():
 
     assert float(np.mean(scores)) == pytest.approx(0.80)
     assert _logit_average_probability(scores) == pytest.approx(0.877, abs=0.001)
+
+
+def test_lr1_single_class_error_reports_the_retained_cohort():
+    frame = _patient_training_frame()
+    frame["product_status_group"] = "BENIGN"
+
+    with pytest.raises(ValueError, match=r"rows=120.*label_counts=\{'BENIGN': 120\}"):
+        _lr1_training_rows(
+            frame,
+            label_column="product_status_group",
+            biopsy_column="biopsy",
+            lr1_row_policy="all_rows",
+        )
 
 
 def test_final_fit_rejects_plain_dataframe_without_preprocessing_lineage(tmp_path: Path):

@@ -21,7 +21,7 @@ config/prediction/aramis_predict_from_h5_template_v0_1.yaml
 The three tracked H5 examples use the packaged product artifact:
 
 ```text
-examples/prediction_models/aramis_m2q_t100_0_2_6_beta.joblib
+examples/prediction_models/aramis_m2q_t100_0_2_7_beta.joblib
 ```
 
 The general H5 template points to the packaged product artifact, which embeds

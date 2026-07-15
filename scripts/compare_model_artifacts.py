@@ -35,7 +35,7 @@ def _differences(reference: dict[str, Any], candidate: dict[str, Any]) -> list[s
     for label, artifact in (("reference", reference), ("candidate", candidate)):
         if "reproducibility" not in artifact:
             differences.append(
-                f"{label} artifact has no reproducibility record; retrain it with Aramis 0.2.6-beta or later."
+                f"{label} artifact has no reproducibility record; retrain it with Aramis 0.2.7-beta or later."
             )
     if differences:
         return differences

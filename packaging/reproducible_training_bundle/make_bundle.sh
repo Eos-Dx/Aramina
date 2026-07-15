@@ -6,7 +6,7 @@ ARAMIS_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 XRD_ROOT="${XRD_ROOT:-${ARAMIS_ROOT}/../XRD-preprocessing}"
 SOURCE_H5="${SOURCE_H5:-${ARAMIS_ROOT}/../eos_play/jupyter_notebooks/Clinical_trials/data/product-aramis-data/combined_archive.h5}"
 DIST_DIR="${DIST_DIR:-${ARAMIS_ROOT}/dist}"
-BUNDLE_NAME="aramis_reproducible_training_bundle_0_2_6_beta"
+BUNDLE_NAME="aramis_reproducible_training_bundle_0_2_7_beta"
 WORK_DIR="${DIST_DIR}/${BUNDLE_NAME}"
 ARCHIVE_PATH="${DIST_DIR}/${BUNDLE_NAME}.zip"
 
@@ -44,14 +44,14 @@ with open(h5_path, "rb") as handle:
         digest.update(chunk)
 payload = {
     "contract": "aramis_reproducible_training_bundle_v0_1",
-    "environment_name": "aramis_repro_0_2_6",
+    "environment_name": "aramis_repro_0_2_7",
     "aramis_repository": "https://github.com/Eos-Dx/Aramis.git",
     "aramis_commit": aramis_commit,
     "xrd_preprocessing_repository": "https://github.com/Eos-Dx/XRD-preprocessing.git",
     "xrd_preprocessing_commit": xrd_commit,
     "h5_sha256": digest.hexdigest(),
     "workflow_config": "config/workflows/aramis_biopsy_patients_primary_workflow_v0_1.yaml",
-    "reference_model_relative_path": "examples/prediction_models/aramis_m2q_t100_0_2_6_beta.joblib",
+    "reference_model_relative_path": "examples/prediction_models/aramis_m2q_t100_0_2_7_beta.joblib",
 }
 with open(path, "w", encoding="utf-8") as handle:
     json.dump(payload, handle, indent=2)

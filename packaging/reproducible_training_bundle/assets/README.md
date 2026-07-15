@@ -9,7 +9,8 @@ workspaces and conda environments are reused: the repositories are fetched and
 reset to the selected commits, while editable package installation refreshes the
 two Python packages without recreating the environment.
 
-The H5 archive is not copied into the workspace. `workspace/data` is a link to
+The launcher verifies the SHA256 of the bundled H5 before it starts. The H5
+archive is not copied into the workspace. `workspace/data` is a link to
 the bundled `data` folder, so preprocessing reads `bundle/data/combined_archive.h5`
 directly. Each run deletes only prior generated workflow outputs, runs the full
 H5 preprocessing and M2Q `preprocess-train` workflow, and compares the generated

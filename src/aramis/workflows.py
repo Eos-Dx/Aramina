@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import json
 import logging
 from pathlib import Path
 from typing import Any
@@ -42,6 +43,17 @@ def run_preprocess_train_from_config(
         preprocessing_config_path,
         output_joblib_path=dataframe_path,
         **preprocessing_kwargs,
+    )
+    cohort_summary = _write_preprocessing_summary(
+        preprocessing_artifact,
+        dataframe_path.parent / "cohort_summary.json",
+    )
+    logger.info(
+        "Preprocessing cohort: rows=%d patients=%d labels=%s biopsy_labels=%s",
+        cohort_summary["rows"],
+        cohort_summary["patients"],
+        cohort_summary["product_status_group_counts"],
+        cohort_summary["biopsy_product_status_group_counts"],
     )
     logger.info("Stage 2/2: training")
     training_artifact = run_training_from_config(
@@ -111,3 +123,46 @@ def _workflow_run_folder(config: dict[str, Any], config_path: Path) -> Path:
     folder = root / f"{name}_{stamp}_{uuid4().hex[:8]}"
     folder.mkdir(parents=True, exist_ok=False)
     return folder
+
+
+def _write_preprocessing_summary(
+    artifact: dict[str, Any],
+    path: Path,
+) -> dict[str, Any]:
+    """Persist label counts before training so a failed run remains inspectable."""
+    dataframe = artifact["dataframe"]
+    label_column = "product_status_group"
+    biopsy_column = "biopsy"
+    patient_column = "patientId"
+    labels = _value_counts(dataframe, label_column)
+    biopsy_labels = _value_counts(
+        dataframe.loc[_boolean_values(dataframe, biopsy_column)], label_column
+    )
+    metadata = artifact.get("metadata", {})
+    summary = {
+        "contract": "aramis_preprocessing_cohort_summary_v0_1",
+        "rows": int(len(dataframe)),
+        "patients": int(dataframe[patient_column].astype(str).nunique())
+        if patient_column in dataframe
+        else 0,
+        "product_status_group_counts": labels,
+        "biopsy_product_status_group_counts": biopsy_labels,
+        "input_h5_sha256": metadata.get("input_h5_sha256"),
+    }
+    path.write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
+    return summary
+
+
+def _value_counts(dataframe: Any, column: str) -> dict[str, int]:
+    if column not in dataframe:
+        return {}
+    return {
+        str(value): int(count)
+        for value, count in dataframe[column].fillna("<missing>").value_counts().items()
+    }
+
+
+def _boolean_values(dataframe: Any, column: str) -> Any:
+    if column not in dataframe:
+        return [False] * len(dataframe)
+    return dataframe[column].fillna(False).astype(str).str.lower().isin({"true", "1", "yes"})

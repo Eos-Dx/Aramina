@@ -142,10 +142,24 @@ function Link-BundleData {
     }
 }
 
+function Verify-BundledH5 {
+    param(
+        [string]$Path,
+        [string]$ExpectedSha256
+    )
+    Write-Stage "Verify bundled H5 checksum"
+    $ActualSha256 = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($ActualSha256 -ne $ExpectedSha256.ToLowerInvariant()) {
+        throw "Bundled H5 SHA256 mismatch. Expected $ExpectedSha256, got $ActualSha256. Extract a fresh bundle."
+    }
+    Write-Host "Bundled H5 SHA256 verified: $ActualSha256"
+}
+
 try {
     Write-Stage "Aramis reproducible training bundle"
     Write-Host "Workspace: $Workspace"
     Write-Host "Log: $LogPath"
+    Write-Host "Expected input H5 SHA256: $($Manifest.h5_sha256)"
 
     $Conda = Ensure-Conda
     $Git = Ensure-Git
@@ -154,6 +168,7 @@ try {
     $WorkspaceData = Join-Path $Workspace "data"
     $BundledData = Join-Path $BundleDir "data"
 
+    Verify-BundledH5 (Join-Path $BundledData "combined_archive.h5") $Manifest.h5_sha256
     Link-BundleData $BundledData $WorkspaceData
     Sync-Repository $Manifest.aramis_repository $AramisRepo $Manifest.aramis_commit "Aramis" $Git
     Sync-Repository $Manifest.xrd_preprocessing_repository $XrdRepo $Manifest.xrd_preprocessing_commit "XRD-preprocessing" $Git

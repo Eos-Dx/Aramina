@@ -1012,7 +1012,20 @@ def _lr1_training_rows(
     elif lr1_row_policy != "all_rows":
         raise ValueError(f"Unsupported lr1_row_policy: {lr1_row_policy!r}")
     if require_two_classes and out[label_column].nunique() != 2:
-        raise ValueError("LR1 training rows must contain BENIGN and CANCER.")
+        label_counts = {
+            str(label): int(count)
+            for label, count in out[label_column].value_counts(dropna=False).items()
+        }
+        patient_count = (
+            int(out["patientId"].astype(str).nunique()) if "patientId" in out else 0
+        )
+        raise ValueError(
+            "LR1 training rows must contain BENIGN and CANCER after "
+            f"lr1_row_policy={lr1_row_policy!r}; rows={len(out)}, "
+            f"patients={patient_count}, label_counts={label_counts}. "
+            "Inspect preprocessing/cohort_summary.json in this workflow run and "
+            "verify the bundled H5 SHA256 matches bundle_manifest.json."
+        )
     return out.reset_index(drop=True)
 
 
