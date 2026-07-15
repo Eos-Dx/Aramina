@@ -24,9 +24,10 @@ def _add_verbose_argument(parser: argparse.ArgumentParser) -> None:
 def _configure_logging(verbose: bool) -> None:
     if verbose:
         logging.basicConfig(
-            level=logging.INFO,
+            level=logging.WARNING,
             format="%(asctime)s %(levelname)s %(name)s: %(message)s",
         )
+        logging.getLogger("aramis").setLevel(logging.INFO)
 
 
 def main(argv: list[str] | None = None) -> int:
