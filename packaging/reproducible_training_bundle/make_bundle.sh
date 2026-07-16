@@ -6,11 +6,11 @@ ARAMIS_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 XRD_ROOT="${XRD_ROOT:-${ARAMIS_ROOT}/../XRD-preprocessing}"
 SOURCE_H5="${SOURCE_H5:-${ARAMIS_ROOT}/data/combined_archive.h5}"
 DIST_DIR="${DIST_DIR:-${ARAMIS_ROOT}/dist}"
-BUNDLE_NAME="aramis_docker_training_bundle_0_2_15_beta"
-AMD64_IMAGE_TAG="eosdx/aramis-training:0.2.15-beta-amd64"
-AMD64_IMAGE_ARCHIVE="aramis_training_linux_amd64_0_2_15_beta.tar"
-ARM64_IMAGE_TAG="eosdx/aramis-training:0.2.15-beta-arm64"
-ARM64_IMAGE_ARCHIVE="aramis_training_linux_arm64_0_2_15_beta.tar"
+BUNDLE_NAME="aramis_docker_training_bundle_0_2_16_beta"
+AMD64_IMAGE_TAG="eosdx/aramis-training:0.2.16-beta-amd64"
+AMD64_IMAGE_ARCHIVE="aramis_training_linux_amd64_0_2_16_beta.tar"
+ARM64_IMAGE_TAG="eosdx/aramis-training:0.2.16-beta-arm64"
+ARM64_IMAGE_ARCHIVE="aramis_training_linux_arm64_0_2_16_beta.tar"
 WORK_DIR="${DIST_DIR}/${BUNDLE_NAME}"
 ARCHIVE_PATH="${DIST_DIR}/${BUNDLE_NAME}.zip"
 BUILD_CONTEXT="$(mktemp -d)"
@@ -30,17 +30,23 @@ rm -rf "${WORK_DIR}" "${ARCHIVE_PATH}"
 mkdir -p \
   "${WORK_DIR}/data" \
   "${WORK_DIR}/config/preprocess_train" \
+  "${WORK_DIR}/config/prediction_examples" \
   "${WORK_DIR}/config/training" \
   "${WORK_DIR}/config/preprocessing/cohorts" \
   "${WORK_DIR}/config/preprocessing/exclusions" \
   "${WORK_DIR}/config/preprocessing/outputs" \
   "${WORK_DIR}/config/preprocessing/shared" \
+  "${WORK_DIR}/examples/prediction_h5" \
   "${DIST_DIR}"
 cp "${SOURCE_H5}" "${WORK_DIR}/data/combined_archive.h5"
 cp "${ARAMIS_ROOT}/config/preprocess_train/aramis_biopsy_patients_primary_preprocess_train_v0_1.yaml" \
   "${WORK_DIR}/config/preprocess_train/"
 cp "${ARAMIS_ROOT}/config/training/aramis_m2q_t100_primary_train_v0_1.yaml" \
   "${WORK_DIR}/config/training/"
+cp "${ARAMIS_ROOT}/config/prediction_examples/"*_predict.yaml \
+  "${WORK_DIR}/config/prediction_examples/"
+cp "${ARAMIS_ROOT}/examples/prediction_h5/"*_one_patient.h5 \
+  "${WORK_DIR}/examples/prediction_h5/"
 cp "${ARAMIS_ROOT}/config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml" \
   "${WORK_DIR}/config/preprocessing/"
 cp "${ARAMIS_ROOT}/config/preprocessing/aramis_prediction_patient_model_input_v0_1.yaml" \
@@ -64,8 +70,12 @@ sed \
 cp "${SCRIPT_DIR}/assets/install_and_train.bat" "${WORK_DIR}/install_and_train.bat"
 cp "${SCRIPT_DIR}/assets/install_and_train.ps1" "${WORK_DIR}/install_and_train.ps1"
 cp "${SCRIPT_DIR}/assets/install_and_train.sh" "${WORK_DIR}/install_and_train.sh"
+cp "${SCRIPT_DIR}/assets/predict_examples.bat" "${WORK_DIR}/predict_examples.bat"
+cp "${SCRIPT_DIR}/assets/predict_examples.ps1" "${WORK_DIR}/predict_examples.ps1"
+cp "${SCRIPT_DIR}/assets/predict_examples.sh" "${WORK_DIR}/predict_examples.sh"
 cp "${SCRIPT_DIR}/assets/README.md" "${WORK_DIR}/README.md"
 chmod +x "${WORK_DIR}/install_and_train.sh"
+chmod +x "${WORK_DIR}/predict_examples.sh"
 
 rsync -a \
   --exclude '.git' \
@@ -81,6 +91,7 @@ rsync -a \
   "${XRD_ROOT}/" "${BUILD_CONTEXT}/XRD-preprocessing/"
 cp "${SCRIPT_DIR}/assets/Dockerfile" "${BUILD_CONTEXT}/Dockerfile"
 cp "${SCRIPT_DIR}/assets/run_training_docker.sh" "${BUILD_CONTEXT}/run_training_docker.sh"
+cp "${SCRIPT_DIR}/assets/run_prediction_examples_docker.sh" "${BUILD_CONTEXT}/run_prediction_examples_docker.sh"
 
 docker buildx build --platform linux/amd64 --load --tag "${AMD64_IMAGE_TAG}" "${BUILD_CONTEXT}"
 docker save --output "${WORK_DIR}/${AMD64_IMAGE_ARCHIVE}" "${AMD64_IMAGE_TAG}"
@@ -106,13 +117,13 @@ payload = {
     "aramis_commit": aramis_commit,
     "xrd_preprocessing_commit": xrd_commit,
     "h5_sha256": digest(h5_path),
-    "image_amd64_tag": "eosdx/aramis-training:0.2.15-beta-amd64",
+    "image_amd64_tag": "eosdx/aramis-training:0.2.16-beta-amd64",
     "image_amd64_platform": "linux/amd64",
-    "image_amd64_archive": "aramis_training_linux_amd64_0_2_15_beta.tar",
+    "image_amd64_archive": "aramis_training_linux_amd64_0_2_16_beta.tar",
     "image_amd64_archive_sha256": digest(amd64_image_path),
-    "image_arm64_tag": "eosdx/aramis-training:0.2.15-beta-arm64",
+    "image_arm64_tag": "eosdx/aramis-training:0.2.16-beta-arm64",
     "image_arm64_platform": "linux/arm64",
-    "image_arm64_archive": "aramis_training_linux_arm64_0_2_15_beta.tar",
+    "image_arm64_archive": "aramis_training_linux_arm64_0_2_16_beta.tar",
     "image_arm64_archive_sha256": digest(arm64_image_path),
 }
 with open(path, "w", encoding="utf-8") as handle:

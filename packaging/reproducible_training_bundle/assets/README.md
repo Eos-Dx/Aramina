@@ -28,11 +28,52 @@ to `outputs/` beside this README.
 If Docker Desktop already exists but its Linux engine is stopped, the script
 starts it and waits up to five minutes for it to become ready.
 
+## Prediction examples
+
+After training completes, run all three one-patient H5 examples with the model
+just created under `outputs/preprocess_train/`.
+
+Windows:
+
+```powershell
+.\predict_examples.ps1
+```
+
+macOS/Linux:
+
+```bash
+./predict_examples.sh
+```
+
+The scripts run the same Linux Docker image. They automatically select the
+newest `model.joblib` under `outputs/preprocess_train/`, run cancer, benign,
+and atypical H5 fixtures, then write reports to:
+
+```text
+outputs/prediction_examples/cancer/
+outputs/prediction_examples/benign/
+outputs/prediction_examples/atypical/
+```
+
+Pass a particular model produced by this bundle when needed:
+
+```powershell
+.\predict_examples.ps1 -ModelPath .\outputs\preprocess_train\...\model.joblib
+```
+
+```bash
+./predict_examples.sh --model ./outputs/preprocess_train/.../model.joblib
+```
+
+The supplied prediction YAML templates are external under
+`config/prediction_examples/`. The launcher writes resolved copies containing
+the selected model path to `outputs/prediction_examples/resolved_configs/`.
+
 ## Select a configuration
 
-The bundle includes eleven YAML files: one `preprocess-train` config, its
-preprocessing and training configs, plus the prediction preprocessing config
-and required `extends` fragments. Select one preprocess-train YAML; it names
+The bundle includes only operational YAML files: one `preprocess-train` config,
+its preprocessing and training configs, the prediction preprocessing config,
+three bundled prediction templates, and required `extends` fragments. Select one preprocess-train YAML; it names
 the preprocessing and training YAMLs to use. All operational paths resolve
 from the mounted Aramis project root.
 

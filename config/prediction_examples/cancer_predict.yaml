@@ -1,0 +1,12 @@
+run:
+  analysis_author: Aramis bundle example
+  prediction_comment: "Bundled cancer fixture"
+
+io:
+  input_h5_path: /opt/Aramis/examples/prediction_h5/cancer_one_patient.h5
+  input_model_joblib_path: SET_BY_PREDICT_EXAMPLES_RUNNER
+  output_folder: /opt/Aramis/examples/outputs/prediction_examples/cancer
+
+patient:
+  patient_id: Nova_214
+  target_side: left

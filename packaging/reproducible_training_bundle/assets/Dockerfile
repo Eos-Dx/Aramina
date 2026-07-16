@@ -22,8 +22,10 @@ RUN python -m pip install --upgrade pip \
 
 COPY Aramis /opt/Aramis
 COPY run_training_docker.sh /opt/aramis-bundle/run_training_docker.sh
+COPY run_prediction_examples_docker.sh /opt/aramis-bundle/run_prediction_examples_docker.sh
 
 RUN python -m pip install --no-deps /opt/Aramis \
-    && chmod +x /opt/aramis-bundle/run_training_docker.sh
+    && chmod +x /opt/aramis-bundle/run_training_docker.sh \
+    && chmod +x /opt/aramis-bundle/run_prediction_examples_docker.sh
 
 WORKDIR /opt/Aramis
