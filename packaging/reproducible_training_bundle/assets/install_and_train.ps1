@@ -104,8 +104,13 @@ function Ensure-DockerDesktop {
 
     Write-Stage "Wait for Docker Linux engine"
     for ($attempt = 1; $attempt -le 60; $attempt++) {
-        & $dockerExe version *> $null
-        if ($LASTEXITCODE -eq 0) {
+        $process = Start-Process `
+            -FilePath $dockerExe `
+            -ArgumentList @("version") `
+            -WindowStyle Hidden `
+            -Wait `
+            -PassThru
+        if ($process.ExitCode -eq 0) {
             return $dockerExe
         }
         Start-Sleep -Seconds 5
@@ -118,10 +123,11 @@ function Resolve-WorkflowConfig {
     $configRoot = (Resolve-Path -LiteralPath $ConfigDir).Path
     $candidate = Join-Path $BundleDir $Value
     $workflowPath = (Resolve-Path -LiteralPath $candidate -ErrorAction Stop).Path
-    if (-not $workflowPath.StartsWith($configRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+    $configRootWithSeparator = $configRoot.TrimEnd([char[]]@('\', '/')) + '\'
+    if (-not $workflowPath.StartsWith($configRootWithSeparator, [System.StringComparison]::OrdinalIgnoreCase)) {
         throw "Workflow config must be inside bundled config/: $Value"
     }
-    $relative = [System.IO.Path]::GetRelativePath($configRoot, $workflowPath).Replace("\\", "/")
+    $relative = $workflowPath.Substring($configRootWithSeparator.Length).Replace('\', '/')
     if (-not $relative.StartsWith("workflows/")) {
         throw "Workflow config must be inside bundled config/workflows/: $Value"
     }
@@ -147,8 +153,13 @@ try {
     }
     Write-Host "Bundled H5 SHA256 verified: $ActualSha256"
 
-    & $script:DockerExe image inspect $ImageTag *> $null
-    if ($LASTEXITCODE -ne 0) {
+    $imageInspect = Start-Process `
+        -FilePath $script:DockerExe `
+        -ArgumentList @("image", "inspect", $ImageTag) `
+        -WindowStyle Hidden `
+        -Wait `
+        -PassThru
+    if ($imageInspect.ExitCode -ne 0) {
         if (-not (Test-Path $ImageArchive)) {
             throw "Missing Docker image archive: $ImageArchive"
         }
