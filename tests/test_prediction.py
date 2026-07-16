@@ -262,8 +262,15 @@ def test_predict_without_contralateral_uses_unavailable_symmetry(
 
     target = report["breast_predictions"]["target"]
     assert target["features"]["symmetry"]["available"] is False
+    assert target["features"]["symmetry"]["status"] == "not_available"
+    assert target["model_execution"]["scoring_path"] == (
+        "profile_age_with_neutral_symmetry_gate"
+    )
     assert target["features"]["reliability"]["level"] == "low"
-    assert report["breast_predictions"]["contralateral"]["available"] is False
+    contralateral = report["breast_predictions"]["contralateral"]
+    assert contralateral["available"] is False
+    assert contralateral["side"] == "unknown"
+    assert contralateral["final_prediction"]["p_cancer"] == "unknown"
 
 
 def test_h5_contract_requires_one_matching_patient(tmp_path: Path, trained_model):

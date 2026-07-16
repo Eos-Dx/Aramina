@@ -49,9 +49,13 @@ cancer_cohort_quantile: 0.32000
 features:
   symmetry:
     available: true
+    status: applied
   reliability:
     level: high
     reason: at least 3 valid measurements per breast
+model_execution:
+  scoring_path: profile_age_with_symmetry
+  symmetry_refinement: applied
 ```
 
 `profile_only.p_cancer` is the first-layer LR1 score. The final score is M2Q: profile, optional gated SK symmetry refinement, and age when available. The decision uses only `final_prediction`: `CANCER` when `p_cancer >= decision_threshold`, otherwise `BENIGN`.
@@ -62,8 +66,24 @@ If the contralateral breast is absent after preprocessing, its block is:
 
 ```yaml
 available: false
-side: null
-reason: contralateral breast is absent after preprocessing
+side: unknown
+profile_only:
+  p_cancer: unknown
+final_prediction:
+  p_cancer: unknown
+  decision_threshold_id: unknown
+  decision_threshold: unknown
+  suggested_class: unknown
+training_cohort_quantile: unknown
+benign_cohort_quantile: unknown
+cancer_cohort_quantile: unknown
+reason: contralateral breast is unavailable after preprocessing
 ```
+
+When the target breast has no usable contralateral breast, the target block
+still has a valid final prediction. Its `model_execution.scoring_path` is
+`profile_age_with_neutral_symmetry_gate`: the same LR2 is used, but the optional
+SK symmetry terms are neutral and do not affect the score. This is not a second
+model and it must not be interpreted as a symmetry-supported result.
 
 The report deliberately excludes estimator objects, model weights, raw SK feature values, feature contributions, duplicate prediction-config fields, filesystem paths, and training configuration. Those remain in the model joblib and its `model_description.yaml`.

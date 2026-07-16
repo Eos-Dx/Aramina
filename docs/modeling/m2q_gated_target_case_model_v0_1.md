@@ -36,6 +36,11 @@ paired training cases and set to zero when no contralateral breast is available.
 is no paired/fallback model route. Measurement counts determine report
 reliability only and do not enter LR2.
 
+For an unpaired target breast, internal report records
+`profile_age_with_neutral_symmetry_gate` and `symmetry_refinement: not_applied`.
+The contralateral report block is filled with `unknown`; its absence is never
+encoded as zero risk or a BENIGN result.
+
 ## Training Unit And Cohort
 
 ```text

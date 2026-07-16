@@ -39,4 +39,9 @@ External report is target-side only and contains report identity, requesting ana
 
 Internal report contains two breast blocks. The target block is the formal decision-support result. The contralateral block is internal audit information computed by applying the same final M2Q model with that side temporarily treated as target. Each available block contains profile-only p_cancer, final p_cancer, frozen threshold, suggested class, three frozen-training-cohort quantiles, symmetry availability, and reliability. Full contract: `docs/modeling/internal_clinical_report_content_v0_1.md`.
 
+If no usable contralateral breast remains, the contralateral block is explicitly
+`unknown`. The target result remains available, with
+`model_execution.scoring_path: profile_age_with_neutral_symmetry_gate`; optional
+symmetry refinement was not applied.
+
 Prediction stops for unknown YAML fields, schema/format mismatch, zero or multiple H5 patients, patient-ID mismatch, absent target side, or a model missing its embedded prediction preprocessing/contract/reference scores.

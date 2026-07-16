@@ -234,7 +234,7 @@ def _side_prediction(
 def _unavailable_side_prediction() -> dict[str, Any]:
     return {
         "available": False,
-        "reason": "contralateral breast is absent after preprocessing",
+        "reason": "contralateral breast is unavailable after preprocessing",
     }
 
 
@@ -372,7 +372,21 @@ def _breast_prediction_report(prediction: dict[str, Any]) -> dict[str, Any]:
     if not prediction["available"]:
         return {
             "available": False,
-            "side": None,
+            "side": "unknown",
+            "profile_only": {"p_cancer": "unknown"},
+            "final_prediction": {
+                "p_cancer": "unknown",
+                "decision_threshold_id": "unknown",
+                "decision_threshold": "unknown",
+                "suggested_class": "unknown",
+            },
+            "training_cohort_quantile": "unknown",
+            "benign_cohort_quantile": "unknown",
+            "cancer_cohort_quantile": "unknown",
+            "features": {
+                "symmetry": {"available": False, "status": "not_available"},
+                "reliability": {"level": "unknown", "reason": "unknown"},
+            },
             "reason": prediction["reason"],
         }
     row = prediction["feature_row"]
@@ -394,11 +408,28 @@ def _breast_prediction_report(prediction: dict[str, Any]) -> dict[str, Any]:
         "features": {
             "symmetry": {
                 "available": bool(row.get("symmetry_available", 0)),
+                "status": (
+                    "applied"
+                    if bool(row.get("symmetry_available", 0))
+                    else "not_available"
+                ),
             },
             "reliability": {
                 "level": row["result_reliability"],
                 "reason": row["result_reliability_reason"],
             },
+        },
+        "model_execution": {
+            "scoring_path": (
+                "profile_age_with_symmetry"
+                if bool(row.get("symmetry_available", 0))
+                else "profile_age_with_neutral_symmetry_gate"
+            ),
+            "symmetry_refinement": (
+                "applied"
+                if bool(row.get("symmetry_available", 0))
+                else "not_applied"
+            ),
         },
     }
 
