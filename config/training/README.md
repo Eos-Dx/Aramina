@@ -1,4 +1,4 @@
-# Aramis training YAML
+# Aramis Training YAML
 
 Public contract: `aramis_training_config_v0_1`.
 
@@ -8,14 +8,15 @@ training:
   name: aramis_m2q_t100
   version: 0.2.7-beta
   created_by: Sergey Denisov
-  created_at: "2026-07-14"
   clinical_stage: research draft
   intended_use: Breast cancer decision support; requires radiologist review.
-  mode: final_fit
+run:
+  evaluation: true
+  train_on_all: true
 input:
-  dataframe_joblib_path: ../../examples/outputs/model_input/aramis_biopsy_patients_model_input_v0_1.joblib
+  dataframe_joblib_path: ./examples/outputs/model_input/aramis_biopsy_patients_model_input_v0_1.joblib
 output:
-  folder: ../../examples/outputs/training
+  folder: ./examples/outputs/training
 model:
   recipe: m2q_gated_target_case_v0_1
 evaluation:
@@ -25,64 +26,12 @@ evaluation:
   random_seed: 42
 ```
 
-`training.mode`:
-
-| Value | Result |
-|---|---|
-| `evaluation` | Patient-safe evaluation artifacts only. |
-| `final_fit` | Evaluation first, then one train-all model and frozen threshold. |
-
-Development exposes one evaluation method:
-
-```text
-repeated_stratified_kfold
-```
-
-Patients never cross train/test folds. The recipe, not the run YAML, fixes M2Q,
-feature schema, LR1/LR2 regularization, label policy, prediction preprocessing,
-and target sensitivity `0.95`.
-
-List or inspect recipes:
+All relative paths resolve from the Aramis project root. At least one `run` flag must be true. `evaluation` writes patient-safe evaluation artifacts. `train_on_all` writes a frozen executable model; it can be run with or without an evaluation artifact. The public YAML may change only the evaluation size and seed. The recipe fixes architecture, feature schema, LR1/LR2 regularization, label policy, prediction preprocessing, and target sensitivity.
 
 ```bash
 python -m aramis train --list-recipes
 python -m aramis train --describe-recipe m2q_gated_target_case_v0_1
+python -m aramis train --config config/training/aramis_m2q_t100_primary_train_v0_1.yaml
 ```
-
-Run:
-
-```bash
-python -m aramis train \
-  --config config/training/aramis_m2q_t100_primary_train_v0_1.yaml
-```
-
-The default development run uses patient-safe repeated stratified `5-fold x20`
-with seed `42`. The public YAML may change `folds`, `repeats`, and
-`random_seed`; the selected values are stored in the evaluation artifact and in
-the final model joblib. The public YAML cannot override fixed M2Q recipe
-settings: architecture, feature schema, regularization, label policy,
-prediction preprocessing, or target sensitivity. `evaluation` creates a unique
-folder and writes:
-
-```text
-evaluation.joblib
-evaluation.json
-evaluation.yaml
-evaluation_metrics.csv
-evaluation_predictions.csv
-```
-
-`final_fit` also writes:
-
-```text
-model.joblib
-model_description.yaml
-```
-
-The model joblib excludes fold predictions and metrics. It contains executable
-M2Q, feature schema, frozen train-all threshold, and resolved training,
-historical preprocessing, prediction preprocessing, and prediction-contract
-YAML snapshots.
 
 Full contract: `docs/contracts/training_config_v0_1.md`.
-Recipe details: `docs/modeling/model_recipes_v0_1.md`.

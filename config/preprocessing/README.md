@@ -19,6 +19,9 @@ Both top-level files use `extends` only for repository readability. At runtime,
 or reordered when the transformer contract allows it. XRD-preprocessing does
 not impose an Aramis branch concept.
 
+Operational `io` paths are relative to the Aramis project root, not the YAML
+file. `extends` paths remain relative to their declaring preprocessing YAML.
+
 ```text
 shared/       common XRD settings and ordered transformer pipeline
 cohorts/      training-cohort or one-patient selection policy

@@ -197,20 +197,18 @@ output_type: aramis_internal_clinical_report
 report_version
 report_id and created_at
 model ID/name/version/artifact SHA256
-prediction configuration snapshot
 scan metadata and measurement summary
-target/contralateral LR1 profile evidence
-selected SK Core4 values and reliability
-final target-side prediction with threshold
+target/contralateral profile-only and final M2Q predictions
+frozen cohort quantiles, symmetry availability, and reliability
 ```
 
 Report-level naming:
 
 ```text
-final_prediction.p_cancer
-  final target-side risk score
+breast_predictions.target.final_prediction.p_cancer
+  final target-side decision-support score
 
-evidence.target_profile.profile_p_cancer
+breast_predictions.target.profile_only.p_cancer
   target-breast LR1 profile-only probability
 ```
 
@@ -221,8 +219,8 @@ in `model_description.yaml` and the executable model joblib artifact.
 Internal report excludes profile statistics, filesystem paths, generic
 provenance, and output-file paths.
 
-Contralateral p_cancer is included only in the internal report and only from the
-first-layer profile model. The final model remains target-side decision support.
+The internal report scores the contralateral breast with the same final M2Q
+artifact for audit only. The external report remains target-side only.
 
 ## Current Limitations
 

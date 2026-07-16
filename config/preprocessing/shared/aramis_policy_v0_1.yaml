@@ -2,7 +2,7 @@ xrd_preprocessing:
   version: local
   release_tag: v0.1.7-beta
 io:
-  input_h5_path: ../../../data/combined_archive.h5
+  input_h5_path: ./data/combined_archive.h5
 raw_data:
   source: gfrm
   location: h5_blob

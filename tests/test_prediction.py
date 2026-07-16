@@ -39,8 +39,9 @@ def test_tracked_prediction_examples_use_final_m2q_artifact():
 
     for config_path in configs:
         config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
-        h5_path = config_path.parent / config["io"]["input_h5_path"]
-        model_path = (config_path.parent / config["io"]["input_model_joblib_path"]).resolve()
+        root = Path(__file__).parents[1]
+        h5_path = root / config["io"]["input_h5_path"]
+        model_path = (root / config["io"]["input_model_joblib_path"]).resolve()
 
         assert model_path == FINAL_EXAMPLE_MODEL.resolve()
         with h5py.File(h5_path, "r") as h5:
@@ -88,11 +89,10 @@ def _training_config(input_path: Path, output_folder: Path) -> dict:
             "name": "test_prediction_m2q",
             "version": "0.1-beta",
             "created_by": "test",
-            "created_at": "2026-07-14",
             "clinical_stage": "research draft",
             "intended_use": "Synthetic decision-support test.",
-            "mode": "final_fit",
         },
+        "run": {"evaluation": True, "train_on_all": True},
         "input": {"dataframe_joblib_path": str(input_path)},
         "output": {"folder": str(output_folder)},
         "model": {"recipe": "m2q_gated_target_case_v0_1"},
@@ -114,7 +114,11 @@ def _prediction_config(
     target_side: str = "Left",
 ) -> dict:
     return {
-        "run": {"analysis_author": "Test Author", "synthetic_test_mode": True},
+        "run": {
+            "analysis_author": "Test Author",
+            "prediction_comment": "synthetic test",
+            "synthetic_test_mode": True,
+        },
         "io": {
             "input_dataframe_joblib_path": str(dataframe_path),
             "input_model_joblib_path": str(model_path),
@@ -172,9 +176,23 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
     assert external["suggested_class"] in {"BENIGN", "CANCER"}
     assert "p_cancer" not in external
     assert external["reliability"] in {"low", "medium", "high"}
-    assert 0.0 <= internal["final_prediction"]["p_cancer"] <= 1.0
-    assert "decision_threshold" in internal["final_prediction"]
-    assert "threshold" not in internal["final_prediction"]
+    target = internal["breast_predictions"]["target"]
+    contralateral = internal["breast_predictions"]["contralateral"]
+    assert 0.0 <= target["final_prediction"]["p_cancer"] <= 1.0
+    assert "decision_threshold" in target["final_prediction"]
+    assert "threshold" not in target["final_prediction"]
+    assert target["profile_only"]["p_cancer"] is not None
+    assert contralateral["available"] is True
+    assert {key for key in target if key.endswith("_quantile")} == {
+        "training_cohort_quantile",
+        "benign_cohort_quantile",
+        "cancer_cohort_quantile",
+    }
+    assert external["prediction_comment"] == "synthetic test"
+    assert internal["prediction_comment"] == "synthetic test"
+    assert internal["scan_metadata"]["patient_id"] == "P00"
+    assert "patient_id" not in internal
+    assert "prediction_config" not in internal
     assert internal["model"]["artifact_sha256"]
     assert len(list(output_folder.glob("*_external_report.yaml"))) == 1
     assert len(list(output_folder.glob("*_internal_report.yaml"))) == 1
@@ -210,9 +228,10 @@ def test_predict_target_side_controls_profile_evidence(tmp_path: Path, trained_m
     left = run_prediction_from_config(left_config)["internal_report"]
     right = run_prediction_from_config(right_config)["internal_report"]
 
-    assert left["evidence"]["target_profile"]["profile_p_cancer"] != right[
-        "evidence"
-    ]["target_profile"]["profile_p_cancer"]
+    assert (
+        left["breast_predictions"]["target"]["profile_only"]["p_cancer"]
+        != right["breast_predictions"]["target"]["profile_only"]["p_cancer"]
+    )
 
 
 def test_predict_without_contralateral_uses_unavailable_symmetry(
@@ -241,8 +260,10 @@ def test_predict_without_contralateral_uses_unavailable_symmetry(
 
     report = run_prediction_from_config(config_path)["internal_report"]
 
-    assert report["evidence"]["symmetry"]["available"] is False
-    assert report["evidence"]["reliability"]["level"] == "low"
+    target = report["breast_predictions"]["target"]
+    assert target["features"]["symmetry"]["available"] is False
+    assert target["features"]["reliability"]["level"] == "low"
+    assert report["breast_predictions"]["contralateral"]["available"] is False
 
 
 def test_h5_contract_requires_one_matching_patient(tmp_path: Path, trained_model):

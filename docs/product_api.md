@@ -7,12 +7,13 @@ Status: research draft. Decision support only. Requires radiologist review.
 ```bash
 python -m aramis preprocess --config <preprocessing.yaml>
 python -m aramis train --config <training.yaml>
-python -m aramis preprocess-train --config <workflow.yaml>
+python -m aramis preprocess-train --config <preprocess-train.yaml>
 python -m aramis predict --config <prediction.yaml>
 ```
 
-Paths inside YAML resolve relative to the YAML that declares them. Unknown
-fields in training, workflow, and prediction contracts fail immediately.
+Operational paths inside public YAML resolve from the Aramis project root.
+Preprocessing `extends` paths resolve from their declaring YAML. Unknown fields
+in training, preprocess-train, and prediction contracts fail immediately.
 
 ## Preprocess
 
@@ -42,9 +43,9 @@ measurement profiles
 -> frozen train-all model and threshold
 ```
 
-`evaluation` writes only patient-safe repeated stratified k-fold artifacts.
-`final_fit` runs that evaluation first, then fits the recipe on all accepted
-patients and freezes a threshold at recipe target sensitivity `>=0.95`.
+`run.evaluation` writes patient-safe repeated stratified k-fold artifacts.
+`run.train_on_all` fits the recipe on all accepted patients and freezes its
+train-on-all threshold at recipe target sensitivity `>=0.95`.
 
 The model joblib contains executable estimators, feature schema, threshold,
 model identity, and resolved YAML snapshots. Fold metrics and predictions stay
@@ -53,7 +54,7 @@ in separate evaluation artifacts. Contract:
 
 ## Preprocess-train
 
-Input: one workflow YAML referencing preprocessing and training YAMLs.
+Input: one preprocess-train YAML referencing preprocessing and training YAMLs.
 
 Preprocessing runs once. Its joblib is saved, while the DataFrame is passed
 directly in memory to training. No reload is required between stages.
@@ -65,6 +66,7 @@ Input YAML:
 ```yaml
 run:
   analysis_author: OPERATOR_OR_ANALYST
+  prediction_comment: "optional request comment"
 io:
   input_h5_path: /path/to/one_patient.h5
   input_model_joblib_path: /path/to/model.joblib
@@ -98,9 +100,10 @@ External report contains suggested class, reliability, reliability reason,
 patient/target identity, report identity, and model version. It intentionally
 excludes `p_cancer` and threshold.
 
-Internal report contains `p_cancer`, decision threshold, profile evidence,
-symmetry evidence, reliability details, scan metadata, model artifact ID and
-SHA256, and a JSON-compatible prediction-config snapshot. Report contracts:
+Internal report contains target and contralateral prediction blocks with
+profile-only p_cancer, final p_cancer, decision threshold, class, frozen cohort
+quantiles, symmetry availability, reliability, scan metadata, and model
+artifact identity. Report contracts:
 `config/prediction/README.md`.
 
 ## Stop Conditions

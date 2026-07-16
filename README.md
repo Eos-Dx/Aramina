@@ -94,7 +94,7 @@ INSTALL.md
 ```bash
 python -m aramis preprocess --config config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
 python -m aramis train --config config/training/aramis_m2q_t100_primary_train_v0_1.yaml
-python -m aramis preprocess-train --config config/workflows/aramis_biopsy_patients_primary_workflow_v0_1.yaml
+python -m aramis preprocess-train --config config/preprocess_train/aramis_biopsy_patients_primary_preprocess_train_v0_1.yaml
 python -m aramis predict --config examples/prediction_h5/cancer_predict.yaml
 ```
 
@@ -108,7 +108,7 @@ Prediction template for a new patient H5:
 config/prediction/aramis_predict_from_h5_template_v0_1.yaml
 ```
 
-`final_fit` creates a unique run folder with `model.joblib`,
+`run.train_on_all: true` creates a unique run folder with `model.joblib`,
 `model_description.yaml`, and separate evaluation artifacts. Use that generated
 model path in prediction YAML.
 
@@ -177,7 +177,7 @@ src/aramis/prediction.py
   one-patient prediction route and report writer
 
 src/aramis/workflows.py
-  preprocess+train workflow runner
+  preprocess-train runner
 ```
 
 ## H5 Contract Summary
@@ -206,7 +206,7 @@ patient:
 
 ## Verification
 
-Current product-code tests cover preprocessing, training, workflow, and
+Current product-code tests cover preprocessing, training, preprocess-train, and
 prediction routes.
 
 ```bash

@@ -77,9 +77,9 @@ LR2 C = 0.3
 ```
 
 Held-out fold sensitivity is not forced to 0.95. It measures how a
-train-derived threshold transfers to unseen patients. Each `evaluation` or
-`final_fit` run writes the exact 100-fold metrics and held-out predictions next
-to the run-specific model artifact. Historical architecture comparisons are
+train-derived threshold transfers to unseen patients. Each run with
+`run.evaluation: true` writes the exact 100-fold metrics and held-out
+predictions next to the run-specific model artifact. Historical architecture comparisons are
 retained in the `experiment` branch rather than duplicated in product docs.
 
 Current interpretation:
@@ -106,10 +106,9 @@ patients.
 
 These are research-draft evaluation results, not a clinical performance claim.
 
-## Final Fit
+## Train On All
 
-`final_fit` always writes patient-safe evaluation artifacts first, then fits
-the frozen M2Q recipe on all accepted cases and derives the deployment
+`run.train_on_all: true` fits the frozen M2Q recipe on all accepted cases and derives the deployment
 threshold. The model joblib stores executable estimators, frozen threshold,
 resolved training YAML, historical preprocessing YAML, prediction
 preprocessing YAML, prediction contract, and H5 lineage. Fold metrics and

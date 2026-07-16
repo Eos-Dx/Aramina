@@ -14,7 +14,7 @@ provenance:
   clinical_safety_note: Decision-support preprocessing only; not autonomous diagnosis.
 io:
   input_h5_path: INPUT_H5_PATH_SET_BY_PREDICTION_CONFIG
-  output_joblib_path: ../../examples/outputs/prediction/aramis_prediction_patient_model_input_v0_1.joblib
+  output_joblib_path: ./examples/outputs/prediction/aramis_prediction_patient_model_input_v0_1.joblib
 filters:
   date_filter:
     enabled: false

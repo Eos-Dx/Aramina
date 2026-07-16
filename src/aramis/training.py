@@ -271,14 +271,14 @@ class AramisPatientTrainingPipeline(BaseEstimator):
         input_dataframe_joblib_path: str | Path,
         preprocessing_artifact: dict[str, Any],
         prediction_preprocessing: dict[str, Any] | None = None,
-        workflow_config_yaml: str | None = None,
+        preprocess_train_config_yaml: str | None = None,
     ) -> None:
         self.config = config
         self.config_text = config_text
         self.input_dataframe_joblib_path = input_dataframe_joblib_path
         self.preprocessing_artifact = preprocessing_artifact
         self.prediction_preprocessing = prediction_preprocessing
-        self.workflow_config_yaml = workflow_config_yaml
+        self.preprocess_train_config_yaml = preprocess_train_config_yaml
 
     def fit(self, x: pd.DataFrame, y: Any = None) -> "AramisPatientTrainingPipeline":
         """Fit the full target-breast training route and build `artifact_`."""
@@ -313,23 +313,29 @@ class AramisPatientTrainingPipeline(BaseEstimator):
             random_state=random_state,
         )
         self.feature_table_ = self.input_builder_.fit_transform(x)
-        self.evaluator_ = M2QModelEvaluator(
-            config=self.config,
-            profile_column=profile_column,
-            label_column=label_column,
-            group_column=group_column,
-            specimen_column=specimen_column,
-            side_column=side_column,
-            q_column=q_column,
-            age_column=age_column,
-            biopsy_column=biopsy_column,
-            lr1_row_policy=lr1_row_policy,
-            lr1_logreg_c=lr1_logreg_c,
-            lr2_logreg_c=lr2_logreg_c,
-            random_state=random_state,
-            target_sensitivity=target_sensitivity,
-        )
-        self.evaluator_.fit(x)
+        if bool(self.config.get("run", {}).get("evaluation", False)):
+            self.evaluator_ = M2QModelEvaluator(
+                config=self.config,
+                profile_column=profile_column,
+                label_column=label_column,
+                group_column=group_column,
+                specimen_column=specimen_column,
+                side_column=side_column,
+                q_column=q_column,
+                age_column=age_column,
+                biopsy_column=biopsy_column,
+                lr1_row_policy=lr1_row_policy,
+                lr1_logreg_c=lr1_logreg_c,
+                lr2_logreg_c=lr2_logreg_c,
+                random_state=random_state,
+                target_sensitivity=target_sensitivity,
+            ).fit(x)
+            split_metrics = self.evaluator_.split_metrics_
+            split_predictions = self.evaluator_.split_predictions_
+        else:
+            self.evaluator_ = None
+            split_metrics = pd.DataFrame()
+            split_predictions = pd.DataFrame()
         self.model_trainer_ = M2QModelTrainer(
             profile_column=profile_column,
             label_column=label_column,
@@ -349,9 +355,9 @@ class AramisPatientTrainingPipeline(BaseEstimator):
             models=self.model_trainer_.models_,
             feature_table=self.feature_table_,
             lr1_rows=self.input_builder_.lr1_rows_,
-            split_metrics=self.evaluator_.split_metrics_,
-            split_predictions=self.evaluator_.split_predictions_,
-            workflow_config_yaml=self.workflow_config_yaml,
+            split_metrics=split_metrics,
+            split_predictions=split_predictions,
+            preprocess_train_config_yaml=self.preprocess_train_config_yaml,
         )
         return self
 
@@ -363,7 +369,7 @@ def build_patient_training_pipeline(
     input_dataframe_joblib_path: str | Path,
     preprocessing_artifact: dict[str, Any],
     prediction_preprocessing: dict[str, Any] | None = None,
-    workflow_config_yaml: str | None = None,
+    preprocess_train_config_yaml: str | None = None,
 ) -> Pipeline:
     """Return one sklearn Pipeline for patient-safe target-breast training."""
     return Pipeline(
@@ -376,7 +382,7 @@ def build_patient_training_pipeline(
                     input_dataframe_joblib_path=input_dataframe_joblib_path,
                     preprocessing_artifact=preprocessing_artifact,
                     prediction_preprocessing=prediction_preprocessing,
-                    workflow_config_yaml=workflow_config_yaml,
+                    preprocess_train_config_yaml=preprocess_train_config_yaml,
                 ),
             )
         ]
@@ -390,9 +396,9 @@ def run_training_from_config(
     preprocessing_artifact: dict[str, Any] | None = None,
     dataframe_joblib_path: str | Path | None = None,
     output_folder: str | Path | None = None,
-    workflow_config_yaml: str | None = None,
+    preprocess_train_config_yaml: str | None = None,
 ) -> dict[str, Any]:
-    """Evaluate or final-fit one immutable Aramis model recipe."""
+    """Run requested evaluation and/or final fit for one immutable recipe."""
     config_path = Path(config_path).expanduser().resolve()
     public_config, config_text = load_training_config(config_path)
     recipe_id = str(public_config["model"]["recipe"])
@@ -430,12 +436,13 @@ def run_training_from_config(
         len(df),
         df["patientId"].astype(str).nunique(),
     )
-    logger.info(
-        "Evaluation: repeated stratified %d-fold x%d (seed=%d)",
-        config["evaluation"]["n_splits"],
-        config["evaluation"]["n_repeats"],
-        config["evaluation"]["random_state"],
-    )
+    if public_config["run"]["evaluation"]:
+        logger.info(
+            "Evaluation: repeated stratified %d-fold x%d (seed=%d)",
+            config["evaluation"]["n_splits"],
+            config["evaluation"]["n_repeats"],
+            config["evaluation"]["random_state"],
+        )
     artifact = train_m2q_model_artifact(
         df,
         config=config,
@@ -443,16 +450,17 @@ def run_training_from_config(
         input_dataframe_joblib_path=input_path,
         preprocessing_artifact=preprocessing_artifact,
         prediction_preprocessing=prediction_preprocessing,
-        workflow_config_yaml=workflow_config_yaml,
+        preprocess_train_config_yaml=preprocess_train_config_yaml,
     )
     evaluation_artifact = _evaluation_artifact(
         artifact,
         recipe_id=recipe_id,
         training_config_yaml=config_text,
     )
-    _write_evaluation_outputs(evaluation_artifact, run_folder)
-    logger.info("Evaluation artifacts written: %s", run_folder)
-    if public_config["training"]["mode"] == "evaluation":
+    if public_config["run"]["evaluation"]:
+        _write_evaluation_outputs(evaluation_artifact, run_folder)
+        logger.info("Evaluation artifacts written: %s", run_folder)
+    if not public_config["run"]["train_on_all"]:
         evaluation_artifact["run_folder"] = str(run_folder)
         return evaluation_artifact
 
@@ -488,7 +496,7 @@ def train_m2q_model_artifact(
     input_dataframe_joblib_path: str | Path,
     preprocessing_artifact: dict[str, Any],
     prediction_preprocessing: dict[str, Any] | None = None,
-    workflow_config_yaml: str | None = None,
+    preprocess_train_config_yaml: str | None = None,
 ) -> dict[str, Any]:
     """Train one traceable M2Q target-breast model artifact."""
     pipeline = build_patient_training_pipeline(
@@ -497,7 +505,7 @@ def train_m2q_model_artifact(
         input_dataframe_joblib_path=input_dataframe_joblib_path,
         preprocessing_artifact=preprocessing_artifact,
         prediction_preprocessing=prediction_preprocessing,
-        workflow_config_yaml=workflow_config_yaml,
+        preprocess_train_config_yaml=preprocess_train_config_yaml,
     )
     pipeline.fit(df)
     return pipeline.named_steps["patient_training"].artifact_
@@ -540,17 +548,21 @@ def _patient_training_artifact(
     lr1_rows: pd.DataFrame,
     split_metrics: pd.DataFrame,
     split_predictions: pd.DataFrame,
-    workflow_config_yaml: str | None,
+    preprocess_train_config_yaml: str | None,
 ) -> dict[str, Any]:
     """Build the traceable joblib payload for target-breast model training."""
     evaluation_config = config.get("evaluation", {})
-    metric_summary = _summarize_patient_model_metrics(
-        split_metrics,
-        split_predictions,
-        random_state=int(evaluation_config.get("random_state", 42)),
-        bootstrap_samples=int(
-            evaluation_config.get("bootstrap_samples", PATIENT_BOOTSTRAP_SAMPLES)
-        ),
+    metric_summary = (
+        _summarize_patient_model_metrics(
+            split_metrics,
+            split_predictions,
+            random_state=int(evaluation_config.get("random_state", 42)),
+            bootstrap_samples=int(
+                evaluation_config.get("bootstrap_samples", PATIENT_BOOTSTRAP_SAMPLES)
+            ),
+        )
+        if not split_metrics.empty
+        else pd.DataFrame()
     )
     dataset_summary = _patient_dataset_summary(df, feature_table, lr1_rows)
     model_descriptions = {
@@ -602,7 +614,7 @@ def _patient_training_artifact(
             preprocessing_artifact=preprocessing_artifact,
             training_config_yaml=config_text,
             prediction_preprocessing=prediction_preprocessing,
-            workflow_config_yaml=workflow_config_yaml,
+            preprocess_train_config_yaml=preprocess_train_config_yaml,
         ),
     }
 
@@ -675,6 +687,11 @@ def _fit_m2q_model(
         random_state=random_state,
     ).fit(feature_table, y)
     score = final_model.predict_proba(feature_table)[:, 1]
+    reference_scores = {
+        "all_target_cases": _sorted_scores(score),
+        "benign_target_cases": _sorted_scores(score[y == 0]),
+        "cancer_target_cases": _sorted_scores(score[y == 1]),
+    }
     return {
         "name": "M2Q profile, gated SK Core4 refinement, and age",
         "lr1_model": lr1_model,
@@ -687,7 +704,18 @@ def _fit_m2q_model(
             score,
             target_sensitivity=target_sensitivity,
         ),
+        "prediction_reference_scores": {
+            "contract": "aramis_prediction_quantiles_v0_1",
+            "score": "final_prediction.p_cancer",
+            "population": "train_on_all target-breast cases",
+            **reference_scores,
+        },
     }
+
+
+def _sorted_scores(values: np.ndarray) -> list[float]:
+    """Return finite fitted probabilities for descriptive report quantiles."""
+    return sorted(float(value) for value in values if np.isfinite(value))
 
 
 def _fit_split_feature_tables(
@@ -2137,7 +2165,7 @@ def _reproducibility_manifest(
     preprocessing_artifact: dict[str, Any],
     training_config_yaml: str,
     prediction_preprocessing: dict[str, Any] | None,
-    workflow_config_yaml: str | None,
+    preprocess_train_config_yaml: str | None,
 ) -> dict[str, Any]:
     """Record inputs required to repeat this research-draft training run."""
     historical_preprocessing_yaml = str(
@@ -2152,7 +2180,7 @@ def _reproducibility_manifest(
     historical_preprocessing = yaml.safe_load(historical_preprocessing_yaml)
     source_path = historical_preprocessing.get("io", {}).get("input_h5_path")
     configs = {
-        "workflow_yaml": workflow_config_yaml,
+        "preprocess_train_yaml": preprocess_train_config_yaml,
         "training_yaml": training_config_yaml,
         "historical_preprocessing_yaml": historical_preprocessing_yaml,
         "prediction_preprocessing_yaml": prediction_preprocessing_yaml,
@@ -2161,7 +2189,7 @@ def _reproducibility_manifest(
         "contract": "aramis_reproducibility_v0_1",
         "reproduction_mode": (
             "raw_h5_preprocess_train"
-            if workflow_config_yaml is not None
+            if preprocess_train_config_yaml is not None
             else "preprocessed_artifact_train"
         ),
         "source_h5": {
@@ -2245,6 +2273,7 @@ def _effective_training_config(
     evaluation = public_config["evaluation"]
     return {
         "training": dict(public_config["training"]),
+        "run": dict(public_config["run"]),
         "model": dict(recipe["model"]),
         "evaluation": {
             "mode": "stratified_kfold",
@@ -2267,7 +2296,7 @@ def _public_config_path(
 ) -> Path:
     value = config[section][key]
     path = Path(str(value)).expanduser()
-    return path if path.is_absolute() else (config_path.parent / path).resolve()
+    return path if path.is_absolute() else (Path(__file__).resolve().parents[2] / path).resolve()
 
 
 def _new_training_run_folder(output_root: Path, training: dict[str, Any]) -> Path:
@@ -2361,12 +2390,17 @@ def _final_model_artifact(
         "prediction_contract_yaml": artifact["prediction_contract_yaml"],
         "evaluation": {
             "protocol": dict(public_config["evaluation"]),
+            "requested": bool(public_config["run"]["evaluation"]),
             "summary": _records(artifact["metric_summary"]),
-            "artifacts": {
-                "summary": "evaluation.yaml",
-                "metrics": "evaluation_metrics.csv",
-                "predictions": "evaluation_predictions.csv",
-            },
+            "artifacts": (
+                {
+                    "summary": "evaluation.yaml",
+                    "metrics": "evaluation_metrics.csv",
+                    "predictions": "evaluation_predictions.csv",
+                }
+                if public_config["run"]["evaluation"]
+                else {}
+            ),
         },
         "input_dataframe_joblib_sha256": artifact.get(
             "input_dataframe_joblib_sha256"
@@ -2406,11 +2440,7 @@ def _model_description(
         "decision_thresholds": _jsonable(model.get("thresholds", {})),
         "feature_schema": _jsonable(artifact["feature_schema"]),
         "dataset_summary": _records(artifact["dataset_summary"]),
-        "evaluation_artifacts": {
-            "summary": "evaluation.yaml",
-            "metrics": "evaluation_metrics.csv",
-            "predictions": "evaluation_predictions.csv",
-        },
+        "evaluation_artifacts": artifact["evaluation"]["artifacts"],
         "clinical_stage": "research draft",
         "requires_radiologist_review": True,
     }

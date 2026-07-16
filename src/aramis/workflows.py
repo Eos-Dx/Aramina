@@ -1,4 +1,4 @@
-"""Combined Aramis preprocessing and training workflow."""
+"""Combined Aramis preprocessing and training entrypoint."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from .pipelines import run_preprocessing_artifact_from_config
 from .training import run_training_from_config
 
 
-WORKFLOW_CONTRACT = "aramis_preprocess_train_workflow_v0_1"
+PREPROCESS_TRAIN_CONTRACT = "aramis_preprocess_train_config_v0_1"
 logger = logging.getLogger(__name__)
 
 
@@ -26,17 +26,17 @@ def run_preprocess_train_from_config(
 ) -> dict[str, Any]:
     """Preprocess once, persist the DataFrame, then pass it directly to training."""
     config_path = Path(config_path).expanduser().resolve()
-    config = _load_workflow_config(config_path)
-    preprocessing_config_path = _relative_path(
+    config = _load_preprocess_train_config(config_path)
+    preprocessing_config_path = _project_path(
         config["preprocessing_config_path"], config_path
     )
-    training_config_path = _relative_path(config["training_config_path"], config_path)
-    run_folder = _workflow_run_folder(config, config_path)
+    training_config_path = _project_path(config["training_config_path"], config_path)
+    run_folder = _preprocess_train_run_folder(config, config_path)
     dataframe_path = run_folder / "preprocessing" / "dataframe.joblib"
     dataframe_path.parent.mkdir(parents=True)
 
-    logger.info("Workflow config: %s", config_path)
-    logger.info("Workflow output: %s", run_folder)
+    logger.info("Preprocess-train config: %s", config_path)
+    logger.info("Preprocess-train output: %s", run_folder)
     logger.info("Stage 1/2: preprocessing")
     preprocessing_kwargs = {"verbose": True} if verbose else {}
     preprocessing_artifact = run_preprocessing_artifact_from_config(
@@ -62,11 +62,11 @@ def run_preprocess_train_from_config(
         preprocessing_artifact=preprocessing_artifact,
         dataframe_joblib_path=dataframe_path,
         output_folder=run_folder / "training",
-        workflow_config_yaml=config_path.read_text(encoding="utf-8"),
+        preprocess_train_config_yaml=config_path.read_text(encoding="utf-8"),
     )
-    logger.info("Workflow complete: %s", run_folder)
+    logger.info("Preprocess-train complete: %s", run_folder)
     return {
-        "workflow_config_path": config_path,
+        "preprocess_train_config_path": config_path,
         "preprocessing_config_path": preprocessing_config_path,
         "training_config_path": training_config_path,
         "run_folder": run_folder,
@@ -76,49 +76,51 @@ def run_preprocess_train_from_config(
     }
 
 
-def _load_workflow_config(config_path: Path) -> dict[str, Any]:
+def _load_preprocess_train_config(config_path: Path) -> dict[str, Any]:
     config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
     if not isinstance(config, dict):
         raise TypeError(f"Workflow config must be a mapping: {config_path}")
     required = {
         "contract",
-        "workflow",
+        "preprocess_train",
         "preprocessing_config_path",
         "training_config_path",
     }
     missing = sorted(required.difference(config))
     if missing:
-        raise ValueError(f"Missing workflow fields: {missing}")
+        raise ValueError(f"Missing preprocess-train fields: {missing}")
     unknown = sorted(set(config).difference(required))
     if unknown:
-        raise ValueError(f"Unknown workflow fields: {unknown}")
-    if config["contract"] != WORKFLOW_CONTRACT:
-        raise ValueError(f"Unsupported workflow contract: {config['contract']!r}")
-    workflow = config["workflow"]
-    workflow_fields = {"name", "created_by", "created_at", "output_folder"}
-    if not isinstance(workflow, dict):
-        raise TypeError("workflow must be a mapping.")
-    missing = sorted(workflow_fields.difference(workflow))
+        raise ValueError(f"Unknown preprocess-train fields: {unknown}")
+    if config["contract"] != PREPROCESS_TRAIN_CONTRACT:
+        raise ValueError(f"Unsupported preprocess-train contract: {config['contract']!r}")
+    preprocess_train = config["preprocess_train"]
+    fields = {"name", "created_by", "output_folder"}
+    if not isinstance(preprocess_train, dict):
+        raise TypeError("preprocess_train must be a mapping.")
+    missing = sorted(fields.difference(preprocess_train))
     if missing:
-        raise ValueError(f"Missing workflow fields: {missing}")
-    unknown = sorted(set(workflow).difference(workflow_fields))
+        raise ValueError(f"Missing preprocess-train fields: {missing}")
+    unknown = sorted(set(preprocess_train).difference(fields))
     if unknown:
-        raise ValueError(f"Unknown workflow fields: {unknown}")
+        raise ValueError(f"Unknown preprocess-train fields: {unknown}")
     return config
 
 
-def _relative_path(value: Any, config_path: Path) -> Path:
+def _project_path(value: Any, config_path: Path) -> Path:
     path = Path(str(value)).expanduser()
-    return path if path.is_absolute() else (config_path.parent / path).resolve()
+    if path.is_absolute():
+        return path
+    return (Path(__file__).resolve().parents[2] / path).resolve()
 
 
-def _workflow_run_folder(config: dict[str, Any], config_path: Path) -> Path:
-    workflow = config["workflow"]
-    root = _relative_path(workflow["output_folder"], config_path)
+def _preprocess_train_run_folder(config: dict[str, Any], config_path: Path) -> Path:
+    preprocess_train = config["preprocess_train"]
+    root = _project_path(preprocess_train["output_folder"], config_path)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     name = "".join(
         char if char.isalnum() or char in {"-", "_"} else "_"
-        for char in str(workflow["name"])
+        for char in str(preprocess_train["name"])
     ).strip("_")
     folder = root / f"{name}_{stamp}_{uuid4().hex[:8]}"
     folder.mkdir(parents=True, exist_ok=False)

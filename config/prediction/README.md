@@ -1,58 +1,31 @@
 # Aramis Prediction YAML
 
-## Product Contract
+Prediction starts one-patient research-draft decision support. The caller supplies only request identity, the one-patient H5, the frozen model artifact, the output folder, and the clinically indicated target side.
 
-Prediction YAML starts one-patient research-draft decision support. Product use
-starts from one H5 container and runs model-held prediction preprocessing before
-model scoring.
+```yaml
+run:
+  analysis_author: OPERATOR_OR_ANALYST
+  prediction_comment: "optional free-text comment"
+io:
+  input_h5_path: ./examples/prediction_h5/cancer_one_patient.h5
+  input_model_joblib_path: ./examples/prediction_models/aramis_m2q_t100_0_2_7_beta.joblib
+  output_folder: ./examples/outputs/prediction_h5_examples
+patient:
+  patient_id: PATIENT_ID_FROM_H5
+  target_side: left
+```
 
-Working H5 smoke-test:
+Run from the Aramis project root:
 
 ```bash
 python -m aramis predict --config examples/prediction_h5/cancer_predict.yaml
 ```
 
-H5 template for a new patient:
+All relative paths are resolved from the Aramis root. `analysis_author` is the person requesting the report. `prediction_comment` is optional free text and is copied to both reports. `patient_id` must exactly match the only H5 patient. `target_side` is clinical input and must be `left` or `right` in the preprocessed H5 data.
 
-```bash
-config/prediction/aramis_predict_from_h5_template_v0_1.yaml
-```
+The model joblib supplies everything else: model identity, preprocessing YAML, H5 schema/format contract, report versions, threshold, feature schema, and executable estimator. Predict YAML cannot override any of these fields.
 
-The three tracked H5 examples use the packaged product artifact:
-
-```text
-examples/prediction_models/aramis_m2q_t100_0_2_7_beta.joblib
-```
-
-The general H5 template points to the packaged product artifact, which embeds
-the production GFRM preprocessing contract.
-
-Only these fields are supplied by the caller:
-
-```yaml
-run:
-  analysis_author: OPERATOR_OR_ANALYST
-
-io:
-  input_h5_path: /path/to/one_patient.h5
-  input_model_joblib_path: /path/to/model.joblib
-  output_folder: /path/to/prediction_outputs
-
-patient:
-  patient_id: PATIENT_ID
-  target_side: left
-```
-
-`analysis_author` identifies who initiated the prediction. `patient_id` must
-match the only patient in the input H5. `target_side` is supplied by the
-clinical caller and must exist as `left` or `right` in that patient's H5 data.
-
-Model identity, preprocessing, H5 schema, report versions, threshold, feature
-schema, and model parameters are read from `input_model_joblib_path`. They must
-not be duplicated or overridden in prediction YAML.
-
-`io.output_folder` is enough. Aramis creates a shared automatic `report_id`
-for the external/internal report pair and writes automatic output names:
+Aramis writes automatic names under `io.output_folder`:
 
 ```text
 <patient_id>_<model_id>_<report_id>_prediction_dataframe.joblib
@@ -62,78 +35,8 @@ for the external/internal report pair and writes automatic output names:
 <patient_id>_<model_id>_<report_id>_internal_report.yaml
 ```
 
-Important rule:
+External report is target-side only and contains report identity, requesting analyst, optional comment, patient/target identity, model version, suggested class, and reliability. It intentionally excludes p_cancer and threshold.
 
-```text
-target_side is supplied by clinician/config in predict YAML
-target_side is not inferred from labels, biopsy fields, or specimen_status
-patient.patient_id must exactly match the single H5 patientId
-H5 root @schema_version and @format must match model-held contract
-exactly one patient must be present in the H5 container
-```
+Internal report contains two breast blocks. The target block is the formal decision-support result. The contralateral block is internal audit information computed by applying the same final M2Q model with that side temporarily treated as target. Each available block contains profile-only p_cancer, final p_cancer, frozen threshold, suggested class, three frozen-training-cohort quantiles, symmetry availability, and reliability. Full contract: `docs/modeling/internal_clinical_report_content_v0_1.md`.
 
-The selected model recipe defines `prediction_contract`. Final fit embeds that
-contract, resolved prediction preprocessing YAML, report versions, and decision
-threshold in the model joblib. Product Predict YAML cannot override model-held
-settings or model identity.
-
-Product v0.1 route:
-
-```text
-one-patient H5
--> clinician-supplied patient.target_side from predict YAML
--> resolved prediction_preprocessing_yaml from model joblib
--> PONI geometry and H5 session selection
--> hot/faulty pixel detection
--> azimuthal integration with sample/calibrant thickness correction
--> SNR calculation and SNR filter
--> q-range normalization
--> model-input DataFrame joblib
--> select one patient
--> select clinician-supplied target breast
--> LR1 scores target-breast radial_profile_data
--> logit-average target-breast p_cancer
--> build paired SK symmetry features when a contralateral breast is available
--> add reliability counters
--> model-selected M2Q decision-support score
--> external report JSON/YAML
--> internal report JSON/YAML
-```
-
-Report language is decision-support only:
-
-```text
-suggested_class
-reliability
-reliability_reason
-```
-
-## Approved External Report Contract
-
-External report is intentionally minimal and target-side only:
-
-```yaml
-output_type: aramis_external_report
-report_version: "0.1"
-
-report_id: GENERATED_UNIQUE_ID
-created_at: "2026-07-13T14:11:00+02:00"
-
-patient_id: PATIENT_ID
-target_side: left
-
-model_version: "MODEL_ARTIFACT_VERSION"
-
-suggested_class: CANCER
-reliability: high
-reliability_reason: "at least 3 valid measurements on target and contralateral breasts"
-```
-
-`report_id` is generated by Aramis and is shared by the external/internal
-report pair from one prediction operation. `created_at` is an ISO 8601 Europe/
-Paris timestamp with a numeric UTC offset. `reliability_reason` is mandatory
-for every reliability level.
-
-External report excludes `p_cancer`, threshold, age, symmetry details, raw
-profile results, H5 paths, checksums, preprocessing details, and model
-parameters. Those fields belong to the internal report or training artifact.
+Prediction stops for unknown YAML fields, schema/format mismatch, zero or multiple H5 patients, patient-ID mismatch, absent target side, or a model missing its embedded prediction preprocessing/contract/reference scores.

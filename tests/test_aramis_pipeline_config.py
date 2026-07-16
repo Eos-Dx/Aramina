@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import joblib
+from pathlib import Path
 import pandas as pd
 import pytest
 import yaml
@@ -17,7 +18,7 @@ from aramis.pipelines import (
     _config_path,
     run_preprocessing_artifact_from_config,
 )
-from aramis.workflows import _load_workflow_config
+from aramis.workflows import _load_preprocess_train_config
 
 from .synthetic_aramis_h5 import load_synthetic_config, write_known_synthetic_h5
 
@@ -87,7 +88,7 @@ def test_config_path_resolves_absolute_relative_and_missing(tmp_path):
     config_path.parent.mkdir()
 
     assert _config_path(config, config_path, "input_h5_path") == (
-        config_path.parent / "data" / "input.h5"
+        Path(__file__).parents[1] / "data" / "input.h5"
     ).resolve()
     with pytest.raises(ValueError, match="Missing io.output_joblib_path"):
         _config_path(config, config_path, "output_joblib_path")
@@ -99,8 +100,8 @@ def test_preprocess_cli_reads_input_and_output_from_yaml(tmp_path):
     config_path = tmp_path / "preprocess.yaml"
     config = load_synthetic_config()
     config["io"] = {
-        "input_h5_path": "known_synthetic_aramis.h5",
-        "output_joblib_path": "out/model_input.joblib",
+        "input_h5_path": str(h5_path),
+        "output_joblib_path": str(output_path),
     }
     config["raw_data"]["h5_dataset_candidates"]["npy"] = ["processed/data"]
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
@@ -136,8 +137,8 @@ def test_preprocess_cli_can_write_minimal_output_columns(tmp_path):
     ]
     config = load_synthetic_config()
     config["io"] = {
-        "input_h5_path": "known_synthetic_aramis.h5",
-        "output_joblib_path": "out/minimal.joblib",
+        "input_h5_path": str(h5_path),
+        "output_joblib_path": str(output_path),
     }
     config["metadata"]["output_columns"] = output_columns
     config["normalization"]["save_initial_data"] = True
@@ -159,8 +160,8 @@ def test_preprocessing_artifact_runner_uses_configured_h5_and_output(tmp_path):
     config_path = tmp_path / "preprocess.yaml"
     config = load_synthetic_config()
     config["io"] = {
-        "input_h5_path": h5_path.name,
-        "output_joblib_path": "out/artifact.joblib",
+        "input_h5_path": str(h5_path),
+        "output_joblib_path": str(output_path),
     }
     config["raw_data"]["h5_dataset_candidates"]["npy"] = ["processed/data"]
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
@@ -172,16 +173,15 @@ def test_preprocessing_artifact_runner_uses_configured_h5_and_output(tmp_path):
     assert artifact["dataframe"].equals(load_preprocessing_dataframe(output_path))
 
 
-def test_workflow_contract_rejects_unknown_fields(tmp_path):
-    workflow_config_path = tmp_path / "workflow.yaml"
-    workflow_config_path.write_text(
+def test_preprocess_train_contract_rejects_unknown_fields(tmp_path):
+    config_path = tmp_path / "preprocess_train.yaml"
+    config_path.write_text(
         yaml.safe_dump(
             {
-                "contract": "aramis_preprocess_train_workflow_v0_1",
-                "workflow": {
+                "contract": "aramis_preprocess_train_config_v0_1",
+                "preprocess_train": {
                     "name": "test",
                     "created_by": "tester",
-                    "created_at": "2026-07-14",
                     "output_folder": "outputs",
                     "mode": "legacy",
                 },
@@ -192,5 +192,5 @@ def test_workflow_contract_rejects_unknown_fields(tmp_path):
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="Unknown workflow fields"):
-        _load_workflow_config(workflow_config_path)
+    with pytest.raises(ValueError, match="Unknown preprocess-train fields"):
+        _load_preprocess_train_config(config_path)

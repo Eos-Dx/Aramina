@@ -67,13 +67,13 @@ def main(argv: list[str] | None = None) -> int:
     _add_verbose_argument(train)
     preprocess_train = subparsers.add_parser(
         "preprocess-train",
-        help="Run an Aramis preprocess+train workflow YAML.",
+        help="Run an Aramis preprocess-train config.",
     )
     preprocess_train.add_argument(
         "--config",
         required=True,
         type=Path,
-        help="Path to Aramis workflow YAML.",
+        help="Path to Aramis preprocess-train YAML.",
     )
     _add_verbose_argument(preprocess_train)
     predict = subparsers.add_parser(

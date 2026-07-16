@@ -36,8 +36,8 @@ def validate_training_config(config: Any, source: str | Path) -> None:
         raise TypeError(f"Training config must be a mapping: {source}")
     _exact_keys(
         config,
-        required={"contract", "training", "input", "output", "model", "evaluation"},
-        allowed={"contract", "training", "input", "output", "model", "evaluation"},
+        required={"contract", "training", "input", "output", "model", "run", "evaluation"},
+        allowed={"contract", "training", "input", "output", "model", "run", "evaluation"},
         where="training config",
     )
     if config["contract"] != TRAINING_CONTRACT:
@@ -48,24 +48,28 @@ def validate_training_config(config: Any, source: str | Path) -> None:
             "name",
             "version",
             "created_by",
-            "created_at",
             "clinical_stage",
             "intended_use",
-            "mode",
         },
         allowed={
             "name",
             "version",
             "created_by",
-            "created_at",
             "clinical_stage",
             "intended_use",
-            "mode",
         },
         where="training",
     )
-    if config["training"]["mode"] not in {"evaluation", "final_fit"}:
-        raise ValueError("training.mode must be 'evaluation' or 'final_fit'.")
+    _exact_keys(
+        config["run"],
+        required={"evaluation", "train_on_all"},
+        allowed={"evaluation", "train_on_all"},
+        where="run",
+    )
+    if not all(isinstance(config["run"][key], bool) for key in ("evaluation", "train_on_all")):
+        raise TypeError("run.evaluation and run.train_on_all must be boolean.")
+    if not config["run"]["evaluation"] and not config["run"]["train_on_all"]:
+        raise ValueError("At least one of run.evaluation or run.train_on_all must be true.")
     _exact_keys(
         config["input"],
         required={"dataframe_joblib_path"},

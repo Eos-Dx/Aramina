@@ -61,10 +61,12 @@ def _training_config(
             "name": "aramis_test_m2q",
             "version": "0.1-beta",
             "created_by": "test",
-            "created_at": "2026-07-14",
             "clinical_stage": "research draft",
             "intended_use": "Synthetic decision-support test.",
-            "mode": mode,
+        },
+        "run": {
+            "evaluation": mode == "evaluation",
+            "train_on_all": mode == "final_fit",
         },
         "input": {"dataframe_joblib_path": str(input_path)},
         "output": {"folder": str(output_folder)},
@@ -120,6 +122,16 @@ def test_training_contract_requires_intended_use(tmp_path: Path):
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
 
     with pytest.raises(ValueError, match=r"Missing training fields: \['intended_use'\]"):
+        load_training_config(config_path)
+
+
+def test_training_contract_requires_at_least_one_requested_operation(tmp_path: Path):
+    config_path = tmp_path / "train.yaml"
+    config = _training_config(tmp_path / "input.joblib", tmp_path, mode="evaluation")
+    config["run"] = {"evaluation": False, "train_on_all": False}
+    config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="At least one"):
         load_training_config(config_path)
 
 
@@ -225,6 +237,23 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
     assert description["model_summary"]["final_model"]["type"] == (
         "GatedSymmetryLogistic"
     )
+
+
+def test_train_on_all_can_skip_evaluation_artifacts(tmp_path: Path):
+    input_path = tmp_path / "input.joblib"
+    config_path = tmp_path / "train.yaml"
+    _write_training_input(input_path)
+    config = _training_config(input_path, tmp_path / "runs", mode="final_fit")
+    config["run"] = {"evaluation": False, "train_on_all": True}
+    config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+
+    result = run_training_from_config(config_path)
+    artifact = joblib.load(result["model_path"])
+
+    assert artifact["evaluation"]["requested"] is False
+    assert artifact["evaluation"]["summary"] == []
+    assert artifact["evaluation"]["artifacts"] == {}
+    assert not (Path(result["run_folder"]) / "evaluation.joblib").exists()
 
 
 def test_train_cli_lists_and_describes_recipes(capsys):

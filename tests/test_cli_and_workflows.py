@@ -86,19 +86,18 @@ def test_workflow_passes_preprocessing_dataframe_directly_to_training(
     monkeypatch,
     tmp_path: Path,
 ):
-    config_path = tmp_path / "workflow.yaml"
+    config_path = tmp_path / "preprocess_train.yaml"
     config_path.write_text(
         yaml.safe_dump(
             {
-                "contract": workflows.WORKFLOW_CONTRACT,
-                "workflow": {
+                "contract": workflows.PREPROCESS_TRAIN_CONTRACT,
+                "preprocess_train": {
                     "name": "product",
                     "created_by": "test",
-                    "created_at": "2026-07-14",
-                    "output_folder": "runs",
+                    "output_folder": str(tmp_path / "runs"),
                 },
-                "preprocessing_config_path": "preprocess.yaml",
-                "training_config_path": "train.yaml",
+                "preprocessing_config_path": str(tmp_path / "preprocess.yaml"),
+                "training_config_path": str(tmp_path / "train.yaml"),
             }
         ),
         encoding="utf-8",
@@ -127,7 +126,7 @@ def test_workflow_passes_preprocessing_dataframe_directly_to_training(
     assert received["dataframe"] is frame
     assert received["preprocessing_artifact"] is preprocessing_artifact
     assert Path(received["dataframe_joblib_path"]).name == "dataframe.joblib"
-    assert received["workflow_config_yaml"] == config_path.read_text(encoding="utf-8")
+    assert received["preprocess_train_config_yaml"] == config_path.read_text(encoding="utf-8")
     assert result["preprocessing_dataframe"] is frame
     summary = json.loads(
         (Path(result["run_folder"]) / "preprocessing" / "cohort_summary.json").read_text(
@@ -142,8 +141,8 @@ def test_workflow_passes_preprocessing_dataframe_directly_to_training(
 @pytest.mark.parametrize(
     ("payload", "message"),
     [
-        ({}, "Missing workflow fields"),
-        ({"contract": "wrong", "workflow": {}}, "Missing workflow fields"),
+        ({}, "Missing preprocess-train fields"),
+        ({"contract": "wrong", "preprocess_train": {}}, "Missing preprocess-train fields"),
     ],
 )
 def test_workflow_contract_rejects_incomplete_config(
@@ -151,7 +150,7 @@ def test_workflow_contract_rejects_incomplete_config(
     payload: dict[str, object],
     message: str,
 ):
-    config_path = tmp_path / "workflow.yaml"
+    config_path = tmp_path / "preprocess_train.yaml"
     config_path.write_text(yaml.safe_dump(payload), encoding="utf-8")
     with pytest.raises(ValueError, match=message):
         workflows.run_preprocess_train_from_config(config_path)
@@ -164,11 +163,10 @@ def test_training_config_rejects_unknown_and_resolves_packaged_path(tmp_path: Pa
             "name": "test",
             "version": "0.1-beta",
             "created_by": "test",
-            "created_at": "2026-07-14",
             "clinical_stage": "research draft",
             "intended_use": "test",
-            "mode": "evaluation",
         },
+        "run": {"evaluation": True, "train_on_all": False},
         "input": {"dataframe_joblib_path": "input.joblib"},
         "output": {"folder": "out"},
         "model": {"recipe": "m2q_gated_target_case_v0_1"},

@@ -46,25 +46,29 @@ def run_prediction_from_config(config_path: str | Path) -> dict[str, Any]:
     )
     patient_id = str(config["patient"]["patient_id"])
     target_side = _prediction_target_side(config, patient_id)
-    feature_row = build_patient_prediction_feature_row(
-        df,
-        model_info,
-        patient_id=patient_id,
-        target_side=target_side,
-        **_prediction_columns(model_artifact),
-    )
-    model_route = _prediction_model_route(feature_row, model_info)
-    p_cancer = _score_model(feature_row, model_name, model_info, model_route)
     threshold_key = _prediction_contract(model_artifact)["decision"]["threshold_key"]
-    threshold = _model_threshold(model_info, threshold_key, model_route)
-    suggested_class = "CANCER" if p_cancer >= threshold else "BENIGN"
-    side_profile_scores = _side_profile_scores(
+    target_prediction = _side_prediction(
         df,
         model_info,
         patient_id=patient_id,
         target_side=target_side,
         columns=_prediction_columns(model_artifact),
-        feature_row=feature_row,
+        model_name=model_name,
+        threshold_key=threshold_key,
+    )
+    contralateral_side = target_prediction["feature_row"].get("contralateral_side")
+    contralateral_prediction = (
+        _side_prediction(
+            df,
+            model_info,
+            patient_id=patient_id,
+            target_side=contralateral_side,
+            columns=_prediction_columns(model_artifact),
+            model_name=model_name,
+            threshold_key=threshold_key,
+        )
+        if _normalize_side(contralateral_side) is not None
+        else _unavailable_side_prediction()
     )
     reports = _prediction_reports(
         config=config,
@@ -74,14 +78,8 @@ def run_prediction_from_config(config_path: str | Path) -> dict[str, Any]:
         model_id=model_id,
         model_name=model_name,
         model_version=model_version,
-        model_info=model_info,
-        model_route=model_route,
-        feature_row=feature_row,
-        p_cancer=p_cancer,
-        threshold_key=threshold_key,
-        threshold=threshold,
-        suggested_class=suggested_class,
-        side_profile_scores=side_profile_scores,
+        target_prediction=target_prediction,
+        contralateral_prediction=contralateral_prediction,
     )
     _write_text(output_paths["external_json"], _json_dumps(reports["external_report"]))
     _write_text(
@@ -190,6 +188,80 @@ def _score_model(
     return float(final_model.predict_proba(feature_row[columns])[:, 1][0])
 
 
+def _side_prediction(
+    df: pd.DataFrame,
+    model_info: dict[str, Any],
+    *,
+    patient_id: str,
+    target_side: Any,
+    columns: dict[str, str],
+    model_name: str,
+    threshold_key: str,
+) -> dict[str, Any]:
+    """Score one requested side with the same final M2Q artifact."""
+    feature_table = build_patient_prediction_feature_row(
+        df,
+        model_info,
+        patient_id=patient_id,
+        target_side=str(target_side),
+        **columns,
+    )
+    feature_row = feature_table.iloc[0].to_dict()
+    model_route = _prediction_model_route(feature_table, model_info)
+    p_cancer = _score_model(feature_table, model_name, model_info, model_route)
+    threshold = _model_threshold(model_info, threshold_key, model_route)
+    profile = _side_profile_score(
+        df,
+        model_info,
+        patient_id=patient_id,
+        side=target_side,
+        columns=columns,
+    )
+    return {
+        "available": True,
+        "reason": None,
+        "feature_row": feature_row,
+        "model_route": model_route,
+        "p_cancer": p_cancer,
+        "profile_p_cancer": profile["profile_p_cancer"],
+        "threshold_key": threshold_key,
+        "threshold": threshold,
+        "suggested_class": "CANCER" if p_cancer >= threshold else "BENIGN",
+        "quantiles": _prediction_quantiles(model_info, p_cancer),
+    }
+
+
+def _unavailable_side_prediction() -> dict[str, Any]:
+    return {
+        "available": False,
+        "reason": "contralateral breast is absent after preprocessing",
+    }
+
+
+def _prediction_quantiles(model_info: dict[str, Any], p_cancer: float) -> dict[str, float]:
+    """Locate a score in frozen train-on-all empirical score distributions."""
+    reference = model_info.get("prediction_reference_scores")
+    if not isinstance(reference, dict):
+        raise ValueError(
+            "Model artifact has no prediction_reference_scores. Retrain model."
+        )
+    keys = {
+        "training_cohort_quantile": "all_target_cases",
+        "benign_cohort_quantile": "benign_target_cases",
+        "cancer_cohort_quantile": "cancer_target_cases",
+    }
+    out: dict[str, float] = {}
+    for report_key, reference_key in keys.items():
+        values = np.asarray(reference.get(reference_key, []), dtype=float)
+        values = values[np.isfinite(values)]
+        if values.size == 0:
+            raise ValueError(
+                f"Model prediction reference has no values for {reference_key!r}."
+            )
+        out[report_key] = float(np.searchsorted(np.sort(values), p_cancer, side="right") / values.size)
+    return out
+
+
 def _prediction_reports(
     *,
     config: dict[str, Any],
@@ -199,21 +271,16 @@ def _prediction_reports(
     model_id: str,
     model_name: str,
     model_version: str,
-    model_info: dict[str, Any],
-    model_route: str | None,
-    feature_row,
-    p_cancer: float,
-    threshold_key: str,
-    threshold: float,
-    suggested_class: str,
-    side_profile_scores: dict[str, Any],
+    target_prediction: dict[str, Any],
+    contralateral_prediction: dict[str, Any],
 ) -> dict[str, Any]:
-    row = feature_row.iloc[0].to_dict()
+    row = target_prediction["feature_row"]
     created_at = _report_timestamp()
     reporting = _prediction_contract(model_artifact)["reporting"]
     common = {
         "created_at": created_at,
         "analysis_author": config["run"]["analysis_author"],
+        "prediction_comment": config["run"].get("prediction_comment", ""),
         "patient_id": str(config["patient"]["patient_id"]),
         "target_side": row["target_side"],
         "model_id": model_id,
@@ -224,25 +291,16 @@ def _prediction_reports(
     external = _external_report(
         common=common,
         version=str(reporting["external_report"]["version"]),
-        suggested_class=suggested_class,
+        suggested_class=target_prediction["suggested_class"],
         reliability=row["result_reliability"],
         reliability_reason=row["result_reliability_reason"],
     )
     internal = _internal_report(
-        config=config,
         common=common,
         version=str(reporting["internal_report"]["version"]),
         reference_doc=reporting["internal_report"].get("reference_doc"),
-        p_cancer=p_cancer,
-        threshold_key=threshold_key,
-        threshold=threshold,
-        suggested_class=suggested_class,
-        reliability=row["result_reliability"],
-        reliability_reason=row["result_reliability_reason"],
-        feature_row=row,
-        model_route=model_route,
-        model_info=model_info,
-        side_profile_scores=side_profile_scores,
+        target_prediction=target_prediction,
+        contralateral_prediction=contralateral_prediction,
         model_artifact_sha256=_file_sha256(model_path),
     )
     return _json_safe({"external_report": external, "internal_report": internal})
@@ -261,6 +319,8 @@ def _external_report(
         "report_version": version,
         "report_id": common["report_id"],
         "created_at": common["created_at"],
+        "analysis_author": common["analysis_author"],
+        "prediction_comment": common["prediction_comment"],
         "patient_id": common["patient_id"],
         "target_side": _lower_side(common["target_side"]),
         "model_version": common["model_version"],
@@ -272,31 +332,15 @@ def _external_report(
 
 def _internal_report(
     *,
-    config: dict[str, Any],
     common: dict[str, Any],
     version: str,
     reference_doc: str | None,
-    p_cancer: float,
-    threshold_key: str,
-    threshold: float,
-    suggested_class: str,
-    reliability: str,
-    reliability_reason: str,
-    feature_row: dict[str, Any],
-    model_route: str | None,
-    model_info: dict[str, Any],
-    side_profile_scores: dict[str, Any],
+    target_prediction: dict[str, Any],
+    contralateral_prediction: dict[str, Any],
     model_artifact_sha256: str,
 ) -> dict[str, Any]:
+    feature_row = target_prediction["feature_row"]
     age_available = bool(feature_row.get("age_available", False))
-    final_prediction = {
-        "p_cancer": p_cancer,
-        "decision_threshold_id": _decision_threshold_id(threshold_key),
-        "decision_threshold": threshold,
-        "suggested_class": suggested_class,
-    }
-    if model_route is not None:
-        final_prediction["model_route"] = model_route
     return {
         "output_type": "aramis_internal_clinical_report",
         "report_version": version,
@@ -304,50 +348,57 @@ def _internal_report(
         "report_id": common["report_id"],
         "created_at": common["created_at"],
         "analysis_author": common["analysis_author"],
+        "prediction_comment": common["prediction_comment"],
         "model": {
             "id": common["model_id"],
             "name": common["model_name"],
             "version": common["model_version"],
             "artifact_sha256": model_artifact_sha256,
         },
-        "prediction_config": _prediction_config_snapshot(config),
         "scan_metadata": _scan_metadata(
             feature_row,
             patient_id=common["patient_id"],
             target_side=common["target_side"],
             age_available=age_available,
         ),
-        "evidence": {
-            "target_profile": _profile_evidence(side_profile_scores["target"]),
-            "contralateral_profile": _profile_evidence(side_profile_scores["contralateral"]),
-            "symmetry": _symmetry_report_block(
-                feature_row,
-                model_info=model_info,
-                model_route=model_route,
-            ),
-            "reliability": {
-                "level": reliability,
-                "reason": reliability_reason,
-            },
+        "breast_predictions": {
+            "target": _breast_prediction_report(target_prediction),
+            "contralateral": _breast_prediction_report(contralateral_prediction),
         },
-        "final_prediction": final_prediction,
     }
 
 
-def _profile_evidence(score: dict[str, Any]) -> dict[str, Any]:
+def _breast_prediction_report(prediction: dict[str, Any]) -> dict[str, Any]:
+    if not prediction["available"]:
+        return {
+            "available": False,
+            "side": None,
+            "reason": prediction["reason"],
+        }
+    row = prediction["feature_row"]
     return {
-        "available": bool(score.get("available", False)),
-        "profile_p_cancer": score.get("profile_p_cancer"),
-        "measurement_p_cancer": score.get("measurement_p_cancer", []),
-    }
-
-
-def _prediction_config_snapshot(config: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "run": {"analysis_author": config["run"]["analysis_author"]},
-        "patient": {
-            "patient_id": str(config["patient"]["patient_id"]),
-            "target_side": _lower_side(config["patient"]["target_side"]),
+        "available": True,
+        "side": _lower_side(row["target_side"]),
+        "profile_only": {
+            "p_cancer": prediction["profile_p_cancer"],
+        },
+        "final_prediction": {
+            "p_cancer": prediction["p_cancer"],
+            "decision_threshold_id": _decision_threshold_id(prediction["threshold_key"]),
+            "decision_threshold": prediction["threshold"],
+            "suggested_class": prediction["suggested_class"],
+        },
+        "training_cohort_quantile": prediction["quantiles"]["training_cohort_quantile"],
+        "benign_cohort_quantile": prediction["quantiles"]["benign_cohort_quantile"],
+        "cancer_cohort_quantile": prediction["quantiles"]["cancer_cohort_quantile"],
+        "features": {
+            "symmetry": {
+                "available": bool(row.get("symmetry_available", 0)),
+            },
+            "reliability": {
+                "level": row["result_reliability"],
+                "reason": row["result_reliability_reason"],
+            },
         },
     }
 
@@ -494,24 +545,6 @@ def _side_profile_score(
     }
 
 
-def _symmetry_report_block(
-    feature_row: dict[str, Any],
-    *,
-    model_info: dict[str, Any],
-    model_route: str | None,
-) -> dict[str, Any]:
-    route_info = model_info.get("routes", {}).get(model_route, model_info)
-    keys = [
-        key
-        for key in route_info.get("feature_columns", [])
-        if str(key).startswith("sk_")
-    ]
-    return {
-        "available": bool(feature_row.get("symmetry_available", 0)),
-        "selected_features": {key: feature_row.get(key) for key in keys},
-    }
-
-
 def _logit_average_probability(scores: Any) -> float:
     values = np.asarray(scores, dtype=float)
     if values.size == 0:
@@ -637,7 +670,7 @@ def _validate_prediction_config(config: dict[str, Any], config_path: Path) -> No
         )
     _reject_unknown_fields(
         config["run"],
-        allowed={"analysis_author", "synthetic_test_mode"},
+        allowed={"analysis_author", "prediction_comment", "synthetic_test_mode"},
         where="run",
     )
     _reject_unknown_fields(
@@ -668,6 +701,8 @@ def _validate_prediction_config(config: dict[str, Any], config_path: Path) -> No
         )
     if not config.get("run", {}).get("analysis_author"):
         raise ValueError(f"Missing run.analysis_author in {config_path}")
+    if not isinstance(config.get("run", {}).get("prediction_comment", ""), str):
+        raise TypeError(f"run.prediction_comment must be a string in {config_path}")
     if not config.get("patient", {}).get("patient_id"):
         raise ValueError(f"Missing patient.patient_id in {config_path}")
     if not config.get("patient", {}).get("target_side"):
@@ -804,7 +839,7 @@ def _config_path(
     path = Path(str(value)).expanduser()
     if path.is_absolute():
         return path
-    return (config_path.parent / path).resolve()
+    return (Path(__file__).resolve().parents[2] / path).resolve()
 
 
 def _file_sha256(path: str | Path) -> str:

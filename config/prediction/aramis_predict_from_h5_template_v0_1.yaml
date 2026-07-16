@@ -1,10 +1,11 @@
 run:
   analysis_author: Sergey Denisov
+  prediction_comment: ""
 
 io:
   input_h5_path: /path/to/one_patient_left_right_breasts.h5
-  input_model_joblib_path: ../../examples/prediction_models/aramis_m2q_t100_0_2_7_beta.joblib
-  output_folder: ../../examples/outputs/prediction
+  input_model_joblib_path: ./examples/prediction_models/aramis_m2q_t100_0_2_7_beta.joblib
+  output_folder: ./examples/outputs/prediction
 
 patient:
   patient_id: PATIENT_ID_FROM_H5

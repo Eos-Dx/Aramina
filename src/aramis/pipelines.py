@@ -121,7 +121,7 @@ def _config_path(config: dict[str, Any], config_path: Path, key: str) -> Path:
     path = Path(str(value)).expanduser()
     if path.is_absolute():
         return path
-    return (config_path.parent / path).resolve()
+    return (Path(__file__).resolve().parents[2] / path).resolve()
 
 
 def _load_config(config: dict[str, Any] | str | Path) -> dict[str, Any]:
