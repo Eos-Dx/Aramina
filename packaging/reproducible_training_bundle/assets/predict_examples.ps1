@@ -57,8 +57,13 @@ try {
     }
     $containerModel = "/opt/Aramis/examples/outputs/" + $resolvedModel.Substring($prefix.Length).Replace('\', '/')
 
-    & docker.exe image inspect $ImageTag *> $null
-    if ($LASTEXITCODE -ne 0) {
+    $imageInspect = Start-Process `
+        -FilePath "docker.exe" `
+        -ArgumentList @("image", "inspect", $ImageTag) `
+        -WindowStyle Hidden `
+        -Wait `
+        -PassThru
+    if ($imageInspect.ExitCode -ne 0) {
         if (-not (Test-Path $ImageArchive)) {
             throw "Missing Docker image archive: $ImageArchive"
         }
