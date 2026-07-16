@@ -111,7 +111,15 @@ def _project_path(value: Any, config_path: Path) -> Path:
     path = Path(str(value)).expanduser()
     if path.is_absolute():
         return path
-    return (Path(__file__).resolve().parents[2] / path).resolve()
+    return (_project_root(config_path) / path).resolve()
+
+
+def _project_root(config_path: Path) -> Path:
+    """Find the project root for a config stored under ``config/``."""
+    for parent in config_path.parents:
+        if parent.name == "config":
+            return parent.parent
+    return config_path.parent
 
 
 def _preprocess_train_run_folder(config: dict[str, Any], config_path: Path) -> Path:

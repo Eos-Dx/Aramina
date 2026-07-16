@@ -138,6 +138,49 @@ def test_workflow_passes_preprocessing_dataframe_directly_to_training(
     assert summary["input_h5_sha256"] == "abc"
 
 
+def test_workflow_resolves_root_relative_paths_from_external_config_tree(
+    monkeypatch,
+    tmp_path: Path,
+):
+    config_path = tmp_path / "Aramis" / "config" / "preprocess_train" / "product.yaml"
+    config_path.parent.mkdir(parents=True)
+    config_path.write_text(
+        yaml.safe_dump(
+            {
+                "contract": workflows.PREPROCESS_TRAIN_CONTRACT,
+                "preprocess_train": {
+                    "name": "product",
+                    "created_by": "test",
+                    "output_folder": "./examples/outputs/preprocess_train",
+                },
+                "preprocessing_config_path": "./config/preprocessing/preprocess.yaml",
+                "training_config_path": "./config/training/train.yaml",
+            }
+        ),
+        encoding="utf-8",
+    )
+    received: dict[str, object] = {}
+    frame = pd.DataFrame({"patientId": ["P01"]})
+    monkeypatch.setattr(
+        workflows,
+        "run_preprocessing_artifact_from_config",
+        lambda config, output_joblib_path: received.update(preprocess=config)
+        or {"dataframe": frame, "metadata": {}},
+    )
+    monkeypatch.setattr(
+        workflows,
+        "run_training_from_config",
+        lambda config, **kwargs: received.update(training=config) or {},
+    )
+
+    result = workflows.run_preprocess_train_from_config(config_path)
+
+    project_root = config_path.parents[2]
+    assert received["preprocess"] == project_root / "config/preprocessing/preprocess.yaml"
+    assert received["training"] == project_root / "config/training/train.yaml"
+    assert result["run_folder"].is_relative_to(project_root / "examples/outputs")
+
+
 @pytest.mark.parametrize(
     ("payload", "message"),
     [
