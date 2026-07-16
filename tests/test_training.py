@@ -65,7 +65,7 @@ def _training_config(
             "intended_use": "Synthetic decision-support test.",
         },
         "run": {
-            "evaluation": mode == "evaluation",
+            "evaluation": mode in {"evaluation", "final_fit"},
             "train_on_all": mode == "final_fit",
         },
         "input": {"dataframe_joblib_path": str(input_path)},
