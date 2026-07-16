@@ -8,14 +8,16 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
 WORKDIR /opt
 
 RUN apt-get update \
-    && apt-get install --yes --no-install-recommends build-essential \
+    && apt-get install --yes --no-install-recommends \
+        build-essential \
+        ocl-icd-libopencl1 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY XRD-preprocessing /opt/XRD-preprocessing
 
 # Linux pyFAI is deliberately pinned: it is the validated integration runtime.
 RUN python -m pip install --upgrade pip \
-    && python -m pip install pyFAI==2026.5.0 fabio==2025.10.0 \
+    && python -m pip install pyFAI==2026.5.0 fabio==2025.10.0 pyopencl==2026.1.2 \
     && python -m pip install /opt/XRD-preprocessing
 
 COPY Aramis /opt/Aramis
