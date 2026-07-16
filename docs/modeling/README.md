@@ -49,7 +49,7 @@ sk_symmetry_features_v0_1.md
 
 ```text
 ../contracts/training_config_v0_1.md
-  training YAML, fixed evaluation, final-fit artifact structure
+  training YAML, fixed evaluation, and train-on-all artifact structure
 
 prediction_pipeline_v0_1.md
   one-patient H5 prediction route and report schema

@@ -26,7 +26,7 @@ evaluation:
   random_seed: 42
 ```
 
-All relative paths resolve from the Aramis project root. At least one `run` flag must be true. `evaluation` writes patient-safe evaluation artifacts. `train_on_all` writes a frozen executable model; it can be run with or without an evaluation artifact. The public YAML may change only the evaluation size and seed. The recipe fixes architecture, feature schema, LR1/LR2 regularization, label policy, prediction preprocessing, and target sensitivity.
+All relative paths resolve from the Aramis project root. At least one `run` flag must be true. `evaluation` writes patient-safe evaluation artifacts. `train_on_all` writes a frozen executable model; it can be run with or without an evaluation artifact. The caller may set run flags, run identity, input/output paths, and supported evaluation folds, repeats, and seed. The recipe fixes architecture, feature schema, LR1/LR2 regularization, label policy, prediction preprocessing, and target sensitivity.
 
 ```bash
 python -m aramis train --list-recipes

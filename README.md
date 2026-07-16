@@ -155,6 +155,12 @@ docs/contracts/training_config_v0_1.md
 config/training/README.md
 ```
 
+Combined preprocessing and training contract:
+
+```text
+config/preprocess_train/README.md
+```
+
 Evidence for choices:
 
 ```text

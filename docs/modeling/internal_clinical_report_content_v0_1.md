@@ -7,13 +7,14 @@ The report is produced once per request and contains two consistently shaped blo
 ```yaml
 output_type: aramis_internal_clinical_report
 report_version: "0.1"
+reference_doc: ./docs/modeling/internal_clinical_report_content_v0_1.md
 report_id: GENERATED_UNIQUE_ID
 created_at: "2026-07-16T14:11:00+02:00"
 analysis_author: REQUESTING_ANALYST
 prediction_comment: "optional free-text request comment"
 model:
   id: MODEL_ARTIFACT_ID
-  name: aramis_m2q_t100
+  name: M2Q
   version: 0.2.7-beta
   artifact_sha256: SHA256
 scan_metadata:
@@ -22,7 +23,13 @@ scan_metadata:
   patient_age: 53.0
   patient_age_available: true
   session_id: H5_SESSION_ID
+  scan_date_time: "2026-07-16T14:11:00+02:00"
   operator_id: EOSCAN_OPERATOR
+  hardware_version: human-1 v1.2.0
+  eoscan_version: unknown
+  experimental_protocol_version: unknown
+  mammography_suspicious_field: unknown
+  mammography_conclusion: unknown
   measurement_summary: {}
 breast_predictions:
   target: {}
@@ -77,6 +84,13 @@ final_prediction:
 training_cohort_quantile: unknown
 benign_cohort_quantile: unknown
 cancer_cohort_quantile: unknown
+features:
+  symmetry:
+    available: false
+    status: not_available
+  reliability:
+    level: unknown
+    reason: unknown
 reason: contralateral breast is unavailable after preprocessing
 ```
 

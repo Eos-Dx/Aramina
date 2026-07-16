@@ -14,7 +14,6 @@ Required package groups:
 ```text
 H5/container:
   h5py
-  eosdx-container from /Users/sad/dev/container
 
 RAW GFRM / XRD physics:
   xrd-preprocessing
@@ -45,12 +44,13 @@ Current Aramis product config references:
 xrd_preprocessing.release_tag = v0.1.7-beta
 ```
 
-For local development, `environment.yml` installs:
+For local development, create or update the Conda environment, then install
+the checked-out Aramis package. Its `pyproject.toml` installs the pinned
+`xrd-preprocessing` dependency:
 
 ```text
-/Users/sad/dev/container
-/Users/sad/dev/XRD-preprocessing[dev]
-/Users/sad/dev/Aramis[dev]
+conda env update -n eosproduct -f environment.yml
+python -m pip install -e ".[dev]"
 ```
 
 For reproducible package metadata, `pyproject.toml` points Aramis to:

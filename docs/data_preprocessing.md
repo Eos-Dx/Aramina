@@ -126,13 +126,14 @@ Shared policy file:
 config/preprocessing/shared/aramis_policy_v0_1.yaml
 ```
 
-Its `io.input_h5_path` resolves to `../data/combined_archive.h5` relative to
-the Aramis checkout. A standard workspace is therefore:
+Operational `io.input_h5_path` paths resolve from the Aramis project root.
+The primary development config therefore uses `./data/combined_archive.h5`.
+A standard workspace is:
 
 ```text
 workspace/
   Aramis/
-  data/combined_archive.h5
+    data/combined_archive.h5
 ```
 
 ## Fixed Numerical Choices

@@ -1,5 +1,5 @@
 param(
-    [string]$WorkflowConfig = "config/workflows/aramis_biopsy_patients_primary_workflow_v0_1.yaml"
+    [string]$PreprocessTrainConfig = "config/preprocess_train/aramis_biopsy_patients_primary_preprocess_train_v0_1.yaml"
 )
 
 $ErrorActionPreference = "Stop"
@@ -118,20 +118,20 @@ function Ensure-DockerDesktop {
     throw "Docker Desktop is installed but its Linux engine did not start within five minutes. Open Docker Desktop, resolve its shown error, then rerun this script."
 }
 
-function Resolve-WorkflowConfig {
+function Resolve-PreprocessTrainConfig {
     param([string]$Value)
     $configRoot = (Resolve-Path -LiteralPath $ConfigDir).Path
     $candidate = Join-Path $BundleDir $Value
-    $workflowPath = (Resolve-Path -LiteralPath $candidate -ErrorAction Stop).Path
+    $preprocessTrainPath = (Resolve-Path -LiteralPath $candidate -ErrorAction Stop).Path
     $configRootWithSeparator = $configRoot.TrimEnd([char[]]@('\', '/')) + '\'
-    if (-not $workflowPath.StartsWith($configRootWithSeparator, [System.StringComparison]::OrdinalIgnoreCase)) {
-        throw "Workflow config must be inside bundled config/: $Value"
+    if (-not $preprocessTrainPath.StartsWith($configRootWithSeparator, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "Preprocess-train config must be inside bundled config/: $Value"
     }
-    $relative = $workflowPath.Substring($configRootWithSeparator.Length).Replace('\', '/')
-    if (-not $relative.StartsWith("workflows/")) {
-        throw "Workflow config must be inside bundled config/workflows/: $Value"
+    $relative = $preprocessTrainPath.Substring($configRootWithSeparator.Length).Replace('\', '/')
+    if (-not $relative.StartsWith("preprocess_train/")) {
+        throw "Preprocess-train config must be inside bundled config/preprocess_train/: $Value"
     }
-    return "/opt/aramis-bundle-config/$relative"
+    return "/opt/Aramis/config/$relative"
 }
 
 try {
@@ -140,8 +140,8 @@ try {
 
     $script:DockerExe = Ensure-DockerDesktop
     & $script:DockerExe version | Out-Host
-    $ResolvedWorkflowConfig = Resolve-WorkflowConfig $WorkflowConfig
-    Write-Host "Workflow config: $ResolvedWorkflowConfig"
+    $ResolvedPreprocessTrainConfig = Resolve-PreprocessTrainConfig $PreprocessTrainConfig
+    Write-Host "Preprocess-train config: $ResolvedPreprocessTrainConfig"
 
     $H5Path = Join-Path $DataDir "combined_archive.h5"
     if (-not (Test-Path $H5Path)) {
@@ -177,10 +177,10 @@ try {
     Invoke-Docker "Run Linux preprocessing and training" @(
         "run", "--rm", "--platform", $ImagePlatform,
         "--mount", "type=bind,src=$DataDir,dst=/opt/data,readonly",
-        "--mount", "type=bind,src=$ConfigDir,dst=/opt/aramis-bundle-config,readonly",
+        "--mount", "type=bind,src=$ConfigDir,dst=/opt/Aramis/config,readonly",
         "--mount", "type=bind,src=$OutputDir,dst=/opt/Aramis/examples/outputs",
         $ImageTag,
-        "bash", "/opt/aramis-bundle/run_training_docker.sh", "--workflow-config", $ResolvedWorkflowConfig
+        "bash", "/opt/aramis-bundle/run_training_docker.sh", "--preprocess-train-config", $ResolvedPreprocessTrainConfig
     )
 
     Write-Stage "Bundle completed"

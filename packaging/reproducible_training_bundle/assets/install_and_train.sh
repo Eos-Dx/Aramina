@@ -10,12 +10,12 @@ mkdir -p "${LOG_DIR}"
 LOG_PATH="${LOG_DIR}/install_and_train_$(date -u +%Y%m%dT%H%M%SZ).log"
 exec > >(tee -a "${LOG_PATH}") 2>&1
 
-DEFAULT_WORKFLOW_CONFIG="config/workflows/aramis_biopsy_patients_primary_workflow_v0_1.yaml"
-WORKFLOW_CONFIG="${DEFAULT_WORKFLOW_CONFIG}"
+DEFAULT_PREPROCESS_TRAIN_CONFIG="config/preprocess_train/aramis_biopsy_patients_primary_preprocess_train_v0_1.yaml"
+PREPROCESS_TRAIN_CONFIG="${DEFAULT_PREPROCESS_TRAIN_CONFIG}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --workflow-config)
-      WORKFLOW_CONFIG="$2"
+    --preprocess-train-config)
+      PREPROCESS_TRAIN_CONFIG="$2"
       shift 2
       ;;
     *)
@@ -25,15 +25,15 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-case "${WORKFLOW_CONFIG}" in
-  config/workflows/*.yaml|config/workflows/*.yml) ;;
-  *) echo "Workflow config must be under config/workflows/: ${WORKFLOW_CONFIG}" >&2; exit 2 ;;
+case "${PREPROCESS_TRAIN_CONFIG}" in
+  config/preprocess_train/*.yaml|config/preprocess_train/*.yml) ;;
+  *) echo "Preprocess-train config must be under config/preprocess_train/: ${PREPROCESS_TRAIN_CONFIG}" >&2; exit 2 ;;
 esac
-[[ -f "${BUNDLE_DIR}/${WORKFLOW_CONFIG}" ]] || {
-  echo "Missing workflow config: ${BUNDLE_DIR}/${WORKFLOW_CONFIG}" >&2
+[[ -f "${BUNDLE_DIR}/${PREPROCESS_TRAIN_CONFIG}" ]] || {
+  echo "Missing preprocess-train config: ${BUNDLE_DIR}/${PREPROCESS_TRAIN_CONFIG}" >&2
   exit 2
 }
-CONTAINER_WORKFLOW_CONFIG="/opt/aramis-bundle-config/${WORKFLOW_CONFIG#config/}"
+CONTAINER_PREPROCESS_TRAIN_CONFIG="/opt/Aramis/${PREPROCESS_TRAIN_CONFIG}"
 
 read_manifest() {
   python3 - "${MANIFEST}" "$1" <<'PY'
@@ -84,9 +84,9 @@ stage "Run Linux preprocessing and training"
 mkdir -p "${OUTPUT_DIR}"
 docker run --rm --platform "${IMAGE_PLATFORM}" \
   --mount "type=bind,src=${DATA_DIR},dst=/opt/data,readonly" \
-  --mount "type=bind,src=${BUNDLE_DIR}/config,dst=/opt/aramis-bundle-config,readonly" \
+  --mount "type=bind,src=${BUNDLE_DIR}/config,dst=/opt/Aramis/config,readonly" \
   --mount "type=bind,src=${OUTPUT_DIR},dst=/opt/Aramis/examples/outputs" \
   "${IMAGE_TAG}" \
-  bash /opt/aramis-bundle/run_training_docker.sh --workflow-config "${CONTAINER_WORKFLOW_CONFIG}"
+  bash /opt/aramis-bundle/run_training_docker.sh --preprocess-train-config "${CONTAINER_PREPROCESS_TRAIN_CONFIG}"
 
 printf 'Log saved to: %s\n' "${LOG_PATH}"

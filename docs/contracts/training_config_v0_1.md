@@ -39,4 +39,11 @@ All relative paths resolve from the Aramis project root. Unknown or missing fiel
 
 At least one `run` flag must be `true`. Both may be `true`. Evaluation chooses a threshold independently in each training fold and scores only held-out patients. Train-on-all freezes its own threshold from complete-cohort scores at the recipe target sensitivity. The latter is an in-sample operating point, not an independent validation claim.
 
+The caller may change `training` identity fields, `input`, `output`, the two
+`run` flags, and `evaluation.folds`, `evaluation.repeats`, or
+`evaluation.random_seed`. `evaluation.method` remains
+`repeated_stratified_kfold` in this contract. Recipe-owned architecture,
+feature schema, regularization, label mapping, target sensitivity, and
+prediction preprocessing are not public YAML switches.
+
 Training requires an Aramis preprocessing artifact with the resolved preprocessing YAML and input-H5 SHA256. The final joblib stores executable estimators, frozen thresholds, score reference distributions for internal report quantiles, all resolved YAML snapshots, source-H5 checksum, code provenance, and runtime package versions. Detailed fold predictions and metrics remain next to the model as `evaluation.*` artifacts.

@@ -13,10 +13,9 @@ config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
 examples/outputs/model_input/aramis_biopsy_patients_model_input_v0_1.joblib
 ```
 
-The existing training YAML name is retained as a runnable development fixture.
-Its layout and final model-artifact name will be revised in the next
-configuration stage; it does not replace the fixed model record in
-`m2q_gated_target_case_model_v0_1.md`.
+The runnable training YAML is the current public training contract. The fixed
+architecture, regularization, threshold policy, and evaluation record remain
+defined by `m2q_gated_target_case_model_v0_1.md`.
 
 Current counts:
 
@@ -52,7 +51,7 @@ The current cohort is biopsy-patient based:
 include patient if at least one breast/specimen has biopsy=True
 keep contralateral breast rows for that patient
 do not require both breasts to be biopsy-positive
-do not require two breasts for one-to-many profile modeling
+do not require two breasts for target-breast profile modeling
 ```
 
 This cohort is intended for the first research-draft Aramis model because

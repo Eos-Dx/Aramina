@@ -49,10 +49,11 @@ Expected H5 shape is EOS H5 v0.3:
       artifacts/poni
 ```
 
-For prediction tests, Aramis builds three one-patient v0.3 containers in
-`tests/test_prediction.py`. Each file contains one patient, left/right breast
-specimens, and three measurement sets per breast. The test then calls
-`python -m aramis predict --config <patient_predict.yaml>` for each H5.
+The repository tracks three one-patient v0.3 integration fixtures under
+`examples/prediction_h5/`: benign, cancer, and atypical historical cases.
+Each contains one patient, left/right breast specimens, and three measurement
+sets per breast. Unit tests additionally create small synthetic H5 containers
+to verify invalid-contract cases.
 Prediction fails before preprocessing when the H5 root `@schema_version` or
 `@format` differs from the model-held prediction contract, or when more than one patientId is
 present in `/session/sets/set_*`.
@@ -116,7 +117,6 @@ aramis.__main__.main
 -> load model joblib
 -> parse resolved prediction_preprocessing_yaml from model joblib
 -> run prediction preprocessing, when io.input_h5_path is present
--> joblib.load(io.input_model_joblib_path)
 -> build_patient_prediction_feature_row(...)
 -> score artifact-selected M2Q
 -> write external report JSON/YAML
@@ -154,8 +154,10 @@ Prediction YAML specifies one output folder:
 
 ```yaml
 io:
-  output_folder: ../../examples/outputs/prediction
+  output_folder: ./examples/outputs/prediction
 ```
+
+The path is relative to the Aramis project root, not to the prediction YAML.
 
 Aramis writes automatic file names:
 
@@ -176,6 +178,8 @@ output_type: aramis_external_report
 report_version
 report_id
 created_at
+analysis_author
+prediction_comment
 patient_id
 target_side
 suggested_class
@@ -220,7 +224,9 @@ Internal report excludes profile statistics, filesystem paths, generic
 provenance, and output-file paths.
 
 The internal report scores the contralateral breast with the same final M2Q
-artifact for audit only. The external report remains target-side only.
+artifact for audit only. If no usable contralateral data remain after QC, that
+block is explicitly `unknown`; the target still uses the same LR2 with its
+gated SK terms neutralized. The external report remains target-side only.
 
 ## Current Limitations
 

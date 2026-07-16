@@ -102,7 +102,7 @@ decision unit: patientId during model selection
 patient-level biopsy policy
 keep contralateral rows for symmetry features
 NORMAL -> BENIGN product-label policy
-same XRD preprocessing as all-patients
+same technical XRD preprocessing route as the primary cohort
 ```
 
 This is the current primary development training dataset. Biopsy selection is

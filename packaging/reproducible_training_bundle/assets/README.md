@@ -30,30 +30,30 @@ starts it and waits up to five minutes for it to become ready.
 
 ## Select a configuration
 
-The bundle includes eleven YAML files: the training workflow and its required
-configs, plus the prediction preprocessing config and its required `extends`
-fragments. Select one workflow YAML; it names the preprocessing and training
-YAMLs that will be used. Those relative references are resolved within this
-bundled configuration tree.
+The bundle includes eleven YAML files: one `preprocess-train` config, its
+preprocessing and training configs, plus the prediction preprocessing config
+and required `extends` fragments. Select one preprocess-train YAML; it names
+the preprocessing and training YAMLs to use. All operational paths resolve
+from the mounted Aramis project root.
 
 Windows:
 
 ```powershell
-.\install_and_train.ps1 -WorkflowConfig config/workflows/aramis_biopsy_patients_primary_workflow_v0_1.yaml
+.\install_and_train.ps1 -PreprocessTrainConfig config/preprocess_train/aramis_biopsy_patients_primary_preprocess_train_v0_1.yaml
 ```
 
 macOS/Linux:
 
 ```bash
-./install_and_train.sh --workflow-config config/workflows/aramis_biopsy_patients_primary_workflow_v0_1.yaml
+./install_and_train.sh --preprocess-train-config config/preprocess_train/aramis_biopsy_patients_primary_preprocess_train_v0_1.yaml
 ```
 
 To use a different evaluation, copy the standard training YAML, change only
-its `evaluation` section, then create a workflow YAML under `config/workflows/`
-which points to that training YAML and the desired preprocessing YAML. The
-model recipe is fixed inside the Docker image. A custom workflow is saved in
-the generated model artifacts; it deliberately skips comparison to the fixed
-reference model.
+its `evaluation` section, then create a preprocess-train YAML under
+`config/preprocess_train/` that points to it and the desired preprocessing
+YAML. The model recipe is fixed inside the Docker image. A custom
+preprocess-train run is saved in the generated model artifacts and deliberately
+skips comparison to the fixed reference model.
 
 ## macOS/Linux
 

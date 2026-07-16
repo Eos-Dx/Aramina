@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ARAMIS_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 XRD_ROOT="${XRD_ROOT:-${ARAMIS_ROOT}/../XRD-preprocessing}"
-SOURCE_H5="${SOURCE_H5:-${ARAMIS_ROOT}/../eos_play/jupyter_notebooks/Clinical_trials/data/product-aramis-data/combined_archive.h5}"
+SOURCE_H5="${SOURCE_H5:-${ARAMIS_ROOT}/data/combined_archive.h5}"
 DIST_DIR="${DIST_DIR:-${ARAMIS_ROOT}/dist}"
 BUNDLE_NAME="aramis_docker_training_bundle_0_2_14_beta"
 AMD64_IMAGE_TAG="eosdx/aramis-training:0.2.14-beta-amd64"
@@ -29,7 +29,7 @@ XRD_COMMIT="$(git -C "${XRD_ROOT}" rev-parse HEAD)"
 rm -rf "${WORK_DIR}" "${ARCHIVE_PATH}"
 mkdir -p \
   "${WORK_DIR}/data" \
-  "${WORK_DIR}/config/workflows" \
+  "${WORK_DIR}/config/preprocess_train" \
   "${WORK_DIR}/config/training" \
   "${WORK_DIR}/config/preprocessing/cohorts" \
   "${WORK_DIR}/config/preprocessing/exclusions" \
@@ -37,10 +37,8 @@ mkdir -p \
   "${WORK_DIR}/config/preprocessing/shared" \
   "${DIST_DIR}"
 cp "${SOURCE_H5}" "${WORK_DIR}/data/combined_archive.h5"
-sed \
-  's#output_folder: ../../examples/outputs/workflows#output_folder: /opt/Aramis/examples/outputs/workflows#' \
-  "${ARAMIS_ROOT}/config/workflows/aramis_biopsy_patients_primary_workflow_v0_1.yaml" \
-  > "${WORK_DIR}/config/workflows/aramis_biopsy_patients_primary_workflow_v0_1.yaml"
+cp "${ARAMIS_ROOT}/config/preprocess_train/aramis_biopsy_patients_primary_preprocess_train_v0_1.yaml" \
+  "${WORK_DIR}/config/preprocess_train/"
 cp "${ARAMIS_ROOT}/config/training/aramis_m2q_t100_primary_train_v0_1.yaml" \
   "${WORK_DIR}/config/training/"
 cp "${ARAMIS_ROOT}/config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml" \
@@ -60,7 +58,7 @@ cp "${ARAMIS_ROOT}/config/preprocessing/outputs/prediction_model_input_output_v0
 cp "${ARAMIS_ROOT}/config/preprocessing/shared/aramis_pipeline_v0_1.yaml" \
   "${WORK_DIR}/config/preprocessing/shared/"
 sed \
-  's#input_h5_path: ../../../data/combined_archive.h5#input_h5_path: /opt/data/combined_archive.h5#' \
+  's#input_h5_path: ./data/combined_archive.h5#input_h5_path: /opt/data/combined_archive.h5#' \
   "${ARAMIS_ROOT}/config/preprocessing/shared/aramis_policy_v0_1.yaml" \
   > "${WORK_DIR}/config/preprocessing/shared/aramis_policy_v0_1.yaml"
 cp "${SCRIPT_DIR}/assets/install_and_train.bat" "${WORK_DIR}/install_and_train.bat"
