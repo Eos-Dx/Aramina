@@ -117,9 +117,9 @@ These are research-draft evaluation results, not a clinical performance claim.
 threshold. The model joblib stores executable estimators, frozen threshold,
 resolved training YAML, historical preprocessing YAML, prediction
 preprocessing YAML, prediction contract, H5 lineage, and a concise frozen
-`model_performance` record. The same concise record is written beside the model
-as `model_performance.yaml` and `model_performance.json`. Full fold metrics and
-held-out predictions remain in `evaluation.*` files.
+`model_performance` record. The generated `model_description.yaml` provides
+the human-readable copy. Full fold metrics and held-out predictions remain in
+the `evaluation_metrics.csv` and `evaluation_predictions.csv` files.
 
 Train-all is useful for inspecting fitted-artifact separation and threshold
 behavior. It must not replace patient-safe evaluation.

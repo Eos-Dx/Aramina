@@ -482,7 +482,6 @@ def run_training_from_config(
         model_path=model_path,
     )
     _write_yaml(run_folder / "model_description.yaml", description)
-    _write_model_performance_outputs(model_artifact, run_folder)
     logger.info("Final model written: %s", model_path)
     model_artifact["run_folder"] = str(run_folder)
     model_artifact["model_path"] = str(model_path)
@@ -2352,26 +2351,25 @@ def _evaluation_artifact(
 
 
 def _write_evaluation_outputs(artifact: dict[str, Any], folder: Path) -> None:
-    joblib.dump(artifact, folder / "evaluation.joblib")
     artifact["split_metrics"].to_csv(folder / "evaluation_metrics.csv", index=False)
     artifact["split_predictions"].to_csv(
         folder / "evaluation_predictions.csv", index=False
     )
-    summary = {
-        "kind": artifact["kind"],
-        "version": artifact["version"],
-        "created_at": artifact["created_at"],
-        "model_name": artifact["model_name"],
-        "dataset_summary": _records(artifact["dataset_summary"]),
-        "metric_summary": _records(artifact["metric_summary"]),
-        "files": {
-            "joblib": "evaluation.joblib",
-            "metrics": "evaluation_metrics.csv",
-            "predictions": "evaluation_predictions.csv",
+    _write_yaml(
+        folder / "evaluation.yaml",
+        {
+            "kind": artifact["kind"],
+            "version": artifact["version"],
+            "created_at": artifact["created_at"],
+            "model_name": artifact["model_name"],
+            "dataset_summary": _records(artifact["dataset_summary"]),
+            "metric_summary": _records(artifact["metric_summary"]),
+            "files": {
+                "metrics": "evaluation_metrics.csv",
+                "predictions": "evaluation_predictions.csv",
+            },
         },
-    }
-    _write_json(folder / "evaluation.json", summary)
-    _write_yaml(folder / "evaluation.yaml", summary)
+    )
 
 
 def _final_model_artifact(
@@ -2473,13 +2471,6 @@ def _frozen_model_performance(
     return performance
 
 
-def _write_model_performance_outputs(artifact: dict[str, Any], folder: Path) -> None:
-    """Write a concise, human-readable copy of frozen model performance."""
-    performance = artifact["model_performance"]
-    _write_json(folder / "model_performance.json", performance)
-    _write_yaml(folder / "model_performance.yaml", performance)
-
-
 def _model_artifact_id(model: dict[str, Any], model_sha: str) -> str:
     return _safe_artifact_stem(
         f"{model['name']}_{model['version']}_{model_sha[:12]}"
@@ -2506,10 +2497,6 @@ def _model_description(
         "model_joblib": model_path.name,
         "model_joblib_sha256": model_sha,
         "model_performance": artifact["model_performance"],
-        "model_performance_files": {
-            "json": "model_performance.json",
-            "yaml": "model_performance.yaml",
-        },
         "decision_thresholds": _jsonable(model.get("thresholds", {})),
         "feature_schema": _jsonable(artifact["feature_schema"]),
         "dataset_summary": _records(artifact["dataset_summary"]),
@@ -2519,10 +2506,6 @@ def _model_description(
     }
 
 
-def _write_json(path: Path, payload: dict[str, Any]) -> None:
-    import json
-
-    path.write_text(json.dumps(_jsonable(payload), indent=2), encoding="utf-8")
 
 
 def _write_yaml(path: Path, payload: dict[str, Any]) -> None:

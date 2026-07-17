@@ -44,4 +44,4 @@ The caller may change `training` identity fields, `input`, `output`, the two
 feature schema, regularization, label mapping, target sensitivity, and
 prediction preprocessing are not public YAML switches.
 
-Training requires an Aramis preprocessing artifact with the resolved preprocessing YAML and input-H5 SHA256. The final joblib stores executable estimators, frozen thresholds, score reference distributions for internal report quantiles, all resolved YAML snapshots, source-H5 checksum, code provenance, and runtime package versions. Detailed fold predictions and metrics remain next to the model as `evaluation.*` artifacts.
+Training requires an Aramis preprocessing artifact with the resolved preprocessing YAML and input-H5 SHA256. The final joblib stores executable estimators, frozen thresholds, score reference distributions for internal report quantiles, all resolved YAML snapshots, source-H5 checksum, code provenance, and runtime package versions. `model_description.yaml` and `evaluation.yaml` provide the human-readable records; detailed fold metrics and held-out predictions remain in `evaluation_metrics.csv` and `evaluation_predictions.csv`.

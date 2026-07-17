@@ -208,9 +208,11 @@ def test_evaluation_mode_writes_patient_safe_footprint_only(tmp_path: Path):
     summary = artifact["metric_summary"].iloc[0]
     assert np.isfinite(summary["roc_auc_ci_low"])
     assert np.isfinite(summary["specificity_ci_high"])
-    assert (run_folder / "evaluation.joblib").exists()
     assert (run_folder / "evaluation_metrics.csv").exists()
     assert (run_folder / "evaluation_predictions.csv").exists()
+    assert not (run_folder / "evaluation.joblib").exists()
+    assert not (run_folder / "evaluation.json").exists()
+    assert (run_folder / "evaluation.yaml").exists()
     assert not (run_folder / "model.joblib").exists()
 
 
@@ -254,8 +256,8 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
         "sensitivity",
         "specificity",
     }
-    assert (model_path.parent / "model_performance.yaml").exists()
-    assert (model_path.parent / "model_performance.json").exists()
+    assert not (model_path.parent / "model_performance.yaml").exists()
+    assert not (model_path.parent / "model_performance.json").exists()
     reproducibility = artifact["reproducibility"]
     assert reproducibility["contract"] == "aramis_reproducibility_v0_1"
     assert reproducibility["reproduction_mode"] == "preprocessed_artifact_train"
@@ -269,9 +271,11 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
     assert description["model_id"] == result["model_id"]
     assert description["model_joblib_sha256"]
     assert description["model_performance"] == performance
-    assert description["model_performance_files"] == {
-        "json": "model_performance.json",
-        "yaml": "model_performance.yaml",
+    assert "model_performance_files" not in description
+    assert description["evaluation_artifacts"] == {
+        "summary": "evaluation.yaml",
+        "metrics": "evaluation_metrics.csv",
+        "predictions": "evaluation_predictions.csv",
     }
     assert description["model_summary"]["final_model"]["type"] == (
         "GatedSymmetryLogistic"
@@ -294,7 +298,7 @@ def test_train_on_all_can_skip_evaluation_artifacts(tmp_path: Path):
     assert artifact["evaluation"]["artifacts"] == {}
     assert artifact["model_performance"]["evaluation_available"] is False
     assert artifact["model_performance"]["held_out_metrics"] == {}
-    assert (Path(result["run_folder"]) / "model_performance.yaml").exists()
+    assert not (Path(result["run_folder"]) / "model_performance.yaml").exists()
     assert not (Path(result["run_folder"]) / "evaluation.joblib").exists()
 
 
