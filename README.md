@@ -61,7 +61,7 @@ shortcut-risk control. Measurement counts remain reliability fields and
 symmetry availability is a gate, not a learned risk feature.
 
 The fixed architecture and its current evaluation are recorded in
-[`docs/modeling/m2q_gated_target_case_model_v0_1.md`](docs/modeling/m2q_gated_target_case_model_v0_1.md).
+[`docs/modeling/aramis_t100_target_case_model_v0_1.md`](docs/modeling/aramis_t100_target_case_model_v0_1.md).
 The packaged artifact embeds its prediction preprocessing and immutable
 prediction contract. Predict YAML supplies identity and paths only.
 
@@ -135,7 +135,7 @@ config/preprocessing/README.md
 Model and evidence:
 
 ```text
-docs/modeling/m2q_gated_target_case_model_v0_1.md
+docs/modeling/aramis_t100_target_case_model_v0_1.md
 docs/modeling/current_model_dataframe_v0_1.md
 ```
 
@@ -163,7 +163,7 @@ Evidence for choices:
 
 ```text
 docs/agbh_quality_exclusions.md
-docs/modeling/m2q_gated_target_case_model_v0_1.md
+docs/modeling/aramis_t100_target_case_model_v0_1.md
 docs/modeling/current_model_dataframe_v0_1.md
 docs/meta/README.md
 ```

@@ -6,7 +6,7 @@ This folder contains the current model record, cohort definition, feature
 definitions, and prediction-report contract. Product readers should start here:
 
 ```text
-m2q_gated_target_case_model_v0_1.md
+aramis_t100_target_case_model_v0_1.md
 prediction_pipeline_v0_1.md
 current_model_dataframe_v0_1.md
 ```
@@ -34,7 +34,7 @@ joblib SHA256 and recorded in its generated description and reports.
 ## Current Evidence
 
 ```text
-m2q_gated_target_case_model_v0_1.md
+aramis_t100_target_case_model_v0_1.md
   fixed architecture, validation, regularization, threshold, and decision record
 
 current_model_dataframe_v0_1.md

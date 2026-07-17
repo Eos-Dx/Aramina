@@ -35,11 +35,11 @@ shared/aramis_pipeline_v0_1.yaml    ordered transformer steps
 exclusions/agbh_quality_exclusions_t100_v0_1.yaml
 outputs/model_input_output_v0_1.yaml
 outputs/prediction_model_input_output_v0_1.yaml
-cohorts/*.yaml                      cohort rules
 ```
 
-Runnable root YAMLs extend shared policy, pipeline, output schema, exclusion,
-and cohort fragments.
+Runnable root YAMLs extend the shared policy, pipeline, output schema, and
+exclusion fragments. Historical training eligibility is declared explicitly in
+the product root YAML under `product_filter`.
 
 Short file map:
 

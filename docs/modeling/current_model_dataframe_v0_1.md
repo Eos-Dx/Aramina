@@ -15,7 +15,7 @@ examples/outputs/model_input/aramis_biopsy_patients_model_input_v0_1.joblib
 
 The runnable training YAML is the current public training contract. The fixed
 architecture, regularization, threshold policy, and evaluation record remain
-defined by `m2q_gated_target_case_model_v0_1.md`.
+defined by `aramis_t100_target_case_model_v0_1.md`.
 
 Current counts:
 
