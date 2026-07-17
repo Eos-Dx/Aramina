@@ -49,8 +49,9 @@ freezes its train-on-all threshold at target sensitivity `>=0.95`.
 
 The model joblib contains executable estimators, feature schema, threshold,
 model identity, and resolved YAML snapshots. Fold metrics and predictions stay
-in separate evaluation artifacts. Contract:
-`docs/contracts/training_config_v0_1.md`.
+in separate evaluation artifacts. Contracts:
+`docs/contracts/training_config_v0_1.md` and
+`docs/contracts/model_training_results_v0_1.md`.
 
 ## Preprocess-train
 

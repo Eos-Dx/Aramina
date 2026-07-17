@@ -339,6 +339,33 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
     assert description["model_summary"]["final_model"]["type"] == (
         "GatedSymmetryLogistic"
     )
+    assert set(description) == {
+        "output_type",
+        "version",
+        "model",
+        "model_summary",
+        "model_joblib",
+        "model_performance",
+        "final_fit_training_metrics",
+        "decision_thresholds",
+        "feature_schema",
+        "dataset_summary",
+        "evaluation_artifacts",
+        "clinical_stage",
+        "requires_radiologist_review",
+    }
+    assert set(evaluation) == {
+        "output_type",
+        "version",
+        "created_at",
+        "model",
+        "threshold_selection",
+        "target_sensitivity",
+        "decision_threshold",
+        "dataset_summary",
+        "metric_summary",
+        "files",
+    }
 
 
 def test_train_on_all_can_skip_evaluation_artifacts(tmp_path: Path):

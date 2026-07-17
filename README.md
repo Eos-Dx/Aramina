@@ -154,6 +154,12 @@ docs/contracts/training_config_v0_1.md
 config/training/README.md
 ```
 
+Training-result artifact contract:
+
+```text
+docs/contracts/model_training_results_v0_1.md
+```
+
 Combined preprocessing and training contract:
 
 ```text
