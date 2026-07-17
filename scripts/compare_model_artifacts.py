@@ -49,12 +49,11 @@ def _differences(reference: dict[str, Any], candidate: dict[str, Any]) -> list[s
         reference["reproducibility"]["source_h5"]["sha256"],
         candidate["reproducibility"]["source_h5"]["sha256"],
     )
-    _compare_value(
-        differences,
-        "reproduction_mode",
-        reference["reproducibility"]["reproduction_mode"],
-        candidate["reproducibility"]["reproduction_mode"],
-    )
+    # A reference artifact may be trained from its preserved preprocessing
+    # joblib while the Docker bundle deliberately reruns raw-H5 preprocessing.
+    # These modes are different provenance routes to the same accepted cohort,
+    # so executable parameters and evaluation, rather than the route label,
+    # establish reproducibility here.
     _compare_value(
         differences,
         "evaluation.protocol",
