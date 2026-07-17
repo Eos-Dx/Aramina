@@ -116,9 +116,10 @@ These are research-draft evaluation results, not a clinical performance claim.
 `run.train_on_all: true` fits the fixed product model on all accepted cases and derives the deployment
 threshold. The model joblib stores executable estimators, frozen threshold,
 resolved training YAML, historical preprocessing YAML, prediction
-preprocessing YAML, prediction contract, and H5 lineage. Fold metrics and
-predictions remain beside the model in `evaluation.*` files, not inside the
-joblib.
+preprocessing YAML, prediction contract, H5 lineage, and a concise frozen
+`model_performance` record. The same concise record is written beside the model
+as `model_performance.yaml` and `model_performance.json`. Full fold metrics and
+held-out predictions remain in `evaluation.*` files.
 
 Train-all is useful for inspecting fitted-artifact separation and threshold
 behavior. It must not replace patient-safe evaluation.

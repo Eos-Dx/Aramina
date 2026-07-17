@@ -1,6 +1,6 @@
 kind: aramis_model_description
 version: '0.1'
-model_id: aramis_m2q_t100_0_2_7-beta_4b7d68b4b21c
+model_id: aramis_m2q_t100_0_2_7-beta_6502741aeef7
 model_name: aramis_m2q_t100
 model_version: 0.2.7-beta
 selected_model: aramis_m2q_t100
@@ -384,7 +384,27 @@ model_summary:
   symmetry_policy: single_model_gated_optional_refinement
   symmetry_gate: symmetry_available
 model_joblib: model.joblib
-model_joblib_sha256: 4b7d68b4b21c33854dfb9c45752ba09bb75b301bccf856c72b2669ac41e9a178
+model_joblib_sha256: 6502741aeef7a1daec7a2295ae5ced4d6e36bf242a7d221ef20192894008bbdc
+model_performance:
+  evaluation_available: true
+  evaluation_method: repeated_stratified_kfold
+  folds: 5
+  repeats: 20
+  random_seed: 42
+  target_sensitivity: 0.95
+  held_out_metrics:
+    roc_auc:
+      mean: 0.6619414779270698
+      std: 0.06909528361011195
+    sensitivity:
+      mean: 0.8193333333333334
+      std: 0.09876761446277149
+    specificity:
+      mean: 0.38336052047890795
+      std: 0.1156007602970247
+model_performance_files:
+  json: model_performance.json
+  yaml: model_performance.yaml
 decision_thresholds:
   threshold_youden: 0.4171226115943444
   threshold_target: 0.24451397236244887

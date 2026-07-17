@@ -482,6 +482,7 @@ def run_training_from_config(
         model_path=model_path,
     )
     _write_yaml(run_folder / "model_description.yaml", description)
+    _write_model_performance_outputs(model_artifact, run_folder)
     logger.info("Final model written: %s", model_path)
     model_artifact["run_folder"] = str(run_folder)
     model_artifact["model_path"] = str(model_path)
@@ -2401,6 +2402,12 @@ def _final_model_artifact(
         "prediction_preprocessing_yaml": artifact["prediction_preprocessing_yaml"],
         "prediction_contract_yaml": artifact["prediction_contract_yaml"],
         "model_definition_yaml": yaml.safe_dump(model_definition, sort_keys=False),
+        "model_performance": _frozen_model_performance(
+            artifact,
+            evaluation_config=public_config["evaluation"],
+            evaluation_requested=bool(public_config["run"]["evaluation"]),
+            target_sensitivity=float(model_definition["target_sensitivity"]),
+        ),
         "evaluation": {
             "protocol": dict(public_config["evaluation"]),
             "requested": bool(public_config["run"]["evaluation"]),
@@ -2422,6 +2429,55 @@ def _final_model_artifact(
         "metadata": artifact["metadata"],
         "reproducibility": artifact["reproducibility"],
     }
+
+
+def _frozen_model_performance(
+    artifact: dict[str, Any],
+    *,
+    evaluation_config: dict[str, Any],
+    evaluation_requested: bool,
+    target_sensitivity: float,
+) -> dict[str, Any]:
+    """Create the concise performance record carried by a final model."""
+    performance: dict[str, Any] = {
+        "evaluation_available": evaluation_requested,
+        "evaluation_method": str(evaluation_config["method"]),
+        "folds": int(evaluation_config["folds"]),
+        "repeats": int(evaluation_config["repeats"]),
+        "random_seed": int(evaluation_config["random_seed"]),
+        "target_sensitivity": target_sensitivity,
+    }
+    if not evaluation_requested:
+        performance["held_out_metrics"] = {}
+        return performance
+
+    summary = artifact["metric_summary"]
+    operational = summary.loc[summary["evaluation_view"] == "operational"]
+    if len(operational) != 1:
+        raise ValueError("Expected exactly one operational evaluation summary.")
+    row = operational.iloc[0]
+    performance["held_out_metrics"] = {
+        "roc_auc": {
+            "mean": float(row["roc_auc_mean"]),
+            "std": float(row["roc_auc_std"]),
+        },
+        "sensitivity": {
+            "mean": float(row["sensitivity_target_mean"]),
+            "std": float(row["sensitivity_target_std"]),
+        },
+        "specificity": {
+            "mean": float(row["specificity_target_mean"]),
+            "std": float(row["specificity_target_std"]),
+        },
+    }
+    return performance
+
+
+def _write_model_performance_outputs(artifact: dict[str, Any], folder: Path) -> None:
+    """Write a concise, human-readable copy of frozen model performance."""
+    performance = artifact["model_performance"]
+    _write_json(folder / "model_performance.json", performance)
+    _write_yaml(folder / "model_performance.yaml", performance)
 
 
 def _model_artifact_id(model: dict[str, Any], model_sha: str) -> str:
@@ -2449,6 +2505,11 @@ def _model_description(
         "model_summary": _model_summary(model),
         "model_joblib": model_path.name,
         "model_joblib_sha256": model_sha,
+        "model_performance": artifact["model_performance"],
+        "model_performance_files": {
+            "json": "model_performance.json",
+            "yaml": "model_performance.yaml",
+        },
         "decision_thresholds": _jsonable(model.get("thresholds", {})),
         "feature_schema": _jsonable(artifact["feature_schema"]),
         "dataset_summary": _records(artifact["dataset_summary"]),

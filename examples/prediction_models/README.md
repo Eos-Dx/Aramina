@@ -12,12 +12,16 @@ aramis_m2q_t100_0_2_7_beta.joblib
 
 aramis_m2q_t100_0_2_7_beta_model_description.yaml
   human-readable immutable identity, SHA256, feature schema, threshold, and
-  pointers to the separately retained evaluation artifacts
+  frozen method-performance summary and pointers to detailed evaluation artifacts
+
+aramis_m2q_t100_0_2_7_beta_model_performance.yaml/json
+  frozen repeated-stratified-k-fold method performance copied from the model
+  artifact: evaluation method, folds, repeats, ROC AUC, sensitivity, and specificity
 ```
 
 This research-draft decision-support artifact contains the M2Q model, model
-metadata, thresholds, embedded prediction preprocessing and immutable
-prediction contract. It is used by:
+metadata, thresholds, frozen method-performance summary, embedded prediction
+preprocessing and immutable prediction contract. It is used by:
 
 ```text
 examples/prediction_h5/*_predict.yaml

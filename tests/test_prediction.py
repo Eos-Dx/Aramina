@@ -175,6 +175,13 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
     assert external["output_type"] == "aramis_external_report"
     assert external["suggested_class"] in {"BENIGN", "CANCER"}
     assert "p_cancer" not in external
+    performance = external["method_performance"]
+    assert performance["evaluation_available"] is True
+    assert performance["evaluation_method"] == "repeated_stratified_kfold"
+    assert performance["folds"] == 5
+    assert performance["repeats"] == 20
+    assert 0.0 <= performance["sensitivity"] <= 1.0
+    assert 0.0 <= performance["specificity"] <= 1.0
     assert external["reliability"] in {"low", "medium", "high"}
     target = internal["breast_predictions"]["target"]
     contralateral = internal["breast_predictions"]["contralateral"]

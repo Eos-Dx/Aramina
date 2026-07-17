@@ -107,7 +107,8 @@ config/prediction/aramis_predict_from_h5_template_v0_1.yaml
 ```
 
 `run.train_on_all: true` creates a unique run folder with `model.joblib`,
-`model_description.yaml`, and separate evaluation artifacts. Use that generated
+`model_description.yaml`, `model_performance.yaml/json`, and separate detailed
+evaluation artifacts. Use that generated
 model path in prediction YAML.
 
 The packaged model also records full raw-H5 training reproducibility: H5

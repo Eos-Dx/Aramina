@@ -27,9 +27,10 @@ Current development decision record:
 aramis_m2q_t100 model record
 ```
 
-The packaged research-draft artifact and its `model_description.yaml` are in
-`examples/prediction_models/`. The exact artifact ID is derived from the model
-joblib SHA256 and recorded in its generated description and reports.
+The packaged research-draft artifact, its `model_description.yaml`, and frozen
+`model_performance.yaml/json` are in `examples/prediction_models/`. The exact
+artifact ID is derived from the model joblib SHA256 and recorded in its generated
+description and reports.
 
 ## Current Evidence
 

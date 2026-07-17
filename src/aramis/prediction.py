@@ -297,6 +297,7 @@ def _prediction_reports(
         suggested_class=target_prediction["suggested_class"],
         reliability=row["result_reliability"],
         reliability_reason=row["result_reliability_reason"],
+        model_performance=_external_model_performance(model_artifact),
         scan_metadata=_scan_metadata(
             row,
             patient_id=common["patient_id"],
@@ -322,6 +323,7 @@ def _external_report(
     suggested_class: str,
     reliability: str,
     reliability_reason: str,
+    model_performance: dict[str, Any],
     scan_metadata: dict[str, Any],
 ) -> dict[str, Any]:
     return {
@@ -343,9 +345,28 @@ def _external_report(
         "eoscan_version": scan_metadata["eoscan_version"],
         "model_name": common["model_name"],
         "model_version": common["model_version"],
+        "method_performance": model_performance,
         "suggested_class": suggested_class,
         "reliability": reliability,
         "reliability_reason": reliability_reason,
+    }
+
+
+def _external_model_performance(model_artifact: dict[str, Any]) -> dict[str, Any]:
+    """Expose the frozen validation summary without patient-level model internals."""
+    performance = model_artifact.get("model_performance", {})
+    metrics = performance.get("held_out_metrics", {})
+    sensitivity = metrics.get("sensitivity", {})
+    specificity = metrics.get("specificity", {})
+    return {
+        "evaluation_available": bool(performance.get("evaluation_available", False)),
+        "evaluation_method": performance.get("evaluation_method", "unknown"),
+        "folds": performance.get("folds", "unknown"),
+        "repeats": performance.get("repeats", "unknown"),
+        "sensitivity": sensitivity.get("mean", "unknown"),
+        "sensitivity_std": sensitivity.get("std", "unknown"),
+        "specificity": specificity.get("mean", "unknown"),
+        "specificity_std": specificity.get("std", "unknown"),
     }
 
 

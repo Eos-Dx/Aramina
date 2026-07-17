@@ -35,11 +35,11 @@ Aramis writes automatic names under `io.output_folder`:
 <patient_id>_<model_id>_<report_id>_internal_report.yaml
 ```
 
-External report is target-side only and contains report identity, requesting analyst, optional comment, patient/target identity, model version, suggested class, and reliability. It intentionally excludes p_cancer and threshold.
+External report is target-side only and contains report identity, requesting analyst, optional comment, patient/target identity, model version, frozen method performance, suggested class, and reliability. It intentionally excludes p_cancer and threshold.
 
 Internal report contains two breast blocks. The target block is the formal decision-support result. The contralateral block is internal audit information computed by applying the same final model with that side temporarily treated as target. Each available block contains an azimuthally integrated profile score, final p_cancer, frozen threshold, suggested class, three frozen-training score percentiles, symmetry availability, and reliability. Full contract: `docs/modeling/internal_clinical_report_content_v0_1.md`.
 
-The external report intentionally does not include cohort sensitivity, specificity, or evaluation method. Those are cohort-level validation properties, not patient-specific evidence. They remain in the model artifact and its adjacent `model_description.yaml`.
+The external report copies frozen method sensitivity, specificity, and evaluation method from the selected model artifact. They describe the method, not the individual patient. Full evaluation records remain in the artifact and its adjacent evaluation files.
 
 If no usable contralateral breast remains, the contralateral block is explicitly
 `unknown`. The target result remains available, with

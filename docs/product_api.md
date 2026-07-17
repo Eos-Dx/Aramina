@@ -97,9 +97,10 @@ Outputs use one generated report ID:
 ```
 
 External report contains suggested class, reliability, reliability reason,
-patient/target identity, report identity, model name, and model version. It
-intentionally excludes `p_cancer`, threshold, and cohort-level validation
-metrics because they are not patient-specific evidence.
+patient/target identity, report identity, model name/version, and the frozen
+method sensitivity/specificity with their evaluation method. It intentionally
+excludes `p_cancer`, threshold, profile-only scores, symmetry, and model
+internals.
 
 Internal report contains target and contralateral prediction blocks with
 azimuthally integrated profile p_cancer, final p_cancer, decision threshold,

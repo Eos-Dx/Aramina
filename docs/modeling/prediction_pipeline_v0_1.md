@@ -3,8 +3,9 @@
 Status: research draft.
 
 This document describes the first Aramis prediction route. It is clinical
-decision support only. The external report returns a suggested class and
-reliability metadata; the internal report retains `p_cancer` for audit.
+decision support only. The external report returns a suggested class,
+reliability metadata, and frozen method performance; the internal report
+retains `p_cancer` for audit.
 
 ## Command
 
@@ -189,16 +190,25 @@ operator_id
 hardware_version
 eoscan_version
 model_name
+model_version
+method_performance.evaluation_available
+method_performance.evaluation_method
+method_performance.folds
+method_performance.repeats
+method_performance.sensitivity
+method_performance.sensitivity_std
+method_performance.specificity
+method_performance.specificity_std
 suggested_class
 reliability
 reliability_reason
-model_version
 ```
 
 External report does not expose `p_cancer`, threshold, profile-only scores,
-symmetry, provenance, raw data, model internals, validation sensitivity,
-validation specificity, or evaluation mode. Validation metrics are cohort-level
-properties, not patient-specific evidence. `report_id` is
+symmetry, provenance, raw data, or model internals. It includes frozen method
+sensitivity/specificity with `evaluation_method`, `folds`, and `repeats` so the
+numbers are interpretable and traceable to one evaluation route. These are
+method-level fields, not patient-specific evidence. `report_id` is
 generated automatically and shared with the internal report from the same
 prediction operation. `created_at` is a Europe/Paris ISO timestamp with a
 numeric UTC offset.

@@ -245,6 +245,17 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
         "random_seed": 42,
     }
     assert artifact["evaluation"]["summary"][0]["splits"] == 100
+    performance = artifact["model_performance"]
+    assert performance["evaluation_method"] == "repeated_stratified_kfold"
+    assert performance["folds"] == 5
+    assert performance["repeats"] == 20
+    assert set(performance["held_out_metrics"]) == {
+        "roc_auc",
+        "sensitivity",
+        "specificity",
+    }
+    assert (model_path.parent / "model_performance.yaml").exists()
+    assert (model_path.parent / "model_performance.json").exists()
     reproducibility = artifact["reproducibility"]
     assert reproducibility["contract"] == "aramis_reproducibility_v0_1"
     assert reproducibility["reproduction_mode"] == "preprocessed_artifact_train"
@@ -257,6 +268,11 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
     assert "split_predictions" not in artifact
     assert description["model_id"] == result["model_id"]
     assert description["model_joblib_sha256"]
+    assert description["model_performance"] == performance
+    assert description["model_performance_files"] == {
+        "json": "model_performance.json",
+        "yaml": "model_performance.yaml",
+    }
     assert description["model_summary"]["final_model"]["type"] == (
         "GatedSymmetryLogistic"
     )
@@ -276,6 +292,9 @@ def test_train_on_all_can_skip_evaluation_artifacts(tmp_path: Path):
     assert artifact["evaluation"]["requested"] is False
     assert artifact["evaluation"]["summary"] == []
     assert artifact["evaluation"]["artifacts"] == {}
+    assert artifact["model_performance"]["evaluation_available"] is False
+    assert artifact["model_performance"]["held_out_metrics"] == {}
+    assert (Path(result["run_folder"]) / "model_performance.yaml").exists()
     assert not (Path(result["run_folder"]) / "evaluation.joblib").exists()
 
 
