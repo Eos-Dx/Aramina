@@ -202,7 +202,7 @@ def test_evaluation_mode_writes_patient_safe_footprint_only(tmp_path: Path):
     artifact = run_training_from_config(config_path)
     run_folder = Path(artifact["run_folder"])
 
-    assert artifact["kind"] == "aramis_evaluation_artifact"
+    assert artifact["output_type"] == "aramis_evaluation_artifact"
     assert len(artifact["split_metrics"]) == 100
     assert set(artifact["split_metrics"]["evaluation_mode"]) == {"stratified_kfold"}
     summary = artifact["metric_summary"].iloc[0]
@@ -230,6 +230,9 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
     artifact = joblib.load(model_path)
     description = yaml.safe_load(
         (model_path.parent / "model_description.yaml").read_text(encoding="utf-8")
+    )
+    evaluation = yaml.safe_load(
+        (model_path.parent / "evaluation.yaml").read_text(encoding="utf-8")
     )
 
     assert artifact["kind"] == "aramis_training_artifact"
@@ -268,15 +271,50 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
     assert "training_config" not in artifact
     assert "training_config_sha256" not in artifact
     assert "split_predictions" not in artifact
-    assert description["model_id"] == result["model_id"]
-    assert description["model_joblib_sha256"]
-    assert description["model_performance"] == performance
+    assert description["model"]["id"] == result["model_id"]
+    assert description["model"]["artifact_sha256"]
+    assert description["model_performance"]["evaluation_method"] == (
+        performance["evaluation_method"]
+    )
     assert "model_performance_files" not in description
-    assert description["evaluation_artifacts"] == {
-        "summary": "evaluation.yaml",
-        "metrics": "evaluation_metrics.csv",
-        "predictions": "evaluation_predictions.csv",
+    assert "kind" not in description
+    assert "selected_model" not in description
+    assert set(description["feature_schema"]) == {"final_model"}
+    assert description["model_summary"]["architecture"] == {
+        "stage_1": "target_xrd_profile_logistic_regression",
+        "stage_2": "age_and_optional_symmetry_refinement",
+        "symmetry_behavior": "bypassed_when_contralateral_data_are_unavailable",
     }
+    assert (
+        description["model_summary"]["lr1_profile_model"]["steps"]["logreg"][
+            "classes"
+        ]
+        == ["BENIGN", "CANCER"]
+    )
+    assert set(description["evaluation_artifacts"]) == {
+        "summary",
+        "metrics",
+        "predictions",
+    }
+    assert all(Path(path).is_absolute() for path in description["evaluation_artifacts"].values())
+    assert evaluation["output_type"] == "aramis_evaluation_artifact"
+    assert "kind" not in evaluation
+    assert evaluation["model"] == description["model"]
+    assert evaluation["threshold_selection"] == "train_fold_target_sensitivity"
+    assert evaluation["decision_threshold"]["id"] == "target_sensitivity_0_95"
+    assert evaluation["decision_threshold"]["value"] == pytest.approx(
+        round(
+            artifact["models"][PRODUCT_MODEL_NAME]["thresholds"]["threshold_target"],
+            5,
+        )
+    )
+    assert "evaluation_view" not in evaluation["metric_summary"][0]
+    assert "rows" not in evaluation["dataset_summary"][0]
+    assert evaluation["dataset_summary"][0]["measurements"] == 120
+    assert evaluation["dataset_summary"][0]["lr1_measurements"] == 60
+    assert all(Path(path).is_absolute() for path in evaluation["files"].values())
+    assert not _has_unrounded_float(evaluation)
+    assert not _has_unrounded_float(description)
     assert description["model_summary"]["final_model"]["type"] == (
         "GatedSymmetryLogistic"
     )
@@ -300,6 +338,14 @@ def test_train_on_all_can_skip_evaluation_artifacts(tmp_path: Path):
     assert artifact["model_performance"]["held_out_metrics"] == {}
     assert not (Path(result["run_folder"]) / "model_performance.yaml").exists()
     assert not (Path(result["run_folder"]) / "evaluation.joblib").exists()
+
+
+def _has_unrounded_float(value: object) -> bool:
+    if isinstance(value, dict):
+        return any(_has_unrounded_float(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_has_unrounded_float(item) for item in value)
+    return isinstance(value, float) and value != round(value, 5)
 
 
 def test_train_cli_lists_and_describes_models(capsys):

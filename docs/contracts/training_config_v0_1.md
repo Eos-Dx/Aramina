@@ -45,3 +45,33 @@ feature schema, regularization, label mapping, target sensitivity, and
 prediction preprocessing are not public YAML switches.
 
 Training requires an Aramis preprocessing artifact with the resolved preprocessing YAML and input-H5 SHA256. The final joblib stores executable estimators, frozen thresholds, score reference distributions for internal report quantiles, all resolved YAML snapshots, source-H5 checksum, code provenance, and runtime package versions. `model_description.yaml` and `evaluation.yaml` provide the human-readable records; detailed fold metrics and held-out predictions remain in `evaluation_metrics.csv` and `evaluation_predictions.csv`.
+
+## Training Outputs
+
+All generated YAML numbers are rounded to five decimal places. Full SHA256 values
+remain strings and are not rounded.
+
+`model_description.yaml` is the internal human-readable description of the
+final model. Its `model` block contains the immutable model ID, name, version,
+and joblib SHA256. `model_summary.architecture` describes the two stages:
+target-profile logistic regression followed by age and optional symmetry
+refinement. Logistic-regression class labels are written as `BENIGN` and
+`CANCER`.
+
+`evaluation.yaml` is the internal evaluation footprint. It records the model
+identity, the fixed target sensitivity, the final train-on-all decision
+threshold, accepted-cohort counts, and aggregated validation metrics. Its
+`evidence_status: patient_safe_validation` means every split keeps all cases
+from a patient entirely in either the train or held-out fold. `lr1_measurements`
+and `lr1_patients` are the measurements and unique patients used to fit the
+first, profile-only logistic-regression stage; this is a subset because the
+product policy uses biopsied target-breast measurements for LR1 fitting.
+
+The evaluation YAML contains ROC AUC and PR AUC for discrimination,
+sensitivity/specificity, balanced accuracy, PPV, and NPV at the selected
+threshold, Brier score and log loss for probability quality, calibration
+intercept and slope, confidence intervals from patient-level bootstrap
+resampling, and the mean confusion matrix across folds. `evaluation_metrics.csv`
+contains one row per fold; `evaluation_predictions.csv` contains held-out
+patient-case predictions. Generated file references are absolute local paths
+for audit and are expected to change when a run folder is moved.

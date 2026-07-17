@@ -455,13 +455,14 @@ def run_training_from_config(
     )
     evaluation_artifact = _evaluation_artifact(
         artifact,
-        model_name=str(model_identity["name"]),
+        model_identity=model_identity,
+        target_sensitivity=float(model_definition["target_sensitivity"]),
         training_config_yaml=config_text,
     )
-    if public_config["run"]["evaluation"]:
-        _write_evaluation_outputs(evaluation_artifact, run_folder)
-        logger.info("Evaluation artifacts written: %s", run_folder)
     if not public_config["run"]["train_on_all"]:
+        if public_config["run"]["evaluation"]:
+            _write_evaluation_outputs(evaluation_artifact, run_folder)
+            logger.info("Evaluation artifacts written: %s", run_folder)
         evaluation_artifact["run_folder"] = str(run_folder)
         return evaluation_artifact
 
@@ -475,6 +476,18 @@ def run_training_from_config(
     joblib.dump(model_artifact, model_path)
     model_sha = _file_sha256(model_path)
     model_id = _model_artifact_id(model_identity, model_sha)
+    if public_config["run"]["evaluation"]:
+        _write_evaluation_outputs(
+            evaluation_artifact,
+            run_folder,
+            model=_model_reference(
+                model_identity,
+                model_id=model_id,
+                artifact_sha256=model_sha,
+            ),
+            decision_threshold=_decision_threshold_record(model_artifact),
+        )
+        logger.info("Evaluation artifacts written: %s", run_folder)
     description = _model_description(
         model_artifact,
         model_id=model_id,
@@ -578,7 +591,7 @@ def _patient_training_artifact(
     return {
         "kind": "aramis_training_artifact",
         "version": "0.3",
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "model_type": "m2q_gated_target_case",
         "model_columns": {
             key: config["model"][key]
@@ -892,7 +905,6 @@ def _evaluate_m2q_model(
                 thresholds,
                 test_thresholds,
                 evaluation_mode=mode,
-                evaluation_view="operational",
             )
         )
         predictions.append(
@@ -905,7 +917,6 @@ def _evaluate_m2q_model(
                 _default_routes(test_features),
                 test_thresholds,
                 evaluation_mode=mode,
-                evaluation_view="operational",
             )
         )
     prediction_frame = pd.concat(predictions, ignore_index=True)
@@ -970,7 +981,7 @@ def _default_routes(values: Any) -> np.ndarray:
 
 def _m2q_feature_schema() -> dict[str, Any]:
     return {
-        PRODUCT_MODEL_NAME: {
+        "final_model": {
             "feature_columns": _m2q_model_input_columns(),
             "learned_feature_columns": [
                 "profile_p_cancer_logit_average",
@@ -1873,7 +1884,6 @@ def _patient_metric_row(
     decision_thresholds: np.ndarray,
     *,
     evaluation_mode: str,
-    evaluation_view: str,
 ) -> dict[str, Any]:
     y = test_df["label"].to_numpy(dtype=int)
     pred = (score >= decision_thresholds).astype(int)
@@ -1885,7 +1895,6 @@ def _patient_metric_row(
         "model_name": model_name,
         "split_id": int(split_id),
         "evaluation_mode": evaluation_mode,
-        "evaluation_view": evaluation_view,
         "roc_auc": float(roc_auc_score(y, score)),
         "pr_auc": float(average_precision_score(y, score)),
         "brier_score": float(brier_score_loss(y, score)),
@@ -1921,13 +1930,11 @@ def _patient_prediction_frame(
     decision_thresholds: np.ndarray,
     *,
     evaluation_mode: str,
-    evaluation_view: str,
 ) -> pd.DataFrame:
     out = test_df[[TARGET_CASE_ID, "patientId", "label", "label_name"]].copy()
     out["model_name"] = model_name
     out["split_id"] = int(split_id)
     out["evaluation_mode"] = evaluation_mode
-    out["evaluation_view"] = evaluation_view
     out["p_cancer"] = np.asarray(score, dtype=float)
     out["model_route"] = np.asarray(routes, dtype=str)
     out["threshold_youden"] = float(thresholds["threshold_youden"])
@@ -1944,15 +1951,12 @@ def _summarize_patient_model_metrics(
     bootstrap_samples: int,
 ) -> pd.DataFrame:
     rows = []
-    for (model_name, evaluation_view), group in split_metrics.groupby(
-        ["model_name", "evaluation_view"], sort=False
-    ):
+    for model_name, group in split_metrics.groupby("model_name", sort=False):
         evaluation_modes = sorted(group["evaluation_mode"].dropna().astype(str).unique())
         rows.append(
             {
                 "model_name": model_name,
                 "evaluation_mode": evaluation_modes[0] if len(evaluation_modes) == 1 else ",".join(evaluation_modes),
-                "evaluation_view": evaluation_view,
                 "evidence_status": "patient_safe_validation",
                 "splits": int(len(group)),
                 "roc_auc_mean": float(group["roc_auc"].mean()),
@@ -1990,7 +1994,7 @@ def _summarize_patient_model_metrics(
     )
     return summary.merge(
         intervals,
-        on=["model_name", "evaluation_view"],
+        on=["model_name"],
         how="left",
     )
 
@@ -2003,9 +2007,7 @@ def _patient_bootstrap_intervals(
 ) -> pd.DataFrame:
     rows = []
     rng = np.random.default_rng(random_state)
-    for (model_name, evaluation_view), group in predictions.groupby(
-        ["model_name", "evaluation_view"], sort=False
-    ):
+    for model_name, group in predictions.groupby("model_name", sort=False):
         cases = (
             group.groupby(TARGET_CASE_ID, as_index=False)
             .agg(
@@ -2041,7 +2043,6 @@ def _patient_bootstrap_intervals(
                     sampled[name].append(value)
         row: dict[str, Any] = {
             "model_name": model_name,
-            "evaluation_view": evaluation_view,
             "pooled_patients": int(cases["patientId"].nunique()),
             "pooled_target_cases": int(len(cases)),
         }
@@ -2091,10 +2092,10 @@ def _patient_dataset_summary(
     return pd.DataFrame(
         [
             {
-                "rows": int(len(df)),
+                "measurements": int(len(df)),
                 "patients": int(df["patientId"].astype(str).nunique()),
                 "specimens": int(df["specimenId"].astype(str).nunique()),
-                "lr1_rows": int(len(lr1_rows)),
+                "lr1_measurements": int(len(lr1_rows)),
                 "lr1_patients": int(lr1_rows["patientId"].astype(str).nunique()),
                 "final_patients": int(feature_table["patientId"].astype(str).nunique()),
                 "final_target_cases": int(len(feature_table)),
@@ -2330,14 +2331,16 @@ def _safe_artifact_stem(value: str) -> str:
 def _evaluation_artifact(
     artifact: dict[str, Any],
     *,
-    model_name: str,
+    model_identity: dict[str, Any],
+    target_sensitivity: float,
     training_config_yaml: str,
 ) -> dict[str, Any]:
     return {
-        "kind": "aramis_evaluation_artifact",
+        "output_type": "aramis_evaluation_artifact",
         "version": "0.1",
         "created_at": artifact["created_at"],
-        "model_name": model_name,
+        "model": _model_reference(model_identity),
+        "target_sensitivity": target_sensitivity,
         "training_config_yaml": training_config_yaml,
         "historical_preprocessing_yaml": artifact.get(
             "historical_preprocessing_yaml"
@@ -2350,7 +2353,13 @@ def _evaluation_artifact(
     }
 
 
-def _write_evaluation_outputs(artifact: dict[str, Any], folder: Path) -> None:
+def _write_evaluation_outputs(
+    artifact: dict[str, Any],
+    folder: Path,
+    *,
+    model: dict[str, Any] | None = None,
+    decision_threshold: dict[str, Any] | None = None,
+) -> None:
     artifact["split_metrics"].to_csv(folder / "evaluation_metrics.csv", index=False)
     artifact["split_predictions"].to_csv(
         folder / "evaluation_predictions.csv", index=False
@@ -2358,16 +2367,16 @@ def _write_evaluation_outputs(artifact: dict[str, Any], folder: Path) -> None:
     _write_yaml(
         folder / "evaluation.yaml",
         {
-            "kind": artifact["kind"],
+            "output_type": artifact["output_type"],
             "version": artifact["version"],
             "created_at": artifact["created_at"],
-            "model_name": artifact["model_name"],
+            "model": model or artifact["model"],
+            "threshold_selection": "train_fold_target_sensitivity",
+            "target_sensitivity": artifact["target_sensitivity"],
+            "decision_threshold": decision_threshold,
             "dataset_summary": _records(artifact["dataset_summary"]),
             "metric_summary": _records(artifact["metric_summary"]),
-            "files": {
-                "metrics": "evaluation_metrics.csv",
-                "predictions": "evaluation_predictions.csv",
-            },
+            "files": _evaluation_artifact_paths(folder, include_summary=False),
         },
     )
 
@@ -2450,10 +2459,9 @@ def _frozen_model_performance(
         return performance
 
     summary = artifact["metric_summary"]
-    operational = summary.loc[summary["evaluation_view"] == "operational"]
-    if len(operational) != 1:
-        raise ValueError("Expected exactly one operational evaluation summary.")
-    row = operational.iloc[0]
+    if len(summary) != 1:
+        raise ValueError("Expected exactly one product evaluation summary.")
+    row = summary.iloc[0]
     performance["held_out_metrics"] = {
         "roc_auc": {
             "mean": float(row["roc_auc_mean"]),
@@ -2477,6 +2485,33 @@ def _model_artifact_id(model: dict[str, Any], model_sha: str) -> str:
     )
 
 
+def _model_reference(
+    model_identity: dict[str, Any],
+    *,
+    model_id: str | None = None,
+    artifact_sha256: str | None = None,
+) -> dict[str, Any]:
+    reference = {
+        "name": str(model_identity["name"]),
+        "version": str(model_identity["version"]),
+    }
+    if model_id is not None:
+        reference["id"] = model_id
+    if artifact_sha256 is not None:
+        reference["artifact_sha256"] = artifact_sha256
+    return reference
+
+
+def _decision_threshold_record(model_artifact: dict[str, Any]) -> dict[str, Any]:
+    model_name = next(iter(model_artifact["models"]))
+    thresholds = model_artifact["models"][model_name]["thresholds"]
+    return {
+        "id": "target_sensitivity_0_95",
+        "value": float(thresholds["threshold_target"]),
+        "target_sensitivity": float(thresholds["target_sensitivity"]),
+    }
+
+
 def _model_description(
     artifact: dict[str, Any],
     *,
@@ -2487,20 +2522,20 @@ def _model_description(
     model_name = next(iter(artifact["models"]))
     model = artifact["models"][model_name]
     return {
-        "kind": "aramis_model_description",
+        "output_type": "aramis_model_description",
         "version": "0.1",
-        "model_id": model_id,
-        "model_name": artifact["model_identity"]["name"],
-        "model_version": artifact["model_identity"]["version"],
-        "selected_model": model_name,
+        "model": _model_reference(
+            artifact["model_identity"],
+            model_id=model_id,
+            artifact_sha256=model_sha,
+        ),
         "model_summary": _model_summary(model),
         "model_joblib": model_path.name,
-        "model_joblib_sha256": model_sha,
         "model_performance": artifact["model_performance"],
         "decision_thresholds": _jsonable(model.get("thresholds", {})),
         "feature_schema": _jsonable(artifact["feature_schema"]),
         "dataset_summary": _records(artifact["dataset_summary"]),
-        "evaluation_artifacts": artifact["evaluation"]["artifacts"],
+        "evaluation_artifacts": _evaluation_artifact_paths(model_path.parent),
         "clinical_stage": "research draft",
         "requires_radiologist_review": True,
     }
@@ -2510,13 +2545,28 @@ def _model_description(
 
 def _write_yaml(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(
-        yaml.safe_dump(_jsonable(payload), sort_keys=False), encoding="utf-8"
+        yaml.safe_dump(_round_yaml_values(_jsonable(payload)), sort_keys=False),
+        encoding="utf-8",
     )
+
+
+def _round_yaml_values(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {key: _round_yaml_values(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_round_yaml_values(item) for item in value]
+    if isinstance(value, float):
+        return round(value, 5)
+    return value
 
 
 def _model_summary(model_info: dict[str, Any]) -> dict[str, Any]:
     summary = {
-        "name": model_info.get("name"),
+        "architecture": {
+            "stage_1": "target_xrd_profile_logistic_regression",
+            "stage_2": "age_and_optional_symmetry_refinement",
+            "symmetry_behavior": "bypassed_when_contralateral_data_are_unavailable",
+        },
         "lr1_profile_model": _pipeline_summary(model_info.get("lr1_model")),
         "thresholds": _jsonable(model_info.get("thresholds", {})),
     }
@@ -2560,7 +2610,7 @@ def _pipeline_summary(model: Pipeline | GatedSymmetryLogistic | None) -> dict[st
                 "solver": model.logreg_.solver,
                 "max_iter": int(model.logreg_.max_iter),
                 "random_state": model.logreg_.random_state,
-                "classes": _jsonable(model.logreg_.classes_),
+                "classes": _class_labels(model.logreg_.classes_),
                 "coef": _jsonable(model.logreg_.coef_),
                 "intercept": _jsonable(model.logreg_.intercept_),
             },
@@ -2582,13 +2632,33 @@ def _pipeline_summary(model: Pipeline | GatedSymmetryLogistic | None) -> dict[st
                     "solver": step.solver,
                     "max_iter": int(step.max_iter),
                     "random_state": step.random_state,
-                    "classes": _jsonable(step.classes_),
+                    "classes": _class_labels(step.classes_),
                     "coef": _jsonable(step.coef_),
                     "intercept": _jsonable(step.intercept_),
                 }
             )
         summary["steps"][step_name] = step_summary
     return summary
+
+
+def _class_labels(classes: Any) -> list[str]:
+    labels = {0: "BENIGN", 1: "CANCER"}
+    return [labels.get(int(value), str(value)) for value in np.asarray(classes)]
+
+
+def _evaluation_artifact_paths(
+    folder: Path,
+    *,
+    include_summary: bool = True,
+) -> dict[str, str]:
+    paths = {
+        "summary": str((folder / "evaluation.yaml").resolve()),
+        "metrics": str((folder / "evaluation_metrics.csv").resolve()),
+        "predictions": str((folder / "evaluation_predictions.csv").resolve()),
+    }
+    if not include_summary:
+        paths.pop("summary")
+    return paths
 
 
 def _records(value: Any) -> list[dict[str, Any]]:
