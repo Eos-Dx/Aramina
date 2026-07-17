@@ -11,6 +11,8 @@ from typing import Any
 import joblib
 import numpy as np
 
+from aramis.training_config import PRODUCT_MODEL_NAME
+
 
 def main() -> int:
     """Compare executable model values and immutable provenance fields."""
@@ -27,7 +29,7 @@ def main() -> int:
         print("\n".join(f"- {message}" for message in differences))
         return 1
     print("MODEL COMPARISON: PASSED")
-    print("Executable parameters, threshold, H5 checksum, recipe, and evaluation match.")
+    print("Executable parameters, threshold, H5 checksum, model identity, and evaluation match.")
     return 0
 
 
@@ -40,12 +42,7 @@ def _differences(reference: dict[str, Any], candidate: dict[str, Any]) -> list[s
             )
     if differences:
         return differences
-    _compare_value(
-        differences,
-        "model_identity.recipe",
-        reference["model_identity"]["recipe"],
-        candidate["model_identity"]["recipe"],
-    )
+    _compare_value(differences, "model_identity", reference["model_identity"], candidate["model_identity"])
     _compare_value(
         differences,
         "source_h5.sha256",
@@ -75,7 +72,11 @@ def _differences(reference: dict[str, Any], candidate: dict[str, Any]) -> list[s
     # resolving to the same H5 checksum and transformer settings. The full YAML
     # and its checksums remain in each artifact for traceability; model equality
     # is established through the executable parameters and evaluation instead.
-    _compare_model(differences, reference["models"]["M2Q"], candidate["models"]["M2Q"])
+    _compare_model(
+        differences,
+        reference["models"][PRODUCT_MODEL_NAME],
+        candidate["models"][PRODUCT_MODEL_NAME],
+    )
     return differences
 
 

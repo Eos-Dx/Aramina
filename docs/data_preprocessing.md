@@ -43,7 +43,7 @@ config/preprocessing/aramis_prediction_patient_model_input_v0_1.yaml
   stored inside trained model joblibs
 ```
 
-The fixed M2Q development model uses the biopsy-patient preprocessing cohort.
+The fixed product model uses biopsy-patient preprocessing input.
 Experimental all-patient cohorts remain outside the development branch.
 
 ## Product Label Mapping

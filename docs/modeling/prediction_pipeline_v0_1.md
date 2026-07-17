@@ -88,7 +88,7 @@ Prediction preprocessing differs from training cohort preprocessing:
 ```text
 no historical date filter
 no AgBH quality exclusion list
-no diagnosis/status cohort filter
+no historical diagnosis/status filter
 no biopsy filter
 ```
 
@@ -107,7 +107,7 @@ prediction runs.
 The selected joblib is the sole source for model ID, name, version, model entry,
 preprocessing contract, report contract, and decision threshold. Predict YAML
 does not duplicate these immutable model fields. The fixed development model is
-`M2Q`.
+`aramis_m2q_t100`.
 
 ## Call Chain
 
@@ -118,7 +118,7 @@ aramis.__main__.main
 -> parse resolved prediction_preprocessing_yaml from model joblib
 -> run prediction preprocessing, when io.input_h5_path is present
 -> build_patient_prediction_feature_row(...)
--> score artifact-selected M2Q
+-> score artifact-selected product model
 -> write external report JSON/YAML
 -> write internal report JSON/YAML
 ```
@@ -181,15 +181,24 @@ created_at
 analysis_author
 prediction_comment
 patient_id
+patient_age
 target_side
+mammography_suspicious_field
+scan_date_time
+operator_id
+hardware_version
+eoscan_version
+model_name
 suggested_class
 reliability
 reliability_reason
 model_version
 ```
 
-External report does not expose `p_cancer`, threshold, LR1 profile-only scores,
-symmetry, age, provenance, raw data, or model internals. `report_id` is
+External report does not expose `p_cancer`, threshold, profile-only scores,
+symmetry, provenance, raw data, model internals, validation sensitivity,
+validation specificity, or evaluation mode. Validation metrics are cohort-level
+properties, not patient-specific evidence. `report_id` is
 generated automatically and shared with the internal report from the same
 prediction operation. `created_at` is a Europe/Paris ISO timestamp with a
 numeric UTC offset.
@@ -202,8 +211,8 @@ report_version
 report_id and created_at
 model ID/name/version/artifact SHA256
 scan metadata and measurement summary
-target/contralateral profile-only and final M2Q predictions
-frozen cohort quantiles, symmetry availability, and reliability
+target/contralateral azimuthally integrated profile and final predictions
+frozen score percentiles, symmetry availability, and reliability
 ```
 
 Report-level naming:
@@ -212,7 +221,7 @@ Report-level naming:
 breast_predictions.target.final_prediction.p_cancer
   final target-side decision-support score
 
-breast_predictions.target.profile_only.p_cancer
+breast_predictions.target.azimuthal_integration_target_profile.p_cancer
   target-breast LR1 profile-only probability
 ```
 
@@ -223,7 +232,7 @@ in `model_description.yaml` and the executable model joblib artifact.
 Internal report excludes profile statistics, filesystem paths, generic
 provenance, and output-file paths.
 
-The internal report scores the contralateral breast with the same final M2Q
+The internal report scores the contralateral breast with the same final model
 artifact for audit only. If no usable contralateral data remain after QC, that
 block is explicitly `unknown`; the target still uses the same LR2 with its
 gated SK terms neutralized. The external report remains target-side only.
@@ -237,7 +246,7 @@ gated SK terms neutralized. The external report remains target-side only.
   rendering remains a separate layer.
 - Thresholds come from the training artifact. The model version must therefore
   be reviewed together with its validation mode and intended use.
-- `M2/M2Q` use age. Age can carry real clinical signal but can also dominate a
+- The product model uses age. Age can carry real clinical signal but can also dominate a
   small dataset, so age-based models require explicit review before product
   fixation.
 - Prediction currently supports one selected model per config. Comparing several

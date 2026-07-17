@@ -9,7 +9,7 @@ from pathlib import Path
 from .pipelines import run_preprocessing_from_config
 from .prediction import run_prediction_from_config
 from .training import run_training_from_config
-from .training_config import available_model_recipes, describe_model_recipe
+from .training_config import available_product_models, describe_product_model
 from .workflows import run_preprocess_train_from_config
 
 
@@ -55,25 +55,25 @@ def main(argv: list[str] | None = None) -> int:
         help="Path to Aramis training YAML.",
     )
     train.add_argument(
-        "--list-recipes",
+        "--list-models",
         action="store_true",
-        help="List model recipes available in this Aramis version.",
+        help="List product models available in this Aramis version.",
     )
     train.add_argument(
-        "--describe-recipe",
-        metavar="RECIPE_ID",
-        help="Print one immutable model recipe.",
+        "--describe-model",
+        metavar="MODEL_NAME",
+        help="Print one fixed product model definition.",
     )
     _add_verbose_argument(train)
     preprocess_train = subparsers.add_parser(
         "preprocess-train",
-        help="Run an Aramis preprocess-train config.",
+        help="Run Aramis preprocessing and training from one YAML config.",
     )
     preprocess_train.add_argument(
         "--config",
         required=True,
         type=Path,
-        help="Path to Aramis preprocess-train YAML.",
+        help="Path to Aramis preprocessing-and-training YAML.",
     )
     _add_verbose_argument(preprocess_train)
     predict = subparsers.add_parser(
@@ -98,14 +98,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"config={args.config}")
         return 0
     if args.command == "train":
-        if args.list_recipes:
-            print("\n".join(available_model_recipes()))
+        if args.list_models:
+            print("\n".join(available_product_models()))
             return 0
-        if args.describe_recipe:
-            print(describe_model_recipe(args.describe_recipe), end="")
+        if args.describe_model:
+            print(describe_product_model(args.describe_model), end="")
             return 0
         if args.config is None:
-            train.error("--config is required unless listing or describing recipes")
+            train.error("--config is required unless listing or describing models")
         artifact = run_training_from_config(args.config)
         print(f"artifact_kind={artifact['kind']}")
         print(f"run_folder={artifact['run_folder']}")

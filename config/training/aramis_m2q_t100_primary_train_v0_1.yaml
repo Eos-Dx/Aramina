@@ -1,5 +1,5 @@
-contract: aramis_training_config_v0_1
-training:
+contract: aramis_training_config_v0_2
+model:
   name: aramis_m2q_t100
   version: 0.2.7-beta
   created_by: Sergey Denisov
@@ -12,8 +12,6 @@ input:
   dataframe_joblib_path: ./examples/outputs/model_input/aramis_biopsy_patients_model_input_v0_1.joblib
 output:
   folder: ./examples/outputs/training
-model:
-  recipe: m2q_gated_target_case_v0_1
 evaluation:
   method: repeated_stratified_kfold
   folds: 5

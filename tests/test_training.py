@@ -18,6 +18,7 @@ from aramis.training import (
     run_training_from_config,
 )
 from aramis.training_config import load_training_config
+from aramis.training_config import PRODUCT_MODEL_NAME
 
 
 def _patient_training_frame() -> pd.DataFrame:
@@ -56,9 +57,9 @@ def _training_config(
     mode: str,
 ) -> dict:
     return {
-        "contract": "aramis_training_config_v0_1",
-        "training": {
-            "name": "aramis_test_m2q",
+        "contract": "aramis_training_config_v0_2",
+        "model": {
+            "name": PRODUCT_MODEL_NAME,
             "version": "0.1-beta",
             "created_by": "test",
             "clinical_stage": "research draft",
@@ -70,7 +71,6 @@ def _training_config(
         },
         "input": {"dataframe_joblib_path": str(input_path)},
         "output": {"folder": str(output_folder)},
-        "model": {"recipe": "m2q_gated_target_case_v0_1"},
         "evaluation": {
             "method": "repeated_stratified_kfold",
             "folds": 5,
@@ -118,10 +118,10 @@ def test_training_contract_allows_custom_repeated_stratified_kfold(tmp_path: Pat
 def test_training_contract_requires_intended_use(tmp_path: Path):
     config_path = tmp_path / "train.yaml"
     config = _training_config(tmp_path / "input.joblib", tmp_path, mode="evaluation")
-    del config["training"]["intended_use"]
+    del config["model"]["intended_use"]
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
 
-    with pytest.raises(ValueError, match=r"Missing training fields: \['intended_use'\]"):
+    with pytest.raises(ValueError, match=r"Missing model fields: \['intended_use'\]"):
         load_training_config(config_path)
 
 
@@ -209,8 +209,9 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
     )
 
     assert artifact["kind"] == "aramis_training_artifact"
-    assert set(artifact["models"]) == {"M2Q"}
-    assert artifact["model_identity"]["recipe"] == "m2q_gated_target_case_v0_1"
+    assert set(artifact["models"]) == {PRODUCT_MODEL_NAME}
+    assert artifact["model_identity"]["name"] == PRODUCT_MODEL_NAME
+    assert artifact["model_definition_yaml"]
     assert artifact["training_config_yaml"]
     assert artifact["historical_preprocessing_yaml"]
     assert artifact["prediction_preprocessing_yaml"]
@@ -256,11 +257,11 @@ def test_train_on_all_can_skip_evaluation_artifacts(tmp_path: Path):
     assert not (Path(result["run_folder"]) / "evaluation.joblib").exists()
 
 
-def test_train_cli_lists_and_describes_recipes(capsys):
-    assert main(["train", "--list-recipes"]) == 0
-    assert "m2q_gated_target_case_v0_1" in capsys.readouterr().out
+def test_train_cli_lists_and_describes_models(capsys):
+    assert main(["train", "--list-models"]) == 0
+    assert PRODUCT_MODEL_NAME in capsys.readouterr().out
 
-    assert main(["train", "--describe-recipe", "m2q_gated_target_case_v0_1"]) == 0
+    assert main(["train", "--describe-model", PRODUCT_MODEL_NAME]) == 0
     assert "lr2_logreg_c: 0.3" in capsys.readouterr().out
 
 

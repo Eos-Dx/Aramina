@@ -3,7 +3,7 @@
 Status: research draft.
 
 This document defines the SK target/contralateral symmetry calculations. The
-current product M2Q schema uses only the four fields marked **Core4** below.
+the current product schema uses only the four fields marked **Core4** below.
 
 Code source:
 
@@ -87,7 +87,7 @@ profile_p_cancer_logit_average = sigmoid(mean(logit_i))
 0 otherwise
 ```
 
-This field is not a model input for the current product M2Q.
+This field is not a model input for the current product model.
 
 ### sk_meanrms1
 

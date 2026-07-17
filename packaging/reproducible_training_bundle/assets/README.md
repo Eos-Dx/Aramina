@@ -31,7 +31,7 @@ starts it and waits up to five minutes for it to become ready.
 ## Prediction examples
 
 After training completes, run all three one-patient H5 examples with the model
-just created under `outputs/preprocess_train/`.
+just created under `outputs/preprocessing_and_training/`.
 
 Windows:
 
@@ -46,7 +46,7 @@ macOS/Linux:
 ```
 
 The scripts run the same Linux Docker image. They automatically select the
-newest `model.joblib` under `outputs/preprocess_train/`, run cancer, benign,
+newest `model.joblib` under `outputs/preprocessing_and_training/`, run cancer, benign,
 and atypical H5 fixtures, then write reports to:
 
 ```text
@@ -58,11 +58,11 @@ outputs/prediction_examples/atypical/
 Pass a particular model produced by this bundle when needed:
 
 ```powershell
-.\predict_examples.ps1 -ModelPath .\outputs\preprocess_train\...\model.joblib
+.\predict_examples.ps1 -ModelPath .\outputs\preprocessing_and_training\...\model.joblib
 ```
 
 ```bash
-./predict_examples.sh --model ./outputs/preprocess_train/.../model.joblib
+./predict_examples.sh --model ./outputs/preprocessing_and_training/.../model.joblib
 ```
 
 The supplied prediction YAML templates are external under
@@ -71,29 +71,29 @@ the selected model path to `outputs/prediction_examples/resolved_configs/`.
 
 ## Select a configuration
 
-The bundle includes only operational YAML files: one `preprocess-train` config,
+The bundle includes only operational YAML files: one preprocessing-and-training config,
 its preprocessing and training configs, the prediction preprocessing config,
-three bundled prediction templates, and required `extends` fragments. Select one preprocess-train YAML; it names
+three bundled prediction templates, and required `extends` fragments. Select one preprocessing-and-training YAML; it names
 the preprocessing and training YAMLs to use. All operational paths resolve
 from the mounted Aramis project root.
 
 Windows:
 
 ```powershell
-.\install_and_train.ps1 -PreprocessTrainConfig config/preprocess_train/aramis_biopsy_patients_primary_preprocess_train_v0_1.yaml
+.\install_and_train.ps1 -PreprocessTrainConfig config/preprocessing_and_training/aramis_biopsy_patients_primary_preprocessing_and_training_v0_1.yaml
 ```
 
 macOS/Linux:
 
 ```bash
-./install_and_train.sh --preprocess-train-config config/preprocess_train/aramis_biopsy_patients_primary_preprocess_train_v0_1.yaml
+./install_and_train.sh --preprocess-train-config config/preprocessing_and_training/aramis_biopsy_patients_primary_preprocessing_and_training_v0_1.yaml
 ```
 
 To use a different evaluation, copy the standard training YAML, change only
-its `evaluation` section, then create a preprocess-train YAML under
-`config/preprocess_train/` that points to it and the desired preprocessing
-YAML. The model recipe is fixed inside the Docker image. A custom
-preprocess-train run is saved in the generated model artifacts and deliberately
+its `evaluation` section, then create a preprocessing-and-training YAML under
+`config/preprocessing_and_training/` that points to it and the desired preprocessing
+YAML. The product model is fixed inside the Docker image. A custom
+preprocessing-and-training run is saved in the generated model artifacts and deliberately
 skips comparison to the fixed reference model.
 
 ## macOS/Linux

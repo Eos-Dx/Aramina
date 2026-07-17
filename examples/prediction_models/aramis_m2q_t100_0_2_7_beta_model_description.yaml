@@ -1,12 +1,11 @@
 kind: aramis_model_description
 version: '0.1'
-model_id: aramis_m2q_t100_0_2_7-beta_38200d69c900
+model_id: aramis_m2q_t100_0_2_7-beta_802f95e647e2
 model_name: aramis_m2q_t100
 model_version: 0.2.7-beta
-model_recipe: m2q_gated_target_case_v0_1
-selected_model: M2Q
+selected_model: aramis_m2q_t100
 model_summary:
-  name: M2Q profile, gated SK Core4 refinement, and age
+  name: Aramis T100 profile, optional SK symmetry refinement, and age
   lr1_profile_model:
     type: Pipeline
     steps:
@@ -385,14 +384,14 @@ model_summary:
   symmetry_policy: single_model_gated_optional_refinement
   symmetry_gate: symmetry_available
 model_joblib: model.joblib
-model_joblib_sha256: 38200d69c9005193efce1c9eccbb47d28b5a8bf99a2dc3f1930bc23d72b5001f
+model_joblib_sha256: 802f95e647e2d21555fd746e2286d30d67beb9fca61adc4af3be8eeb9de66a54
 decision_thresholds:
   threshold_youden: 0.4171226115943444
   threshold_target: 0.24451397236244887
   target_sensitivity: 0.95
   target_reached: true
 feature_schema:
-  M2Q:
+  aramis_m2q_t100:
     feature_columns:
     - profile_p_cancer_logit_average
     - age

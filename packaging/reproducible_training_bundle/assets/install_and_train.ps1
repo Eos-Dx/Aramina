@@ -1,5 +1,5 @@
 param(
-    [string]$PreprocessTrainConfig = "config/preprocess_train/aramis_biopsy_patients_primary_preprocess_train_v0_1.yaml"
+    [string]$PreprocessTrainConfig = "config/preprocessing_and_training/aramis_biopsy_patients_primary_preprocessing_and_training_v0_1.yaml"
 )
 
 $ErrorActionPreference = "Stop"
@@ -128,8 +128,8 @@ function Resolve-PreprocessTrainConfig {
         throw "Preprocess-train config must be inside bundled config/: $Value"
     }
     $relative = $preprocessTrainPath.Substring($configRootWithSeparator.Length).Replace('\', '/')
-    if (-not $relative.StartsWith("preprocess_train/")) {
-        throw "Preprocess-train config must be inside bundled config/preprocess_train/: $Value"
+    if (-not $relative.StartsWith("preprocessing_and_training/")) {
+        throw "Preprocessing-and-training config must be inside bundled config/preprocessing_and_training/: $Value"
     }
     return "/opt/Aramis/config/$relative"
 }
@@ -141,7 +141,7 @@ try {
     $script:DockerExe = Ensure-DockerDesktop
     & $script:DockerExe version | Out-Host
     $ResolvedPreprocessTrainConfig = Resolve-PreprocessTrainConfig $PreprocessTrainConfig
-    Write-Host "Preprocess-train config: $ResolvedPreprocessTrainConfig"
+    Write-Host "Preprocessing-and-training config: $ResolvedPreprocessTrainConfig"
 
     $H5Path = Join-Path $DataDir "combined_archive.h5"
     if (-not (Test-Path $H5Path)) {

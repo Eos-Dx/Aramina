@@ -116,7 +116,7 @@ specimen-level split is insufficient when patient leakage is possible
 Current product evaluation policy:
 
 ```text
-use repeated patient-safe stratified k-fold to evaluate the frozen M2Q recipe
+use repeated patient-safe stratified k-fold to evaluate the fixed product model
 default/current config: 5-fold x20 with random_seed=42
 record actual folds/repeats/random_seed in evaluation artifacts and model joblib
 use train-all only after evaluation to fit the final packaged artifact

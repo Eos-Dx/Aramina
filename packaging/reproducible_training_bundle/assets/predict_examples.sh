@@ -45,7 +45,7 @@ sha256_file() {
 }
 
 find_latest_model() {
-  python3 - "${OUTPUT_DIR}/preprocess_train" <<'PY'
+  python3 - "${OUTPUT_DIR}/preprocessing_and_training" <<'PY'
 from pathlib import Path
 import sys
 
@@ -79,7 +79,7 @@ docker version >/dev/null || {
 
 if [[ -z "${MODEL_PATH}" ]]; then
   MODEL_PATH="$(find_latest_model)" || {
-    echo "No trained model found under outputs/preprocess_train/. Run install_and_train first or pass --model." >&2
+    echo "No trained model found under outputs/preprocessing_and_training/. Run install_and_train first or pass --model." >&2
     exit 1
   }
 fi

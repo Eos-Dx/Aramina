@@ -10,8 +10,8 @@ import yaml
 from aramis import __main__ as cli
 from aramis import workflows
 from aramis.training_config import (
+    PRODUCT_MODEL_NAME,
     PRODUCT_EVALUATION,
-    resolved_recipe_path,
     validate_training_config,
 )
 
@@ -49,7 +49,7 @@ def test_cli_commands_delegate_to_product_entrypoints(monkeypatch, capsys, tmp_p
                 "suggested_class": "BENIGN",
                 "reliability": "high",
             },
-            "internal_report": {"model": {"name": "M2Q"}},
+            "internal_report": {"model": {"name": PRODUCT_MODEL_NAME}},
         },
     )
 
@@ -63,7 +63,7 @@ def test_cli_commands_delegate_to_product_entrypoints(monkeypatch, capsys, tmp_p
     assert "suggested_class=BENIGN" in capsys.readouterr().out
 
 
-def test_cli_train_requires_config_when_not_listing_recipes(capsys):
+def test_cli_train_requires_config_when_not_listing_models(capsys):
     with pytest.raises(SystemExit, match="2"):
         cli.main(["train"])
     assert "--config is required" in capsys.readouterr().err
@@ -91,7 +91,7 @@ def test_workflow_passes_preprocessing_dataframe_directly_to_training(
         yaml.safe_dump(
             {
                 "contract": workflows.PREPROCESS_TRAIN_CONTRACT,
-                "preprocess_train": {
+                "preprocessing_and_training": {
                     "name": "product",
                     "created_by": "test",
                     "output_folder": str(tmp_path / "runs"),
@@ -148,7 +148,7 @@ def test_workflow_resolves_root_relative_paths_from_external_config_tree(
         yaml.safe_dump(
             {
                 "contract": workflows.PREPROCESS_TRAIN_CONTRACT,
-                "preprocess_train": {
+                "preprocessing_and_training": {
                     "name": "product",
                     "created_by": "test",
                     "output_folder": "./examples/outputs/preprocess_train",
@@ -184,8 +184,8 @@ def test_workflow_resolves_root_relative_paths_from_external_config_tree(
 @pytest.mark.parametrize(
     ("payload", "message"),
     [
-        ({}, "Missing preprocess-train fields"),
-        ({"contract": "wrong", "preprocess_train": {}}, "Missing preprocess-train fields"),
+        ({}, "Missing preprocessing-and-training fields"),
+        ({"contract": "wrong", "preprocessing_and_training": {}}, "Missing preprocessing-and-training fields"),
     ],
 )
 def test_workflow_contract_rejects_incomplete_config(
@@ -201,8 +201,8 @@ def test_workflow_contract_rejects_incomplete_config(
 
 def test_training_config_rejects_unknown_and_resolves_packaged_path(tmp_path: Path):
     config = {
-        "contract": "aramis_training_config_v0_1",
-        "training": {
+        "contract": "aramis_training_config_v0_2",
+        "model": {
             "name": "test",
             "version": "0.1-beta",
             "created_by": "test",
@@ -212,12 +212,8 @@ def test_training_config_rejects_unknown_and_resolves_packaged_path(tmp_path: Pa
         "run": {"evaluation": True, "train_on_all": False},
         "input": {"dataframe_joblib_path": "input.joblib"},
         "output": {"folder": "out"},
-        "model": {"recipe": "m2q_gated_target_case_v0_1"},
         "evaluation": {**PRODUCT_EVALUATION, "unexpected": True},
     }
+    config["model"]["name"] = PRODUCT_MODEL_NAME
     with pytest.raises(ValueError, match="Unknown evaluation fields"):
         validate_training_config(config, tmp_path / "train.yaml")
-
-    registry = tmp_path / "config" / "model_recipes.yaml"
-    registry.parent.mkdir()
-    assert resolved_recipe_path("missing.yaml", registry) == registry.parents[2] / "missing.yaml"

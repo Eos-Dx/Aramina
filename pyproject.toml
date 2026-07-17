@@ -18,7 +18,7 @@ dependencies = [
   "h5py>=3.10",
   "pyarrow>=17",
   "pyyaml>=6.0",
-  "xrd-preprocessing @ git+https://github.com/Eos-Dx/XRD-preprocessing.git@v0.1.7-beta",
+  "xrd-preprocessing @ git+https://github.com/Eos-Dx/XRD-preprocessing.git@45d5568",
 ]
 
 [project.scripts]

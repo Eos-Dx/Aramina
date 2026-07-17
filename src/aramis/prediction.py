@@ -20,6 +20,7 @@ import yaml
 from .model_utils import profile_matrix
 from .pipelines import run_preprocessing_pipeline
 from .training import build_patient_prediction_feature_row
+from .training_config import PRODUCT_MODEL_NAME
 
 
 def run_prediction_from_config(config_path: str | Path) -> dict[str, Any]:
@@ -56,6 +57,7 @@ def run_prediction_from_config(config_path: str | Path) -> dict[str, Any]:
         model_name=model_name,
         threshold_key=threshold_key,
     )
+    target_prediction["is_target"] = True
     contralateral_side = target_prediction["feature_row"].get("contralateral_side")
     contralateral_prediction = (
         _side_prediction(
@@ -70,6 +72,7 @@ def run_prediction_from_config(config_path: str | Path) -> dict[str, Any]:
         if _normalize_side(contralateral_side) is not None
         else _unavailable_side_prediction()
     )
+    contralateral_prediction["is_target"] = False
     reports = _prediction_reports(
         config=config,
         output_paths=output_paths,
@@ -180,7 +183,7 @@ def _score_model(
     missing = [column for column in columns if column not in feature_row.columns]
     if missing:
         raise ValueError(f"Prediction feature row is missing columns: {missing}")
-    if model_name != "M2Q":
+    if model_name != PRODUCT_MODEL_NAME:
         raise ValueError(f"Unsupported product model: {model_name!r}")
     final_model = route_info.get("final_model")
     if final_model is None:
@@ -198,7 +201,7 @@ def _side_prediction(
     model_name: str,
     threshold_key: str,
 ) -> dict[str, Any]:
-    """Score one requested side with the same final M2Q artifact."""
+    """Score one requested side with the fixed final product artifact."""
     feature_table = build_patient_prediction_feature_row(
         df,
         model_info,
@@ -223,7 +226,7 @@ def _side_prediction(
         "feature_row": feature_row,
         "model_route": model_route,
         "p_cancer": p_cancer,
-        "profile_p_cancer": profile["profile_p_cancer"],
+        "xrd_profile": profile,
         "threshold_key": threshold_key,
         "threshold": threshold,
         "suggested_class": "CANCER" if p_cancer >= threshold else "BENIGN",
@@ -246,9 +249,9 @@ def _prediction_quantiles(model_info: dict[str, Any], p_cancer: float) -> dict[s
             "Model artifact has no prediction_reference_scores. Retrain model."
         )
     keys = {
-        "training_cohort_quantile": "all_target_cases",
-        "benign_cohort_quantile": "benign_target_cases",
-        "cancer_cohort_quantile": "cancer_target_cases",
+        "all_training_patients": "all_target_cases",
+        "benign_training_patients": "benign_target_cases",
+        "cancer_training_patients": "cancer_target_cases",
     }
     out: dict[str, float] = {}
     for report_key, reference_key in keys.items():
@@ -294,6 +297,12 @@ def _prediction_reports(
         suggested_class=target_prediction["suggested_class"],
         reliability=row["result_reliability"],
         reliability_reason=row["result_reliability_reason"],
+        scan_metadata=_scan_metadata(
+            row,
+            patient_id=common["patient_id"],
+            target_side=common["target_side"],
+            age_available=bool(row.get("age_available", False)),
+        ),
     )
     internal = _internal_report(
         common=common,
@@ -313,6 +322,7 @@ def _external_report(
     suggested_class: str,
     reliability: str,
     reliability_reason: str,
+    scan_metadata: dict[str, Any],
 ) -> dict[str, Any]:
     return {
         "output_type": "aramis_external_report",
@@ -322,7 +332,16 @@ def _external_report(
         "analysis_author": common["analysis_author"],
         "prediction_comment": common["prediction_comment"],
         "patient_id": common["patient_id"],
+        "patient_age": scan_metadata["patient_age"],
         "target_side": _lower_side(common["target_side"]),
+        "mammography_suspicious_field": scan_metadata[
+            "mammography_suspicious_field"
+        ],
+        "scan_date_time": scan_metadata["scan_date_time"],
+        "operator_id": scan_metadata["operator_id"],
+        "hardware_version": scan_metadata["hardware_version"],
+        "eoscan_version": scan_metadata["eoscan_version"],
+        "model_name": common["model_name"],
         "model_version": common["model_version"],
         "suggested_class": suggested_class,
         "reliability": reliability,
@@ -369,55 +388,64 @@ def _internal_report(
 
 
 def _breast_prediction_report(prediction: dict[str, Any]) -> dict[str, Any]:
+    profile_key = (
+        "azimuthal_integration_target_profile"
+        if prediction.get("is_target", False)
+        else "azimuthal_integration_contralateral_profile"
+    )
     if not prediction["available"]:
         return {
             "available": False,
             "side": "unknown",
-            "profile_only": {"p_cancer": "unknown"},
+            profile_key: {
+                "available": False,
+                "p_cancer": "unknown",
+                "per_measurement_p_cancer": [],
+            },
             "final_prediction": {
                 "p_cancer": "unknown",
                 "decision_threshold_id": "unknown",
                 "decision_threshold": "unknown",
                 "suggested_class": "unknown",
-            },
-            "training_cohort_quantile": "unknown",
-            "benign_cohort_quantile": "unknown",
-            "cancer_cohort_quantile": "unknown",
-            "features": {
-                "symmetry": {"available": False, "status": "not_available"},
+                "score_percentiles": {
+                    "all_training_patients": "unknown",
+                    "benign_training_patients": "unknown",
+                    "cancer_training_patients": "unknown",
+                },
                 "reliability": {"level": "unknown", "reason": "unknown"},
             },
+            "symmetry": {"available": False, "status": "not_available"},
             "reason": prediction["reason"],
         }
     row = prediction["feature_row"]
     return {
         "available": True,
         "side": _lower_side(row["target_side"]),
-        "profile_only": {
-            "p_cancer": prediction["profile_p_cancer"],
+        profile_key: {
+            "available": bool(prediction["xrd_profile"]["available"]),
+            "p_cancer": prediction["xrd_profile"]["profile_p_cancer"],
+            "per_measurement_p_cancer": prediction["xrd_profile"][
+                "measurement_p_cancer"
+            ],
         },
         "final_prediction": {
             "p_cancer": prediction["p_cancer"],
             "decision_threshold_id": _decision_threshold_id(prediction["threshold_key"]),
             "decision_threshold": prediction["threshold"],
             "suggested_class": prediction["suggested_class"],
-        },
-        "training_cohort_quantile": prediction["quantiles"]["training_cohort_quantile"],
-        "benign_cohort_quantile": prediction["quantiles"]["benign_cohort_quantile"],
-        "cancer_cohort_quantile": prediction["quantiles"]["cancer_cohort_quantile"],
-        "features": {
-            "symmetry": {
-                "available": bool(row.get("symmetry_available", 0)),
-                "status": (
-                    "applied"
-                    if bool(row.get("symmetry_available", 0))
-                    else "not_available"
-                ),
-            },
+            "score_percentiles": prediction["quantiles"],
             "reliability": {
                 "level": row["result_reliability"],
                 "reason": row["result_reliability_reason"],
             },
+        },
+        "symmetry": {
+            "available": bool(row.get("symmetry_available", 0)),
+            "status": (
+                "applied"
+                if bool(row.get("symmetry_available", 0))
+                else "not_available"
+            ),
         },
         "model_execution": {
             "scoring_path": (

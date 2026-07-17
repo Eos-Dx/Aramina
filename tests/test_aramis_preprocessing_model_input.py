@@ -35,9 +35,11 @@ def test_biopsy_patients_model_input_preprocessing_writes_joblib(tmp_path: Path)
 
     assert loaded["kind"] == "xrd_preprocessing_dataframe"
     resolved_config = yaml.safe_load(loaded["preprocessing_config_yaml"])
-    assert resolved_config["aramis_preprocessing"]["cohort"] == (
-        "biopsy_patients_normal_as_benign"
-    )
+    assert resolved_config["product_filter"]["require_biopsy_patient"] is True
+    assert resolved_config["labels"]["product_column_builder"]["benign_values"] == [
+        "BENIGN",
+        "NORMAL",
+    ]
     assert len(loaded["metadata"]["input_h5_sha256"]) == 64
     assert loaded["metadata"]["aramis_version"]
     assert loaded["metadata"]["aramis_git_sha"]

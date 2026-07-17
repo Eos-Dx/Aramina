@@ -1,4 +1,4 @@
-"""Strict public contracts for Aramis model training."""
+"""Strict public contract for the single Aramis product model."""
 
 from __future__ import annotations
 
@@ -9,9 +9,44 @@ from typing import Any
 import yaml
 
 
-TRAINING_CONTRACT = "aramis_training_config_v0_1"
-RECIPE_REGISTRY_CONTRACT = "aramis_model_recipe_registry_v0_1"
-DEFAULT_RECIPE_REGISTRY = Path(__file__).with_name("model_recipes.yaml")
+TRAINING_CONTRACT = "aramis_training_config_v0_2"
+PRODUCT_MODEL_NAME = "aramis_m2q_t100"
+PRODUCT_MODELS = {
+    PRODUCT_MODEL_NAME: {
+        "description": "Aramis T100 target-breast model with age and optional SK symmetry refinement.",
+        "model": {
+            "type": "m2q_gated_target_case",
+            "profile_column": "radial_profile_data",
+            "label_column": "product_status_group",
+            "group_column": "patientId",
+            "specimen_column": "specimenId",
+            "side_column": "side",
+            "q_column": "q_range",
+            "age_column": "age",
+            "biopsy_column": "biopsy",
+            "lr1_row_policy": "biopsy_only",
+            "selected_models": [PRODUCT_MODEL_NAME],
+            "lr1_logreg_c": 0.1,
+            "lr2_logreg_c": 0.3,
+        },
+        "target_sensitivity": 0.95,
+        "prediction_preprocessing_config_path": "config/preprocessing/aramis_prediction_patient_model_input_v0_1.yaml",
+        "prediction_contract": {
+            "container": {"schema_version": "0.3", "format": "xrd-session"},
+            "reporting": {
+                "external_report": {
+                    "version": "0.1",
+                    "reference_doc": "docs/modeling/prediction_pipeline_v0_1.md",
+                },
+                "internal_report": {
+                    "version": "0.1",
+                    "reference_doc": "docs/modeling/internal_clinical_report_content_v0_1.md",
+                },
+            },
+            "decision": {"threshold_key": "threshold_target"},
+        },
+    }
+}
 PRODUCT_EVALUATION = {
     "method": "repeated_stratified_kfold",
     "folds": 5,
@@ -36,30 +71,19 @@ def validate_training_config(config: Any, source: str | Path) -> None:
         raise TypeError(f"Training config must be a mapping: {source}")
     _exact_keys(
         config,
-        required={"contract", "training", "input", "output", "model", "run", "evaluation"},
-        allowed={"contract", "training", "input", "output", "model", "run", "evaluation"},
+        required={"contract", "input", "output", "model", "run", "evaluation"},
+        allowed={"contract", "input", "output", "model", "run", "evaluation"},
         where="training config",
     )
     if config["contract"] != TRAINING_CONTRACT:
         raise ValueError(f"Unsupported training contract: {config['contract']!r}")
     _exact_keys(
-        config["training"],
-        required={
-            "name",
-            "version",
-            "created_by",
-            "clinical_stage",
-            "intended_use",
-        },
-        allowed={
-            "name",
-            "version",
-            "created_by",
-            "clinical_stage",
-            "intended_use",
-        },
-        where="training",
+        config["model"],
+        required={"name", "version", "created_by", "clinical_stage", "intended_use"},
+        allowed={"name", "version", "created_by", "clinical_stage", "intended_use"},
+        where="model",
     )
+    resolve_model_definition(str(config["model"]["name"]))
     _exact_keys(
         config["run"],
         required={"evaluation", "train_on_all"},
@@ -70,92 +94,37 @@ def validate_training_config(config: Any, source: str | Path) -> None:
         raise TypeError("run.evaluation and run.train_on_all must be boolean.")
     if not config["run"]["evaluation"] and not config["run"]["train_on_all"]:
         raise ValueError("At least one of run.evaluation or run.train_on_all must be true.")
-    _exact_keys(
-        config["input"],
-        required={"dataframe_joblib_path"},
-        allowed={"dataframe_joblib_path"},
-        where="input",
-    )
-    _exact_keys(
-        config["output"],
-        required={"folder"},
-        allowed={"folder"},
-        where="output",
-    )
-    _exact_keys(
-        config["model"],
-        required={"recipe"},
-        allowed={"recipe"},
-        where="model",
-    )
+    _exact_keys(config["input"], required={"dataframe_joblib_path"}, allowed={"dataframe_joblib_path"}, where="input")
+    _exact_keys(config["output"], required={"folder"}, allowed={"folder"}, where="output")
     _validate_evaluation(config["evaluation"])
 
 
-def load_recipe_registry(
-    path: str | Path = DEFAULT_RECIPE_REGISTRY,
-) -> tuple[dict[str, Any], Path]:
-    """Load the versioned model recipe registry."""
-    source = Path(path).expanduser().resolve()
-    registry = yaml.safe_load(source.read_text(encoding="utf-8"))
-    if not isinstance(registry, dict):
-        raise TypeError(f"Recipe registry must be a mapping: {source}")
-    _exact_keys(
-        registry,
-        required={"contract", "recipes"},
-        allowed={"contract", "recipes"},
-        where="recipe registry",
-    )
-    if registry["contract"] != RECIPE_REGISTRY_CONTRACT:
-        raise ValueError(f"Unsupported recipe registry contract: {registry['contract']!r}")
-    if not isinstance(registry["recipes"], dict) or not registry["recipes"]:
-        raise ValueError("Recipe registry requires at least one recipe.")
-    return registry, source
-
-
-def resolve_training_recipe(
-    recipe_id: str,
-    *,
-    registry_path: str | Path = DEFAULT_RECIPE_REGISTRY,
-) -> tuple[dict[str, Any], Path]:
-    """Return one validated immutable recipe and its registry path."""
-    registry, source = load_recipe_registry(registry_path)
-    if recipe_id not in registry["recipes"]:
+def resolve_model_definition(model_name: str) -> dict[str, Any]:
+    """Return the fixed implementation owned by one product model name."""
+    try:
+        return deepcopy(PRODUCT_MODELS[model_name])
+    except KeyError as exc:
         raise ValueError(
-            f"Unknown model recipe {recipe_id!r}; available: "
-            f"{sorted(registry['recipes'])}"
-        )
-    recipe = deepcopy(registry["recipes"][recipe_id])
-    _validate_recipe(recipe_id, recipe)
-    return recipe, source
+            f"Unknown Aramis model {model_name!r}; available: {sorted(PRODUCT_MODELS)}"
+        ) from exc
 
 
-def available_model_recipes(
-    registry_path: str | Path = DEFAULT_RECIPE_REGISTRY,
-) -> list[str]:
-    """Return public recipe IDs."""
-    registry, _ = load_recipe_registry(registry_path)
-    return sorted(registry["recipes"])
+def available_product_models() -> list[str]:
+    """Return model names available in this Aramis version."""
+    return sorted(PRODUCT_MODELS)
 
 
-def describe_model_recipe(
-    recipe_id: str,
-    *,
-    registry_path: str | Path = DEFAULT_RECIPE_REGISTRY,
-) -> str:
-    """Return one recipe as readable YAML."""
-    recipe, _ = resolve_training_recipe(recipe_id, registry_path=registry_path)
-    return yaml.safe_dump({recipe_id: recipe}, sort_keys=False)
+def describe_product_model(model_name: str) -> str:
+    """Render the fixed model definition as readable YAML."""
+    return yaml.safe_dump({model_name: resolve_model_definition(model_name)}, sort_keys=False)
 
 
-def resolved_recipe_path(value: str, registry_path: Path) -> Path:
-    """Resolve a recipe-owned path relative to the registry file."""
+def project_model_path(value: str) -> Path:
+    """Resolve one model-owned project-relative path."""
     path = Path(value).expanduser()
     if path.is_absolute():
         return path
-    packaged = (registry_path.parent / path).resolve()
-    if packaged.exists():
-        return packaged
-    return (registry_path.parents[2] / path).resolve()
+    return (Path(__file__).resolve().parents[2] / path).resolve()
 
 
 def _validate_evaluation(evaluation: Any) -> None:
@@ -168,10 +137,7 @@ def _validate_evaluation(evaluation: Any) -> None:
         where="evaluation",
     )
     if evaluation["method"] != PRODUCT_EVALUATION["method"]:
-        raise ValueError(
-            "evaluation.method must be 'repeated_stratified_kfold' for this "
-            "training contract."
-        )
+        raise ValueError("evaluation.method must be 'repeated_stratified_kfold'.")
     _validate_int_at_least(evaluation["folds"], 2, "evaluation.folds")
     _validate_int_at_least(evaluation["repeats"], 1, "evaluation.repeats")
     _validate_int_at_least(evaluation["random_seed"], 0, "evaluation.random_seed")
@@ -184,51 +150,7 @@ def _validate_int_at_least(value: Any, minimum: int, where: str) -> None:
         raise ValueError(f"{where} must be >= {minimum}.")
 
 
-def _validate_recipe(recipe_id: str, recipe: Any) -> None:
-    if not isinstance(recipe, dict):
-        raise TypeError(f"Recipe {recipe_id!r} must be a mapping.")
-    _exact_keys(
-        recipe,
-        required={
-            "description",
-            "model",
-            "target_sensitivity",
-            "prediction_preprocessing_config_path",
-            "prediction_contract",
-        },
-        allowed={
-            "description",
-            "model",
-            "target_sensitivity",
-            "prediction_preprocessing_config_path",
-            "prediction_contract",
-        },
-        where=f"recipe {recipe_id}",
-    )
-    target = float(recipe["target_sensitivity"])
-    if not 0.0 < target <= 1.0:
-        raise ValueError(f"Recipe {recipe_id!r} target_sensitivity must be in (0, 1].")
-    model = recipe["model"]
-    if not isinstance(model, dict) or model.get("selected_models") != ["M2Q"]:
-        raise ValueError(f"Recipe {recipe_id!r} must select only M2Q.")
-    for key in ("lr1_logreg_c", "lr2_logreg_c"):
-        if float(model.get(key, 0.0)) <= 0.0:
-            raise ValueError(f"Recipe {recipe_id!r} {key} must be positive.")
-    contract = recipe["prediction_contract"]
-    for section in ("container", "reporting", "decision"):
-        if not isinstance(contract.get(section), dict):
-            raise ValueError(
-                f"Recipe {recipe_id!r} prediction_contract requires {section}."
-            )
-
-
-def _exact_keys(
-    value: Any,
-    *,
-    required: set[str],
-    allowed: set[str],
-    where: str,
-) -> None:
+def _exact_keys(value: Any, *, required: set[str], allowed: set[str], where: str) -> None:
     if not isinstance(value, dict):
         raise TypeError(f"{where} must be a mapping.")
     missing = sorted(required.difference(value))

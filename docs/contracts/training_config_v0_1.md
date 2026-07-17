@@ -2,11 +2,11 @@
 
 Status: research draft.
 
-`python -m aramis train --config <yaml>` accepts a strict YAML contract. It selects a code-owned immutable recipe and evaluation settings; it cannot alter the feature schema, regularization, label policy, target sensitivity, or prediction preprocessing.
+`python -m aramis train --config <yaml>` accepts a strict YAML contract. It selects one code-owned fixed product model and evaluation settings; it cannot alter the feature schema, regularization, label policy, target sensitivity, or prediction preprocessing.
 
 ```yaml
-contract: aramis_training_config_v0_1
-training:
+contract: aramis_training_config_v0_2
+model:
   name: aramis_m2q_t100
   version: 0.2.7-beta
   created_by: Sergey Denisov
@@ -19,8 +19,6 @@ input:
   dataframe_joblib_path: ./examples/outputs/model_input/aramis_biopsy_patients_model_input_v0_1.joblib
 output:
   folder: ./examples/outputs/training
-model:
-  recipe: m2q_gated_target_case_v0_1
 evaluation:
   method: repeated_stratified_kfold
   folds: 5
@@ -34,15 +32,15 @@ All relative paths resolve from the Aramis project root. Unknown or missing fiel
 |---|---|
 | `run.evaluation` | Write patient-safe evaluation artifacts. |
 | `run.train_on_all` | Fit one executable model on the complete accepted cohort and write `model.joblib`. |
-| `evaluation.*` | Evaluation protocol. Current recipe accepts repeated stratified k-fold only. |
-| `model.recipe` | Immutable recipe ID; use `python -m aramis train --list-recipes`. |
+| `evaluation.*` | Evaluation protocol. The current product model accepts repeated stratified k-fold only. |
+| `model.name` | Fixed product model; use `python -m aramis train --list-models`. |
 
-At least one `run` flag must be `true`. Both may be `true`. Evaluation chooses a threshold independently in each training fold and scores only held-out patients. Train-on-all freezes its own threshold from complete-cohort scores at the recipe target sensitivity. The latter is an in-sample operating point, not an independent validation claim.
+At least one `run` flag must be `true`. Both may be `true`. Evaluation chooses a threshold independently in each training fold and scores only held-out patients. Train-on-all freezes its own threshold from complete-cohort scores at the fixed model target sensitivity. The latter is an in-sample operating point, not an independent validation claim.
 
 The caller may change `training` identity fields, `input`, `output`, the two
 `run` flags, and `evaluation.folds`, `evaluation.repeats`, or
 `evaluation.random_seed`. `evaluation.method` remains
-`repeated_stratified_kfold` in this contract. Recipe-owned architecture,
+`repeated_stratified_kfold` in this contract. Model-owned architecture,
 feature schema, regularization, label mapping, target sensitivity, and
 prediction preprocessing are not public YAML switches.
 

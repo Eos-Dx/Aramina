@@ -178,8 +178,8 @@ def test_preprocess_train_contract_rejects_unknown_fields(tmp_path):
     config_path.write_text(
         yaml.safe_dump(
             {
-                "contract": "aramis_preprocess_train_config_v0_1",
-                "preprocess_train": {
+                "contract": "aramis_preprocessing_and_training_config_v0_1",
+                "preprocessing_and_training": {
                     "name": "test",
                     "created_by": "tester",
                     "output_folder": "outputs",
@@ -192,5 +192,5 @@ def test_preprocess_train_contract_rejects_unknown_fields(tmp_path):
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="Unknown preprocess-train fields"):
+    with pytest.raises(ValueError, match="Unknown preprocessing-and-training fields"):
         _load_preprocess_train_config(config_path)

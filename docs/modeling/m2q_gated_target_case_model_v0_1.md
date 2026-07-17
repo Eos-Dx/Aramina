@@ -1,4 +1,4 @@
-# M2Q Gated Target-Case Model v0.1
+# Aramis T100 Target-Case Model v0.1
 
 Status: current research-draft model record.
 
@@ -61,14 +61,14 @@ patient remain together in every patient-safe fold.
 ## Frozen Regularization And Evaluation
 
 Historical experiments selected the frozen regularization values. Current
-product training does not search hyperparameters. It evaluates the fixed recipe
+product training does not search hyperparameters. It evaluates the fixed model
 and then fits it on all accepted target cases.
 
 Evaluation:
 
 ```text
 historical regularization search: patient-safe folds over LR1/LR2 C in [0.1, 0.3]
-frozen product recipe: LR1 C=0.1, LR2 C=0.3
+fixed product regularization: LR1 C=0.1, LR2 C=0.3
 current evaluation: repeated patient-safe stratified 5-fold x20, seed 42
 evaluation threshold: derived on each training fold, applied to its test fold
 deployment threshold: derived from final train-all scores at sensitivity >=0.95
@@ -90,7 +90,7 @@ retained in the `experiment` branch rather than duplicated in product docs.
 Current interpretation:
 
 ```text
-M2Q is a research-draft decision-support model, not a clinical-validation claim.
+Aramis T100 is a research-draft decision-support model, not a clinical-validation claim.
 Age is an important risk signal and must remain visible in model review.
 No current result establishes stable 0.95 sensitivity on unseen patients.
 A larger independent cohort is required before any stronger product claim.
@@ -113,7 +113,7 @@ These are research-draft evaluation results, not a clinical performance claim.
 
 ## Train On All
 
-`run.train_on_all: true` fits the frozen M2Q recipe on all accepted cases and derives the deployment
+`run.train_on_all: true` fits the fixed product model on all accepted cases and derives the deployment
 threshold. The model joblib stores executable estimators, frozen threshold,
 resolved training YAML, historical preprocessing YAML, prediction
 preprocessing YAML, prediction contract, and H5 lineage. Fold metrics and

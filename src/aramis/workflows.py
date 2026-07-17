@@ -15,7 +15,7 @@ from .pipelines import run_preprocessing_artifact_from_config
 from .training import run_training_from_config
 
 
-PREPROCESS_TRAIN_CONTRACT = "aramis_preprocess_train_config_v0_1"
+PREPROCESS_TRAIN_CONTRACT = "aramis_preprocessing_and_training_config_v0_1"
 logger = logging.getLogger(__name__)
 
 
@@ -35,8 +35,8 @@ def run_preprocess_train_from_config(
     dataframe_path = run_folder / "preprocessing" / "dataframe.joblib"
     dataframe_path.parent.mkdir(parents=True)
 
-    logger.info("Preprocess-train config: %s", config_path)
-    logger.info("Preprocess-train output: %s", run_folder)
+    logger.info("Preprocessing-and-training config: %s", config_path)
+    logger.info("Preprocessing-and-training output: %s", run_folder)
     logger.info("Stage 1/2: preprocessing")
     preprocessing_kwargs = {"verbose": True} if verbose else {}
     preprocessing_artifact = run_preprocessing_artifact_from_config(
@@ -82,28 +82,28 @@ def _load_preprocess_train_config(config_path: Path) -> dict[str, Any]:
         raise TypeError(f"Workflow config must be a mapping: {config_path}")
     required = {
         "contract",
-        "preprocess_train",
+        "preprocessing_and_training",
         "preprocessing_config_path",
         "training_config_path",
     }
     missing = sorted(required.difference(config))
     if missing:
-        raise ValueError(f"Missing preprocess-train fields: {missing}")
+        raise ValueError(f"Missing preprocessing-and-training fields: {missing}")
     unknown = sorted(set(config).difference(required))
     if unknown:
-        raise ValueError(f"Unknown preprocess-train fields: {unknown}")
+        raise ValueError(f"Unknown preprocessing-and-training fields: {unknown}")
     if config["contract"] != PREPROCESS_TRAIN_CONTRACT:
-        raise ValueError(f"Unsupported preprocess-train contract: {config['contract']!r}")
-    preprocess_train = config["preprocess_train"]
+        raise ValueError(f"Unsupported preprocessing-and-training contract: {config['contract']!r}")
+    preprocess_train = config["preprocessing_and_training"]
     fields = {"name", "created_by", "output_folder"}
     if not isinstance(preprocess_train, dict):
-        raise TypeError("preprocess_train must be a mapping.")
+        raise TypeError("preprocessing_and_training must be a mapping.")
     missing = sorted(fields.difference(preprocess_train))
     if missing:
-        raise ValueError(f"Missing preprocess-train fields: {missing}")
+        raise ValueError(f"Missing preprocessing-and-training fields: {missing}")
     unknown = sorted(set(preprocess_train).difference(fields))
     if unknown:
-        raise ValueError(f"Unknown preprocess-train fields: {unknown}")
+        raise ValueError(f"Unknown preprocessing-and-training fields: {unknown}")
     return config
 
 
@@ -123,7 +123,7 @@ def _project_root(config_path: Path) -> Path:
 
 
 def _preprocess_train_run_folder(config: dict[str, Any], config_path: Path) -> Path:
-    preprocess_train = config["preprocess_train"]
+    preprocess_train = config["preprocessing_and_training"]
     root = _project_path(preprocess_train["output_folder"], config_path)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     name = "".join(

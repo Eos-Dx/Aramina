@@ -7,13 +7,13 @@ Status: research draft. Decision support only. Requires radiologist review.
 ```bash
 python -m aramis preprocess --config <preprocessing.yaml>
 python -m aramis train --config <training.yaml>
-python -m aramis preprocess-train --config <preprocess-train.yaml>
+python -m aramis preprocess-train --config <preprocessing-and-training.yaml>
 python -m aramis predict --config <prediction.yaml>
 ```
 
 Operational paths inside public YAML resolve from the Aramis project root.
-Preprocessing `extends` paths resolve from their declaring YAML. Unknown fields
-in training, preprocess-train, and prediction contracts fail immediately.
+Preprocessing `extends` paths resolve from the Aramis project root. Unknown fields
+in training, preprocessing-and-training, and prediction contracts fail immediately.
 
 ## Preprocess
 
@@ -39,13 +39,13 @@ Input: preprocessing joblib and strict training YAML.
 measurement profiles
 -> LR1 target-breast profile LogisticRegression
 -> logit-average target-breast p_cancer
--> LR2 M2Q with age and gated SK Core4 symmetry
+-> final logistic model with age and gated SK Core4 symmetry
 -> frozen train-all model and threshold
 ```
 
 `run.evaluation` writes patient-safe repeated stratified k-fold artifacts.
-`run.train_on_all` fits the recipe on all accepted patients and freezes its
-train-on-all threshold at recipe target sensitivity `>=0.95`.
+`run.train_on_all` fits the fixed product model on all accepted patients and
+freezes its train-on-all threshold at target sensitivity `>=0.95`.
 
 The model joblib contains executable estimators, feature schema, threshold,
 model identity, and resolved YAML snapshots. Fold metrics and predictions stay
@@ -54,7 +54,7 @@ in separate evaluation artifacts. Contract:
 
 ## Preprocess-train
 
-Input: one preprocess-train YAML referencing preprocessing and training YAMLs.
+Input: one preprocessing-and-training YAML referencing preprocessing and training YAMLs.
 
 Preprocessing runs once. Its joblib is saved, while the DataFrame is passed
 directly in memory to training. No reload is required between stages.
@@ -97,12 +97,13 @@ Outputs use one generated report ID:
 ```
 
 External report contains suggested class, reliability, reliability reason,
-patient/target identity, report identity, and model version. It intentionally
-excludes `p_cancer` and threshold.
+patient/target identity, report identity, model name, and model version. It
+intentionally excludes `p_cancer`, threshold, and cohort-level validation
+metrics because they are not patient-specific evidence.
 
 Internal report contains target and contralateral prediction blocks with
-profile-only p_cancer, final p_cancer, decision threshold, class, frozen cohort
-quantiles, symmetry availability, reliability, scan metadata, and model
+azimuthally integrated profile p_cancer, final p_cancer, decision threshold,
+class, frozen score percentiles, symmetry availability, reliability, scan metadata, and model
 artifact identity. Report contracts:
 `config/prediction/README.md`.
 

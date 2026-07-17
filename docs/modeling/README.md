@@ -14,8 +14,7 @@ current_model_dataframe_v0_1.md
 ## Development Candidate
 
 ```text
-architecture_id: m2q_gated_target_case_v0_1
-selected_model: M2Q
+model_name: aramis_m2q_t100
 preprocessing: T100 biopsy-patient model input
 architecture: one LR2 with gated optional SK Core4 refinement
 regularization: LR1 L2 C=0.1; LR2 L2 C=0.3
@@ -25,7 +24,7 @@ measurement counts: reliability only, not model inputs
 Current development decision record:
 
 ```text
-m2q_gated_target_case_model_v0_1.md
+aramis_m2q_t100 model record
 ```
 
 The packaged research-draft artifact and its `model_description.yaml` are in

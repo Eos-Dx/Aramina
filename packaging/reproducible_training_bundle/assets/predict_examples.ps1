@@ -40,11 +40,11 @@ try {
     }
 
     if ([string]::IsNullOrWhiteSpace($ModelPath)) {
-        $model = Get-ChildItem -Path (Join-Path $OutputDir "preprocess_train") -Filter "model.joblib" -File -Recurse -ErrorAction SilentlyContinue |
+        $model = Get-ChildItem -Path (Join-Path $OutputDir "preprocessing_and_training") -Filter "model.joblib" -File -Recurse -ErrorAction SilentlyContinue |
             Sort-Object LastWriteTimeUtc -Descending |
             Select-Object -First 1
         if (-not $model) {
-            throw "No trained model found under outputs\preprocess_train\. Run install_and_train first or pass -ModelPath."
+            throw "No trained model found under outputs\preprocessing_and_training\. Run install_and_train first or pass -ModelPath."
         }
         $ModelPath = $model.FullName
     }

@@ -14,7 +14,7 @@ analysis_author: REQUESTING_ANALYST
 prediction_comment: "optional free-text request comment"
 model:
   id: MODEL_ARTIFACT_ID
-  name: M2Q
+  name: aramis_m2q_t100
   version: 0.2.7-beta
   artifact_sha256: SHA256
 scan_metadata:
@@ -43,54 +43,58 @@ Each available breast block has this shape:
 ```yaml
 available: true
 side: left
-profile_only:
+azimuthal_integration_target_profile:
+  available: true
   p_cancer: 0.63482
+  per_measurement_p_cancer: [0.62203, 0.64908, 0.63332]
 final_prediction:
   p_cancer: 0.59489
   decision_threshold_id: target_sensitivity_0.95
   decision_threshold: 0.32787
   suggested_class: CANCER
-training_cohort_quantile: 0.74000
-benign_cohort_quantile: 0.93000
-cancer_cohort_quantile: 0.32000
-features:
-  symmetry:
-    available: true
-    status: applied
+  score_percentiles:
+    all_training_patients: 0.74000
+    benign_training_patients: 0.93000
+    cancer_training_patients: 0.32000
   reliability:
     level: high
     reason: at least 3 valid measurements per breast
+symmetry:
+  available: true
+  status: applied
 model_execution:
   scoring_path: profile_age_with_symmetry
   symmetry_refinement: applied
 ```
 
-`profile_only.p_cancer` is the first-layer LR1 score. The final score is M2Q: profile, optional gated SK symmetry refinement, and age when available. The decision uses only `final_prediction`: `CANCER` when `p_cancer >= decision_threshold`, otherwise `BENIGN`.
+`azimuthal_integration_target_profile.p_cancer` is the first-layer LR1 score. The final score combines the profile, optional gated SK symmetry refinement, and age when available. The decision uses only `final_prediction`: `CANCER` when `p_cancer >= decision_threshold`, otherwise `BENIGN`.
 
-The three quantiles are empirical percentiles of final `p_cancer` against frozen train-on-all target-breast score distributions: all accepted training cases, BENIGN cases, and CANCER cases. They are internal descriptive evidence, not calibrated risk or a decision rule.
+`score_percentiles` are empirical percentiles of final `p_cancer` against frozen train-on-all target-breast score distributions: all accepted training cases, BENIGN cases, and CANCER cases. A value of `0.90286` means that 90.286% of the relevant frozen training scores were lower than the reported score. These values are descriptive evidence only: they are not probability, diagnosis, population risk, calibration, or a decision rule. They are never recalculated from incoming scans.
 
 If the contralateral breast is absent after preprocessing, its block is:
 
 ```yaml
 available: false
 side: unknown
-profile_only:
+azimuthal_integration_contralateral_profile:
+  available: false
   p_cancer: unknown
+  per_measurement_p_cancer: []
 final_prediction:
   p_cancer: unknown
   decision_threshold_id: unknown
   decision_threshold: unknown
   suggested_class: unknown
-training_cohort_quantile: unknown
-benign_cohort_quantile: unknown
-cancer_cohort_quantile: unknown
-features:
-  symmetry:
-    available: false
-    status: not_available
+  score_percentiles:
+    all_training_patients: unknown
+    benign_training_patients: unknown
+    cancer_training_patients: unknown
   reliability:
     level: unknown
     reason: unknown
+symmetry:
+  available: false
+  status: not_available
 reason: contralateral breast is unavailable after preprocessing
 ```
 

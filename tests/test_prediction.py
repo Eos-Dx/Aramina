@@ -16,6 +16,7 @@ from aramis.prediction import (
     run_prediction_from_config,
 )
 from aramis.training import run_training_from_config
+from aramis.training_config import PRODUCT_MODEL_NAME
 
 from .synthetic_aramis_h5 import write_v0_3_one_patient_h5
 
@@ -84,9 +85,9 @@ def _patient_frame() -> pd.DataFrame:
 
 def _training_config(input_path: Path, output_folder: Path) -> dict:
     return {
-        "contract": "aramis_training_config_v0_1",
-        "training": {
-            "name": "test_prediction_m2q",
+        "contract": "aramis_training_config_v0_2",
+        "model": {
+            "name": PRODUCT_MODEL_NAME,
             "version": "0.1-beta",
             "created_by": "test",
             "clinical_stage": "research draft",
@@ -95,7 +96,6 @@ def _training_config(input_path: Path, output_folder: Path) -> dict:
         "run": {"evaluation": True, "train_on_all": True},
         "input": {"dataframe_joblib_path": str(input_path)},
         "output": {"folder": str(output_folder)},
-        "model": {"recipe": "m2q_gated_target_case_v0_1"},
         "evaluation": {
             "method": "repeated_stratified_kfold",
             "folds": 5,
@@ -181,12 +181,12 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
     assert 0.0 <= target["final_prediction"]["p_cancer"] <= 1.0
     assert "decision_threshold" in target["final_prediction"]
     assert "threshold" not in target["final_prediction"]
-    assert target["profile_only"]["p_cancer"] is not None
+    assert target["azimuthal_integration_target_profile"]["p_cancer"] is not None
     assert contralateral["available"] is True
-    assert {key for key in target if key.endswith("_quantile")} == {
-        "training_cohort_quantile",
-        "benign_cohort_quantile",
-        "cancer_cohort_quantile",
+    assert set(target["final_prediction"]["score_percentiles"]) == {
+        "all_training_patients",
+        "benign_training_patients",
+        "cancer_training_patients",
     }
     assert external["prediction_comment"] == "synthetic test"
     assert internal["prediction_comment"] == "synthetic test"
@@ -229,8 +229,8 @@ def test_predict_target_side_controls_profile_evidence(tmp_path: Path, trained_m
     right = run_prediction_from_config(right_config)["internal_report"]
 
     assert (
-        left["breast_predictions"]["target"]["profile_only"]["p_cancer"]
-        != right["breast_predictions"]["target"]["profile_only"]["p_cancer"]
+        left["breast_predictions"]["target"]["azimuthal_integration_target_profile"]["p_cancer"]
+        != right["breast_predictions"]["target"]["azimuthal_integration_target_profile"]["p_cancer"]
     )
 
 
@@ -261,12 +261,12 @@ def test_predict_without_contralateral_uses_unavailable_symmetry(
     report = run_prediction_from_config(config_path)["internal_report"]
 
     target = report["breast_predictions"]["target"]
-    assert target["features"]["symmetry"]["available"] is False
-    assert target["features"]["symmetry"]["status"] == "not_available"
+    assert target["symmetry"]["available"] is False
+    assert target["symmetry"]["status"] == "not_available"
     assert target["model_execution"]["scoring_path"] == (
         "profile_age_with_neutral_symmetry_gate"
     )
-    assert target["features"]["reliability"]["level"] == "low"
+    assert target["final_prediction"]["reliability"]["level"] == "low"
     contralateral = report["breast_predictions"]["contralateral"]
     assert contralateral["available"] is False
     assert contralateral["side"] == "unknown"

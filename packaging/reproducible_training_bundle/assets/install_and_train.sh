@@ -10,7 +10,7 @@ mkdir -p "${LOG_DIR}"
 LOG_PATH="${LOG_DIR}/install_and_train_$(date -u +%Y%m%dT%H%M%SZ).log"
 exec > >(tee -a "${LOG_PATH}") 2>&1
 
-DEFAULT_PREPROCESS_TRAIN_CONFIG="config/preprocess_train/aramis_biopsy_patients_primary_preprocess_train_v0_1.yaml"
+DEFAULT_PREPROCESS_TRAIN_CONFIG="config/preprocessing_and_training/aramis_biopsy_patients_primary_preprocessing_and_training_v0_1.yaml"
 PREPROCESS_TRAIN_CONFIG="${DEFAULT_PREPROCESS_TRAIN_CONFIG}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -26,11 +26,11 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "${PREPROCESS_TRAIN_CONFIG}" in
-  config/preprocess_train/*.yaml|config/preprocess_train/*.yml) ;;
-  *) echo "Preprocess-train config must be under config/preprocess_train/: ${PREPROCESS_TRAIN_CONFIG}" >&2; exit 2 ;;
+  config/preprocessing_and_training/*.yaml|config/preprocessing_and_training/*.yml) ;;
+  *) echo "Preprocessing-and-training config must be under config/preprocessing_and_training/: ${PREPROCESS_TRAIN_CONFIG}" >&2; exit 2 ;;
 esac
 [[ -f "${BUNDLE_DIR}/${PREPROCESS_TRAIN_CONFIG}" ]] || {
-  echo "Missing preprocess-train config: ${BUNDLE_DIR}/${PREPROCESS_TRAIN_CONFIG}" >&2
+  echo "Missing preprocessing-and-training config: ${BUNDLE_DIR}/${PREPROCESS_TRAIN_CONFIG}" >&2
   exit 2
 }
 CONTAINER_PREPROCESS_TRAIN_CONFIG="/opt/Aramis/${PREPROCESS_TRAIN_CONFIG}"

@@ -47,9 +47,10 @@ from .model_utils import (
 )
 from .m2q_model import GatedSymmetryLogistic, SK_CORE4_FEATURE_COLUMNS
 from .training_config import (
+    PRODUCT_MODEL_NAME,
     load_training_config,
-    resolve_training_recipe,
-    resolved_recipe_path,
+    project_model_path,
+    resolve_model_definition,
 )
 
 TARGET_CASE_ID = "target_case_id"
@@ -179,7 +180,7 @@ class M2QModelTrainer(BaseEstimator):
     ) -> "M2QModelTrainer":
         """Fit the final M2Q model and store it in `models_`."""
         self.models_ = {
-            "M2Q": _fit_m2q_model(
+            PRODUCT_MODEL_NAME: _fit_m2q_model(
                 feature_table,
                 lr1_rows,
                 profile_column=self.profile_column,
@@ -398,12 +399,12 @@ def run_training_from_config(
     output_folder: str | Path | None = None,
     preprocess_train_config_yaml: str | None = None,
 ) -> dict[str, Any]:
-    """Run requested evaluation and/or final fit for one immutable recipe."""
+    """Run requested evaluation and/or final fit for one fixed product model."""
     config_path = Path(config_path).expanduser().resolve()
     public_config, config_text = load_training_config(config_path)
-    recipe_id = str(public_config["model"]["recipe"])
-    recipe, registry_path = resolve_training_recipe(recipe_id)
-    config = _effective_training_config(public_config, recipe)
+    model_identity = public_config["model"]
+    model_definition = resolve_model_definition(str(model_identity["name"]))
+    config = _effective_training_config(public_config, model_definition)
     input_path = Path(dataframe_joblib_path).resolve() if dataframe_joblib_path else (
         _public_config_path(
             public_config, config_path, section="input", key="dataframe_joblib_path"
@@ -414,9 +415,9 @@ def run_training_from_config(
             public_config, config_path, section="output", key="folder"
         )
     )
-    run_folder = _new_training_run_folder(output_root, public_config["training"])
-    prediction_preprocessing_config_path = resolved_recipe_path(
-        str(recipe["prediction_preprocessing_config_path"]), registry_path
+    run_folder = _new_training_run_folder(output_root, model_identity)
+    prediction_preprocessing_config_path = project_model_path(
+        str(model_definition["prediction_preprocessing_config_path"])
     )
     prediction_preprocessing = _prediction_preprocessing_payload(
         prediction_preprocessing_config_path
@@ -431,8 +432,8 @@ def run_training_from_config(
     if model_type != "m2q_gated_target_case":
         raise ValueError(f"Unsupported training model.type: {model_type!r}")
     logger.info(
-        "Training recipe=%s rows=%d patients=%d",
-        recipe_id,
+        "Training model=%s rows=%d patients=%d",
+        model_identity["name"],
         len(df),
         df["patientId"].astype(str).nunique(),
     )
@@ -454,7 +455,7 @@ def run_training_from_config(
     )
     evaluation_artifact = _evaluation_artifact(
         artifact,
-        recipe_id=recipe_id,
+        model_name=str(model_identity["name"]),
         training_config_yaml=config_text,
     )
     if public_config["run"]["evaluation"]:
@@ -467,13 +468,13 @@ def run_training_from_config(
     model_artifact = _final_model_artifact(
         artifact,
         public_config=public_config,
-        recipe_id=recipe_id,
+        model_definition=model_definition,
         training_config_yaml=config_text,
     )
     model_path = run_folder / "model.joblib"
     joblib.dump(model_artifact, model_path)
     model_sha = _file_sha256(model_path)
-    model_id = _model_artifact_id(public_config["training"], model_sha)
+    model_id = _model_artifact_id(model_identity, model_sha)
     description = _model_description(
         model_artifact,
         model_id=model_id,
@@ -566,8 +567,8 @@ def _patient_training_artifact(
     )
     dataset_summary = _patient_dataset_summary(df, feature_table, lr1_rows)
     model_descriptions = {
-        "M2Q": {
-            "name": "M2Q profile, gated SK Core4 refinement, and age",
+        PRODUCT_MODEL_NAME: {
+            "name": "Aramis T100 profile, optional SK symmetry refinement, and age",
             "description": (
                 "One final model: profile and age are always evaluated; SK Core4 "
                 "adds a neutral-gated refinement only when paired symmetry is available."
@@ -693,7 +694,7 @@ def _fit_m2q_model(
         "cancer_target_cases": _sorted_scores(score[y == 1]),
     }
     return {
-        "name": "M2Q profile, gated SK Core4 refinement, and age",
+        "name": "Aramis T100 profile, optional SK symmetry refinement, and age",
         "lr1_model": lr1_model,
         "final_model": final_model,
         "feature_columns": _m2q_model_input_columns(),
@@ -883,7 +884,7 @@ def _evaluate_m2q_model(
         )
         metrics.append(
             _patient_metric_row(
-                "M2Q",
+                PRODUCT_MODEL_NAME,
                 split_id,
                 train_features,
                 test_features,
@@ -896,7 +897,7 @@ def _evaluate_m2q_model(
         )
         predictions.append(
             _patient_prediction_frame(
-                "M2Q",
+                PRODUCT_MODEL_NAME,
                 split_id,
                 test_features,
                 test_score,
@@ -969,7 +970,7 @@ def _default_routes(values: Any) -> np.ndarray:
 
 def _m2q_feature_schema() -> dict[str, Any]:
     return {
-        "M2Q": {
+        PRODUCT_MODEL_NAME: {
             "feature_columns": _m2q_model_input_columns(),
             "learned_feature_columns": [
                 "profile_p_cancer_logit_average",
@@ -1002,7 +1003,7 @@ def _m2q_warnings(
     _ = config
     warnings.extend(
         [
-            "M2Q includes age; its contribution must be reviewed separately.",
+            "This model includes age; its contribution must be reviewed separately.",
             "Measurement sufficiency is reported separately; reliability fields are not model predictors.",
         ]
     )
@@ -2268,22 +2269,22 @@ def _validate_training_config(config: dict[str, Any], config_path: Path) -> None
 
 def _effective_training_config(
     public_config: dict[str, Any],
-    recipe: dict[str, Any],
+    model_definition: dict[str, Any],
 ) -> dict[str, Any]:
     evaluation = public_config["evaluation"]
     return {
-        "training": dict(public_config["training"]),
+        "model_identity": dict(public_config["model"]),
         "run": dict(public_config["run"]),
-        "model": dict(recipe["model"]),
+        "model": dict(model_definition["model"]),
         "evaluation": {
             "mode": "stratified_kfold",
             "n_splits": int(evaluation["folds"]),
             "n_repeats": int(evaluation["repeats"]),
             "random_state": int(evaluation["random_seed"]),
-            "target_sensitivity": float(recipe["target_sensitivity"]),
+            "target_sensitivity": float(model_definition["target_sensitivity"]),
             "bootstrap_samples": PATIENT_BOOTSTRAP_SAMPLES,
         },
-        "prediction_contract": dict(recipe["prediction_contract"]),
+        "prediction_contract": dict(model_definition["prediction_contract"]),
     }
 
 
@@ -2299,9 +2300,9 @@ def _public_config_path(
     return path if path.is_absolute() else (Path(__file__).resolve().parents[2] / path).resolve()
 
 
-def _new_training_run_folder(output_root: Path, training: dict[str, Any]) -> Path:
+def _new_training_run_folder(output_root: Path, model: dict[str, Any]) -> Path:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    stem = _safe_artifact_stem(f"{training['name']}_{training['version']}")
+    stem = _safe_artifact_stem(f"{model['name']}_{model['version']}")
     folder = output_root / f"{stem}_{stamp}_{uuid4().hex[:8]}"
     folder.mkdir(parents=True, exist_ok=False)
     return folder
@@ -2316,14 +2317,14 @@ def _safe_artifact_stem(value: str) -> str:
 def _evaluation_artifact(
     artifact: dict[str, Any],
     *,
-    recipe_id: str,
+    model_name: str,
     training_config_yaml: str,
 ) -> dict[str, Any]:
     return {
         "kind": "aramis_evaluation_artifact",
         "version": "0.1",
         "created_at": artifact["created_at"],
-        "recipe": recipe_id,
+        "model_name": model_name,
         "training_config_yaml": training_config_yaml,
         "historical_preprocessing_yaml": artifact.get(
             "historical_preprocessing_yaml"
@@ -2346,7 +2347,7 @@ def _write_evaluation_outputs(artifact: dict[str, Any], folder: Path) -> None:
         "kind": artifact["kind"],
         "version": artifact["version"],
         "created_at": artifact["created_at"],
-        "recipe": artifact["recipe"],
+        "model_name": artifact["model_name"],
         "dataset_summary": _records(artifact["dataset_summary"]),
         "metric_summary": _records(artifact["metric_summary"]),
         "files": {
@@ -2363,7 +2364,7 @@ def _final_model_artifact(
     artifact: dict[str, Any],
     *,
     public_config: dict[str, Any],
-    recipe_id: str,
+    model_definition: dict[str, Any],
     training_config_yaml: str,
 ) -> dict[str, Any]:
     return {
@@ -2373,9 +2374,7 @@ def _final_model_artifact(
         "model_type": artifact["model_type"],
         "model_columns": artifact["model_columns"],
         "model_identity": {
-            "name": public_config["training"]["name"],
-            "version": str(public_config["training"]["version"]),
-            "recipe": recipe_id,
+            **dict(public_config["model"]),
         },
         "models": artifact["models"],
         "model_descriptions": artifact["model_descriptions"],
@@ -2388,6 +2387,7 @@ def _final_model_artifact(
         ),
         "prediction_preprocessing_yaml": artifact["prediction_preprocessing_yaml"],
         "prediction_contract_yaml": artifact["prediction_contract_yaml"],
+        "model_definition_yaml": yaml.safe_dump(model_definition, sort_keys=False),
         "evaluation": {
             "protocol": dict(public_config["evaluation"]),
             "requested": bool(public_config["run"]["evaluation"]),
@@ -2411,9 +2411,9 @@ def _final_model_artifact(
     }
 
 
-def _model_artifact_id(training: dict[str, Any], model_sha: str) -> str:
+def _model_artifact_id(model: dict[str, Any], model_sha: str) -> str:
     return _safe_artifact_stem(
-        f"{training['name']}_{training['version']}_{model_sha[:12]}"
+        f"{model['name']}_{model['version']}_{model_sha[:12]}"
     )
 
 
@@ -2432,7 +2432,6 @@ def _model_description(
         "model_id": model_id,
         "model_name": artifact["model_identity"]["name"],
         "model_version": artifact["model_identity"]["version"],
-        "model_recipe": artifact["model_identity"]["recipe"],
         "selected_model": model_name,
         "model_summary": _model_summary(model),
         "model_joblib": model_path.name,

@@ -42,20 +42,18 @@ one-patient H5
 -> p_cancer + suggested class + reliability
 ```
 
-Training uses the same preprocessing family but a historical model-development
-cohort. Current development recipe is:
+Training uses the same preprocessing family and fixed product model definition:
 
 ```text
-recipe: m2q_gated_target_case_v0_1
+model: aramis_m2q_t100
 preprocessing: T100 biopsy-patient model-input DataFrame
-selected_model: M2Q
 regularization: LR1 L2 C=0.1; LR2 L2 C=0.3
 default evaluation: repeated patient-safe stratified 5-fold x20
 deployment threshold: train-all scores at target sensitivity >=0.95
 training unit: one biopsied target breast
 ```
 
-M2Q combines the target-breast XRD profile score, four fixed SK
+The model combines the target-breast XRD profile score, four fixed SK
 target/contralateral symmetry fields and age in one final model. Profile and
 age are always evaluated. When no contralateral breast is available, the gated
 SK contribution is exactly zero. Age-only performance is reported as a
@@ -64,7 +62,7 @@ symmetry availability is a gate, not a learned risk feature.
 
 The fixed architecture and its current evaluation are recorded in
 [`docs/modeling/m2q_gated_target_case_model_v0_1.md`](docs/modeling/m2q_gated_target_case_model_v0_1.md).
-The packaged M2Q artifact embeds its prediction preprocessing and immutable
+The packaged artifact embeds its prediction preprocessing and immutable
 prediction contract. Predict YAML supplies identity and paths only.
 
 ## Commands
@@ -94,7 +92,7 @@ INSTALL.md
 ```bash
 python -m aramis preprocess --config config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
 python -m aramis train --config config/training/aramis_m2q_t100_primary_train_v0_1.yaml
-python -m aramis preprocess-train --config config/preprocess_train/aramis_biopsy_patients_primary_preprocess_train_v0_1.yaml
+python -m aramis preprocess-train --config config/preprocessing_and_training/aramis_biopsy_patients_primary_preprocessing_and_training_v0_1.yaml
 python -m aramis predict --config examples/prediction_h5/cancer_predict.yaml
 ```
 
@@ -158,7 +156,7 @@ config/training/README.md
 Combined preprocessing and training contract:
 
 ```text
-config/preprocess_train/README.md
+config/preprocessing_and_training/README.md
 ```
 
 Evidence for choices:
@@ -177,7 +175,7 @@ src/aramis/pipelines.py
   YAML-governed preprocessing wrapper around XRD-preprocessing transformers
 
 src/aramis/training.py
-  patient-safe target-breast M2Q training artifact builder
+  patient-safe target-breast training artifact builder
 
 src/aramis/prediction.py
   one-patient prediction route and report writer

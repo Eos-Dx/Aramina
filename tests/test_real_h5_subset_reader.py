@@ -59,7 +59,7 @@ def test_real_h5_subset_uses_gfrm_reader_and_xrd_transformers():
     )
     product_df = product_builder.fit_transform(raw_df)
     label_filter = ProductStatusGroupFilter(
-        config["cohort_settings"]["product_status_group_keep"],
+        config["product_filter"]["product_status_group_keep"],
     )
     binary_df = label_filter.fit_transform(product_df)
 
