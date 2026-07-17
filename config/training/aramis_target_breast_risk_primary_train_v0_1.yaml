@@ -1,6 +1,6 @@
 contract: aramis_training_config_v0_2
 model:
-  name: aramis_m2q_t100
+  name: aramis_target_breast_risk
   version: 0.2.7-beta
   created_by: Sergey Denisov
   clinical_stage: research draft

@@ -1,0 +1,23 @@
+output_type: aramis_evaluation_artifact
+version: '0.1'
+model:
+  id: aramis_target_breast_risk_0_2_7-beta_<sha12>
+  name: aramis_target_breast_risk
+  version: 0.2.7-beta
+  artifact_sha256: <sha256>
+threshold_selection: train_fold_target_sensitivity
+target_sensitivity: 0.95
+decision_threshold:
+  id: target_sensitivity_0_95
+  value: <float>
+metric_summary:
+- evaluation_mode: stratified_kfold
+  evidence_status: patient_safe_validation
+  splits: 100
+  roc_auc_mean: <float>
+  roc_auc_std: <float>
+  sensitivity_target_mean: <float>
+  specificity_target_mean: <float>
+files:
+  metrics: evaluation_metrics.csv
+  predictions: evaluation_predictions.csv

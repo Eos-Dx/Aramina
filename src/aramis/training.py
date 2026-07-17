@@ -581,7 +581,7 @@ def _patient_training_artifact(
     dataset_summary = _patient_dataset_summary(df, feature_table, lr1_rows)
     model_descriptions = {
         PRODUCT_MODEL_NAME: {
-            "name": "Aramis T100 profile, optional SK symmetry refinement, and age",
+            "name": "Aramis target-breast profile, optional SK symmetry refinement, and age",
             "description": (
                 "One final model: profile and age are always evaluated; SK Core4 "
                 "adds a neutral-gated refinement only when paired symmetry is available."
@@ -2422,7 +2422,6 @@ def _final_model_artifact(
     return {
         "kind": "aramis_training_artifact",
         "version": "0.3",
-        "created_at": artifact["created_at"],
         "model_type": artifact["model_type"],
         "model_columns": artifact["model_columns"],
         "model_identity": {
@@ -2689,9 +2688,9 @@ def _evaluation_artifact_paths(
     include_summary: bool = True,
 ) -> dict[str, str]:
     paths = {
-        "summary": str((folder / "evaluation.yaml").resolve()),
-        "metrics": str((folder / "evaluation_metrics.csv").resolve()),
-        "predictions": str((folder / "evaluation_predictions.csv").resolve()),
+        "summary": "evaluation.yaml",
+        "metrics": "evaluation_metrics.csv",
+        "predictions": "evaluation_predictions.csv",
     }
     if not include_summary:
         paths.pop("summary")

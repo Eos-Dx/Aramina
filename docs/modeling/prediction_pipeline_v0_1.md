@@ -108,7 +108,7 @@ prediction runs.
 The selected joblib is the sole source for model ID, name, version, model entry,
 preprocessing contract, report contract, and decision threshold. Predict YAML
 does not duplicate these immutable model fields. The fixed development model is
-`aramis_m2q_t100`.
+`aramis_target_breast_risk`.
 
 ## Call Chain
 
@@ -220,6 +220,7 @@ output_type: aramis_internal_clinical_report
 report_version
 report_id and created_at
 model ID/name/version/artifact SHA256
+frozen method performance and request comment
 scan metadata and measurement summary
 target/contralateral azimuthally integrated profile and final predictions
 frozen score percentiles, symmetry availability, and reliability

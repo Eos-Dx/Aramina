@@ -236,6 +236,7 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
     )
 
     assert artifact["kind"] == "aramis_training_artifact"
+    assert "created_at" not in artifact
     assert set(artifact["models"]) == {PRODUCT_MODEL_NAME}
     assert artifact["model_identity"]["name"] == PRODUCT_MODEL_NAME
     assert artifact["model_definition_yaml"]
@@ -317,7 +318,11 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
         "metrics",
         "predictions",
     }
-    assert all(Path(path).is_absolute() for path in description["evaluation_artifacts"].values())
+    assert description["evaluation_artifacts"] == {
+        "summary": "evaluation.yaml",
+        "metrics": "evaluation_metrics.csv",
+        "predictions": "evaluation_predictions.csv",
+    }
     assert evaluation["output_type"] == "aramis_evaluation_artifact"
     assert "kind" not in evaluation
     assert evaluation["model"] == description["model"]
@@ -333,7 +338,10 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
     assert "rows" not in evaluation["dataset_summary"][0]
     assert evaluation["dataset_summary"][0]["measurements"] == 120
     assert evaluation["dataset_summary"][0]["lr1_measurements"] == 60
-    assert all(Path(path).is_absolute() for path in evaluation["files"].values())
+    assert evaluation["files"] == {
+        "metrics": "evaluation_metrics.csv",
+        "predictions": "evaluation_predictions.csv",
+    }
     assert not _has_unrounded_float(evaluation)
     assert not _has_unrounded_float(description)
     assert description["model_summary"]["final_model"]["type"] == (

@@ -1,0 +1,2 @@
+fold_id,train_patients,test_patients,roc_auc,sensitivity_target,specificity_target,threshold_target
+0,131,33,0.65000,0.82000,0.38000,0.24000

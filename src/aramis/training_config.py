@@ -10,10 +10,10 @@ import yaml
 
 
 TRAINING_CONTRACT = "aramis_training_config_v0_2"
-PRODUCT_MODEL_NAME = "aramis_m2q_t100"
+PRODUCT_MODEL_NAME = "aramis_target_breast_risk"
 PRODUCT_MODELS = {
     PRODUCT_MODEL_NAME: {
-        "description": "Aramis T100 target-breast model with age and optional SK symmetry refinement.",
+        "description": "Aramis target-breast risk model with age and optional SK symmetry refinement.",
         "model": {
             "type": "m2q_gated_target_case",
             "profile_column": "radial_profile_data",

@@ -14,7 +14,7 @@ current_model_dataframe_v0_1.md
 ## Development Candidate
 
 ```text
-model_name: aramis_m2q_t100
+model_name: aramis_target_breast_risk
 preprocessing: T100 biopsy-patient model input
 architecture: one LR2 with gated optional SK Core4 refinement
 regularization: LR1 L2 C=0.1; LR2 L2 C=0.3
@@ -24,11 +24,11 @@ measurement counts: reliability only, not model inputs
 Current development decision record:
 
 ```text
-aramis_m2q_t100 model record
+aramis_target_breast_risk model record
 ```
 
 The packaged research-draft artifact and its `model_description.yaml` are in
-`examples/prediction_models/`. Each training run also writes `evaluation.yaml`
+`models/<model_id>/`. Each training run also writes `evaluation.yaml`
 for the complete evaluation footprint. The exact
 artifact ID is derived from the model joblib SHA256 and recorded in its generated
 description and reports.

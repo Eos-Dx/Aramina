@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CONFIG_ROOT="/opt/Aramis/config/prediction_examples"
+CONFIG_ROOT="/opt/Aramis/config/prediction/prediction_examples"
 OUTPUT_ROOT="/opt/Aramis/examples/outputs"
 MODEL_PATH=""
 

@@ -101,7 +101,7 @@ External report contains suggested class, reliability, reliability reason,
 patient/target identity, report identity, model name/version, and the frozen
 method sensitivity/specificity with their evaluation method. It intentionally
 excludes `p_cancer`, threshold, profile-only scores, symmetry, and model
-internals.
+internals. The internal report repeats this method-performance block for audit.
 
 Internal report contains target and contralateral prediction blocks with
 azimuthally integrated profile p_cancer, final p_cancer, decision threshold,

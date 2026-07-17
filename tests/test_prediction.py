@@ -24,13 +24,13 @@ from .synthetic_aramis_h5 import write_v0_3_one_patient_h5
 PREDICTION_EXAMPLE_ROOT = Path(__file__).parents[1] / "examples" / "prediction_h5"
 FINAL_EXAMPLE_MODEL = (
     Path(__file__).parents[1]
-    / "examples"
-    / "prediction_models"
-    / "aramis_m2q_t100_0_2_7_beta.joblib"
+    / "models"
+    / "aramis_target_breast_risk_0_2_7-beta_0222fcbe16fd"
+    / "model.joblib"
 )
 
 
-def test_tracked_prediction_examples_use_final_m2q_artifact():
+def test_tracked_prediction_examples_use_final_product_artifact():
     configs = sorted(PREDICTION_EXAMPLE_ROOT.glob("*_predict.yaml"))
     assert [path.name for path in configs] == [
         "atypical_predict.yaml",
@@ -182,6 +182,7 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
     assert performance["repeats"] == 20
     assert 0.0 <= performance["sensitivity"] <= 1.0
     assert 0.0 <= performance["specificity"] <= 1.0
+    assert internal["method_performance"] == performance
     assert external["reliability"] in {"low", "medium", "high"}
     target = internal["breast_predictions"]["target"]
     contralateral = internal["breast_predictions"]["contralateral"]
@@ -190,6 +191,7 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
     assert "threshold" not in target["final_prediction"]
     assert target["azimuthal_integration_target_profile"]["p_cancer"] is not None
     assert contralateral["available"] is True
+    assert 0.0 <= contralateral["final_prediction"]["p_cancer"] <= 1.0
     assert set(target["final_prediction"]["score_percentiles"]) == {
         "all_training_patients",
         "benign_training_patients",

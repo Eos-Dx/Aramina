@@ -27,7 +27,7 @@ Required top-level sections:
 kind: aramis_training_artifact
 version: "0.3"
 model_identity: {name, version, created_by, clinical_stage, intended_use}
-models: {aramis_m2q_t100: <fitted LR1 and final sklearn estimators>}
+models: {aramis_target_breast_risk: <fitted LR1 and final sklearn estimators>}
 feature_schema: {final_model: ...}
 model_performance: ...
 final_fit_training_metrics: ...
@@ -81,7 +81,7 @@ output_type: aramis_model_description
 version: "0.1"
 model:
   id: <model name + version + first 12 SHA256 characters>
-  name: aramis_m2q_t100
+  name: aramis_target_breast_risk
   version: <version>
   artifact_sha256: <full SHA256>
 model_summary:
@@ -97,7 +97,7 @@ final_fit_training_metrics: <in-sample final-fit record>
 decision_thresholds: <Youden and target-sensitivity thresholds>
 feature_schema: {final_model: <feature schema>}
 dataset_summary: <accepted-cohort counts>
-evaluation_artifacts: <absolute audit paths>
+evaluation_artifacts: {summary, metrics, predictions}
 clinical_stage: research draft
 requires_radiologist_review: true
 ```
@@ -126,8 +126,8 @@ metric_summary:
   splits: 100
   <mean/std, pooled and 95% CI metrics>
 files:
-  metrics: <absolute local path>
-  predictions: <absolute local path>
+  metrics: evaluation_metrics.csv
+  predictions: evaluation_predictions.csv
 ```
 
 `evidence_status: patient_safe_validation` means all target cases from one
@@ -150,5 +150,6 @@ and train-fold thresholds.
 including target-case ID, patient ID, true label, predicted probability,
 threshold, predicted class, and fold ID.
 
-Absolute paths in YAML are local audit references. They change when a run
-folder moves; model ID and SHA256 remain portable identifiers.
+Artifact-file references are sibling relative names. The full model directory
+is therefore portable as one unit; model ID and SHA256 remain immutable
+identifiers.

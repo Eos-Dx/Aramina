@@ -45,7 +45,7 @@ one-patient H5
 Training uses the same preprocessing family and fixed product model definition:
 
 ```text
-model: aramis_m2q_t100
+model: aramis_target_breast_risk
 preprocessing: T100 biopsy-patient model-input DataFrame
 regularization: LR1 L2 C=0.1; LR2 L2 C=0.3
 default evaluation: repeated patient-safe stratified 5-fold x20
@@ -91,8 +91,8 @@ INSTALL.md
 
 ```bash
 python -m aramis preprocess --config config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
-python -m aramis train --config config/training/aramis_m2q_t100_primary_train_v0_1.yaml
-python -m aramis preprocess-train --config config/preprocessing_and_training/aramis_biopsy_patients_primary_preprocessing_and_training_v0_1.yaml
+python -m aramis train --config config/training/aramis_target_breast_risk_primary_train_v0_1.yaml
+python -m aramis preprocess-train --config config/preprocessing_and_training/aramis_target_breast_risk_preprocessing_and_training_v0_1.yaml
 python -m aramis predict --config examples/prediction_h5/cancer_predict.yaml
 ```
 

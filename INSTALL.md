@@ -3,12 +3,12 @@
 Status: research draft decision-support prototype.
 
 This repository can be cloned and used without the EOS Product bundle. The git
-repository contains small one-patient H5 examples and a tracked M2Q model
+repository contains small one-patient H5 examples and a tracked product model
 artifact:
 
 ```text
 examples/prediction_h5/
-examples/prediction_models/aramis_m2q_t100_0_2_7_beta.joblib
+models/aramis_target_breast_risk_<model_id>/model.joblib
 ```
 
 ## macOS / Linux

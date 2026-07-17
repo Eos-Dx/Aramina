@@ -1,7 +1,7 @@
 contract: aramis_preprocessing_and_training_config_v0_1
 preprocessing_and_training:
-  name: aramis_m2q_t100_preprocessing_and_training
+  name: aramis_target_breast_risk_preprocessing_and_training
   created_by: Sergey Denisov
   output_folder: ./examples/outputs/preprocessing_and_training
 preprocessing_config_path: ./config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
-training_config_path: ./config/training/aramis_m2q_t100_primary_train_v0_1.yaml
+training_config_path: ./config/training/aramis_target_breast_risk_primary_train_v0_1.yaml

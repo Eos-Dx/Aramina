@@ -312,6 +312,7 @@ def _prediction_reports(
         target_prediction=target_prediction,
         contralateral_prediction=contralateral_prediction,
         model_artifact_sha256=_file_sha256(model_path),
+        model_performance=_external_model_performance(model_artifact),
     )
     return _json_safe({"external_report": external, "internal_report": internal})
 
@@ -378,6 +379,7 @@ def _internal_report(
     target_prediction: dict[str, Any],
     contralateral_prediction: dict[str, Any],
     model_artifact_sha256: str,
+    model_performance: dict[str, Any],
 ) -> dict[str, Any]:
     feature_row = target_prediction["feature_row"]
     age_available = bool(feature_row.get("age_available", False))
@@ -395,6 +397,7 @@ def _internal_report(
             "version": common["model_version"],
             "artifact_sha256": model_artifact_sha256,
         },
+        "method_performance": model_performance,
         "scan_metadata": _scan_metadata(
             feature_row,
             patient_id=common["patient_id"],

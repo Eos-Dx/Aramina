@@ -1,0 +1,2 @@
+fold_id,target_case_id,patient_id,label,p_cancer,decision_threshold,predicted_class
+0,EXAMPLE_TARGET_CASE,EXAMPLE_PATIENT,CANCER,0.81000,0.24000,CANCER

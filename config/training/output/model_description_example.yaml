@@ -1,0 +1,25 @@
+output_type: aramis_model_description
+version: '0.1'
+model:
+  id: aramis_target_breast_risk_0_2_7-beta_<sha12>
+  name: aramis_target_breast_risk
+  version: 0.2.7-beta
+  artifact_sha256: <sha256>
+model_joblib: model.joblib
+model_performance:
+  evaluation_available: true
+  evaluation_method: repeated_stratified_kfold
+  folds: 5
+  repeats: 20
+  random_seed: 42
+  target_sensitivity: 0.95
+final_fit_training_metrics:
+  evaluation_status: in_sample_not_independent
+  target_cases: <integer>
+  roc_auc: <float>
+  sensitivity: <float>
+  specificity: <float>
+decision_thresholds:
+  threshold_target: <float>
+clinical_stage: research draft
+requires_radiologist_review: true

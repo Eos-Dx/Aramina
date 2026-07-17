@@ -41,10 +41,10 @@ python -m aramis predict --config examples/prediction_h5/cancer_predict.yaml
 python -m aramis predict --config examples/prediction_h5/atypical_predict.yaml
 ```
 
-All three YAML files use the tracked final M2Q model artifact:
+All three YAML files use the tracked final product-model artifact:
 
 ```text
-examples/prediction_models/aramis_m2q_t100_0_2_7_beta.joblib
+models/aramis_target_breast_risk_0_2_7-beta_0222fcbe16fd/model.joblib
 ```
 
 The fixture-builder script is provided for reproducibility. It requires local

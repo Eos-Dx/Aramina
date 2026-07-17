@@ -14,9 +14,18 @@ analysis_author: REQUESTING_ANALYST
 prediction_comment: "optional free-text request comment"
 model:
   id: MODEL_ARTIFACT_ID
-  name: aramis_m2q_t100
+  name: aramis_target_breast_risk
   version: 0.2.7-beta
   artifact_sha256: SHA256
+method_performance:
+  evaluation_available: true
+  evaluation_method: repeated_stratified_kfold
+  folds: 5
+  repeats: 20
+  sensitivity: 0.81933
+  sensitivity_std: 0.09877
+  specificity: 0.38336
+  specificity_std: 0.11560
 scan_metadata:
   patient_id: PATIENT_ID
   target_side: left
@@ -103,5 +112,7 @@ still has a valid final prediction. Its `model_execution.scoring_path` is
 `profile_age_with_neutral_symmetry_gate`: the same LR2 is used, but the optional
 SK symmetry terms are neutral and do not affect the score. This is not a second
 model and it must not be interpreted as a symmetry-supported result.
+
+`method_performance` is a frozen held-out validation summary of the selected model. It describes the method, not this patient. `prediction_comment` is copied unchanged from the caller's predict YAML.
 
 The report deliberately excludes estimator objects, model weights, raw SK feature values, feature contributions, duplicate prediction-config fields, filesystem paths, and training configuration. Those remain in the model joblib and its `model_description.yaml`.

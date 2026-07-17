@@ -1,7 +1,7 @@
-# Aramis Prediction Model Examples
+# Historical Aramis Model Artifact
 
-This folder stores the tracked model artifact used by `aramis predict` examples
-and colleague onboarding.
+This historical artifact is retained for audit only. It is not the current
+product model and is not referenced by prediction examples or Docker bundle.
 
 Tracked artifacts:
 

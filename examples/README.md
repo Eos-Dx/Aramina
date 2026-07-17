@@ -3,7 +3,7 @@
 Status: research draft.
 
 Current product examples are one-patient H5 prediction fixtures and packaged
-M2Q artifacts:
+Current product-model artifacts:
 
 ```text
 prediction_h5/

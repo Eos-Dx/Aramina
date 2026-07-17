@@ -66,7 +66,7 @@ Pass a particular model produced by this bundle when needed:
 ```
 
 The supplied prediction YAML templates are external under
-`config/prediction_examples/`. The launcher writes resolved copies containing
+`config/prediction/prediction_examples/`. The launcher writes resolved copies containing
 the selected model path to `outputs/prediction_examples/resolved_configs/`.
 
 ## Select a configuration
@@ -80,13 +80,13 @@ from the mounted Aramis project root.
 Windows:
 
 ```powershell
-.\install_and_train.ps1 -PreprocessTrainConfig config/preprocessing_and_training/aramis_biopsy_patients_primary_preprocessing_and_training_v0_1.yaml
+.\install_and_train.ps1 -PreprocessTrainConfig config/preprocessing_and_training/aramis_target_breast_risk_preprocessing_and_training_v0_1.yaml
 ```
 
 macOS/Linux:
 
 ```bash
-./install_and_train.sh --preprocess-train-config config/preprocessing_and_training/aramis_biopsy_patients_primary_preprocessing_and_training_v0_1.yaml
+./install_and_train.sh --preprocess-train-config config/preprocessing_and_training/aramis_target_breast_risk_preprocessing_and_training_v0_1.yaml
 ```
 
 To use a different evaluation, copy the standard training YAML, change only

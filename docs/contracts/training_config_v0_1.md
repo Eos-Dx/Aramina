@@ -7,7 +7,7 @@ Status: research draft.
 ```yaml
 contract: aramis_training_config_v0_2
 model:
-  name: aramis_m2q_t100
+  name: aramis_target_breast_risk
   version: 0.2.7-beta
   created_by: Sergey Denisov
   clinical_stage: research draft
@@ -76,5 +76,5 @@ threshold, Brier score and log loss for probability quality, calibration
 intercept and slope, confidence intervals from patient-level bootstrap
 resampling, and the mean confusion matrix across folds. `evaluation_metrics.csv`
 contains one row per fold; `evaluation_predictions.csv` contains held-out
-patient-case predictions. Generated file references are absolute local paths
-for audit and are expected to change when a run folder is moved.
+patient-case predictions. Generated file references are sibling relative names,
+so the full model directory can be moved without rewriting its description.

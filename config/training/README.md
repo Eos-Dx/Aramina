@@ -5,7 +5,7 @@ Public contract: `aramis_training_config_v0_2`.
 ```yaml
 contract: aramis_training_config_v0_2
 model:
-  name: aramis_m2q_t100
+  name: aramis_target_breast_risk
   version: 0.2.7-beta
   created_by: Sergey Denisov
   clinical_stage: research draft
@@ -28,8 +28,8 @@ All relative paths resolve from the Aramis project root. At least one `run` flag
 
 ```bash
 python -m aramis train --list-models
-python -m aramis train --describe-model aramis_m2q_t100
-python -m aramis train --config config/training/aramis_m2q_t100_primary_train_v0_1.yaml
+python -m aramis train --describe-model aramis_target_breast_risk
+python -m aramis train --config config/training/aramis_target_breast_risk_primary_train_v0_1.yaml
 ```
 
 Full contract: `docs/contracts/training_config_v0_1.md`.
