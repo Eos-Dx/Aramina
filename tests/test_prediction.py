@@ -25,7 +25,7 @@ PREDICTION_EXAMPLE_ROOT = Path(__file__).parents[1] / "examples" / "prediction_h
 FINAL_EXAMPLE_MODEL = (
     Path(__file__).parents[1]
     / "models"
-    / "aramis_target_breast_risk_0_2_7-beta_0222fcbe16fd"
+    / "aramis_target_breast_risk_0_2_7-beta_dcb75574bc2f"
     / "model.joblib"
 )
 

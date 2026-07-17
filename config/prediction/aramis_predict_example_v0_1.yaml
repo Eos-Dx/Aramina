@@ -4,7 +4,7 @@ run:
 
 io:
   input_h5_path: ./examples/prediction_h5/cancer_one_patient.h5
-  input_model_joblib_path: ./models/aramis_target_breast_risk_0_2_7-beta_0222fcbe16fd/model.joblib
+  input_model_joblib_path: ./models/aramis_target_breast_risk_0_2_7-beta_dcb75574bc2f/model.joblib
   output_folder: ./examples/outputs/prediction_h5_examples
 
 patient:

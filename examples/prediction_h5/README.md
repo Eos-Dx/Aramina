@@ -44,7 +44,7 @@ python -m aramis predict --config examples/prediction_h5/atypical_predict.yaml
 All three YAML files use the tracked final product-model artifact:
 
 ```text
-models/aramis_target_breast_risk_0_2_7-beta_0222fcbe16fd/model.joblib
+models/aramis_target_breast_risk_0_2_7-beta_dcb75574bc2f/model.joblib
 ```
 
 The fixture-builder script is provided for reproducibility. It requires local
