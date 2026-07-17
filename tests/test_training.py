@@ -14,6 +14,7 @@ from aramis.training import (
     PatientModelInputBuilder,
     _logit_average_probability,
     _patient_split_pairs,
+    _project_owned_path,
     _lr1_training_rows,
     run_training_from_config,
 )
@@ -87,6 +88,27 @@ def _write_training_input(path: Path) -> None:
         preprocessing_config_text="pipeline:\n  steps:\n  - name: test\n",
         metadata={"input_h5_sha256": "abc"},
     )
+
+
+def test_model_owned_preprocessing_path_uses_training_config_project_root(tmp_path: Path):
+    config_path = tmp_path / "Aramis" / "config" / "training" / "train.yaml"
+    config_path.parent.mkdir(parents=True)
+    expected = (
+        tmp_path
+        / "Aramis"
+        / "config"
+        / "preprocessing"
+        / "aramis_prediction_patient_model_input_v0_1.yaml"
+    )
+    expected.parent.mkdir()
+    expected.touch()
+
+    resolved = _project_owned_path(
+        "config/preprocessing/aramis_prediction_patient_model_input_v0_1.yaml",
+        config_path,
+    )
+
+    assert resolved == expected
 
 
 def test_training_contract_rejects_unknown_fields(tmp_path: Path):

@@ -49,7 +49,6 @@ from .m2q_model import GatedSymmetryLogistic, SK_CORE4_FEATURE_COLUMNS
 from .training_config import (
     PRODUCT_MODEL_NAME,
     load_training_config,
-    project_model_path,
     resolve_model_definition,
 )
 
@@ -416,8 +415,9 @@ def run_training_from_config(
         )
     )
     run_folder = _new_training_run_folder(output_root, model_identity)
-    prediction_preprocessing_config_path = project_model_path(
-        str(model_definition["prediction_preprocessing_config_path"])
+    prediction_preprocessing_config_path = _project_owned_path(
+        str(model_definition["prediction_preprocessing_config_path"]),
+        config_path,
     )
     prediction_preprocessing = _prediction_preprocessing_payload(
         prediction_preprocessing_config_path
@@ -2143,6 +2143,19 @@ def _prediction_preprocessing_payload(config_path: Path | None) -> dict[str, Any
         "path": str(config_path),
         "yaml": yaml.safe_dump(config, sort_keys=False),
     }
+
+
+def _project_owned_path(value: str, config_path: Path) -> Path:
+    """Resolve a fixed model resource relative to the supplied config root."""
+    path = Path(value).expanduser()
+    if path.is_absolute():
+        return path
+    for parent in config_path.parents:
+        if parent.name == "config":
+            candidate = (parent.parent / path).resolve()
+            if candidate.exists():
+                return candidate
+    return (Path(__file__).resolve().parents[2] / path).resolve()
 
 
 def _preprocessing_lineage_fields(

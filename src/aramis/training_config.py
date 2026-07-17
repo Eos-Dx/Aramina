@@ -119,14 +119,6 @@ def describe_product_model(model_name: str) -> str:
     return yaml.safe_dump({model_name: resolve_model_definition(model_name)}, sort_keys=False)
 
 
-def project_model_path(value: str) -> Path:
-    """Resolve one model-owned project-relative path."""
-    path = Path(value).expanduser()
-    if path.is_absolute():
-        return path
-    return (Path(__file__).resolve().parents[2] / path).resolve()
-
-
 def _validate_evaluation(evaluation: Any) -> None:
     if not isinstance(evaluation, dict):
         raise TypeError("evaluation must be a mapping.")
