@@ -259,6 +259,18 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
         "sensitivity",
         "specificity",
     }
+    assert artifact["final_fit_training_metrics"]["evaluation_status"] == (
+        "in_sample_not_independent"
+    )
+    assert set(artifact["final_fit_training_metrics"]) >= {
+        "roc_auc",
+        "sensitivity",
+        "specificity",
+        "true_positives",
+        "true_negatives",
+        "false_positives",
+        "false_negatives",
+    }
     assert not (model_path.parent / "model_performance.yaml").exists()
     assert not (model_path.parent / "model_performance.json").exists()
     reproducibility = artifact["reproducibility"]
@@ -276,6 +288,15 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
     assert description["model_performance"]["evaluation_method"] == (
         performance["evaluation_method"]
     )
+    assert description["final_fit_training_metrics"]["evaluation_status"] == (
+        "in_sample_not_independent"
+    )
+    assert description["final_fit_training_metrics"]["target_cases"] == 30
+    assert set(description["final_fit_training_metrics"]) >= {
+        "roc_auc",
+        "sensitivity",
+        "specificity",
+    }
     assert "model_performance_files" not in description
     assert "kind" not in description
     assert "selected_model" not in description

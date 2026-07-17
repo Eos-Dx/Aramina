@@ -701,6 +701,11 @@ def _fit_m2q_model(
         random_state=random_state,
     ).fit(feature_table, y)
     score = final_model.predict_proba(feature_table)[:, 1]
+    thresholds = compute_binary_thresholds(
+        y,
+        score,
+        target_sensitivity=target_sensitivity,
+    )
     reference_scores = {
         "all_target_cases": _sorted_scores(score),
         "benign_target_cases": _sorted_scores(score[y == 0]),
@@ -713,10 +718,11 @@ def _fit_m2q_model(
         "feature_columns": _m2q_model_input_columns(),
         "symmetry_policy": "single_model_gated_optional_refinement",
         "symmetry_gate": "symmetry_available",
-        "thresholds": compute_binary_thresholds(
+        "thresholds": thresholds,
+        "final_fit_training_metrics": _final_fit_training_metrics(
             y,
             score,
-            target_sensitivity=target_sensitivity,
+            threshold=float(thresholds["threshold_target"]),
         ),
         "prediction_reference_scores": {
             "contract": "aramis_prediction_quantiles_v0_1",
@@ -2084,6 +2090,30 @@ def _binary_metric_values(
     }
 
 
+def _final_fit_training_metrics(
+    y: np.ndarray,
+    score: np.ndarray,
+    *,
+    threshold: float,
+) -> dict[str, Any]:
+    """Describe fit-to-training-cohort performance without implying validation."""
+    decision_thresholds = np.full(len(y), threshold, dtype=float)
+    pred = (score >= decision_thresholds).astype(int)
+    tn, fp, fn, tp = confusion_matrix(y, pred, labels=[0, 1]).ravel()
+    return {
+        "evaluation_status": "in_sample_not_independent",
+        "target_cases": int(len(y)),
+        "cancer_target_cases": int((y == 1).sum()),
+        "benign_target_cases": int((y == 0).sum()),
+        "decision_threshold": threshold,
+        **_binary_metric_values(y, score, decision_thresholds),
+        "true_positives": int(tp),
+        "true_negatives": int(tn),
+        "false_negatives": int(fn),
+        "false_positives": int(fp),
+    }
+
+
 def _patient_dataset_summary(
     df: pd.DataFrame,
     feature_table: pd.DataFrame,
@@ -2388,6 +2418,7 @@ def _final_model_artifact(
     model_definition: dict[str, Any],
     training_config_yaml: str,
 ) -> dict[str, Any]:
+    model_name = next(iter(artifact["models"]))
     return {
         "kind": "aramis_training_artifact",
         "version": "0.3",
@@ -2414,6 +2445,9 @@ def _final_model_artifact(
             evaluation_config=public_config["evaluation"],
             evaluation_requested=bool(public_config["run"]["evaluation"]),
             target_sensitivity=float(model_definition["target_sensitivity"]),
+        ),
+        "final_fit_training_metrics": _jsonable(
+            artifact["models"][model_name]["final_fit_training_metrics"]
         ),
         "evaluation": {
             "protocol": dict(public_config["evaluation"]),
@@ -2532,6 +2566,9 @@ def _model_description(
         "model_summary": _model_summary(model),
         "model_joblib": model_path.name,
         "model_performance": artifact["model_performance"],
+        "final_fit_training_metrics": _jsonable(
+            model["final_fit_training_metrics"]
+        ),
         "decision_thresholds": _jsonable(model.get("thresholds", {})),
         "feature_schema": _jsonable(artifact["feature_schema"]),
         "dataset_summary": _records(artifact["dataset_summary"]),

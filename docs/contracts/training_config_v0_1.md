@@ -56,7 +56,10 @@ final model. Its `model` block contains the immutable model ID, name, version,
 and joblib SHA256. `model_summary.architecture` describes the two stages:
 target-profile logistic regression followed by age and optional symmetry
 refinement. Logistic-regression class labels are written as `BENIGN` and
-`CANCER`.
+`CANCER`. `final_fit_training_metrics` reports one ROC AUC, sensitivity,
+specificity, and supporting metrics for the frozen model fitted on all accepted
+target cases. It is explicitly marked `in_sample_not_independent`: useful for
+describing the artifact, but not an estimate of performance on new patients.
 
 `evaluation.yaml` is the internal evaluation footprint. It records the model
 identity, the fixed target sensitivity, the final train-on-all decision

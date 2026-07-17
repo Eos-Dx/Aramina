@@ -3,8 +3,8 @@ version: '0.1'
 model:
   name: aramis_m2q_t100
   version: 0.2.7-beta
-  id: aramis_m2q_t100_0_2_7-beta_bd6ebdd0bb4d
-  artifact_sha256: bd6ebdd0bb4dd14730948d81d026091a7e2463ab5d3b0a19bc8f7c585e19999a
+  id: aramis_m2q_t100_0_2_7-beta_c5f2c2e2d2d4
+  artifact_sha256: c5f2c2e2d2d47491d2f76fb94a89bb08bea362db0b75af2acc13e8f64a5e3a54
 model_summary:
   architecture:
     stage_1: target_xrd_profile_logistic_regression
@@ -405,6 +405,27 @@ model_performance:
     specificity:
       mean: 0.38336
       std: 0.1156
+final_fit_training_metrics:
+  evaluation_status: in_sample_not_independent
+  target_cases: 175
+  cancer_target_cases: 76
+  benign_target_cases: 99
+  decision_threshold: 0.24451
+  roc_auc: 0.86709
+  pr_auc: 0.85177
+  sensitivity: 0.96053
+  specificity: 0.46465
+  balanced_accuracy: 0.71259
+  ppv: 0.57937
+  npv: 0.93878
+  brier_score: 0.14955
+  log_loss: 0.45317
+  calibration_intercept: -0.2889
+  calibration_slope: 1.29575
+  true_positives: 73
+  true_negatives: 46
+  false_negatives: 3
+  false_positives: 53
 decision_thresholds:
   threshold_youden: 0.41712
   threshold_target: 0.24451
@@ -449,8 +470,8 @@ dataset_summary:
   final_cancer_target_cases: 76
   final_benign_target_cases: 99
 evaluation_artifacts:
-  summary: /Users/sad/dev/Aramis/examples/outputs/preprocessing_and_training/aramis_m2q_t100_preprocessing_and_training_20260717T164043Z_9a1c46f4/training/aramis_m2q_t100_0_2_7-beta_20260717T164305Z_481bd908/evaluation.yaml
-  metrics: /Users/sad/dev/Aramis/examples/outputs/preprocessing_and_training/aramis_m2q_t100_preprocessing_and_training_20260717T164043Z_9a1c46f4/training/aramis_m2q_t100_0_2_7-beta_20260717T164305Z_481bd908/evaluation_metrics.csv
-  predictions: /Users/sad/dev/Aramis/examples/outputs/preprocessing_and_training/aramis_m2q_t100_preprocessing_and_training_20260717T164043Z_9a1c46f4/training/aramis_m2q_t100_0_2_7-beta_20260717T164305Z_481bd908/evaluation_predictions.csv
+  summary: /Users/sad/dev/Aramis/examples/outputs/preprocessing_and_training/aramis_m2q_t100_preprocessing_and_training_20260717T171042Z_d1de7c1d/training/aramis_m2q_t100_0_2_7-beta_20260717T171300Z_63faaf59/evaluation.yaml
+  metrics: /Users/sad/dev/Aramis/examples/outputs/preprocessing_and_training/aramis_m2q_t100_preprocessing_and_training_20260717T171042Z_d1de7c1d/training/aramis_m2q_t100_0_2_7-beta_20260717T171300Z_63faaf59/evaluation_metrics.csv
+  predictions: /Users/sad/dev/Aramis/examples/outputs/preprocessing_and_training/aramis_m2q_t100_preprocessing_and_training_20260717T171042Z_d1de7c1d/training/aramis_m2q_t100_0_2_7-beta_20260717T171300Z_63faaf59/evaluation_predictions.csv
 clinical_stage: research draft
 requires_radiologist_review: true
