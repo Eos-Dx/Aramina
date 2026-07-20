@@ -33,15 +33,20 @@ run_example() {
 
   [[ -f "${template}" ]] || { echo "Missing prediction config: ${template}" >&2; exit 1; }
   mkdir -p "${resolved_dir}"
-  python - "${template}" "${resolved}" "${MODEL_PATH}" <<'PY'
+  python - "${template}" "${resolved}" "${MODEL_PATH}" "${name}" <<'PY'
 from pathlib import Path
 import sys
 
 import yaml
 
-template, resolved, model_path = map(Path, sys.argv[1:])
+template, resolved, model_path = map(Path, sys.argv[1:4])
+name = sys.argv[4]
 config = yaml.safe_load(template.read_text(encoding="utf-8"))
 config["io"]["input_model_joblib_path"] = str(model_path)
+# Resolved example configs are written under outputs/. Keep the fixture H5
+# anchored at its mounted project location instead of resolving relative to that
+# output directory or the installed package.
+config["io"]["input_h5_path"] = f"/opt/Aramis/examples/prediction_h5/{name}_one_patient.h5"
 resolved.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
 PY
 
