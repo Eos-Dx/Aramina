@@ -37,6 +37,7 @@ def load_synthetic_config(cohort: str = "biopsy_patients") -> dict:
     }[cohort]
     config_path = Path(__file__).parents[1] / "config" / "preprocessing" / config_file
     config = load_preprocessing_config(config_path)
+    config.pop("aramis_preprocessing", None)
     config["raw_data"]["source"] = "npy"
     config["raw_data"]["allowed_sources"] = ["gfrm", "npy"]
     config["raw_data"]["h5_dataset_candidates"]["npy"] = ["raw/data"]

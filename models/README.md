@@ -18,7 +18,9 @@ models/<model_id>/
 `model.joblib` is executable. `model_description.yaml` is its human-readable
 identity and final-fit record. `evaluation.yaml` summarizes patient-safe
 validation; the two CSV files hold row-oriented fold metrics and held-out
-predictions. All YAML files beside the artifact are immutable training inputs.
+predictions. The preprocessing, prediction-preprocessing, training, and optional
+preprocess-train YAML files are frozen inputs; the model description and
+evaluation YAML are generated output records.
 
 Prediction configurations reference a specific `model.joblib`. They never
 modify the artifact.
@@ -29,4 +31,5 @@ Current product artifact:
 aramis_target_breast_risk_0_2_7-beta_dcb75574bc2f/
 ```
 
-Older artifacts are retained only for internal historical audit.
+Only the approved product artifact is retained on `main`. Historical artifacts
+belong on the experimental branch.

@@ -10,7 +10,7 @@ retains `p_cancer` for audit.
 ## Command
 
 ```bash
-python -m aramis predict --config examples/prediction_h5/cancer_predict.yaml
+python -m aramis predict --config config/prediction/prediction_examples/cancer_predict.yaml
 ```
 
 ## Input Contract
@@ -118,10 +118,10 @@ aramis.__main__.main
 -> load model joblib
 -> parse resolved prediction_preprocessing_yaml from model joblib
 -> run prediction preprocessing, when io.input_h5_path is present
--> build_patient_prediction_feature_row(...)
--> score artifact-selected product model
--> write external report JSON/YAML
--> write internal report JSON/YAML
+-> patient_features.build_patient_prediction_feature_row(...)
+-> prediction_scoring: score target and contralateral sides
+-> prediction_reports: build external and internal reports
+-> write external and internal report JSON/YAML
 ```
 
 ## Feature Construction

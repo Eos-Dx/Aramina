@@ -1,5 +1,7 @@
 # Aramis preprocessing YAML
 
+Formal product contract: `docs/contracts/preprocessing_config_v0_1.md`.
+
 Current development configs:
 
 ```text
@@ -15,9 +17,10 @@ date, or AgBH exclusion filter.
 
 Both top-level files use `extends` only for repository readability. At runtime,
 `xrd_preprocessing.load_preprocessing_config` resolves them into one mapping.
-`pipeline.steps` is the executable order. Steps may be added, removed, disabled,
-or reordered when the transformer contract allows it. XRD-preprocessing does
-not impose an Aramis branch concept.
+`pipeline.steps` is the executable order. XRD-preprocessing permits flexible
+routes, but the two Aramis product routes have a fixed validated order under the
+Aramis preprocessing contract. XRD-preprocessing does not impose an Aramis
+branch concept.
 
 Operational `io` paths and `extends` paths are relative to the Aramis project
 root. Repository configs use root-level paths such as

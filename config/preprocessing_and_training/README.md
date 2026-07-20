@@ -3,17 +3,19 @@
 `preprocess-train` runs approved preprocessing once, stores its traceable DataFrame,
 and passes that in-memory DataFrame directly into training.
 
+Formal request contract: `docs/contracts/preprocess_train_config_v0_1.md`.
+
 ```yaml
 contract: aramis_preprocessing_and_training_config_v0_1
 preprocessing_and_training:
   name: aramis_target_breast_risk_preprocessing_and_training
-  created_by: Sergey Denisov
-  output_folder: ./examples/outputs/preprocessing_and_training
-preprocessing_config_path: ./config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
-training_config_path: ./config/training/aramis_target_breast_risk_primary_train_v0_1.yaml
+  run_author: Sergey Denisov
+  output_folder: examples/outputs/preprocessing_and_training
+preprocessing_config_path: config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
+training_config_path: config/training/aramis_target_breast_risk_primary_train_v0_1.yaml
 ```
 
-All relative paths resolve from the Aramis project root. `created_by` identifies the
+All relative paths resolve from the Aramis project root. `run_author` identifies the
 person starting the run. The resolved preprocessing and training YAML are embedded
 in the resulting model artifact.
 

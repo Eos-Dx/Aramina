@@ -69,6 +69,20 @@ def test_cli_train_requires_config_when_not_listing_models(capsys):
     assert "--config is required" in capsys.readouterr().err
 
 
+def test_cli_promote_delegates_to_product_promotion(monkeypatch, capsys, tmp_path: Path):
+    promoted = {
+        "model_id": "model-id",
+        "artifact_sha256": "sha256",
+        "model_folder": tmp_path / "models" / "model-id",
+    }
+    monkeypatch.setattr(cli, "promote_model_run", lambda *_args, **_kwargs: promoted)
+
+    assert cli.main(["promote", "--run-folder", str(tmp_path / "run")]) == 0
+    output = capsys.readouterr().out
+    assert "model_id=model-id" in output
+    assert "artifact_sha256=sha256" in output
+
+
 def test_cli_verbose_preprocess_forwards_progress_flag(monkeypatch, tmp_path: Path):
     config = tmp_path / "config.yaml"
     received: dict[str, object] = {}
@@ -93,7 +107,7 @@ def test_workflow_passes_preprocessing_dataframe_directly_to_training(
                 "contract": workflows.PREPROCESS_TRAIN_CONTRACT,
                 "preprocessing_and_training": {
                     "name": "product",
-                    "created_by": "test",
+                    "run_author": "test",
                     "output_folder": str(tmp_path / "runs"),
                 },
                 "preprocessing_config_path": str(tmp_path / "preprocess.yaml"),
@@ -150,7 +164,7 @@ def test_workflow_resolves_root_relative_paths_from_external_config_tree(
                 "contract": workflows.PREPROCESS_TRAIN_CONTRACT,
                 "preprocessing_and_training": {
                     "name": "product",
-                    "created_by": "test",
+                    "run_author": "test",
                     "output_folder": "./examples/outputs/preprocess_train",
                 },
                 "preprocessing_config_path": "./config/preprocessing/preprocess.yaml",
@@ -199,13 +213,50 @@ def test_workflow_contract_rejects_incomplete_config(
         workflows.run_preprocess_train_from_config(config_path)
 
 
+@pytest.mark.parametrize(
+    ("field", "value", "error"),
+    [
+        ("run_author", 42, "preprocessing_and_training.run_author must be a string"),
+        ("output_folder", " ", "preprocessing_and_training.output_folder must not be empty"),
+        ("preprocessing_config_path", "", "preprocessing_config_path must not be empty"),
+    ],
+)
+def test_workflow_contract_rejects_invalid_string_values(
+    tmp_path: Path,
+    field: str,
+    value: object,
+    error: str,
+):
+    payload = {
+        "contract": workflows.PREPROCESS_TRAIN_CONTRACT,
+        "preprocessing_and_training": {
+            "name": "product",
+            "run_author": "test",
+            "output_folder": "outputs",
+        },
+        "preprocessing_config_path": "config/preprocessing/input.yaml",
+        "training_config_path": "config/training/train.yaml",
+    }
+    target = (
+        payload["preprocessing_and_training"]
+        if field in payload["preprocessing_and_training"]
+        else payload
+    )
+    target[field] = value
+    config_path = tmp_path / "preprocess_train.yaml"
+    config_path.write_text(yaml.safe_dump(payload), encoding="utf-8")
+
+    with pytest.raises((TypeError, ValueError), match=error):
+        workflows._load_preprocess_train_config(config_path)
+
+
 def test_training_config_rejects_unknown_and_resolves_packaged_path(tmp_path: Path):
     config = {
-        "contract": "aramis_training_config_v0_2",
+        "contract": "aramis_training_config_v0_3",
         "model": {
             "name": "test",
             "version": "0.1-beta",
-            "created_by": "test",
+            "model_author": "test",
             "clinical_stage": "research draft",
             "intended_use": "test",
         },

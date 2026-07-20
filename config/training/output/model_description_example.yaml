@@ -21,5 +21,11 @@ final_fit_training_metrics:
   specificity: <float>
 decision_thresholds:
   threshold_target: <float>
+reproducibility:
+  source_h5:
+    filename: <filename>
+    sha256: <sha256>
+  checksums:
+    training_yaml_sha256: <sha256>
 clinical_stage: research draft
 requires_radiologist_review: true

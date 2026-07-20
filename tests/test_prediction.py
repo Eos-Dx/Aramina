@@ -11,6 +11,7 @@ import yaml
 from xrd_preprocessing import save_preprocessing_artifact
 
 from aramis.prediction import (
+    _metadata_value,
     _validate_h5_container_contract,
     _validate_prediction_config,
     run_prediction_from_config,
@@ -21,7 +22,9 @@ from aramis.training_config import PRODUCT_MODEL_NAME
 from .synthetic_aramis_h5 import write_v0_3_one_patient_h5
 
 
-PREDICTION_EXAMPLE_ROOT = Path(__file__).parents[1] / "examples" / "prediction_h5"
+PREDICTION_EXAMPLE_ROOT = (
+    Path(__file__).parents[1] / "config" / "prediction" / "prediction_examples"
+)
 FINAL_EXAMPLE_MODEL = (
     Path(__file__).parents[1]
     / "models"
@@ -52,6 +55,41 @@ def test_tracked_prediction_examples_use_final_product_artifact():
             sets = h5["session/sets"]
             sides = {str(group.attrs["side"]).casefold() for group in sets.values()}
             assert sides == {"left", "right"}
+
+
+@pytest.mark.parametrize(
+    ("config_name", "target_p_cancer", "contralateral_p_cancer"),
+    [
+        ("atypical_predict.yaml", 0.45023, 0.88036),
+        ("benign_predict.yaml", 0.34270, 0.52828),
+        ("cancer_predict.yaml", 0.84062, 0.83160),
+    ],
+)
+def test_frozen_model_examples_keep_stable_scores(
+    tmp_path: Path,
+    config_name: str,
+    target_p_cancer: float,
+    contralateral_p_cancer: float,
+):
+    """Guard frozen product behavior while modules are reorganised."""
+    source = PREDICTION_EXAMPLE_ROOT / config_name
+    config = yaml.safe_load(source.read_text(encoding="utf-8"))
+    config["io"]["output_folder"] = str(tmp_path / "reports")
+    config_path = tmp_path / config_name
+    config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+
+    report = run_prediction_from_config(config_path)["internal_report"]
+    predictions = report["breast_predictions"]
+    assert predictions["target"]["final_prediction"]["p_cancer"] == pytest.approx(
+        target_p_cancer,
+        abs=1e-5,
+    )
+    assert predictions["contralateral"]["final_prediction"][
+        "p_cancer"
+    ] == pytest.approx(
+        contralateral_p_cancer,
+        abs=1e-5,
+    )
 
 
 def _patient_frame() -> pd.DataFrame:
@@ -85,11 +123,11 @@ def _patient_frame() -> pd.DataFrame:
 
 def _training_config(input_path: Path, output_folder: Path) -> dict:
     return {
-        "contract": "aramis_training_config_v0_2",
+        "contract": "aramis_training_config_v0_3",
         "model": {
             "name": PRODUCT_MODEL_NAME,
             "version": "0.1-beta",
-            "created_by": "test",
+            "model_author": "test",
             "clinical_stage": "research draft",
             "intended_use": "Synthetic decision-support test.",
         },
@@ -159,6 +197,54 @@ def test_prediction_contract_rejects_unknown_nested_fields(tmp_path: Path):
         _validate_prediction_config(config, tmp_path / "predict.yaml")
 
 
+@pytest.mark.parametrize(
+    ("mutate", "error"),
+    [
+        (lambda config: config.pop("patient"), "Missing prediction config sections"),
+        (
+            lambda config: config["io"].pop("input_dataframe_joblib_path"),
+            "Set exactly one input",
+        ),
+        (
+            lambda config: config["io"].update(input_h5_path="patient.h5"),
+            "Set exactly one input",
+        ),
+        (
+            lambda config: config["run"].update(synthetic_test_mode="true"),
+            "synthetic_test_mode must be boolean",
+        ),
+        (
+            lambda config: config["run"].update(analysis_author=42),
+            "analysis_author must be a string",
+        ),
+        (
+            lambda config: config["patient"].update(patient_id="  "),
+            "Missing patient.patient_id",
+        ),
+        (
+            lambda config: config["patient"].update(target_side="centre"),
+            "target_side must be left or right",
+        ),
+    ],
+)
+def test_prediction_contract_rejects_invalid_required_values(tmp_path: Path, mutate, error: str):
+    config = _prediction_config(
+        tmp_path / "data.joblib",
+        tmp_path / "model.joblib",
+        tmp_path / "outputs",
+    )
+    mutate(config)
+
+    with pytest.raises((TypeError, ValueError), match=error):
+        _validate_prediction_config(config, tmp_path / "predict.yaml")
+
+
+def test_optional_scan_metadata_blanks_are_reported_as_unknown():
+    assert _metadata_value({"operator_id": "  "}, "operator_id") == "unknown"
+    assert _metadata_value({"operator_id": None}, "operator_id") == "unknown"
+    assert _metadata_value({"operator_id": "OPT-001"}, "operator_id") == "OPT-001"
+
+
 def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_model):
     model_path, dataframe_path = trained_model
     config_path = tmp_path / "predict.yaml"
@@ -193,9 +279,9 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
     assert contralateral["available"] is True
     assert 0.0 <= contralateral["final_prediction"]["p_cancer"] <= 1.0
     assert set(target["final_prediction"]["score_percentiles"]) == {
-        "all_training_patients",
-        "benign_training_patients",
-        "cancer_training_patients",
+        "all_training_target_cases",
+        "benign_training_target_cases",
+        "cancer_training_target_cases",
     }
     assert external["prediction_comment"] == "synthetic test"
     assert internal["prediction_comment"] == "synthetic test"
@@ -238,8 +324,12 @@ def test_predict_target_side_controls_profile_evidence(tmp_path: Path, trained_m
     right = run_prediction_from_config(right_config)["internal_report"]
 
     assert (
-        left["breast_predictions"]["target"]["azimuthal_integration_target_profile"]["p_cancer"]
-        != right["breast_predictions"]["target"]["azimuthal_integration_target_profile"]["p_cancer"]
+        left["breast_predictions"]["target"]["azimuthal_integration_target_profile"][
+            "p_cancer"
+        ]
+        != right["breast_predictions"]["target"][
+            "azimuthal_integration_target_profile"
+        ]["p_cancer"]
     )
 
 
@@ -249,9 +339,7 @@ def test_predict_without_contralateral_uses_unavailable_symmetry(
 ):
     model_path, training_dataframe_path = trained_model
     frame = joblib.load(training_dataframe_path)["dataframe"]
-    frame = frame[
-        ~((frame["patientId"] == "P00") & (frame["side"] == "Right"))
-    ].copy()
+    frame = frame[~((frame["patientId"] == "P00") & (frame["side"] == "Right"))].copy()
     dataframe_path = tmp_path / "unpaired.joblib"
     save_preprocessing_artifact(
         frame,
@@ -295,20 +383,14 @@ def test_h5_contract_requires_one_matching_patient(tmp_path: Path, trained_model
         seed=20,
     )
 
-    _validate_h5_container_contract(
-        artifact, h5_path, expected_patient_id="PX01"
-    )
+    _validate_h5_container_contract(artifact, h5_path, expected_patient_id="PX01")
     with pytest.raises(ValueError, match="does not match H5 patientId"):
-        _validate_h5_container_contract(
-            artifact, h5_path, expected_patient_id="WRONG"
-        )
+        _validate_h5_container_contract(artifact, h5_path, expected_patient_id="WRONG")
 
     with h5py.File(h5_path, "a") as h5:
         h5["session/sets/set_006_sample_main"].attrs["patientId"] = "PX02"
     with pytest.raises(ValueError, match="exactly one patient"):
-        _validate_h5_container_contract(
-            artifact, h5_path, expected_patient_id="PX01"
-        )
+        _validate_h5_container_contract(artifact, h5_path, expected_patient_id="PX01")
 
 
 def test_h5_contract_rejects_schema_mismatch(tmp_path: Path, trained_model):
@@ -327,6 +409,62 @@ def test_h5_contract_rejects_schema_mismatch(tmp_path: Path, trained_model):
         h5.attrs["schema_version"] = "0.4"
 
     with pytest.raises(ValueError, match="schema_version does not match"):
-        _validate_h5_container_contract(
-            artifact, h5_path, expected_patient_id="PX01"
-        )
+        _validate_h5_container_contract(artifact, h5_path, expected_patient_id="PX01")
+
+
+@pytest.mark.parametrize(
+    ("missing", "error"),
+    [
+        ("format", "format does not match"),
+        ("session", "missing /session group"),
+        ("sets", "missing /session/sets group"),
+    ],
+)
+def test_h5_contract_rejects_missing_required_structure(
+    tmp_path: Path,
+    trained_model,
+    missing: str,
+    error: str,
+):
+    model_path, _ = trained_model
+    artifact = joblib.load(model_path)
+    h5_path = tmp_path / "patient.h5"
+    write_v0_3_one_patient_h5(
+        h5_path,
+        patient_id="PX01",
+        left_status="BENIGN",
+        right_status="CANCER",
+        target_side="Left",
+        seed=22,
+    )
+    with h5py.File(h5_path, "a") as h5:
+        if missing == "format":
+            del h5.attrs["format"]
+        elif missing == "session":
+            del h5["session"]
+        else:
+            del h5["session/sets"]
+
+    with pytest.raises(ValueError, match=error):
+        _validate_h5_container_contract(artifact, h5_path, expected_patient_id="PX01")
+
+
+def test_h5_contract_rejects_absent_patient_id(tmp_path: Path, trained_model):
+    model_path, _ = trained_model
+    artifact = joblib.load(model_path)
+    h5_path = tmp_path / "patient.h5"
+    write_v0_3_one_patient_h5(
+        h5_path,
+        patient_id="PX01",
+        left_status="BENIGN",
+        right_status="CANCER",
+        target_side="Left",
+        seed=23,
+    )
+    with h5py.File(h5_path, "a") as h5:
+        for group in h5["session/sets"].values():
+            del group.attrs["patientId"]
+        del h5["session/sample/patient_name"]
+
+    with pytest.raises(ValueError, match="Prediction H5 contains no patientId values"):
+        _validate_h5_container_contract(artifact, h5_path, expected_patient_id="PX01")

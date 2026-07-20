@@ -9,7 +9,7 @@ from typing import Any
 import yaml
 
 
-TRAINING_CONTRACT = "aramis_training_config_v0_2"
+TRAINING_CONTRACT = "aramis_training_config_v0_3"
 PRODUCT_MODEL_NAME = "aramis_target_breast_risk"
 PRODUCT_MODELS = {
     PRODUCT_MODEL_NAME: {
@@ -79,10 +79,12 @@ def validate_training_config(config: Any, source: str | Path) -> None:
         raise ValueError(f"Unsupported training contract: {config['contract']!r}")
     _exact_keys(
         config["model"],
-        required={"name", "version", "created_by", "clinical_stage", "intended_use"},
-        allowed={"name", "version", "created_by", "clinical_stage", "intended_use"},
+        required={"name", "version", "model_author", "clinical_stage", "intended_use"},
+        allowed={"name", "version", "model_author", "clinical_stage", "intended_use"},
         where="model",
     )
+    for key in ("name", "version", "model_author", "clinical_stage", "intended_use"):
+        _require_nonempty_string(config["model"], key, f"model.{key}")
     resolve_model_definition(str(config["model"]["name"]))
     _exact_keys(
         config["run"],
@@ -96,6 +98,10 @@ def validate_training_config(config: Any, source: str | Path) -> None:
         raise ValueError("At least one of run.evaluation or run.train_on_all must be true.")
     _exact_keys(config["input"], required={"dataframe_joblib_path"}, allowed={"dataframe_joblib_path"}, where="input")
     _exact_keys(config["output"], required={"folder"}, allowed={"folder"}, where="output")
+    _require_nonempty_string(
+        config["input"], "dataframe_joblib_path", "input.dataframe_joblib_path"
+    )
+    _require_nonempty_string(config["output"], "folder", "output.folder")
     _validate_evaluation(config["evaluation"])
 
 
@@ -140,6 +146,14 @@ def _validate_int_at_least(value: Any, minimum: int, where: str) -> None:
         raise TypeError(f"{where} must be an integer.")
     if value < minimum:
         raise ValueError(f"{where} must be >= {minimum}.")
+
+
+def _require_nonempty_string(section: dict[str, Any], key: str, where: str) -> None:
+    value = section[key]
+    if not isinstance(value, str):
+        raise TypeError(f"{where} must be a string.")
+    if not value.strip():
+        raise ValueError(f"{where} must not be empty.")
 
 
 def _exact_keys(value: Any, *, required: set[str], allowed: set[str], where: str) -> None:

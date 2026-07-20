@@ -36,12 +36,13 @@ Run:
 cd Aramis
 conda activate eosproduct
 
-python -m aramis predict --config examples/prediction_h5/benign_predict.yaml
-python -m aramis predict --config examples/prediction_h5/cancer_predict.yaml
-python -m aramis predict --config examples/prediction_h5/atypical_predict.yaml
+python -m aramis predict --config config/prediction/prediction_examples/benign_predict.yaml
+python -m aramis predict --config config/prediction/prediction_examples/cancer_predict.yaml
+python -m aramis predict --config config/prediction/prediction_examples/atypical_predict.yaml
 ```
 
-All three YAML files use the tracked final product-model artifact:
+The canonical prediction YAML files in `config/prediction/prediction_examples/`
+use the tracked final product-model artifact:
 
 ```text
 models/aramis_target_breast_risk_0_2_7-beta_dcb75574bc2f/model.joblib

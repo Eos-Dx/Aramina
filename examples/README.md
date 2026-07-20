@@ -13,7 +13,7 @@ prediction_models/
 Run a complete one-patient H5 prediction example:
 
 ```bash
-python -m aramis predict --config examples/prediction_h5/cancer_predict.yaml
+python -m aramis predict --config config/prediction/prediction_examples/cancer_predict.yaml
 ```
 
 Build the current biopsy-patient model input:

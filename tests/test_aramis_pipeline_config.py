@@ -8,6 +8,7 @@ import yaml
 from xrd_preprocessing import (
     build_pipeline_from_config,
     build_pipeline_steps_from_config,
+    load_preprocessing_config,
     load_preprocessing_dataframe,
 )
 from xrd_preprocessing.transformers import H5BlobDataFrameTransformer, KeepColumnsTransformer
@@ -18,9 +19,77 @@ from aramis.pipelines import (
     _config_path,
     run_preprocessing_artifact_from_config,
 )
+from aramis.prediction_contract import _validate_prediction_config
+from aramis.preprocessing_contract import validate_aramis_preprocessing_config
+from aramis.training_config import load_training_config
 from aramis.workflows import _load_preprocess_train_config
 
 from .synthetic_aramis_h5 import load_synthetic_config, write_known_synthetic_h5
+
+
+def test_shipped_product_yaml_contracts_build_or_validate():
+    root = Path(__file__).parents[1]
+    expected_steps = {
+        "aramis_biopsy_patients_model_input_v0_1.yaml": 19,
+        "aramis_prediction_patient_model_input_v0_1.yaml": 16,
+    }
+    for filename, count in expected_steps.items():
+        config = load_preprocessing_config(root / "config" / "preprocessing" / filename)
+        assert len(build_pipeline_steps_from_config(config)) == count
+        validate_aramis_preprocessing_config(config)
+
+    load_training_config(
+        root / "config" / "training" / "aramis_target_breast_risk_primary_train_v0_1.yaml"
+    )
+    _load_preprocess_train_config(
+        root
+        / "config"
+        / "preprocessing_and_training"
+        / "aramis_target_breast_risk_preprocessing_and_training_v0_1.yaml"
+    )
+    for path in sorted((root / "config" / "prediction").glob("*.yaml")):
+        _validate_prediction_config(
+            yaml.safe_load(path.read_text(encoding="utf-8")), path
+        )
+    for path in sorted(
+        (root / "config" / "prediction" / "prediction_examples").glob("*.yaml")
+    ):
+        _validate_prediction_config(
+            yaml.safe_load(path.read_text(encoding="utf-8")), path
+        )
+
+
+@pytest.mark.parametrize(
+    ("mutate", "error"),
+    [
+        (
+            lambda config: config["snr"].update(min_snr_db=20.0),
+            "SNR threshold=18.0",
+        ),
+        (
+            lambda config: config["product_filter"].update(require_biopsy_patient=False),
+            "training biopsy-patient filter=True",
+        ),
+        (
+            lambda config: config["metadata"].update(output_columns=[]),
+            "output columns are missing",
+        ),
+    ],
+)
+def test_aramis_product_preprocessing_contract_rejects_policy_changes(
+    mutate,
+    error: str,
+):
+    config = load_preprocessing_config(
+        Path(__file__).parents[1]
+        / "config"
+        / "preprocessing"
+        / "aramis_biopsy_patients_model_input_v0_1.yaml"
+    )
+    mutate(config)
+
+    with pytest.raises(ValueError, match=error):
+        validate_aramis_preprocessing_config(config)
 
 
 def test_yaml_pipeline_steps_build_registered_transformers():
@@ -181,7 +250,7 @@ def test_preprocess_train_contract_rejects_unknown_fields(tmp_path):
                 "contract": "aramis_preprocessing_and_training_config_v0_1",
                 "preprocessing_and_training": {
                     "name": "test",
-                    "created_by": "tester",
+                    "run_author": "tester",
                     "output_folder": "outputs",
                     "mode": "legacy",
                 },

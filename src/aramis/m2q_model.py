@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator
 from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 
@@ -15,6 +16,25 @@ SK_CORE4_FEATURE_COLUMNS = (
     "sk_weightedrms2",
     "sk_mean_peak_value_abs_delta",
 )
+
+
+def build_profile_logistic(*, logreg_c: float, random_state: int) -> Pipeline:
+    """Build the standard-scaled LR1 radial-profile classifier."""
+    return Pipeline(
+        [
+            ("scaler", StandardScaler()),
+            (
+                "logreg",
+                LogisticRegression(
+                    C=float(logreg_c),
+                    class_weight="balanced",
+                    max_iter=5000,
+                    random_state=int(random_state),
+                    solver="lbfgs",
+                ),
+            ),
+        ]
+    )
 
 
 class GatedSymmetryLogistic(BaseEstimator):
@@ -36,14 +56,18 @@ class GatedSymmetryLogistic(BaseEstimator):
 
     def fit(self, x: pd.DataFrame, y: np.ndarray) -> "GatedSymmetryLogistic":
         """Fit LR2 and paired-case symmetry scaling."""
-        base = x.loc[:, self.base_feature_columns_].apply(pd.to_numeric, errors="coerce")
+        base = x.loc[:, self.base_feature_columns_].apply(
+            pd.to_numeric, errors="coerce"
+        )
         self.base_fill_values_ = base.median().fillna(0.0)
         self.base_scaler_ = StandardScaler().fit(
             base.fillna(self.base_fill_values_).to_numpy(dtype=float)
         )
 
         paired = x["symmetry_available"].astype(bool).to_numpy()
-        symmetry = x.loc[:, SK_CORE4_FEATURE_COLUMNS].apply(pd.to_numeric, errors="coerce")
+        symmetry = x.loc[:, SK_CORE4_FEATURE_COLUMNS].apply(
+            pd.to_numeric, errors="coerce"
+        )
         paired_values = symmetry.loc[paired]
         self.symmetry_means_ = paired_values.mean().fillna(0.0)
         self.symmetry_scales_ = paired_values.std(ddof=0).replace(0.0, 1.0).fillna(1.0)
@@ -66,15 +90,21 @@ class GatedSymmetryLogistic(BaseEstimator):
         return self.logreg_.predict_proba(self._matrix(x))
 
     def _matrix(self, x: pd.DataFrame) -> np.ndarray:
-        base = x.loc[:, self.base_feature_columns_].apply(pd.to_numeric, errors="coerce")
+        base = x.loc[:, self.base_feature_columns_].apply(
+            pd.to_numeric, errors="coerce"
+        )
         base_scaled = self.base_scaler_.transform(
             base.fillna(self.base_fill_values_).to_numpy(dtype=float)
         )
         paired = x["symmetry_available"].astype(bool).to_numpy()
-        symmetry = x.loc[:, SK_CORE4_FEATURE_COLUMNS].apply(
-            pd.to_numeric,
-            errors="coerce",
-        ).fillna(self.symmetry_means_)
+        symmetry = (
+            x.loc[:, SK_CORE4_FEATURE_COLUMNS]
+            .apply(
+                pd.to_numeric,
+                errors="coerce",
+            )
+            .fillna(self.symmetry_means_)
+        )
         symmetry_scaled = (
             symmetry.to_numpy(dtype=float) - self.symmetry_means_.to_numpy(dtype=float)
         ) / self.symmetry_scales_.to_numpy(dtype=float)

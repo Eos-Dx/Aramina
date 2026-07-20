@@ -25,7 +25,6 @@ input:
   trained Aramis model joblib
 
 output:
-  p_cancer
   suggested BENIGN/CANCER decision-support class
   reliability level and reason
   JSON/YAML report payload
@@ -62,6 +61,8 @@ symmetry availability is a gate, not a learned risk feature.
 
 The fixed architecture and its current evaluation are recorded in
 [`docs/modeling/aramis_t100_target_case_model_v0_1.md`](docs/modeling/aramis_t100_target_case_model_v0_1.md).
+Internal module boundaries and refactor rules are documented in
+[`docs/development/code_structure.md`](docs/development/code_structure.md).
 The packaged artifact embeds its prediction preprocessing and immutable
 prediction contract. Predict YAML supplies identity and paths only.
 
@@ -93,7 +94,7 @@ INSTALL.md
 python -m aramis preprocess --config config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
 python -m aramis train --config config/training/aramis_target_breast_risk_primary_train_v0_1.yaml
 python -m aramis preprocess-train --config config/preprocessing_and_training/aramis_target_breast_risk_preprocessing_and_training_v0_1.yaml
-python -m aramis predict --config examples/prediction_h5/cancer_predict.yaml
+python -m aramis predict --config config/prediction/prediction_examples/cancer_predict.yaml
 ```
 
 `preprocess` and `train` build the development model artifacts. Product
@@ -117,6 +118,13 @@ versions, and evaluation summary. The full-H5 reproduction bundle is built with
 `packaging/reproducible_training_bundle/make_bundle.sh`; its Windows and
 macOS/Linux launchers reuse existing environments, refresh pinned code commits,
 and write a stage-by-stage training log.
+
+`promote` copies a reviewed final-fit run into `models/<immutable_model_id>/`.
+It never retrains, mutates, or overwrites a run:
+
+```bash
+python -m aramis promote --run-folder examples/outputs/preprocessing_and_training/RUN_ID/training/RUN_ID
+```
 
 ## Documentation Map
 
@@ -182,14 +190,32 @@ src/aramis/pipelines.py
   YAML-governed preprocessing wrapper around XRD-preprocessing transformers
 
 src/aramis/training.py
-  patient-safe target-breast training artifact builder
+  public patient-safe target-breast training orchestration
 
 src/aramis/prediction.py
-  one-patient prediction route and report writer
+  public one-patient prediction orchestration
 
 src/aramis/workflows.py
   preprocess-train runner
+
+src/aramis/patient_features.py
+  shared target-breast features for training and prediction
+
+src/aramis/symmetry_features.py
+  target-versus-contralateral SK feature calculations
+
+src/aramis/training_evaluation.py
+  patient-safe repeated stratified evaluation
+
+src/aramis/prediction_contract.py
+  prediction YAML, H5 v0.3 and output-path validation
+
+src/aramis/prediction_reports.py
+  internal and external report construction
 ```
+
+Full module boundaries are in
+[`docs/development/code_structure.md`](docs/development/code_structure.md).
 
 ## H5 Contract Summary
 

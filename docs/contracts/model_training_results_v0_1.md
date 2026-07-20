@@ -26,7 +26,7 @@ Required top-level sections:
 ```yaml
 kind: aramis_training_artifact
 version: "0.3"
-model_identity: {name, version, created_by, clinical_stage, intended_use}
+model_identity: {name, version, model_author, clinical_stage, intended_use}
 models: {aramis_target_breast_risk: <fitted LR1 and final sklearn estimators>}
 feature_schema: {final_model: ...}
 model_performance: ...
@@ -98,6 +98,7 @@ decision_thresholds: <Youden and target-sensitivity thresholds>
 feature_schema: {final_model: <feature schema>}
 dataset_summary: <accepted-cohort counts>
 evaluation_artifacts: {summary, metrics, predictions}
+reproducibility: <H5 checksum, config checksums, code and runtime provenance>
 clinical_stage: research draft
 requires_radiologist_review: true
 ```
@@ -153,3 +154,10 @@ threshold, predicted class, and fold ID.
 Artifact-file references are sibling relative names. The full model directory
 is therefore portable as one unit; model ID and SHA256 remain immutable
 identifiers.
+
+## Promotion
+
+`python -m aramis promote --run-folder <completed-run-folder>` copies a reviewed
+final-fit run to `models/<immutable_model_id>/`. Promotion does not retrain or
+modify the source run, refuses an existing destination, and copies the executable
+joblib, YAML snapshots, model description, and any evaluation files present.

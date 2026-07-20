@@ -39,15 +39,15 @@ If `conda` is missing, `install.bat` asks to install Miniforge into
 conda env create -n eosproduct -f environment.yml
 conda activate eosproduct
 python -m pip install -e ".[dev]"
-python -m aramis predict --config examples/prediction_h5/cancer_predict.yaml
+python -m aramis predict --config config/prediction/prediction_examples/cancer_predict.yaml
 ```
 
 ## Prediction Examples
 
 ```bash
-python -m aramis predict --config examples/prediction_h5/benign_predict.yaml
-python -m aramis predict --config examples/prediction_h5/cancer_predict.yaml
-python -m aramis predict --config examples/prediction_h5/atypical_predict.yaml
+python -m aramis predict --config config/prediction/prediction_examples/benign_predict.yaml
+python -m aramis predict --config config/prediction/prediction_examples/cancer_predict.yaml
+python -m aramis predict --config config/prediction/prediction_examples/atypical_predict.yaml
 ```
 
 Reports are written to:

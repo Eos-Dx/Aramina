@@ -29,7 +29,8 @@ H5
 
 The joblib contains the DataFrame, fully resolved effective YAML, input H5
 SHA256, Aramis version, and git SHA. Contract:
-`docs/data_preprocessing.md`.
+`docs/data_preprocessing.md` and
+`docs/contracts/preprocessing_config_v0_1.md`.
 
 ## Train
 
@@ -59,6 +60,7 @@ Input: one preprocessing-and-training YAML referencing preprocessing and trainin
 
 Preprocessing runs once. Its joblib is saved, while the DataFrame is passed
 directly in memory to training. No reload is required between stages.
+Contract: `docs/contracts/preprocess_train_config_v0_1.md`.
 
 ## Predict
 
@@ -86,6 +88,8 @@ patient.patient_id exactly matches H5 patientId
 target_side is left or right and comes from clinical caller
 prediction preprocessing comes only from model joblib
 ```
+
+Contract: `docs/contracts/prediction_config_v0_1.md`.
 
 Outputs use one generated report ID:
 

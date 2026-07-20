@@ -7,6 +7,9 @@ model-input DataFrames. Aramis owns product YAMLs and output schemas.
 `XRD-preprocessing` owns transformer implementations and YAML pipeline
 construction.
 
+The fixed Aramis product-policy contract is
+`docs/contracts/preprocessing_config_v0_1.md`.
+
 ## Data Levels
 
 Every filter must have an explicit level:

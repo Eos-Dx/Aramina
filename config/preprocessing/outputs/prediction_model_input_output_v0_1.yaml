@@ -2,11 +2,20 @@ metadata:
   keep_columns_errors: ignore
   output_columns:
   - patientId
+  - session_uid
+  - session_id
   - specimenId
   - side
   - target_side
   - target_breast
   - mammography_suspicious_field
+  - mammography_conclusion
+  - scan_date_time
+  - operator_id
+  - hardware_version
+  - eoscan_version
+  - experimental_protocol_version
+  - product_protocol_version
   - position
   - started_at
   - measurementDate

@@ -62,9 +62,9 @@ final_prediction:
   decision_threshold: 0.32787
   suggested_class: CANCER
   score_percentiles:
-    all_training_patients: 0.74000
-    benign_training_patients: 0.93000
-    cancer_training_patients: 0.32000
+    all_training_target_cases: 0.74000
+    benign_training_target_cases: 0.93000
+    cancer_training_target_cases: 0.32000
   reliability:
     level: high
     reason: at least 3 valid measurements per breast
@@ -95,9 +95,9 @@ final_prediction:
   decision_threshold: unknown
   suggested_class: unknown
   score_percentiles:
-    all_training_patients: unknown
-    benign_training_patients: unknown
-    cancer_training_patients: unknown
+    all_training_target_cases: unknown
+    benign_training_target_cases: unknown
+    cancer_training_target_cases: unknown
   reliability:
     level: unknown
     reason: unknown

@@ -8,6 +8,7 @@ from pathlib import Path
 
 from .pipelines import run_preprocessing_from_config
 from .prediction import run_prediction_from_config
+from .promotion import promote_model_run
 from .training import run_training_from_config
 from .training_config import available_product_models, describe_product_model
 from .workflows import run_preprocess_train_from_config
@@ -87,9 +88,24 @@ def main(argv: list[str] | None = None) -> int:
         help="Path to Aramis prediction YAML.",
     )
     _add_verbose_argument(predict)
+    promote = subparsers.add_parser(
+        "promote",
+        help="Copy one reviewed final-fit run into the immutable models directory.",
+    )
+    promote.add_argument(
+        "--run-folder",
+        required=True,
+        type=Path,
+        help="Completed train or preprocess-train run containing model.joblib.",
+    )
+    promote.add_argument(
+        "--models-root",
+        type=Path,
+        help="Optional destination root; defaults to the project models directory.",
+    )
 
     args = parser.parse_args(argv)
-    _configure_logging(args.verbose)
+    _configure_logging(getattr(args, "verbose", False))
     if args.command == "preprocess":
         kwargs = {"verbose": True} if args.verbose else {}
         df = run_preprocessing_from_config(args.config, **kwargs)
@@ -135,6 +151,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"suggested_class={external['suggested_class']}")
         print(f"reliability={external['reliability']}")
         print(f"config={args.config}")
+        return 0
+    if args.command == "promote":
+        promoted = promote_model_run(args.run_folder, models_root=args.models_root)
+        print(f"model_id={promoted['model_id']}")
+        print(f"artifact_sha256={promoted['artifact_sha256']}")
+        print(f"model_folder={promoted['model_folder']}")
         return 0
     raise ValueError(f"Unknown command: {args.command}")
 

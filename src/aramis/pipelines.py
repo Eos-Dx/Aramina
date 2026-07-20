@@ -18,6 +18,8 @@ from xrd_preprocessing import (
     save_preprocessing_artifact,
 )
 
+from .preprocessing_contract import validate_if_aramis_product_config
+
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +84,7 @@ def run_preprocessing_artifact_from_config(
     """Run preprocessing and return the written artifact without reloading joblib."""
     config_path = Path(config_path)
     config = load_preprocessing_config(config_path)
+    validate_if_aramis_product_config(config)
     h5_path = _config_path(config, config_path, "input_h5_path")
     output_joblib_path = output_joblib_path or _config_path(
         config, config_path, "output_joblib_path"
@@ -104,6 +107,7 @@ def run_preprocessing_from_config(
     """Run Aramis preprocessing using only paths stored in YAML."""
     config_path = Path(config_path)
     config = load_preprocessing_config(config_path)
+    validate_if_aramis_product_config(config)
     h5_path = _config_path(config, config_path, "input_h5_path")
     output_joblib_path = _config_path(config, config_path, "output_joblib_path")
     return run_preprocessing_pipeline(
@@ -126,7 +130,8 @@ def _config_path(config: dict[str, Any], config_path: Path, key: str) -> Path:
 
 def _load_config(config: dict[str, Any] | str | Path) -> dict[str, Any]:
     if isinstance(config, str | Path):
-        return load_preprocessing_config(config)
+        config = load_preprocessing_config(config)
+    validate_if_aramis_product_config(config)
     return config
 
 

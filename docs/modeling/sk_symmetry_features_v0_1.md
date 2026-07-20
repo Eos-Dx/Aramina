@@ -8,10 +8,12 @@ the current product schema uses only the four fields marked **Core4** below.
 Code source:
 
 ```text
-src/aramis/training.py
-_patient_model_feature_columns()
-_sk_symmetry_columns()
-_sk_target_contralateral_symmetry_features()
+src/aramis/symmetry_features.py
+SK_SYMMETRY_COLUMNS
+target_contralateral_symmetry_features()
+
+src/aramis/model_schema.py
+m2q_model_input_columns()
 ```
 
 ## Input

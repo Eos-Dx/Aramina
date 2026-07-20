@@ -58,11 +58,11 @@ def _training_config(
     mode: str,
 ) -> dict:
     return {
-        "contract": "aramis_training_config_v0_2",
+        "contract": "aramis_training_config_v0_3",
         "model": {
             "name": PRODUCT_MODEL_NAME,
             "version": "0.1-beta",
-            "created_by": "test",
+            "model_author": "test",
             "clinical_stage": "research draft",
             "intended_use": "Synthetic decision-support test.",
         },
@@ -144,6 +144,31 @@ def test_training_contract_requires_intended_use(tmp_path: Path):
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
 
     with pytest.raises(ValueError, match=r"Missing model fields: \['intended_use'\]"):
+        load_training_config(config_path)
+
+
+@pytest.mark.parametrize(
+    ("section", "field", "value", "error"),
+    [
+        ("model", "model_author", 42, "model.model_author must be a string"),
+        ("model", "intended_use", "  ", "model.intended_use must not be empty"),
+        ("input", "dataframe_joblib_path", 42, "input.dataframe_joblib_path must be a string"),
+        ("output", "folder", "", "output.folder must not be empty"),
+    ],
+)
+def test_training_contract_rejects_invalid_string_values(
+    tmp_path: Path,
+    section: str,
+    field: str,
+    value: object,
+    error: str,
+):
+    config_path = tmp_path / "train.yaml"
+    config = _training_config(tmp_path / "input.joblib", tmp_path, mode="evaluation")
+    config[section][field] = value
+    config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+
+    with pytest.raises((TypeError, ValueError), match=error):
         load_training_config(config_path)
 
 
@@ -244,6 +269,7 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
     assert artifact["historical_preprocessing_yaml"]
     assert artifact["prediction_preprocessing_yaml"]
     assert artifact["prediction_contract_yaml"]
+    assert artifact["reproducibility"]["source_h5"]["sha256"] == "abc"
     assert artifact["evaluation"]["protocol"] == {
         "method": "repeated_stratified_kfold",
         "folds": 5,
@@ -273,6 +299,13 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
         "false_negatives",
     }
     assert not (model_path.parent / "model_performance.yaml").exists()
+    assert description["reproducibility"] == artifact["reproducibility"]
+    for filename in (
+        "preprocessing_config.yaml",
+        "prediction_preprocessing_config.yaml",
+        "training_config.yaml",
+    ):
+        assert (model_path.parent / filename).is_file()
     assert not (model_path.parent / "model_performance.json").exists()
     reproducibility = artifact["reproducibility"]
     assert reproducibility["contract"] == "aramis_reproducibility_v0_1"
@@ -359,6 +392,7 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
         "feature_schema",
         "dataset_summary",
         "evaluation_artifacts",
+        "reproducibility",
         "clinical_stage",
         "requires_radiologist_review",
     }

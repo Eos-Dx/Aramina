@@ -95,7 +95,7 @@ def _load_preprocess_train_config(config_path: Path) -> dict[str, Any]:
     if config["contract"] != PREPROCESS_TRAIN_CONTRACT:
         raise ValueError(f"Unsupported preprocessing-and-training contract: {config['contract']!r}")
     preprocess_train = config["preprocessing_and_training"]
-    fields = {"name", "created_by", "output_folder"}
+    fields = {"name", "run_author", "output_folder"}
     if not isinstance(preprocess_train, dict):
         raise TypeError("preprocessing_and_training must be a mapping.")
     missing = sorted(fields.difference(preprocess_train))
@@ -104,6 +104,14 @@ def _load_preprocess_train_config(config_path: Path) -> dict[str, Any]:
     unknown = sorted(set(preprocess_train).difference(fields))
     if unknown:
         raise ValueError(f"Unknown preprocessing-and-training fields: {unknown}")
+    for key in fields:
+        _require_nonempty_string(
+            preprocess_train[key], f"preprocessing_and_training.{key}"
+        )
+    _require_nonempty_string(
+        config["preprocessing_config_path"], "preprocessing_config_path"
+    )
+    _require_nonempty_string(config["training_config_path"], "training_config_path")
     return config
 
 
@@ -112,6 +120,13 @@ def _project_path(value: Any, config_path: Path) -> Path:
     if path.is_absolute():
         return path
     return (_project_root(config_path) / path).resolve()
+
+
+def _require_nonempty_string(value: Any, where: str) -> None:
+    if not isinstance(value, str):
+        raise TypeError(f"{where} must be a string.")
+    if not value.strip():
+        raise ValueError(f"{where} must not be empty.")
 
 
 def _project_root(config_path: Path) -> Path:
