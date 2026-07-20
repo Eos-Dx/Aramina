@@ -42,7 +42,12 @@ def _differences(reference: dict[str, Any], candidate: dict[str, Any]) -> list[s
             )
     if differences:
         return differences
-    _compare_value(differences, "model_identity", reference["model_identity"], candidate["model_identity"])
+    _compare_value(
+        differences,
+        "model_identity",
+        _canonical_model_identity(reference["model_identity"]),
+        _canonical_model_identity(candidate["model_identity"]),
+    )
     _compare_value(
         differences,
         "source_h5.sha256",
@@ -120,6 +125,14 @@ def _compare_model(
         reference["final_model"].logreg_.intercept_,
         candidate["final_model"].logreg_.intercept_,
     )
+
+
+def _canonical_model_identity(identity: dict[str, Any]) -> dict[str, Any]:
+    """Normalize an archived author-key spelling before reproducibility comparison."""
+    canonical = dict(identity)
+    if "created_by" in canonical and "model_author" not in canonical:
+        canonical["model_author"] = canonical.pop("created_by")
+    return canonical
 
 
 def _compare_value(
