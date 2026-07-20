@@ -47,6 +47,7 @@ config["io"]["input_model_joblib_path"] = str(model_path)
 # anchored at its mounted project location instead of resolving relative to that
 # output directory or the installed package.
 config["io"]["input_h5_path"] = f"/opt/Aramis/examples/prediction_h5/{name}_one_patient.h5"
+config["io"]["output_folder"] = f"/opt/Aramis/examples/outputs/prediction_examples/{name}"
 resolved.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
 PY
 

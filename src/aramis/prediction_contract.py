@@ -313,7 +313,15 @@ def _config_path(
     path = Path(str(value)).expanduser()
     if path.is_absolute():
         return path
-    return (Path(__file__).resolve().parents[2] / path).resolve()
+    return (_config_root(config_path) / path).resolve()
+
+
+def _config_root(config_path: Path) -> Path:
+    """Return the project root immediately above the nearest ``config`` directory."""
+    for parent in config_path.resolve().parents:
+        if parent.name == "config":
+            return parent.parent
+    return config_path.parent
 
 
 def _file_sha256(path: str | Path) -> str:

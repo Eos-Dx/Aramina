@@ -16,6 +16,7 @@ from aramis.prediction import (
     _validate_prediction_config,
     run_prediction_from_config,
 )
+from aramis.prediction_contract import _config_path
 from aramis.training import run_training_from_config
 from aramis.training_config import PRODUCT_MODEL_NAME
 
@@ -57,6 +58,17 @@ def test_tracked_prediction_examples_use_final_product_artifact():
             assert sides == {"left", "right"}
 
 
+def test_prediction_relative_paths_resolve_from_configuration_root(tmp_path: Path):
+    project_root = tmp_path / "aramis"
+    config_path = project_root / "config" / "prediction" / "example.yaml"
+    config_path.parent.mkdir(parents=True)
+    config = {"io": {"input_h5_path": "examples/prediction_h5/example.h5"}}
+
+    assert _config_path(config, config_path, section="io", key="input_h5_path") == (
+        project_root / "examples" / "prediction_h5" / "example.h5"
+    )
+
+
 @pytest.mark.parametrize(
     ("config_name", "target_p_cancer", "contralateral_p_cancer"),
     [
@@ -74,6 +86,11 @@ def test_frozen_model_examples_keep_stable_scores(
     """Guard frozen product behavior while modules are reorganised."""
     source = PREDICTION_EXAMPLE_ROOT / config_name
     config = yaml.safe_load(source.read_text(encoding="utf-8"))
+    project_root = Path(__file__).parents[1]
+    config["io"]["input_h5_path"] = str(project_root / config["io"]["input_h5_path"])
+    config["io"]["input_model_joblib_path"] = str(
+        project_root / config["io"]["input_model_joblib_path"]
+    )
     config["io"]["output_folder"] = str(tmp_path / "reports")
     config_path = tmp_path / config_name
     config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
