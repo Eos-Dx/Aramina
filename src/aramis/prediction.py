@@ -78,11 +78,11 @@ def run_prediction_from_config(config_path: str | Path) -> dict[str, Any]:
             columns=columns,
             model_name=model_name,
             threshold_key=threshold_key,
+            force_no_symmetry=True,
         )
         if _normalize_side(contralateral_side) is not None
         else _unavailable_side_prediction()
     )
-    contralateral_prediction["is_target"] = False
     reports = _prediction_reports(
         config=config,
         output_paths=output_paths,

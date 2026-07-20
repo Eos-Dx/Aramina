@@ -105,11 +105,11 @@ def _fit_m2q_model(
         score,
         target_sensitivity=target_sensitivity,
     )
-    reference_scores = {
-        "all_target_cases": _sorted_scores(score),
-        "benign_target_cases": _sorted_scores(score[y == 0]),
-        "cancer_target_cases": _sorted_scores(score[y == 1]),
-    }
+    final_score_reference = _score_reference_distribution(
+        score,
+        y,
+        score="final_prediction.p_cancer",
+    )
     return {
         "name": "Aramis T100 profile, optional SK symmetry refinement, and age",
         "lr1_model": lr1_model,
@@ -124,10 +124,8 @@ def _fit_m2q_model(
             threshold=float(thresholds["threshold_target"]),
         ),
         "prediction_reference_scores": {
-            "contract": "aramis_prediction_quantiles_v0_1",
-            "score": "final_prediction.p_cancer",
-            "population": "train_on_all target-breast cases",
-            **reference_scores,
+            "contract": "aramis_prediction_score_percentiles_v0_2",
+            "final_prediction": final_score_reference,
         },
     }
 
@@ -135,6 +133,22 @@ def _fit_m2q_model(
 def _sorted_scores(values: np.ndarray) -> list[float]:
     """Return finite fitted probabilities for descriptive report quantiles."""
     return sorted(float(value) for value in values if np.isfinite(value))
+
+
+def _score_reference_distribution(
+    score_values: np.ndarray,
+    labels: np.ndarray,
+    *,
+    score: str,
+) -> dict[str, Any]:
+    """Freeze one score-specific target-case reference distribution."""
+    return {
+        "score": score,
+        "population": "train_on_all target-breast cases",
+        "all_target_cases": _sorted_scores(score_values),
+        "benign_target_cases": _sorted_scores(score_values[labels == 0]),
+        "cancer_target_cases": _sorted_scores(score_values[labels == 1]),
+    }
 
 
 def _final_fit_training_metrics(

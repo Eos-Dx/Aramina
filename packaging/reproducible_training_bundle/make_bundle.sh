@@ -68,9 +68,13 @@ cp "${SCRIPT_DIR}/assets/install_and_train.sh" "${WORK_DIR}/install_and_train.sh
 cp "${SCRIPT_DIR}/assets/predict_examples.bat" "${WORK_DIR}/predict_examples.bat"
 cp "${SCRIPT_DIR}/assets/predict_examples.ps1" "${WORK_DIR}/predict_examples.ps1"
 cp "${SCRIPT_DIR}/assets/predict_examples.sh" "${WORK_DIR}/predict_examples.sh"
+cp "${SCRIPT_DIR}/assets/predict.bat" "${WORK_DIR}/predict.bat"
+cp "${SCRIPT_DIR}/assets/predict.ps1" "${WORK_DIR}/predict.ps1"
+cp "${SCRIPT_DIR}/assets/predict.sh" "${WORK_DIR}/predict.sh"
 cp "${SCRIPT_DIR}/assets/README.md" "${WORK_DIR}/README.md"
 chmod +x "${WORK_DIR}/install_and_train.sh"
 chmod +x "${WORK_DIR}/predict_examples.sh"
+chmod +x "${WORK_DIR}/predict.sh"
 
 rsync -a \
   --exclude '.git' \
@@ -87,6 +91,7 @@ rsync -a \
 cp "${SCRIPT_DIR}/assets/Dockerfile" "${BUILD_CONTEXT}/Dockerfile"
 cp "${SCRIPT_DIR}/assets/run_training_docker.sh" "${BUILD_CONTEXT}/run_training_docker.sh"
 cp "${SCRIPT_DIR}/assets/run_prediction_examples_docker.sh" "${BUILD_CONTEXT}/run_prediction_examples_docker.sh"
+cp "${SCRIPT_DIR}/assets/run_prediction_docker.sh" "${BUILD_CONTEXT}/run_prediction_docker.sh"
 
 docker buildx build --platform linux/amd64 --load --tag "${AMD64_IMAGE_TAG}" "${BUILD_CONTEXT}"
 docker save --output "${WORK_DIR}/${AMD64_IMAGE_ARCHIVE}" "${AMD64_IMAGE_TAG}"

@@ -119,7 +119,7 @@ aramis.__main__.main
 -> parse resolved prediction_preprocessing_yaml from model joblib
 -> run prediction preprocessing, when io.input_h5_path is present
 -> patient_features.build_patient_prediction_feature_row(...)
--> prediction_scoring: score target and contralateral sides
+-> prediction_scoring: score target and contralateral sides; neutralize SK symmetry for contralateral
 -> prediction_reports: build external and internal reports
 -> write external and internal report JSON/YAML
 ```
@@ -135,7 +135,7 @@ logit-average target p_cancer
 compute target-vs-contralateral SK symmetry when contralateral breast is present
 add age if present
 add reliability counters
-score contralateral radial_profile_data with LR1 for internal report only
+score contralateral with full M2Q while forcing SK symmetry refinement neutral
 ```
 
 Risk and reliability are kept separate:
@@ -191,38 +191,33 @@ hardware_version
 eoscan_version
 model_name
 model_version
-method_performance.evaluation_available
-method_performance.evaluation_method
-method_performance.folds
-method_performance.repeats
-method_performance.sensitivity
-method_performance.sensitivity_std
-method_performance.specificity
-method_performance.specificity_std
+model_metrics.metric_scope
+model_metrics.sensitivity
+model_metrics.specificity
 suggested_class
 reliability
 reliability_reason
 ```
 
 External report does not expose `p_cancer`, threshold, profile-only scores,
-symmetry, provenance, raw data, or model internals. It includes frozen method
-sensitivity/specificity with `evaluation_method`, `folds`, and `repeats` so the
-numbers are interpretable and traceable to one evaluation route. These are
-method-level fields, not patient-specific evidence. `report_id` is
+symmetry, provenance, raw data, or model internals. It includes sensitivity and
+specificity of the selected frozen final model. `model_metrics.metric_scope`
+states that these figures are train-on-all fit metrics, not independent
+evaluation estimates. `report_id` is
 generated automatically and shared with the internal report from the same
 prediction operation. `created_at` is a Europe/Paris ISO timestamp with a
 numeric UTC offset.
 
-Internal report follows `internal_clinical_report_content_v0_1.md` and contains:
+Internal report follows `internal_clinical_report_content_v0_2.md` and contains:
 
 ```text
 output_type: aramis_internal_clinical_report
 report_version
 report_id and created_at
 model ID/name/version/artifact SHA256
-frozen method performance and request comment
+frozen final-model sensitivity/specificity and request comment
 scan metadata and measurement summary
-target/contralateral azimuthally integrated profile and final predictions
+target final decision and contralateral full-model evidence
 frozen score percentiles, symmetry availability, and reliability
 ```
 
@@ -243,9 +238,12 @@ in `model_description.yaml` and the executable model joblib artifact.
 Internal report excludes profile statistics, filesystem paths, generic
 provenance, and output-file paths.
 
-The internal report scores the contralateral breast with the same final model
-artifact for audit only. If no usable contralateral data remain after QC, that
-block is explicitly `unknown`; the target still uses the same LR2 with its
+The internal report scores the contralateral breast with the same M2Q model,
+but forces its SK symmetry gate to neutral. It exposes LR1 profile evidence,
+final `p_cancer`, and `suggested_class` from the single shared threshold. The
+target remains the caller-supplied primary decision-support result. If no
+usable contralateral data remain after QC,
+that block is explicitly `unknown`; the target still uses the same LR2 with its
 gated SK terms neutralized. The external report remains target-side only.
 
 ## Current Limitations

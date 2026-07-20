@@ -102,15 +102,18 @@ Outputs use one generated report ID:
 ```
 
 External report contains suggested class, reliability, reliability reason,
-patient/target identity, report identity, model name/version, and the frozen
-method sensitivity/specificity with their evaluation method. It intentionally
-excludes `p_cancer`, threshold, profile-only scores, symmetry, and model
-internals. The internal report repeats this method-performance block for audit.
+patient/target identity, report identity, model name/version, and final-model
+sensitivity/specificity. It intentionally excludes `p_cancer`, threshold,
+profile-only scores, symmetry, and model internals. The internal report repeats
+this `model_metrics` block for audit; its scope is explicitly marked as
+train-on-all fit, not independent validation.
 
-Internal report contains target and contralateral prediction blocks with
-azimuthally integrated profile p_cancer, final p_cancer, decision threshold,
-class, frozen score percentiles, symmetry availability, reliability, scan metadata, and model
-artifact identity. Report contracts:
+Internal report contains one shared threshold policy, a target block with LR1
+profile and final M2Q p_cancer, and a contralateral full-model score with SK
+symmetry refinement neutralized. Both available final scores receive a
+suggested class from the shared threshold; the target remains the primary
+decision-support result. Both final scores use the same frozen final-score
+target-case reference distribution. Report contracts:
 `config/prediction/README.md`.
 
 ## Stop Conditions

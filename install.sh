@@ -105,7 +105,7 @@ conda run --no-capture-output -n "${ENV_NAME}" \
 
 if [[ "${RUN_EXAMPLE}" == "1" ]]; then
   conda run --no-capture-output -n "${ENV_NAME}" \
-    python -m aramis predict --config "${REPO_DIR}/examples/prediction_h5/cancer_predict.yaml"
+    python -m aramis predict --config "${REPO_DIR}/config/prediction/prediction_examples/cancer_predict.yaml"
 fi
 
 cat <<EOF
@@ -117,8 +117,8 @@ Activate:
 
 Run prediction example:
   cd "${REPO_DIR}"
-  python -m aramis predict --config examples/prediction_h5/cancer_predict.yaml
+  python -m aramis predict --config config/prediction/prediction_examples/cancer_predict.yaml
 
 Run all prediction examples:
-  for f in examples/prediction_h5/*_predict.yaml; do python -m aramis predict --config "\$f"; done
+  for f in config/prediction/prediction_examples/*_predict.yaml; do python -m aramis predict --config "\$f"; done
 EOF

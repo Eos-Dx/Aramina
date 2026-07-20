@@ -53,6 +53,20 @@ PY
 
   stage "Predict ${name} fixture"
   python -m aramis predict --config "${resolved}"
+
+  local report
+  report="$(python - "${OUTPUT_ROOT}/prediction_examples/${name}" <<'PY'
+from pathlib import Path
+import sys
+
+reports = list(Path(sys.argv[1]).glob("*_external_report.yaml"))
+if reports:
+    print(max(reports, key=lambda path: path.stat().st_mtime))
+PY
+)"
+  [[ -n "${report}" ]] || { echo "External report YAML was not created for ${name}." >&2; exit 1; }
+  printf '\n--- External report: %s ---\n' "${name}"
+  cat "${report}"
 }
 
 stage "Verify trained model"

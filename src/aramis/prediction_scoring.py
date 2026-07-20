@@ -68,6 +68,7 @@ def _side_prediction(
     columns: dict[str, str],
     model_name: str,
     threshold_key: str,
+    force_no_symmetry: bool = False,
 ) -> dict[str, Any]:
     """Score one requested side with the fixed final product artifact."""
     feature_table = build_patient_prediction_feature_row(
@@ -77,6 +78,8 @@ def _side_prediction(
         target_side=str(target_side),
         **columns,
     )
+    if force_no_symmetry:
+        feature_table = _with_neutral_symmetry_gate(feature_table)
     feature_row = feature_table.iloc[0].to_dict()
     model_route = _prediction_model_route(feature_table, model_info)
     p_cancer = _score_model(feature_table, model_name, model_info, model_route)
@@ -98,8 +101,23 @@ def _side_prediction(
         "threshold_key": threshold_key,
         "threshold": threshold,
         "suggested_class": "CANCER" if p_cancer >= threshold else "BENIGN",
-        "quantiles": _prediction_quantiles(model_info, p_cancer),
+        "quantiles": _prediction_quantiles(
+            model_info,
+            p_cancer,
+            score_kind="final_prediction",
+        ),
     }
+
+
+def _with_neutral_symmetry_gate(feature_table: pd.DataFrame) -> pd.DataFrame:
+    """Disable paired-breast refinement while retaining profile and age evidence."""
+    out = feature_table.copy()
+    out["symmetry_available"] = 0
+    out["result_reliability"] = "low"
+    out["result_reliability_reason"] = (
+        "SK symmetry refinement is intentionally unavailable for contralateral scoring"
+    )
+    return out
 
 
 def _unavailable_side_prediction() -> dict[str, Any]:
@@ -110,20 +128,29 @@ def _unavailable_side_prediction() -> dict[str, Any]:
 
 
 def _prediction_quantiles(
-    model_info: dict[str, Any], p_cancer: float
-) -> dict[str, float]:
-    """Locate a score in frozen train-on-all empirical score distributions."""
-    reference = model_info.get("prediction_reference_scores")
-    if not isinstance(reference, dict):
+    model_info: dict[str, Any], p_cancer: float, *, score_kind: str
+) -> dict[str, Any]:
+    """Locate a score in its frozen train-on-all reference distribution."""
+    references = model_info.get("prediction_reference_scores")
+    if not isinstance(references, dict):
         raise ValueError(
             "Model artifact has no prediction_reference_scores. Retrain model."
+        )
+    reference = references.get(score_kind)
+    if not isinstance(reference, dict):
+        raise ValueError(
+            "Model artifact has no frozen "
+            f"{score_kind!r} score reference. Retrain model."
         )
     keys = {
         "all_training_target_cases": "all_target_cases",
         "benign_training_target_cases": "benign_target_cases",
         "cancer_training_target_cases": "cancer_target_cases",
     }
-    out: dict[str, float] = {}
+    out: dict[str, Any] = {
+        "reference_score": str(reference.get("score", "unknown")),
+        "reference_population": str(reference.get("population", "unknown")),
+    }
     for report_key, reference_key in keys.items():
         values = np.asarray(reference.get(reference_key, []), dtype=float)
         values = values[np.isfinite(values)]

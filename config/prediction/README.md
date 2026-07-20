@@ -37,11 +37,17 @@ Aramis writes automatic names under `io.output_folder`:
 <patient_id>_<model_id>_<report_id>_internal_report.yaml
 ```
 
-External report is target-side only and contains report identity, requesting analyst, optional comment, patient/target identity, model version, frozen method performance, suggested class, and reliability. It intentionally excludes p_cancer and threshold.
+External report is target-side only and contains report identity, requesting analyst, optional comment, patient/target identity, model version, final-model sensitivity/specificity, suggested class, and reliability. It intentionally excludes p_cancer and threshold.
 
-Internal report contains two breast blocks. The target block is the formal decision-support result. The contralateral block is internal audit information computed by applying the same final model with that side temporarily treated as target. Each available block contains an azimuthally integrated profile score, final p_cancer, frozen threshold, suggested class, three frozen-training score percentiles, symmetry availability, and reliability. Full contract: `docs/modeling/internal_clinical_report_content_v0_1.md`.
+Internal report contains one shared threshold policy and two breast blocks. The
+target block is the formal decision-support result. The
+contralateral block is an internal full-model score: it contains LR1 profile
+evidence and final M2Q `p_cancer` with SK symmetry refinement neutralized. It
+uses the shared threshold to provide `suggested_class`, but its reliability is
+always `low`. Full contract:
+`docs/modeling/internal_clinical_report_content_v0_2.md`.
 
-Both reports copy frozen method sensitivity, specificity, and evaluation method from the selected model artifact. They describe the method, not the individual patient. Full evaluation records remain in the artifact and its adjacent evaluation files.
+Both reports copy final-model sensitivity and specificity from the selected model artifact. `model_metrics.metric_scope` records that they are train-on-all fit metrics, not independent evaluation estimates. Full evaluation records remain in the artifact and its adjacent evaluation files.
 
 If no usable contralateral breast remains, the contralateral block is explicitly
 `unknown`. The target result remains available, with

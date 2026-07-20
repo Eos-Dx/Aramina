@@ -33,4 +33,4 @@ stop the request before scoring.
 The generated output folder receives one preprocessed DataFrame artifact and
 both YAML/JSON external and internal reports. Full report fields are defined in
 `config/prediction/README.md` and
-`docs/modeling/internal_clinical_report_content_v0_1.md`.
+`docs/modeling/internal_clinical_report_content_v0_2.md`.

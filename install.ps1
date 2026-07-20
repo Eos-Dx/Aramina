@@ -56,12 +56,12 @@ if ($EnvList -match "(?m)^$EnvName\s") {
     & $Conda env create -n $EnvName -f $EnvironmentYml
 }
 
-$AramisDevPath = "$RepoDir[dev]"
+$AramisDevPath = "${RepoDir}[dev]"
 & $Conda run --no-capture-output -n $EnvName python -m pip install -e $AramisDevPath
 & $Conda run --no-capture-output -n $EnvName python -c "import aramis, xrd_preprocessing; print('imports ok'); print('aramis', aramis.__file__); print('xrd_preprocessing', xrd_preprocessing.__file__)"
 
 if (-not $SkipExample) {
-    $PredictYaml = Join-Path $RepoDir "examples\prediction_h5\cancer_predict.yaml"
+    $PredictYaml = Join-Path $RepoDir "config\prediction\prediction_examples\cancer_predict.yaml"
     & $Conda run --no-capture-output -n $EnvName python -m aramis predict --config $PredictYaml
 }
 
@@ -73,4 +73,4 @@ Write-Host "  conda activate $EnvName"
 Write-Host ""
 Write-Host "Run prediction example:"
 Write-Host "  cd `"$RepoDir`""
-Write-Host "  python -m aramis predict --config examples\prediction_h5\cancer_predict.yaml"
+Write-Host "  python -m aramis predict --config config\prediction\prediction_examples\cancer_predict.yaml"

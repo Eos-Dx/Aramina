@@ -29,7 +29,7 @@ PREDICTION_EXAMPLE_ROOT = (
 FINAL_EXAMPLE_MODEL = (
     Path(__file__).parents[1]
     / "models"
-    / "aramis_target_breast_risk_0_2_7-beta_dcb75574bc2f"
+    / "aramis_target_breast_risk_0_2_7-beta_b47fff279377"
     / "model.joblib"
 )
 
@@ -72,9 +72,9 @@ def test_prediction_relative_paths_resolve_from_configuration_root(tmp_path: Pat
 @pytest.mark.parametrize(
     ("config_name", "target_p_cancer", "contralateral_p_cancer"),
     [
-        ("atypical_predict.yaml", 0.45023, 0.88036),
-        ("benign_predict.yaml", 0.34270, 0.52828),
-        ("cancer_predict.yaml", 0.84062, 0.83160),
+        ("atypical_predict.yaml", 0.45023, 0.79691),
+        ("benign_predict.yaml", 0.34270, 0.25711),
+        ("cancer_predict.yaml", 0.84062, 0.76857),
     ],
 )
 def test_frozen_model_examples_keep_stable_scores(
@@ -101,9 +101,11 @@ def test_frozen_model_examples_keep_stable_scores(
         target_p_cancer,
         abs=1e-5,
     )
-    assert predictions["contralateral"]["final_prediction"][
-        "p_cancer"
-    ] == pytest.approx(
+    contralateral_profile = predictions["contralateral"][
+        "azimuthal_integration_contralateral_profile"
+    ]
+    assert 0.0 <= contralateral_profile["p_cancer"] <= 1.0
+    assert predictions["contralateral"]["final_prediction"]["p_cancer"] == pytest.approx(
         contralateral_p_cancer,
         abs=1e-5,
     )
@@ -278,24 +280,42 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
     assert external["output_type"] == "aramis_external_report"
     assert external["suggested_class"] in {"BENIGN", "CANCER"}
     assert "p_cancer" not in external
-    performance = external["method_performance"]
-    assert performance["evaluation_available"] is True
-    assert performance["evaluation_method"] == "repeated_stratified_kfold"
-    assert performance["folds"] == 5
-    assert performance["repeats"] == 20
-    assert 0.0 <= performance["sensitivity"] <= 1.0
-    assert 0.0 <= performance["specificity"] <= 1.0
-    assert internal["method_performance"] == performance
+    metrics = external["model_metrics"]
+    assert metrics["metric_scope"] == "in_sample_not_independent"
+    assert 0.0 <= metrics["sensitivity"] <= 1.0
+    assert 0.0 <= metrics["specificity"] <= 1.0
+    assert internal["model_metrics"] == metrics
+    assert "method_performance" not in external
+    assert "method_performance" not in internal
     assert external["reliability"] in {"low", "medium", "high"}
     target = internal["breast_predictions"]["target"]
     contralateral = internal["breast_predictions"]["contralateral"]
+    decision = internal["breast_predictions"]["decision"]
     assert 0.0 <= target["final_prediction"]["p_cancer"] <= 1.0
-    assert "decision_threshold" in target["final_prediction"]
-    assert "threshold" not in target["final_prediction"]
+    assert decision["applies_to"] == [
+        "target.final_prediction",
+        "contralateral.final_prediction",
+    ]
+    assert 0.0 <= decision["threshold"] <= 1.0
+    assert "decision_threshold" not in target["final_prediction"]
     assert target["azimuthal_integration_target_profile"]["p_cancer"] is not None
     assert contralateral["available"] is True
     assert 0.0 <= contralateral["final_prediction"]["p_cancer"] <= 1.0
+    assert contralateral["final_prediction"]["suggested_class"] in {
+        "BENIGN",
+        "CANCER",
+    }
+    assert contralateral["symmetry"]["available"] is False
+    assert contralateral["reliability"]["level"] == "low"
+    assert contralateral["model_execution"]["scoring_path"] == (
+        "profile_age_with_neutral_symmetry_gate"
+    )
+    assert 0.0 <= contralateral[
+        "azimuthal_integration_contralateral_profile"
+    ]["p_cancer"] <= 1.0
     assert set(target["final_prediction"]["score_percentiles"]) == {
+        "reference_score",
+        "reference_population",
         "all_training_target_cases",
         "benign_training_target_cases",
         "cancer_training_target_cases",
@@ -380,11 +400,13 @@ def test_predict_without_contralateral_uses_unavailable_symmetry(
     assert target["model_execution"]["scoring_path"] == (
         "profile_age_with_neutral_symmetry_gate"
     )
-    assert target["final_prediction"]["reliability"]["level"] == "low"
+    assert target["reliability"]["level"] == "low"
     contralateral = report["breast_predictions"]["contralateral"]
     assert contralateral["available"] is False
     assert contralateral["side"] == "unknown"
-    assert contralateral["final_prediction"]["p_cancer"] == "unknown"
+    assert contralateral["azimuthal_integration_contralateral_profile"][
+        "p_cancer"
+    ] == "unknown"
 
 
 def test_h5_contract_requires_one_matching_patient(tmp_path: Path, trained_model):

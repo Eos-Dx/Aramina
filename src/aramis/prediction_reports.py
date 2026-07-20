@@ -44,7 +44,7 @@ def _prediction_reports(
         suggested_class=target_prediction["suggested_class"],
         reliability=row["result_reliability"],
         reliability_reason=row["result_reliability_reason"],
-        model_performance=_external_model_performance(model_artifact),
+        model_metrics=_final_model_metrics(model_artifact),
         scan_metadata=_scan_metadata(
             row,
             patient_id=common["patient_id"],
@@ -59,7 +59,7 @@ def _prediction_reports(
         target_prediction=target_prediction,
         contralateral_prediction=contralateral_prediction,
         model_artifact_sha256=_file_sha256(model_path),
-        model_performance=_external_model_performance(model_artifact),
+        model_metrics=_final_model_metrics(model_artifact),
     )
     return _json_safe({"external_report": external, "internal_report": internal})
 
@@ -71,7 +71,7 @@ def _external_report(
     suggested_class: str,
     reliability: str,
     reliability_reason: str,
-    model_performance: dict[str, Any],
+    model_metrics: dict[str, Any],
     scan_metadata: dict[str, Any],
 ) -> dict[str, Any]:
     return {
@@ -91,28 +91,20 @@ def _external_report(
         "eoscan_version": scan_metadata["eoscan_version"],
         "model_name": common["model_name"],
         "model_version": common["model_version"],
-        "method_performance": model_performance,
+        "model_metrics": model_metrics,
         "suggested_class": suggested_class,
         "reliability": reliability,
         "reliability_reason": reliability_reason,
     }
 
 
-def _external_model_performance(model_artifact: dict[str, Any]) -> dict[str, Any]:
-    """Expose the frozen validation summary without patient-level model internals."""
-    performance = model_artifact.get("model_performance", {})
-    metrics = performance.get("held_out_metrics", {})
-    sensitivity = metrics.get("sensitivity", {})
-    specificity = metrics.get("specificity", {})
+def _final_model_metrics(model_artifact: dict[str, Any]) -> dict[str, Any]:
+    """Expose the selected final model's fixed training metrics in reports."""
+    metrics = model_artifact.get("final_fit_training_metrics", {})
     return {
-        "evaluation_available": bool(performance.get("evaluation_available", False)),
-        "evaluation_method": performance.get("evaluation_method", "unknown"),
-        "folds": performance.get("folds", "unknown"),
-        "repeats": performance.get("repeats", "unknown"),
-        "sensitivity": sensitivity.get("mean", "unknown"),
-        "sensitivity_std": sensitivity.get("std", "unknown"),
-        "specificity": specificity.get("mean", "unknown"),
-        "specificity_std": specificity.get("std", "unknown"),
+        "metric_scope": metrics.get("evaluation_status", "unknown"),
+        "sensitivity": metrics.get("sensitivity", "unknown"),
+        "specificity": metrics.get("specificity", "unknown"),
     }
 
 
@@ -124,7 +116,7 @@ def _internal_report(
     target_prediction: dict[str, Any],
     contralateral_prediction: dict[str, Any],
     model_artifact_sha256: str,
-    model_performance: dict[str, Any],
+    model_metrics: dict[str, Any],
 ) -> dict[str, Any]:
     feature_row = target_prediction["feature_row"]
     age_available = bool(feature_row.get("age_available", False))
@@ -142,7 +134,7 @@ def _internal_report(
             "version": common["model_version"],
             "artifact_sha256": model_artifact_sha256,
         },
-        "method_performance": model_performance,
+        "model_metrics": model_metrics,
         "scan_metadata": _scan_metadata(
             feature_row,
             patient_id=common["patient_id"],
@@ -150,47 +142,34 @@ def _internal_report(
             age_available=age_available,
         ),
         "breast_predictions": {
-            "target": _breast_prediction_report(target_prediction),
-            "contralateral": _breast_prediction_report(contralateral_prediction),
+            "decision": _decision_policy(target_prediction),
+            "target": _target_breast_prediction_report(target_prediction),
+            "contralateral": _contralateral_breast_prediction_report(
+                contralateral_prediction
+            ),
         },
     }
 
 
-def _breast_prediction_report(prediction: dict[str, Any]) -> dict[str, Any]:
-    profile_key = (
-        "azimuthal_integration_target_profile"
-        if prediction.get("is_target", False)
-        else "azimuthal_integration_contralateral_profile"
-    )
-    if not prediction["available"]:
-        return {
-            "available": False,
-            "side": "unknown",
-            profile_key: {
-                "available": False,
-                "p_cancer": "unknown",
-                "per_measurement_p_cancer": [],
-            },
-            "final_prediction": {
-                "p_cancer": "unknown",
-                "decision_threshold_id": "unknown",
-                "decision_threshold": "unknown",
-                "suggested_class": "unknown",
-                "score_percentiles": {
-                    "all_training_target_cases": "unknown",
-                    "benign_training_target_cases": "unknown",
-                    "cancer_training_target_cases": "unknown",
-                },
-                "reliability": {"level": "unknown", "reason": "unknown"},
-            },
-            "symmetry": {"available": False, "status": "not_available"},
-            "reason": prediction["reason"],
-        }
+def _decision_policy(prediction: dict[str, Any]) -> dict[str, Any]:
+    """Return the one shared threshold policy for available breast scores."""
+    return {
+        "threshold_id": _decision_threshold_id(prediction["threshold_key"]),
+        "threshold": prediction["threshold"],
+        "applies_to": [
+            "target.final_prediction",
+            "contralateral.final_prediction",
+        ],
+    }
+
+
+def _target_breast_prediction_report(prediction: dict[str, Any]) -> dict[str, Any]:
+    """Render the formally validated target-breast decision-support result."""
     row = prediction["feature_row"]
     return {
         "available": True,
         "side": _lower_side(row["target_side"]),
-        profile_key: {
+        "azimuthal_integration_target_profile": {
             "available": bool(prediction["xrd_profile"]["available"]),
             "p_cancer": prediction["xrd_profile"]["profile_p_cancer"],
             "per_measurement_p_cancer": prediction["xrd_profile"][
@@ -199,16 +178,12 @@ def _breast_prediction_report(prediction: dict[str, Any]) -> dict[str, Any]:
         },
         "final_prediction": {
             "p_cancer": prediction["p_cancer"],
-            "decision_threshold_id": _decision_threshold_id(
-                prediction["threshold_key"]
-            ),
-            "decision_threshold": prediction["threshold"],
             "suggested_class": prediction["suggested_class"],
             "score_percentiles": prediction["quantiles"],
-            "reliability": {
-                "level": row["result_reliability"],
-                "reason": row["result_reliability_reason"],
-            },
+        },
+        "reliability": {
+            "level": row["result_reliability"],
+            "reason": row["result_reliability_reason"],
         },
         "symmetry": {
             "available": bool(row.get("symmetry_available", 0)),
@@ -226,6 +201,63 @@ def _breast_prediction_report(prediction: dict[str, Any]) -> dict[str, Any]:
                 "applied" if bool(row.get("symmetry_available", 0)) else "not_applied"
             ),
         },
+    }
+
+
+def _contralateral_breast_prediction_report(
+    prediction: dict[str, Any]
+) -> dict[str, Any]:
+    """Render internal full-model evidence with the shared threshold class."""
+    if not prediction["available"]:
+        return {
+            "available": False,
+            "side": "unknown",
+            "azimuthal_integration_contralateral_profile": {
+                "available": False,
+                "p_cancer": "unknown",
+                "per_measurement_p_cancer": [],
+            },
+            "final_prediction": {
+                "p_cancer": "unknown",
+                "suggested_class": "unknown",
+                "score_percentiles": _unknown_score_percentiles(),
+            },
+            "reliability": {"level": "unknown", "reason": "unknown"},
+            "reason": prediction["reason"],
+        }
+    profile = prediction["xrd_profile"]
+    return {
+        "available": True,
+        "side": _lower_side(prediction["feature_row"]["target_side"]),
+        "azimuthal_integration_contralateral_profile": {
+            "available": bool(profile["available"]),
+            "p_cancer": profile["profile_p_cancer"],
+            "per_measurement_p_cancer": profile["measurement_p_cancer"],
+        },
+        "final_prediction": {
+            "p_cancer": prediction["p_cancer"],
+            "suggested_class": prediction["suggested_class"],
+            "score_percentiles": prediction["quantiles"],
+        },
+        "reliability": {
+            "level": prediction["feature_row"]["result_reliability"],
+            "reason": prediction["feature_row"]["result_reliability_reason"],
+        },
+        "symmetry": {"available": False, "status": "not_applied"},
+        "model_execution": {
+            "scoring_path": "profile_age_with_neutral_symmetry_gate",
+            "symmetry_refinement": "not_applied",
+        },
+    }
+
+
+def _unknown_score_percentiles() -> dict[str, str]:
+    return {
+        "reference_score": "unknown",
+        "reference_population": "unknown",
+        "all_training_target_cases": "unknown",
+        "benign_training_target_cases": "unknown",
+        "cancer_training_target_cases": "unknown",
     }
 
 

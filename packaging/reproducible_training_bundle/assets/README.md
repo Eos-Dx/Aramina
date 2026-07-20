@@ -28,6 +28,48 @@ to `outputs/` beside this README.
 If Docker Desktop already exists but its Linux engine is stopped, the script
 starts it and waits up to five minutes for it to become ready.
 
+## Predict a new patient H5
+
+`predict_examples` only verifies that the bundle, Docker image, and bundled
+fixtures work. For a new patient, prepare a request YAML using the prediction
+contract and run `predict`. The launcher deliberately receives the H5, model,
+and output folder as command-line paths so Docker can mount only those host
+folders. It writes `prediction_request_resolved.yaml` beside the reports; this
+copy records the exact paths used inside the Linux runtime.
+
+Windows:
+
+```powershell
+.\predict.ps1 `
+  -Config D:\aramis_requests\patient_001.yaml `
+  -InputH5 D:\aramis_requests\patient_001.h5 `
+  -ModelPath .\outputs\preprocessing_and_training\<run_id>\training\model.joblib `
+  -OutputFolder D:\aramis_results\patient_001
+```
+
+macOS/Linux:
+
+```bash
+./predict.sh \
+  --config /data/aramis_requests/patient_001.yaml \
+  --input-h5 /data/aramis_requests/patient_001.h5 \
+  --model ./outputs/preprocessing_and_training/<run_id>/training/model.joblib \
+  --output-folder /data/aramis_results/patient_001
+```
+
+The YAML supplies `analysis_author`, `prediction_comment`, `patient_id`, and
+`target_side`. Its `io` values remain required by the Aramis prediction
+contract, but the Docker launcher replaces them only in the resolved runtime
+copy with the selected H5, model, and output folder. The original YAML is never
+modified. The H5 must satisfy the one-patient EOS H5 `0.3` contract.
+
+The output folder receives a preprocessed DataFrame joblib, an external report
+in YAML/JSON, an internal report in YAML/JSON, and the resolved request YAML.
+The external report is target-breast decision support. The internal report also
+contains the contralateral score and quality/reliability information.
+The launcher also prints the external YAML report to the terminal after a
+successful prediction.
+
 ## Prediction examples
 
 After training completes, run all three one-patient H5 examples with the model
@@ -54,6 +96,8 @@ outputs/prediction_examples/cancer/
 outputs/prediction_examples/benign/
 outputs/prediction_examples/atypical/
 ```
+
+Each fixture's external YAML report is also printed to the terminal.
 
 Pass a particular model produced by this bundle when needed:
 

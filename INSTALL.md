@@ -50,10 +50,10 @@ python -m aramis predict --config config/prediction/prediction_examples/cancer_p
 python -m aramis predict --config config/prediction/prediction_examples/atypical_predict.yaml
 ```
 
-Reports are written to:
+Reports are written under:
 
 ```text
-examples/outputs/prediction_h5_examples/
+examples/outputs/prediction_examples/
 ```
 
 These are real one-patient GFRM fixtures extracted from the larger archive.
@@ -63,7 +63,8 @@ are not clinical validation examples.
 ## Full Training Reproduction
 
 `packaging/reproducible_training_bundle/make_bundle.sh` creates a separate ZIP
-with the full historical H5. Run `install_and_train.bat` on Windows or
-`./install_and_train.sh` on macOS/Linux. Repeated runs reuse the environment and
-workspace, refresh the exact commits declared in `bundle_manifest.json`, and
-write a timestamped log under `workspace/logs/`.
+with the full historical H5. The bundle uses Docker rather than this Conda
+environment. Run `install_and_train.bat` on Windows or `./install_and_train.sh`
+on macOS/Linux; the bundle README describes training, prediction examples, and
+external H5 prediction. Every run writes logs and artifacts under the bundle
+`outputs/` directory.

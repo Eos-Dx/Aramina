@@ -148,11 +148,12 @@ created_at
 decision-support limitations
 ```
 
-Internal prediction report additionally carries target-side `p_cancer`, the
-decision threshold, target/contralateral profile evidence, selected symmetry
-features, QC/reliability fields, and model/report identifiers. Model feature
-schema, coefficients, config snapshots, and provenance checksums belong to the
-model artifact and `model_description.yaml`, not to the clinical report.
+Internal prediction report additionally carries the target-side decision and
+`p_cancer`, the contralateral full-model `p_cancer` with symmetry neutralized,
+shared threshold policy, symmetry/QC/reliability state, and model/report
+identifiers. Raw SK features, coefficients, config snapshots, and provenance
+checksums belong to the model artifact and `model_description.yaml`, not to the
+clinical report.
 
 ## Stop Conditions
 

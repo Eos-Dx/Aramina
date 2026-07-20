@@ -28,7 +28,7 @@ modify the artifact.
 Current product artifact:
 
 ```text
-aramis_target_breast_risk_0_2_7-beta_dcb75574bc2f/
+aramis_target_breast_risk_0_2_7-beta_b47fff279377/
 ```
 
 Only the approved product artifact is retained on `main`. Historical artifacts

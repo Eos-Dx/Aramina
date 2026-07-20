@@ -1,74 +1,44 @@
 # Aramis
 
-Status: research draft.
+Status: research-draft breast-XRD decision-support prototype.
 
-Aramis is an EOS breast-XRD decision-support prototype. It produces `p_cancer`,
-a suggested BENIGN/CANCER support class, and reliability metadata for review by
-a qualified breast-imaging clinician. It is not autonomous diagnosis, not a
-biopsy replacement, and not a radiologist replacement.
-
-## Intended Use
-
-```text
-target population:
-  women with suspicious mammography findings, currently BI-RADS 3 / BI-RADS 4
-
-clinical question:
-  does the clinically suspicious breast likely need biopsy?
-
-clinical user:
-  radiologist / qualified breast-imaging clinician
-
-input:
-  one patient H5 container with left/right breast XRD measurements
-  clinician-supplied target_side
-  trained Aramis model joblib
-
-output:
-  suggested BENIGN/CANCER decision-support class
-  reliability level and reason
-  JSON/YAML report payload
-```
+Aramis accepts one EOS H5 `0.3` container for one patient, preprocesses its
+left/right XRD measurements, and returns a target-breast BENIGN/CANCER
+decision-support class with reliability metadata. It is for review by a
+qualified breast-imaging clinician; it is not autonomous diagnosis or a
+replacement for biopsy or radiologist review.
 
 ## Product Route
 
 ```text
 one-patient H5
--> prediction preprocessing from model joblib
+-> model-held prediction preprocessing
 -> normalized radial_profile_data
--> LR1 profile model on target breast
--> one LR2: profile + age + optional gated SK Core4 refinement
--> p_cancer + suggested class + reliability
+-> LR1 target-breast profile score
+-> LR2: profile + age + optional gated SK symmetry refinement
+-> p_cancer, suggested class, reliability
 ```
 
-Training uses the same preprocessing family and fixed product model definition:
+Current product definition:
 
 ```text
 model: aramis_target_breast_risk
-preprocessing: T100 biopsy-patient model-input DataFrame
+training cohort: T100 biopsy-patient target-breast cases
 regularization: LR1 L2 C=0.1; LR2 L2 C=0.3
 default evaluation: repeated patient-safe stratified 5-fold x20
-deployment threshold: train-all scores at target sensitivity >=0.95
-training unit: one biopsied target breast
+deployment threshold: train-all score at target sensitivity >=0.95
 ```
 
-The model combines the target-breast XRD profile score, four fixed SK
-target/contralateral symmetry fields and age in one final model. Profile and
-age are always evaluated. When no contralateral breast is available, the gated
-SK contribution is exactly zero. Age-only performance is reported as a
-shortcut-risk control. Measurement counts remain reliability fields and
-symmetry availability is a gate, not a learned risk feature.
+## Installation
 
-The fixed architecture and its current evaluation are recorded in
-[`docs/modeling/aramis_t100_target_case_model_v0_1.md`](docs/modeling/aramis_t100_target_case_model_v0_1.md).
-Internal module boundaries and refactor rules are documented in
-[`docs/development/code_structure.md`](docs/development/code_structure.md).
-The packaged artifact embeds its prediction preprocessing and immutable
-prediction contract. Predict YAML supplies identity and paths only.
+Two supported routes:
 
-## Commands
+```text
+Git clone + Conda: development, inspection, direct local runs.
+Docker bundle: reproducible full-H5 training and demonstration.
+```
 
-Install from a fresh clone:
+For a clone and Conda environment:
 
 ```bash
 git clone https://github.com/Eos-Dx/Aramis.git
@@ -84,11 +54,9 @@ cd Aramis
 install.bat
 ```
 
-If `conda` is missing, the installer asks to install Miniforge. See:
+Detailed instructions: [INSTALL.md](INSTALL.md).
 
-```text
-INSTALL.md
-```
+## Main Commands
 
 ```bash
 python -m aramis preprocess --config config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
@@ -97,157 +65,29 @@ python -m aramis preprocess-train --config config/preprocessing_and_training/ara
 python -m aramis predict --config config/prediction/prediction_examples/cancer_predict.yaml
 ```
 
-`preprocess` and `train` build the development model artifacts. Product
-prediction should start from H5 with `predict`. DataFrame prediction input is
-kept only for tests and debugging.
+`preprocess` and `train` are development routes. Production-style H5 scoring
+uses `predict`. The packaged model holds preprocessing, threshold, feature
+schema, and report contract.
 
-Prediction template for a new patient H5:
-
-```bash
-config/prediction/aramis_predict_from_h5_template_v0_1.yaml
-```
-
-`run.train_on_all: true` creates a unique run folder with `model.joblib`,
-`model_description.yaml`, `evaluation.yaml`, and separate detailed CSV evaluation
-artifacts. Use that generated
-model path in prediction YAML.
-
-The packaged model also records full raw-H5 training reproducibility: H5
-SHA256, YAML snapshots and checksums, code/dependency provenance, runtime
-versions, and evaluation summary. The full-H5 reproduction bundle is built with
-`packaging/reproducible_training_bundle/make_bundle.sh`; its Windows and
-macOS/Linux launchers reuse existing environments, refresh pinned code commits,
-and write a stage-by-stage training log.
-
-`promote` copies a reviewed final-fit run into `models/<immutable_model_id>/`.
-It never retrains, mutates, or overwrites a run:
-
-```bash
-python -m aramis promote --run-folder examples/outputs/preprocessing_and_training/RUN_ID/training/RUN_ID
-```
-
-## Documentation Map
-
-Product API and developer contract:
+## Documentation
 
 ```text
-docs/product_api.md
-```
-
-Preprocessing contract:
-
-```text
-docs/data_preprocessing.md
-config/preprocessing/README.md
-```
-
-Model and evidence:
-
-```text
+INSTALL.md                                      clone/Conda route
+docs/product_api.md                             H5 input and report API
+config/preprocessing/README.md                  preprocessing config
+config/training/README.md                       training config
+config/prediction/README.md                     prediction config
+config/preprocessing_and_training/README.md     combined route
 docs/modeling/aramis_t100_target_case_model_v0_1.md
-docs/modeling/current_model_dataframe_v0_1.md
-```
-
-Prediction route and report schema:
-
-```text
-docs/modeling/prediction_pipeline_v0_1.md
-config/prediction/README.md
-```
-
-Training contract:
-
-```text
-docs/contracts/training_config_v0_1.md
-config/training/README.md
-```
-
-Training-result artifact contract:
-
-```text
-docs/contracts/model_training_results_v0_1.md
-```
-
-Combined preprocessing and training contract:
-
-```text
-config/preprocessing_and_training/README.md
-```
-
-Evidence for choices:
-
-```text
-docs/agbh_quality_exclusions.md
-docs/modeling/aramis_t100_target_case_model_v0_1.md
-docs/modeling/current_model_dataframe_v0_1.md
-docs/meta/README.md
-```
-
-## Core Files
-
-```text
-src/aramis/pipelines.py
-  YAML-governed preprocessing wrapper around XRD-preprocessing transformers
-
-src/aramis/training.py
-  public patient-safe target-breast training orchestration
-
-src/aramis/prediction.py
-  public one-patient prediction orchestration
-
-src/aramis/workflows.py
-  preprocess-train runner
-
-src/aramis/patient_features.py
-  shared target-breast features for training and prediction
-
-src/aramis/symmetry_features.py
-  target-versus-contralateral SK feature calculations
-
-src/aramis/training_evaluation.py
-  patient-safe repeated stratified evaluation
-
-src/aramis/prediction_contract.py
-  prediction YAML, H5 v0.3 and output-path validation
-
-src/aramis/prediction_reports.py
-  internal and external report construction
-```
-
-Full module boundaries are in
-[`docs/development/code_structure.md`](docs/development/code_structure.md).
-
-## H5 Contract Summary
-
-Prediction supports EOS H5 v0.3 in the current code:
-
-```text
-root @format = xrd-session
-root @schema_version = 0.3
-exactly one patientId per prediction H5
-left/right breast specimen sets when available
-sample thickness for every retained measurement
-calibrant_thickness_mm in H5 metadata
-PONI artifact for azimuthal integration
-raw GFRM data for product preprocessing
-```
-
-The suspicious breast is not inferred from H5 labels. It is supplied in predict
-YAML:
-
-```yaml
-patient:
-  patient_id: PATIENT_ID
-  target_side: Left
+                                                model rationale and limits
+docs/modeling/prediction_pipeline_v0_1.md       prediction route
+docs/contracts/                                 YAML and artifact contracts
+docs/meta/README.md                             decision evidence
 ```
 
 ## Verification
 
-Current product-code tests cover preprocessing, training, preprocess-train, and
-prediction routes.
-
 ```bash
 conda run --no-capture-output -n eosproduct ruff check .
 conda run --no-capture-output -n eosproduct pytest -q
-conda run --no-capture-output -n eosproduct pytest --cov=aramis --cov-report=term-missing -q
 ```
