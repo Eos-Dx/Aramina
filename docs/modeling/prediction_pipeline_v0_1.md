@@ -213,7 +213,7 @@ generated automatically and shared with the internal report from the same
 prediction operation. `created_at` is a Europe/Paris ISO timestamp with a
 numeric UTC offset.
 
-Internal report follows `internal_clinical_report_content_v0_4.md` and contains:
+Internal report follows `internal_clinical_report_content_v0_5.md` and contains:
 
 ```text
 output_type: aramis_internal_clinical_report

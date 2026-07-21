@@ -197,18 +197,12 @@ def _target_breast_prediction_report(prediction: dict[str, Any]) -> dict[str, An
         },
         "symmetry": {
             "available": bool(row.get("symmetry_available", 0)),
-            "status": (
-                "applied" if bool(row.get("symmetry_available", 0)) else "not_available"
-            ),
         },
         "model_execution": {
             "scoring_path": (
-                "profile_age_with_symmetry"
+                "azimuthal_integration_age_with_symmetry"
                 if bool(row.get("symmetry_available", 0))
-                else "profile_age_with_neutral_symmetry_gate"
-            ),
-            "symmetry_refinement": (
-                "applied" if bool(row.get("symmetry_available", 0)) else "not_applied"
+                else "azimuthal_integration_age_with_neutral_symmetry_gate"
             ),
         },
     }
@@ -255,10 +249,9 @@ def _contralateral_breast_prediction_report(
             "level": prediction["feature_row"]["result_reliability"],
             "reason": prediction["feature_row"]["result_reliability_reason"],
         },
-        "symmetry": {"available": False, "status": "not_applied"},
+        "symmetry": {"available": False},
         "model_execution": {
-            "scoring_path": "profile_age_with_neutral_symmetry_gate",
-            "symmetry_refinement": "not_applied",
+            "scoring_path": "azimuthal_integration_age_with_neutral_symmetry_gate",
         },
     }
 

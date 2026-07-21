@@ -6,11 +6,11 @@ ARAMIS_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 XRD_ROOT="${XRD_ROOT:-${ARAMIS_ROOT}/../XRD-preprocessing}"
 SOURCE_H5="${SOURCE_H5:-${ARAMIS_ROOT}/../eos_play/jupyter_notebooks/Clinical_trials/data/product-aramis-data/combined_archive.h5}"
 DIST_DIR="${DIST_DIR:-${ARAMIS_ROOT}/dist}"
-BUNDLE_NAME="aramis_docker_training_bundle_0_2_9_beta"
-AMD64_IMAGE_TAG="eosdx/aramis-training:0.2.9-beta-amd64"
-AMD64_IMAGE_ARCHIVE="aramis_training_linux_amd64_0_2_9_beta.tar"
-ARM64_IMAGE_TAG="eosdx/aramis-training:0.2.9-beta-arm64"
-ARM64_IMAGE_ARCHIVE="aramis_training_linux_arm64_0_2_9_beta.tar"
+BUNDLE_NAME="aramis_docker_training_bundle_0_2_10_beta"
+AMD64_IMAGE_TAG="eosdx/aramis-training:0.2.10-beta-amd64"
+AMD64_IMAGE_ARCHIVE="aramis_training_linux_amd64_0_2_10_beta.tar"
+ARM64_IMAGE_TAG="eosdx/aramis-training:0.2.10-beta-arm64"
+ARM64_IMAGE_ARCHIVE="aramis_training_linux_arm64_0_2_10_beta.tar"
 WORK_DIR="${DIST_DIR}/${BUNDLE_NAME}"
 ARCHIVE_PATH="${DIST_DIR}/${BUNDLE_NAME}.zip"
 BUILD_CONTEXT="$(mktemp -d)"
@@ -117,13 +117,13 @@ payload = {
     "aramis_commit": aramis_commit,
     "xrd_preprocessing_commit": xrd_commit,
     "h5_sha256": digest(h5_path),
-    "image_amd64_tag": "eosdx/aramis-training:0.2.9-beta-amd64",
+    "image_amd64_tag": "eosdx/aramis-training:0.2.10-beta-amd64",
     "image_amd64_platform": "linux/amd64",
-    "image_amd64_archive": "aramis_training_linux_amd64_0_2_9_beta.tar",
+    "image_amd64_archive": "aramis_training_linux_amd64_0_2_10_beta.tar",
     "image_amd64_archive_sha256": digest(amd64_image_path),
-    "image_arm64_tag": "eosdx/aramis-training:0.2.9-beta-arm64",
+    "image_arm64_tag": "eosdx/aramis-training:0.2.10-beta-arm64",
     "image_arm64_platform": "linux/arm64",
-    "image_arm64_archive": "aramis_training_linux_arm64_0_2_8_beta.tar",
+    "image_arm64_archive": "aramis_training_linux_arm64_0_2_10_beta.tar",
     "image_arm64_archive_sha256": digest(arm64_image_path),
 }
 with open(path, "w", encoding="utf-8") as handle:

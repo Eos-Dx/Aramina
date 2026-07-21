@@ -1,14 +1,14 @@
 output_type: aramis_internal_clinical_report
-report_version: '0.4'
-reference_doc: docs/modeling/internal_clinical_report_content_v0_4.md
+report_version: '0.5'
+reference_doc: docs/modeling/internal_clinical_report_content_v0_5.md
 report_id: EXAMPLE_REPORT_ID
 created_at: '2026-07-21T12:00:00+00:00'
 analysis_author: EXAMPLE_ANALYST
 prediction_comment: Example output only
 model:
-  id: aramis_target_breast_risk_0_2_9-beta_EXAMPLE
+  id: aramis_target_breast_risk_0_2_10-beta_EXAMPLE
   name: aramis_target_breast_risk
-  version: 0.2.9-beta
+  version: 0.2.10-beta
   artifact_sha256: EXAMPLE_SHA256
 model_metrics:
   metric_scope: in_sample_not_independent
@@ -63,10 +63,8 @@ breast_predictions:
       reason: at least 3 valid measurements per breast
     symmetry:
       available: true
-      status: applied
     model_execution:
-      scoring_path: profile_age_with_symmetry
-      symmetry_refinement: applied
+      scoring_path: azimuthal_integration_age_with_symmetry
   contralateral:
     available: true
     side: right
@@ -92,7 +90,5 @@ breast_predictions:
       reason: SK symmetry refinement is intentionally unavailable for contralateral scoring
     symmetry:
       available: false
-      status: not_applied
     model_execution:
-      scoring_path: profile_age_with_neutral_symmetry_gate
-      symmetry_refinement: not_applied
+      scoring_path: azimuthal_integration_age_with_neutral_symmetry_gate

@@ -13,7 +13,7 @@ operator_id: unknown
 hardware_version: unknown
 eoscan_version: unknown
 model_name: aramis_target_breast_risk
-model_version: 0.2.9-beta
+model_version: 0.2.10-beta
 model_metrics:
   metric_scope: in_sample_not_independent
   sensitivity: 0.96053

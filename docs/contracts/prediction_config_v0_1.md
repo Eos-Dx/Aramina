@@ -33,7 +33,7 @@ stop the request before scoring.
 The generated output folder receives one preprocessed DataFrame artifact and
 both YAML/JSON external and internal reports. Full report fields are defined in
 `config/prediction/README.md` and
-`docs/modeling/internal_clinical_report_content_v0_4.md`.
+`docs/modeling/internal_clinical_report_content_v0_5.md`.
 
 The frozen model additionally defines the TRA score contract for internal audit.
 Internal reports expose `tissue_risk_assessment.index` (0–100) and

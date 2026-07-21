@@ -45,13 +45,13 @@ contralateral block is an internal full-model score: it contains LR1 profile
 evidence and final M2Q `p_cancer` with SK symmetry refinement neutralized. It
 uses the shared threshold to provide `suggested_class`, but its reliability is
 always `low`. Full contract:
-`docs/modeling/internal_clinical_report_content_v0_4.md`.
+`docs/modeling/internal_clinical_report_content_v0_5.md`.
 
 Both reports copy final-model sensitivity and specificity from the selected model artifact. `model_metrics.metric_scope` records that they are train-on-all fit metrics, not independent evaluation estimates. Full evaluation records remain in the artifact and its adjacent evaluation files.
 
 If no usable contralateral breast remains, the contralateral block is explicitly
 `unknown`. The target result remains available, with
-`model_execution.scoring_path: profile_age_with_neutral_symmetry_gate`; optional
+`model_execution.scoring_path: azimuthal_integration_age_with_neutral_symmetry_gate`; optional
 symmetry refinement was not applied.
 
 Prediction stops for unknown YAML fields, schema/format mismatch, zero or multiple H5 patients, patient-ID mismatch, absent target side, or a model missing its embedded prediction preprocessing/contract/reference scores.

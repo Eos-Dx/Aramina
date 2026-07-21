@@ -28,7 +28,7 @@ PREDICTION_EXAMPLE_ROOT = Path(__file__).parents[1] / "examples" / "prediction" 
 FINAL_EXAMPLE_MODEL = (
     Path(__file__).parents[1]
     / "models"
-    / "aramis_target_breast_risk_0_2_9-beta_2479efef4979"
+    / "aramis_target_breast_risk_0_2_10-beta_592a62609379"
     / "model.joblib"
 )
 
@@ -317,6 +317,10 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
     internal = reports["internal_report"]
 
     assert external["output_type"] == "aramis_external_report"
+    assert internal["report_version"] == "0.5"
+    assert internal["reference_doc"] == (
+        "./docs/modeling/internal_clinical_report_content_v0_5.md"
+    )
     assert 0.0 <= external["risk_probability"] <= 1.0
     assert 0.0 <= external["decision_threshold"] <= 1.0
     assert "suggested_class" not in external
@@ -349,6 +353,10 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
     assert 0.0 <= decision["threshold"] <= 1.0
     assert "decision_threshold" not in target["final_prediction"]
     assert target["azimuthal_integration_target_profile"]["p_cancer"] is not None
+    assert target["symmetry"] == {"available": True}
+    assert target["model_execution"] == {
+        "scoring_path": "azimuthal_integration_age_with_symmetry"
+    }
     assert contralateral["available"] is True
     assert 0.0 <= contralateral["final_prediction"]["p_cancer"] <= 1.0
     assert contralateral["final_prediction"]["suggested_class"] in {
@@ -359,9 +367,10 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
         "level"
     ] in {"TRA 1", "TRA 2", "TRA 3", "TRA 4", "TRA 5"}
     assert contralateral["symmetry"]["available"] is False
+    assert contralateral["symmetry"] == {"available": False}
     assert contralateral["reliability"]["level"] == "low"
     assert contralateral["model_execution"]["scoring_path"] == (
-        "profile_age_with_neutral_symmetry_gate"
+        "azimuthal_integration_age_with_neutral_symmetry_gate"
     )
     assert 0.0 <= contralateral[
         "azimuthal_integration_contralateral_profile"
@@ -449,9 +458,8 @@ def test_predict_without_contralateral_uses_unavailable_symmetry(
 
     target = report["breast_predictions"]["target"]
     assert target["symmetry"]["available"] is False
-    assert target["symmetry"]["status"] == "not_available"
     assert target["model_execution"]["scoring_path"] == (
-        "profile_age_with_neutral_symmetry_gate"
+        "azimuthal_integration_age_with_neutral_symmetry_gate"
     )
     assert target["reliability"]["level"] == "low"
     contralateral = report["breast_predictions"]["contralateral"]

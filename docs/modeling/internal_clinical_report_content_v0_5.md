@@ -1,4 +1,4 @@
-# Aramis Internal Clinical Report Content v0.4
+# Aramis Internal Clinical Report Content v0.5
 
 Status: research-draft internal audit contract. It is not for autonomous diagnosis.
 
@@ -11,8 +11,8 @@ decision-support result.
 
 ```yaml
 output_type: aramis_internal_clinical_report
-report_version: "0.4"
-reference_doc: ./docs/modeling/internal_clinical_report_content_v0_4.md
+report_version: "0.5"
+reference_doc: ./docs/modeling/internal_clinical_report_content_v0_5.md
 report_id: GENERATED_UNIQUE_ID
 created_at: "2026-07-16T14:11:00+02:00"
 analysis_author: REQUESTING_ANALYST
@@ -20,7 +20,7 @@ prediction_comment: "optional free-text request comment"
 model:
   id: MODEL_ARTIFACT_ID
   name: aramis_target_breast_risk
-  version: 0.2.9-beta
+  version: 0.2.10-beta
   artifact_sha256: SHA256
 model_metrics:
   metric_scope: in_sample_not_independent
@@ -87,10 +87,8 @@ reliability:
   reason: at least 3 valid measurements per breast
 symmetry:
   available: true
-  status: applied
 model_execution:
-  scoring_path: profile_age_with_symmetry
-  symmetry_refinement: applied
+  scoring_path: azimuthal_integration_age_with_symmetry
 ```
 
 `azimuthal_integration_target_profile.p_cancer` is the first-layer LR1 score.
@@ -145,10 +143,8 @@ reliability:
   reason: SK symmetry refinement is intentionally unavailable for contralateral scoring
 symmetry:
   available: false
-  status: not_applied
 model_execution:
-  scoring_path: profile_age_with_neutral_symmetry_gate
-  symmetry_refinement: not_applied
+  scoring_path: azimuthal_integration_age_with_neutral_symmetry_gate
 ```
 
 Both target and contralateral `final_prediction.p_cancer` values use the same
@@ -188,7 +184,7 @@ reason: contralateral breast is unavailable after preprocessing
 
 When the target breast has no usable contralateral breast, the target block
 still has a valid final prediction. Its `model_execution.scoring_path` is
-`profile_age_with_neutral_symmetry_gate`: the same LR2 is used, but the optional
+`azimuthal_integration_age_with_neutral_symmetry_gate`: the same LR2 is used, but the optional
 SK symmetry terms are neutral and do not affect the score. This is not a second
 model and it must not be interpreted as a symmetry-supported result.
 
