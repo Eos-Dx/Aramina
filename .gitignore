@@ -12,3 +12,9 @@ mlruns/
 reports/
 *.egg-info/
 examples/__marimo__/
+demo_outputs/
+demo/
+tests/test_demo_*.py
+config/preprocessing/aramis_mri_or_biopsy_held_out_test_t130_v0_1.yaml
+config/preprocessing/exclusions/agbh_quality_exclusions_t130_v0_1.yaml
+config/preprocessing/outputs/model_test_output_v0_1.yaml

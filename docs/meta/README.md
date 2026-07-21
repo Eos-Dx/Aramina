@@ -270,7 +270,7 @@ Regeneration rule:
 regenerate with Aramis_Preprocessing_v0_1.py or equivalent scripted export
 update the JSON provenance block
 rerun Aramis tests and marimo checks
-rebuild aramis_reproducible_training_bundle_0_2_7_beta.zip when full-H5
+rebuild aramis_docker_training_bundle_0_2_8_beta.zip when full-H5
 reproducibility material changes
 ```
 

@@ -41,7 +41,8 @@ def _prediction_reports(
     external = _external_report(
         common=common,
         version=str(reporting["external_report"]["version"]),
-        suggested_class=target_prediction["suggested_class"],
+        risk_probability=target_prediction["p_cancer"],
+        decision_threshold=target_prediction["threshold"],
         reliability=row["result_reliability"],
         reliability_reason=row["result_reliability_reason"],
         model_metrics=_final_model_metrics(model_artifact),
@@ -68,7 +69,8 @@ def _external_report(
     *,
     common: dict[str, Any],
     version: str,
-    suggested_class: str,
+    risk_probability: float,
+    decision_threshold: float,
     reliability: str,
     reliability_reason: str,
     model_metrics: dict[str, Any],
@@ -92,7 +94,9 @@ def _external_report(
         "model_name": common["model_name"],
         "model_version": common["model_version"],
         "model_metrics": model_metrics,
-        "suggested_class": suggested_class,
+        "risk_probability": risk_probability,
+        "risk_level": _risk_level(risk_probability, decision_threshold),
+        "decision_threshold": decision_threshold,
         "reliability": reliability,
         "reliability_reason": reliability_reason,
     }
@@ -135,6 +139,7 @@ def _internal_report(
             "artifact_sha256": model_artifact_sha256,
         },
         "model_metrics": model_metrics,
+        "decision_threshold": _decision_policy(target_prediction),
         "scan_metadata": _scan_metadata(
             feature_row,
             patient_id=common["patient_id"],
@@ -142,7 +147,6 @@ def _internal_report(
             age_available=age_available,
         ),
         "breast_predictions": {
-            "decision": _decision_policy(target_prediction),
             "target": _target_breast_prediction_report(target_prediction),
             "contralateral": _contralateral_breast_prediction_report(
                 contralateral_prediction
@@ -163,6 +167,11 @@ def _decision_policy(prediction: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _risk_level(risk_probability: float, decision_threshold: float) -> str:
+    """Return the external two-level interpretation of the fixed decision."""
+    return "high" if risk_probability >= decision_threshold else "low"
+
+
 def _target_breast_prediction_report(prediction: dict[str, Any]) -> dict[str, Any]:
     """Render the formally validated target-breast decision-support result."""
     row = prediction["feature_row"]
@@ -179,6 +188,7 @@ def _target_breast_prediction_report(prediction: dict[str, Any]) -> dict[str, An
         "final_prediction": {
             "p_cancer": prediction["p_cancer"],
             "suggested_class": prediction["suggested_class"],
+            "tissue_risk_assessment": prediction["tissue_risk_assessment"],
             "score_percentiles": prediction["quantiles"],
         },
         "reliability": {
@@ -220,6 +230,7 @@ def _contralateral_breast_prediction_report(
             "final_prediction": {
                 "p_cancer": "unknown",
                 "suggested_class": "unknown",
+                "tissue_risk_assessment": _unknown_tissue_risk_assessment(),
                 "score_percentiles": _unknown_score_percentiles(),
             },
             "reliability": {"level": "unknown", "reason": "unknown"},
@@ -237,6 +248,7 @@ def _contralateral_breast_prediction_report(
         "final_prediction": {
             "p_cancer": prediction["p_cancer"],
             "suggested_class": prediction["suggested_class"],
+            "tissue_risk_assessment": prediction["tissue_risk_assessment"],
             "score_percentiles": prediction["quantiles"],
         },
         "reliability": {
@@ -258,6 +270,14 @@ def _unknown_score_percentiles() -> dict[str, str]:
         "all_training_target_cases": "unknown",
         "benign_training_target_cases": "unknown",
         "cancer_training_target_cases": "unknown",
+    }
+
+
+def _unknown_tissue_risk_assessment() -> dict[str, str]:
+    return {
+        "index": "unknown",
+        "level": "unknown",
+        "reference_population": "unknown",
     }
 
 

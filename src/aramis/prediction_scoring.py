@@ -13,6 +13,20 @@ from .prediction_contract import _model_threshold
 from .training_config import PRODUCT_MODEL_NAME
 
 
+_DEFAULT_TRA_POLICY = {
+    "contract": "aramis_tra_v0_1",
+    "reference_score": "final_prediction.p_cancer",
+    "reference_population": "train_on_all target-breast cases",
+    "levels": [
+        {"level": "TRA 1", "minimum_percentile": 0.0, "maximum_percentile": 20.0},
+        {"level": "TRA 2", "minimum_percentile": 20.0, "maximum_percentile": 50.0},
+        {"level": "TRA 3", "minimum_percentile": 50.0, "maximum_percentile": 80.0},
+        {"level": "TRA 4", "minimum_percentile": 80.0, "maximum_percentile": 90.0},
+        {"level": "TRA 5", "minimum_percentile": 90.0, "maximum_percentile": 100.0},
+    ],
+}
+
+
 def _prediction_target_side(
     config: dict[str, Any],
     patient_id: str,
@@ -106,6 +120,7 @@ def _side_prediction(
             p_cancer,
             score_kind="final_prediction",
         ),
+        "tissue_risk_assessment": _tissue_risk_assessment(model_info, p_cancer),
     }
 
 
@@ -162,6 +177,41 @@ def _prediction_quantiles(
             np.searchsorted(np.sort(values), p_cancer, side="right") / values.size
         )
     return out
+
+
+def _tissue_risk_assessment(model_info: dict[str, Any], p_cancer: float) -> dict[str, Any]:
+    """Map a final score to the model-held ordinal TRA reference scale."""
+    policy = model_info.get("tissue_risk_assessment", _DEFAULT_TRA_POLICY)
+    if policy.get("contract") != "aramis_tra_v0_1":
+        raise ValueError("Unsupported tissue risk assessment policy in model artifact.")
+
+    references = model_info.get("prediction_reference_scores", {})
+    reference = references.get("final_prediction", {})
+    values = np.asarray(reference.get("all_target_cases", []), dtype=float)
+    values = np.sort(values[np.isfinite(values)])
+    if values.size == 0:
+        raise ValueError("Model prediction reference has no final target-case scores.")
+
+    index = 100.0 * np.searchsorted(values, p_cancer, side="right") / values.size
+    return {
+        "index": float(index),
+        "level": _tra_level(policy, index),
+        "reference_population": str(
+            policy.get("reference_population", reference.get("population", "unknown"))
+        ),
+    }
+
+
+def _tra_level(policy: dict[str, Any], index: float) -> str:
+    """Return the sole TRA level whose upper boundary contains ``index``."""
+    levels = policy.get("levels")
+    if not isinstance(levels, list) or len(levels) != 5:
+        raise ValueError("TRA policy must define exactly five ordered levels.")
+    for item in levels:
+        upper = float(item["maximum_percentile"])
+        if index < upper or upper == 100.0:
+            return str(item["level"]).replace("_", " ")
+    raise ValueError("TRA index is outside the frozen policy range.")
 
 
 def _prediction_columns(model_artifact: dict[str, Any]) -> dict[str, str]:

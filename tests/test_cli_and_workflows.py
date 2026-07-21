@@ -46,7 +46,8 @@ def test_cli_commands_delegate_to_product_entrypoints(monkeypatch, capsys, tmp_p
             "external_report": {
                 "patient_id": "P01",
                 "target_side": "left",
-                "suggested_class": "BENIGN",
+                "risk_probability": 0.12345,
+                "risk_level": "low",
                 "reliability": "high",
             },
             "internal_report": {"model": {"name": PRODUCT_MODEL_NAME}},
@@ -60,7 +61,7 @@ def test_cli_commands_delegate_to_product_entrypoints(monkeypatch, capsys, tmp_p
     assert cli.main(["preprocess-train", "--config", str(config)]) == 0
     assert "preprocess_columns=1" in capsys.readouterr().out
     assert cli.main(["predict", "--config", str(config)]) == 0
-    assert "suggested_class=BENIGN" in capsys.readouterr().out
+    assert "risk_probability=0.12345" in capsys.readouterr().out
 
 
 def test_cli_train_requires_config_when_not_listing_models(capsys):

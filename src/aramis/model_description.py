@@ -138,6 +138,10 @@ def _model_summary(model_info: dict[str, Any]) -> dict[str, Any]:
         if "symmetry_policy" in model_info:
             summary["symmetry_policy"] = model_info["symmetry_policy"]
             summary["symmetry_gate"] = model_info["symmetry_gate"]
+        if "tissue_risk_assessment" in model_info:
+            summary["tissue_risk_assessment"] = _jsonable(
+                model_info["tissue_risk_assessment"]
+            )
         return summary
 
     summary["routing_field"] = model_info.get("routing_field")

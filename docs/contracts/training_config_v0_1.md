@@ -8,7 +8,7 @@ Status: research draft.
 contract: aramis_training_config_v0_3
 model:
   name: aramis_target_breast_risk
-  version: 0.2.7-beta
+  version: 0.2.8-beta
   model_author: Sergey Denisov
   clinical_stage: research draft
   intended_use: Breast cancer decision support; requires radiologist review.

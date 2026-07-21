@@ -1,4 +1,4 @@
-# Aramis Internal Clinical Report Content v0.2
+# Aramis Internal Clinical Report Content v0.4
 
 Status: research-draft internal audit contract. It is not for autonomous diagnosis.
 
@@ -11,8 +11,8 @@ decision-support result.
 
 ```yaml
 output_type: aramis_internal_clinical_report
-report_version: "0.2"
-reference_doc: ./docs/modeling/internal_clinical_report_content_v0_2.md
+report_version: "0.4"
+reference_doc: ./docs/modeling/internal_clinical_report_content_v0_4.md
 report_id: GENERATED_UNIQUE_ID
 created_at: "2026-07-16T14:11:00+02:00"
 analysis_author: REQUESTING_ANALYST
@@ -20,12 +20,16 @@ prediction_comment: "optional free-text request comment"
 model:
   id: MODEL_ARTIFACT_ID
   name: aramis_target_breast_risk
-  version: 0.2.7-beta
+  version: 0.2.8-beta
   artifact_sha256: SHA256
 model_metrics:
   metric_scope: in_sample_not_independent
   sensitivity: 0.96053
   specificity: 0.46465
+decision_threshold:
+  threshold_id: target_sensitivity_0.95
+  threshold: 0.32787
+  applies_to: [target.final_prediction, contralateral.final_prediction]
 scan_metadata:
   patient_id: PATIENT_ID
   target_side: left
@@ -41,15 +45,14 @@ scan_metadata:
   mammography_conclusion: unknown
   measurement_summary: {}
 breast_predictions:
-  decision: {}
   target: {}
   contralateral: {}
 ```
 
 `analysis_author` is the person who requested the analysis. `operator_id` is the EoScan operator read from H5 metadata. Optional scan metadata not present in the container is written as `unknown`. Numerical output is rounded to five decimal places; every binary output is `true` or `false`.
 
-`breast_predictions.decision` is one shared threshold policy for both available
-breast scores:
+`decision_threshold` is one shared threshold policy for both available breast
+scores:
 
 ```yaml
 threshold_id: target_sensitivity_0.95
@@ -69,6 +72,10 @@ azimuthal_integration_target_profile:
 final_prediction:
   p_cancer: 0.59489
   suggested_class: CANCER
+  tissue_risk_assessment:
+    index: 74.00000
+    level: TRA 3
+    reference_population: train_on_all target-breast cases
   score_percentiles:
     reference_score: final_prediction.p_cancer
     reference_population: train_on_all target-breast cases
@@ -89,7 +96,16 @@ model_execution:
 `azimuthal_integration_target_profile.p_cancer` is the first-layer LR1 score.
 The final score combines the profile, optional gated SK symmetry refinement, and
 age when available. The decision uses only `target.final_prediction`: `CANCER`
-when `p_cancer >= breast_predictions.decision.threshold`, otherwise `BENIGN`.
+when `p_cancer >= decision_threshold.threshold`, otherwise `BENIGN`.
+
+`final_prediction.tissue_risk_assessment` is the product-facing ordinal Tissue
+Risk Assessment. Its `index` is the all-training-target-case percentile of the
+final score, on a 0–100 scale. `TRA 1` is below the 20th percentile, `TRA 2`
+is 20th–below 50th, `TRA 3` is 50th–below 80th, `TRA 4` is 80th–below 90th,
+and `TRA 5` is at or above the 90th percentile. TRA is a fixed rank in the
+frozen reference cohort, not an individual cancer probability, diagnosis, or
+clinical calibration. It does not replace the shared threshold-based
+`suggested_class` or clinician review.
 
 Target `score_percentiles` are empirical percentiles of final `p_cancer` against
 the frozen train-on-all target-breast final-score distributions: all accepted
@@ -114,6 +130,10 @@ azimuthal_integration_contralateral_profile:
 final_prediction:
   p_cancer: 0.48611
   suggested_class: CANCER
+  tissue_risk_assessment:
+    index: 51.00000
+    level: TRA 3
+    reference_population: train_on_all target-breast cases
   score_percentiles:
     reference_score: final_prediction.p_cancer
     reference_population: train_on_all target-breast cases
@@ -150,6 +170,10 @@ azimuthal_integration_contralateral_profile:
 final_prediction:
   p_cancer: unknown
   suggested_class: unknown
+  tissue_risk_assessment:
+    index: unknown
+    level: unknown
+    reference_population: unknown
   score_percentiles:
     reference_score: unknown
     reference_population: unknown

@@ -2,9 +2,9 @@ output_type: aramis_model_description
 version: '0.1'
 model:
   name: aramis_target_breast_risk
-  version: 0.2.7-beta
-  id: aramis_target_breast_risk_0_2_7-beta_b47fff279377
-  artifact_sha256: b47fff2793774c5cddc5e8d9837848e4cd5deaff8797920cc48da0227d5930a1
+  version: 0.2.8-beta
+  id: aramis_target_breast_risk_0_2_8-beta_509f84b2a745
+  artifact_sha256: 509f84b2a745b14ed5e0581421b8ec58c5fdbe3e8fe262a2a9bb0b255640e585
 model_summary:
   architecture:
     stage_1: target_xrd_profile_logistic_regression
@@ -387,6 +387,26 @@ model_summary:
       - -0.20494
   symmetry_policy: single_model_gated_optional_refinement
   symmetry_gate: symmetry_available
+  tissue_risk_assessment:
+    contract: aramis_tra_v0_1
+    reference_score: final_prediction.p_cancer
+    reference_population: train_on_all target-breast cases
+    levels:
+    - level: TRA 1
+      minimum_percentile: 0.0
+      maximum_percentile: 20.0
+    - level: TRA 2
+      minimum_percentile: 20.0
+      maximum_percentile: 50.0
+    - level: TRA 3
+      minimum_percentile: 50.0
+      maximum_percentile: 80.0
+    - level: TRA 4
+      minimum_percentile: 80.0
+      maximum_percentile: 90.0
+    - level: TRA 5
+      minimum_percentile: 90.0
+      maximum_percentile: 100.0
 model_joblib: model.joblib
 model_performance:
   evaluation_available: true
@@ -420,8 +440,6 @@ final_fit_training_metrics:
   npv: 0.93878
   brier_score: 0.14955
   log_loss: 0.45317
-  calibration_intercept: -0.2889
-  calibration_slope: 1.29575
   true_positives: 73
   true_negatives: 46
   false_negatives: 3
@@ -475,14 +493,14 @@ evaluation_artifacts:
   predictions: evaluation_predictions.csv
 reproducibility:
   contract: aramis_reproducibility_v0_1
-  reproduction_mode: preprocessed_artifact_train
+  reproduction_mode: raw_h5_preprocess_train
   source_h5:
     filename: combined_archive.h5
     sha256: d2d61e83850b282c3d2479ea436deed821c4488b96983252d294f3d56ee3f1f9
   source_code:
     aramis:
-      version: 0.2.7b0
-      git_sha: 9b7257442e4e986fc8b98f16887bb0925d9255de
+      version: 0.2.8b0
+      git_sha: fe97e57d681fb36b62e0c7a1dfd180279296de07
     xrd_preprocessing:
       version: 0.1.7b0
       url: file:///Users/sad/dev/XRD-preprocessing
@@ -500,17 +518,21 @@ reproducibility:
       fabio: 2025.10.0
       PyYAML: 6.0.3
   configs:
-    preprocess_train_yaml: null
-    training_yaml: "contract: aramis_training_config_v0_2\nmodel:\n  name: aramis_target_breast_risk\n\
-      \  version: 0.2.7-beta\n  created_by: Sergey Denisov\n  clinical_stage: research\
+    preprocess_train_yaml: "contract: aramis_preprocessing_and_training_config_v0_1\n\
+      preprocessing_and_training:\n  name: aramis_target_breast_risk_preprocessing_and_training\n\
+      \  run_author: Sergey Denisov\n  output_folder: examples/outputs/preprocessing_and_training\n\
+      preprocessing_config_path: config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml\n\
+      training_config_path: config/training/aramis_target_breast_risk_primary_train_v0_1.yaml\n"
+    training_yaml: "contract: aramis_training_config_v0_3\nmodel:\n  name: aramis_target_breast_risk\n\
+      \  version: 0.2.8-beta\n  model_author: Sergey Denisov\n  clinical_stage: research\
       \ draft\n  intended_use: Breast cancer decision support; requires radiologist\
       \ review.\nrun:\n  evaluation: true\n  train_on_all: true\ninput:\n  dataframe_joblib_path:\
-      \ ./examples/outputs/model_input/aramis_biopsy_patients_model_input_v0_1.joblib\n\
-      output:\n  folder: ./examples/outputs/training\nevaluation:\n  method: repeated_stratified_kfold\n\
+      \ examples/outputs/model_input/aramis_biopsy_patients_model_input_v0_1.joblib\n\
+      output:\n  folder: examples/outputs/training\nevaluation:\n  method: repeated_stratified_kfold\n\
       \  folds: 5\n  repeats: 20\n  random_seed: 42\n"
     historical_preprocessing_yaml: "xrd_preprocessing:\n  version: local\n  release_tag:\
-      \ v0.1.6-beta\nio:\n  input_h5_path: ../../../eos_play/jupyter_notebooks/Clinical_trials/data/product-aramis-data/combined_archive.h5\n\
-      \  output_joblib_path: ../../examples/outputs/model_input/aramis_biopsy_patients_model_input_v0_1.joblib\n\
+      \ v0.1.7-beta\nio:\n  input_h5_path: ./data/combined_archive.h5\n  output_joblib_path:\
+      \ examples/outputs/model_input/aramis_biopsy_patients_model_input_v0_1.joblib\n\
       raw_data:\n  source: gfrm\n  location: h5_blob\n  allowed_sources:\n  - gfrm\n\
       \  h5_dataset_candidates:\n    gfrm:\n    - raw_file\n    - artifacts/gfrm\n\
       filters:\n  date_filter:\n    enabled: false\n    column: started_at\n    op:\
@@ -558,14 +580,14 @@ reproducibility:
       \ true\n    calibrant_thickness_range_mm:\n    - 2.0\n    - 40.0\nsnr:\n  method:\
       \ poisson\n  min_snr_db: 18.0\nnormalization:\n  mode: value\n  statistic: median\n\
       \  q_range_nm_inv:\n  - 6.7\n  - 7.1\n  save_initial_data: false\nprofile_gate:\n\
-      \  q_nm_inv: 14.0\n  min_value: 2.0\ncohort_settings:\n  filter_by_specimen_status:\
-      \ true\n  filter_by_product_status_group: true\n  specimen_status_keep:\n  -\
-      \ BENIGN\n  - NORMAL\n  - CANCER\n  - ATYPICAL\n  - PRE_CANCEROUS\n  product_status_group_keep:\n\
-      \  - BENIGN\n  - CANCER\n  require_patient_pair: false\n  patient_pair_keep:\
-      \ []\n  min_measurements_per_specimen_after_snr: 1\n  min_specimens_per_patient_after_snr:\
-      \ 1\n  require_biopsy_rows: false\n  require_biopsy_patient: true\n  output_columns:\
-      \ []\npipeline:\n  steps:\n  - name: poni_geometry\n    transformer: H5PoniGeometryCalculatorTransformer\n\
-      \    params: {}\n  - name: select_h5_sessions\n    transformer: H5SessionSelectorTransformer\n\
+      \  q_nm_inv: 14.0\n  min_value: 2.0\nproduct_filter:\n  filter_by_specimen_status:\
+      \ true\n  specimen_status_keep:\n  - BENIGN\n  - NORMAL\n  - CANCER\n  - ATYPICAL\n\
+      \  - PRE_CANCEROUS\n  filter_by_product_status_group: true\n  product_status_group_keep:\n\
+      \  - BENIGN\n  - CANCER\n  require_biopsy_rows: false\n  require_biopsy_patient:\
+      \ true\n  require_patient_pair: false\n  patient_pair_keep: []\n  min_measurements_per_specimen_after_snr:\
+      \ 1\n  min_specimens_per_patient_after_snr: 1\npipeline:\n  steps:\n  - name:\
+      \ poni_geometry\n    transformer: H5PoniGeometryCalculatorTransformer\n    params:\
+      \ {}\n  - name: select_h5_sessions\n    transformer: H5SessionSelectorTransformer\n\
       \    params:\n      session_category: SAMPLE\n      filters:\n      - enabled:\n\
       \          $ref: filters.date_filter.enabled\n        column:\n          $ref:\
       \ filters.date_filter.column\n        op:\n          $ref: filters.date_filter.op\n\
@@ -574,10 +596,10 @@ reproducibility:
       \        op: not in\n        values:\n          $ref: filters.quality_exclusions.primary_key.excluded_values\n\
       \        fallback:\n          column: started_at\n          op: date not in\n\
       \          values:\n            $ref: filters.quality_exclusions.fallback_date.excluded_dates\n\
-      \      - enabled:\n          $ref: cohort_settings.require_biopsy_rows\n   \
-      \     column: biopsy\n        op: ==\n        value: true\n      - enabled:\n\
-      \          $ref: cohort_settings.filter_by_specimen_status\n        column:\
-      \ specimen_status\n        op: in\n        values:\n          $ref: cohort_settings.specimen_status_keep\n\
+      \      - enabled:\n          $ref: product_filter.require_biopsy_rows\n    \
+      \    column: biopsy\n        op: ==\n        value: true\n      - enabled:\n\
+      \          $ref: product_filter.filter_by_specimen_status\n        column: specimen_status\n\
+      \        op: in\n        values:\n          $ref: product_filter.specimen_status_keep\n\
       \      - column: calibrant_thickness_mm\n        op: notna\n      - column:\
       \ calibrant_thickness_mm\n        op: '>='\n        value:\n          $ref:\
       \ filters.calibrant_thickness_range_mm.0\n      - column: calibrant_thickness_mm\n\
@@ -601,21 +623,21 @@ reproducibility:
       \    params:\n      column:\n        $ref: filters.thickness.calibrant.column\n\
       \      op: between\n      lower:\n        $ref: filters.thickness.calibrant.min_mm\n\
       \      upper:\n        $ref: filters.thickness.calibrant.max_mm\n  - name: biopsy_filter\n\
-      \    transformer: ColumnValueFilter\n    enabled:\n      $ref: cohort_settings.require_biopsy_rows\n\
+      \    transformer: ColumnValueFilter\n    enabled:\n      $ref: product_filter.require_biopsy_rows\n\
       \    params:\n      column: biopsy\n      op: ==\n      value: true\n  - name:\
       \ patient_biopsy_filter\n    transformer: GroupValueFilter\n    enabled:\n \
-      \     $ref: cohort_settings.require_biopsy_patient\n    params:\n      group_column:\
+      \     $ref: product_filter.require_biopsy_patient\n    params:\n      group_column:\
       \ patientId\n      column: biopsy\n      op: ==\n      value: true\n  - name:\
       \ specimen_status_filter\n    transformer: ColumnValueFilter\n    enabled:\n\
-      \      $ref: cohort_settings.filter_by_specimen_status\n    params:\n      column:\
-      \ specimen_status\n      op: in\n      values:\n        $ref: cohort_settings.specimen_status_keep\n\
+      \      $ref: product_filter.filter_by_specimen_status\n    params:\n      column:\
+      \ specimen_status\n      op: in\n      values:\n        $ref: product_filter.specimen_status_keep\n\
       \  - name: product_status_filter\n    transformer: ProductStatusGroupFilter\n\
-      \    enabled:\n      $ref: cohort_settings.filter_by_product_status_group\n\
-      \    params:\n      allowed:\n        $ref: cohort_settings.product_status_group_keep\n\
+      \    enabled:\n      $ref: product_filter.filter_by_product_status_group\n \
+      \   params:\n      allowed:\n        $ref: product_filter.product_status_group_keep\n\
       \  - name: paired_patient_filter\n    transformer: PairedGroupFilter\n    enabled:\n\
-      \      $ref: cohort_settings.require_patient_pair\n    params:\n      allowed_pairs:\n\
-      \        $ref: cohort_settings.patient_pair_keep\n  - name: faulty_pixels\n\
-      \    transformer: FaultyPixelDetector\n    params:\n      bright_pixel_min_value:\
+      \      $ref: product_filter.require_patient_pair\n    params:\n      allowed_pairs:\n\
+      \        $ref: product_filter.patient_pair_keep\n  - name: faulty_pixels\n \
+      \   transformer: FaultyPixelDetector\n    params:\n      bright_pixel_min_value:\
       \ 500.0\n      exclude_beam_center_radius: 0.04\n  - name: interpolation_q_range\n\
       \    transformer: ConstantQRangeTransformer\n    params:\n      q_min:\n   \
       \     $ref: integration.q_range_nm_inv.0\n      q_max:\n        $ref: integration.q_range_nm_inv.1\n\
@@ -630,8 +652,8 @@ reproducibility:
       \        $ref: snr.method\n  - name: snr_filter\n    transformer: SNRFilter\n\
       \    params:\n      min_snr_db:\n        $ref: snr.min_snr_db\n  - name: specimen_validity\n\
       \    transformer: PatientSpecimenValidityFilter\n    params:\n      min_measurements_per_specimen:\n\
-      \        $ref: cohort_settings.min_measurements_per_specimen_after_snr\n   \
-      \   min_specimens_per_patient:\n        $ref: cohort_settings.min_specimens_per_patient_after_snr\n\
+      \        $ref: product_filter.min_measurements_per_specimen_after_snr\n    \
+      \  min_specimens_per_patient:\n        $ref: product_filter.min_specimens_per_patient_after_snr\n\
       \  - name: normalization\n    transformer: QRangeValueNormalizer\n    params:\n\
       \      q_min:\n        $ref: normalization.q_range_nm_inv.0\n      q_max:\n\
       \        $ref: normalization.q_range_nm_inv.1\n      statistic:\n        $ref:\
@@ -640,30 +662,27 @@ reproducibility:
       \      q_value_nm_inv:\n        $ref: profile_gate.q_nm_inv\n      threshold:\n\
       \        $ref: profile_gate.min_value\n      op: '>'\n  - name: keep_columns\n\
       \    transformer: KeepColumnsTransformer\n    params:\n      columns:\n    \
-      \    $concat:\n        - $ref: metadata.output_columns\n        - $ref: cohort_settings.output_columns\n\
-      \      errors:\n        $ref: metadata.keep_columns_errors\nmetadata:\n  keep_columns_errors:\
-      \ raise\n  output_columns:\n  - patientId\n  - specimenId\n  - side\n  - position\n\
-      \  - started_at\n  - measurementDate\n  - specimen_status\n  - product_status_group\n\
-      \  - product_diagnosis\n  - patient_product_diagnosis\n  - age\n  - biopsy\n\
-      \  - sample_biopsy\n  - sample_biopsy_type\n  - sample_height_in\n  - sample_weight_lb\n\
-      \  - breast_density\n  - birads\n  - sample_thickness_mm\n  - calibrant_thickness_mm\n\
-      \  - poni_q_max_nm_inv\n  - measurement_data_source\n  - q_range\n  - radial_profile_data\n\
-      \  - snr_db\n  - specimen_measurement_count\n  - radial_profile_value_at_q\n\
-      \  - radial_profile_nearest_q_nm_inv\n  - radial_profile_q_delta_nm_inv\n  -\
-      \ radial_profile_value_pass\naramis_preprocessing:\n  product: Aramis\n  clinical_stage:\
-      \ research draft\n  decision_unit: target breast\n  row_unit: measurementId\n\
-      \  grouping_unit: specimenId\n  cohort: biopsy_patients_normal_as_benign\n \
-      \ name: aramis_biopsy_patients_model_input\n  version: 0.1\nprovenance:\n  status:\
-      \ research draft biopsy-patients model-input preprocessing config\n  canonical_location:\
-      \ Aramis/config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml\n\
-      \  cohort_rule: keep patients with at least one biopsy row; include contralateral\
-      \ rows;\n    NORMAL mapped to BENIGN; AgBH T100 monochromaticity exclusions\n\
-      \  quality_exclusion_reason_doc: Aramis/docs/agbh_quality_exclusions.md\nexperiment:\n\
-      \  monochromaticity_threshold_factor: 1.0\n  monochromaticity_max_score: 0.0075\n\
-      \  dataset_policy: biopsy_patients\n  normal_policy: normal_as_benign\n"
+      \    $ref: metadata.output_columns\n      errors:\n        $ref: metadata.keep_columns_errors\n\
+      metadata:\n  keep_columns_errors: raise\n  output_columns:\n  - patientId\n\
+      \  - specimenId\n  - side\n  - position\n  - started_at\n  - measurementDate\n\
+      \  - specimen_status\n  - product_status_group\n  - product_diagnosis\n  - patient_product_diagnosis\n\
+      \  - age\n  - biopsy\n  - sample_biopsy\n  - sample_biopsy_type\n  - sample_height_in\n\
+      \  - sample_weight_lb\n  - breast_density\n  - birads\n  - sample_thickness_mm\n\
+      \  - calibrant_thickness_mm\n  - poni_q_max_nm_inv\n  - measurement_data_source\n\
+      \  - q_range\n  - radial_profile_data\n  - snr_db\n  - specimen_measurement_count\n\
+      \  - radial_profile_value_at_q\n  - radial_profile_nearest_q_nm_inv\n  - radial_profile_q_delta_nm_inv\n\
+      \  - radial_profile_value_pass\naramis_preprocessing:\n  name: aramis_biopsy_patients_model_input\n\
+      \  version: 0.1\n  clinical_stage: research draft\nprovenance:\n  status: research\
+      \ draft biopsy-patients model-input preprocessing config\n  canonical_location:\
+      \ config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml\n  product_filter_rule:\
+      \ keep patients with at least one biopsy row; include contralateral\n    rows;\
+      \ NORMAL mapped to BENIGN; AgBH T100 monochromaticity exclusions\n  quality_exclusion_reason_doc:\
+      \ ./docs/agbh_quality_exclusions.md\nexperiment:\n  monochromaticity_threshold_factor:\
+      \ 1.0\n  monochromaticity_max_score: 0.0075\n  dataset_policy: biopsy_patients\n\
+      \  normal_policy: normal_as_benign\n"
     prediction_preprocessing_yaml: "xrd_preprocessing:\n  version: local\n  release_tag:\
       \ v0.1.7-beta\nio:\n  input_h5_path: INPUT_H5_PATH_SET_BY_PREDICTION_CONFIG\n\
-      \  output_joblib_path: ./examples/outputs/prediction/aramis_prediction_patient_model_input_v0_1.joblib\n\
+      \  output_joblib_path: examples/outputs/prediction/aramis_prediction_patient_model_input_v0_1.joblib\n\
       raw_data:\n  source: gfrm\n  location: h5_blob\n  allowed_sources:\n  - gfrm\n\
       \  h5_dataset_candidates:\n    gfrm:\n    - raw_file\n    - artifacts/gfrm\n\
       filters:\n  date_filter:\n    enabled: false\n    column: started_at\n    op:\
@@ -768,22 +787,26 @@ reproducibility:
       \    transformer: KeepColumnsTransformer\n    params:\n      columns:\n    \
       \    $ref: metadata.output_columns\n      errors:\n        $ref: metadata.keep_columns_errors\n\
       metadata:\n  keep_columns_errors: ignore\n  output_columns:\n  - patientId\n\
-      \  - specimenId\n  - side\n  - target_side\n  - target_breast\n  - mammography_suspicious_field\n\
-      \  - position\n  - started_at\n  - measurementDate\n  - specimen_status\n  -\
-      \ product_status_group\n  - product_diagnosis\n  - patient_product_diagnosis\n\
-      \  - age\n  - biopsy\n  - sample_thickness_mm\n  - calibrant_thickness_mm\n\
-      \  - poni_q_max_nm_inv\n  - measurement_data_source\n  - q_range\n  - radial_profile_data\n\
-      \  - snr_db\n  - specimen_measurement_count\n  - radial_profile_value_at_q\n\
-      \  - radial_profile_nearest_q_nm_inv\n  - radial_profile_q_delta_nm_inv\n  -\
-      \ radial_profile_value_pass\naramis_preprocessing:\n  name: aramis_prediction_patient_model_input\n\
-      \  version: 0.1\n  clinical_stage: research draft\nprovenance:\n  status: research\
-      \ draft prediction preprocessing config\n  canonical_location: ./config/preprocessing/aramis_prediction_patient_model_input_v0_1.yaml\n\
+      \  - session_uid\n  - session_id\n  - specimenId\n  - side\n  - target_side\n\
+      \  - target_breast\n  - mammography_suspicious_field\n  - mammography_conclusion\n\
+      \  - scan_date_time\n  - operator_id\n  - hardware_version\n  - eoscan_version\n\
+      \  - experimental_protocol_version\n  - product_protocol_version\n  - position\n\
+      \  - started_at\n  - measurementDate\n  - specimen_status\n  - product_status_group\n\
+      \  - product_diagnosis\n  - patient_product_diagnosis\n  - age\n  - biopsy\n\
+      \  - sample_thickness_mm\n  - calibrant_thickness_mm\n  - poni_q_max_nm_inv\n\
+      \  - measurement_data_source\n  - q_range\n  - radial_profile_data\n  - snr_db\n\
+      \  - specimen_measurement_count\n  - radial_profile_value_at_q\n  - radial_profile_nearest_q_nm_inv\n\
+      \  - radial_profile_q_delta_nm_inv\n  - radial_profile_value_pass\naramis_preprocessing:\n\
+      \  name: aramis_prediction_patient_model_input\n  version: 0.1\n  clinical_stage:\
+      \ research draft\nprovenance:\n  status: research draft prediction preprocessing\
+      \ config\n  canonical_location: config/preprocessing/aramis_prediction_patient_model_input_v0_1.yaml\n\
       \  product_filter_rule: one incoming patient H5; no historical date, diagnosis,\
       \ biopsy,\n    or AgBH exclusion filters\n  clinical_safety_note: Decision-support\
       \ preprocessing only; not autonomous diagnosis.\n"
   checksums:
-    training_yaml_sha256: 309efb57ed1cf9eb67258dfd391e2c262fd795133a934fc5034cd2e5642b6f42
-    historical_preprocessing_yaml_sha256: 56a68ef1a55673064417ada5d5524f28398fd1d19ea24491c1ee42b09bd9601e
-    prediction_preprocessing_yaml_sha256: c3d1ba832d374ed48f280d905e8f77bcb35a5afda795f9a98b187f281c96367d
+    preprocess_train_yaml_sha256: 6dc80c69775cb993e99cf33e48d5ff6ab9186253714e956d5c25f48a3b334a5f
+    training_yaml_sha256: 7c3cb2838c6086604fbdcf47d74fa718491509f1453d7e5effc9b71ff918afaf
+    historical_preprocessing_yaml_sha256: c1d9c49bd7dfadacd8aa519d051d9a18c075c4b6e0bd38d6c8133388f7cdd5de
+    prediction_preprocessing_yaml_sha256: 3cae3963ad87d84d8e13834efa13e4ff0c47d29af249da6513633a147de35d40
 clinical_stage: research draft
 requires_radiologist_review: true

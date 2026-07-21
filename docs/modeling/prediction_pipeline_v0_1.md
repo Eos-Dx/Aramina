@@ -3,9 +3,9 @@
 Status: research draft.
 
 This document describes the first Aramis prediction route. It is clinical
-decision support only. The external report returns a suggested class,
-reliability metadata, and frozen method performance; the internal report
-retains `p_cancer` for audit.
+decision support only. The external report returns `risk_level` (`low` or
+`high`), reliability metadata, and frozen method performance; the internal
+report retains `p_cancer` and TRA for audit.
 
 ## Command
 
@@ -194,13 +194,18 @@ model_version
 model_metrics.metric_scope
 model_metrics.sensitivity
 model_metrics.specificity
-suggested_class
+risk_probability
+risk_level
+decision_threshold
 reliability
 reliability_reason
 ```
 
-External report does not expose `p_cancer`, threshold, profile-only scores,
-symmetry, provenance, raw data, or model internals. It includes sensitivity and
+External report does not expose the internal `suggested_class`, profile-only scores,
+symmetry, TRA, provenance, raw data, or model internals. `risk_probability` is
+the frozen final target-breast score and `decision_threshold` is the associated
+fixed model threshold. `risk_level` is `high` when the score meets or exceeds
+that threshold, otherwise `low`. The report includes sensitivity and
 specificity of the selected frozen final model. `model_metrics.metric_scope`
 states that these figures are train-on-all fit metrics, not independent
 evaluation estimates. `report_id` is
@@ -208,7 +213,7 @@ generated automatically and shared with the internal report from the same
 prediction operation. `created_at` is a Europe/Paris ISO timestamp with a
 numeric UTC offset.
 
-Internal report follows `internal_clinical_report_content_v0_2.md` and contains:
+Internal report follows `internal_clinical_report_content_v0_4.md` and contains:
 
 ```text
 output_type: aramis_internal_clinical_report
@@ -216,9 +221,11 @@ report_version
 report_id and created_at
 model ID/name/version/artifact SHA256
 frozen final-model sensitivity/specificity and request comment
+one shared decision threshold
 scan metadata and measurement summary
 target final decision and contralateral full-model evidence
 frozen score percentiles, symmetry availability, and reliability
+frozen TRA index and TRA level for each available breast
 ```
 
 Report-level naming:

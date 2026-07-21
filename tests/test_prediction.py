@@ -17,6 +17,7 @@ from aramis.prediction import (
     run_prediction_from_config,
 )
 from aramis.prediction_contract import _config_path
+from aramis.prediction_scoring import _tissue_risk_assessment
 from aramis.training import run_training_from_config
 from aramis.training_config import PRODUCT_MODEL_NAME
 
@@ -29,7 +30,7 @@ PREDICTION_EXAMPLE_ROOT = (
 FINAL_EXAMPLE_MODEL = (
     Path(__file__).parents[1]
     / "models"
-    / "aramis_target_breast_risk_0_2_7-beta_b47fff279377"
+    / "aramis_target_breast_risk_0_2_8-beta_509f84b2a745"
     / "model.joblib"
 )
 
@@ -109,6 +110,31 @@ def test_frozen_model_examples_keep_stable_scores(
         contralateral_p_cancer,
         abs=1e-5,
     )
+    for side in ("target", "contralateral"):
+        tra = predictions[side]["final_prediction"]["tissue_risk_assessment"]
+        assert 0.0 <= tra["index"] <= 100.0
+        assert tra["level"] in {"TRA 1", "TRA 2", "TRA 3", "TRA 4", "TRA 5"}
+
+
+@pytest.mark.parametrize(
+    ("score", "expected"),
+    [
+        (0.05, "TRA 1"),
+        (0.10, "TRA 2"),
+        (0.50, "TRA 3"),
+        (0.70, "TRA 4"),
+        (0.95, "TRA 5"),
+    ],
+)
+def test_tra_uses_frozen_percentile_reference(score: float, expected: str):
+    model_info = {
+        "prediction_reference_scores": {
+            "final_prediction": {"all_target_cases": [0.1, 0.3, 0.5, 0.7, 0.9]}
+        }
+    }
+    tra = _tissue_risk_assessment(model_info, score)
+    assert tra["level"] == expected
+    assert 0.0 <= tra["index"] <= 100.0
 
 
 def _patient_frame() -> pd.DataFrame:
@@ -278,8 +304,12 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
     internal = reports["internal_report"]
 
     assert external["output_type"] == "aramis_external_report"
-    assert external["suggested_class"] in {"BENIGN", "CANCER"}
+    assert 0.0 <= external["risk_probability"] <= 1.0
+    assert 0.0 <= external["decision_threshold"] <= 1.0
+    assert "suggested_class" not in external
     assert "p_cancer" not in external
+    assert external["risk_level"] in {"low", "high"}
+    assert "tissue_risk_assessment" not in external
     metrics = external["model_metrics"]
     assert metrics["metric_scope"] == "in_sample_not_independent"
     assert 0.0 <= metrics["sensitivity"] <= 1.0
@@ -290,8 +320,15 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
     assert external["reliability"] in {"low", "medium", "high"}
     target = internal["breast_predictions"]["target"]
     contralateral = internal["breast_predictions"]["contralateral"]
-    decision = internal["breast_predictions"]["decision"]
+    decision = internal["decision_threshold"]
     assert 0.0 <= target["final_prediction"]["p_cancer"] <= 1.0
+    assert target["final_prediction"]["tissue_risk_assessment"]["level"] in {
+        "TRA 1",
+        "TRA 2",
+        "TRA 3",
+        "TRA 4",
+        "TRA 5",
+    }
     assert decision["applies_to"] == [
         "target.final_prediction",
         "contralateral.final_prediction",
@@ -305,6 +342,9 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
         "BENIGN",
         "CANCER",
     }
+    assert contralateral["final_prediction"]["tissue_risk_assessment"][
+        "level"
+    ] in {"TRA 1", "TRA 2", "TRA 3", "TRA 4", "TRA 5"}
     assert contralateral["symmetry"]["available"] is False
     assert contralateral["reliability"]["level"] == "low"
     assert contralateral["model_execution"]["scoring_path"] == (

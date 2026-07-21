@@ -35,12 +35,12 @@ PRODUCT_MODELS = {
             "container": {"schema_version": "0.3", "format": "xrd-session"},
             "reporting": {
                 "external_report": {
-                    "version": "0.1",
+                    "version": "0.3",
                     "reference_doc": "docs/modeling/prediction_pipeline_v0_1.md",
                 },
                 "internal_report": {
-                    "version": "0.2",
-                    "reference_doc": "docs/modeling/internal_clinical_report_content_v0_2.md",
+                    "version": "0.4",
+                    "reference_doc": "docs/modeling/internal_clinical_report_content_v0_4.md",
                 },
             },
             "decision": {"threshold_key": "threshold_target"},
