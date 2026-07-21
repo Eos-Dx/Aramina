@@ -10,8 +10,8 @@ preprocessing_and_training:
   name: aramis_target_breast_risk_preprocessing_and_training
   run_author: REQUESTING_ANALYST
   output_folder: examples/outputs/preprocessing_and_training
-preprocessing_config_path: config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
-training_config_path: config/training/aramis_target_breast_risk_primary_train_v0_1.yaml
+preprocessing_config_path: config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
+training_config_path: config/training/config_training_target_breast_risk_v0_1.yaml
 ```
 
 All fields are required. All paths and nested values are non-empty strings.

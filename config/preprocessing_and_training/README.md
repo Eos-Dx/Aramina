@@ -11,8 +11,8 @@ preprocessing_and_training:
   name: aramis_target_breast_risk_preprocessing_and_training
   run_author: Sergey Denisov
   output_folder: examples/outputs/preprocessing_and_training
-preprocessing_config_path: config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
-training_config_path: config/training/aramis_target_breast_risk_primary_train_v0_1.yaml
+preprocessing_config_path: config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
+training_config_path: config/training/config_training_target_breast_risk_v0_1.yaml
 ```
 
 All relative paths resolve from the Aramis project root. `run_author` identifies the
@@ -21,7 +21,7 @@ in the resulting model artifact.
 
 ```bash
 python -m aramis preprocess-train \
-  --config config/preprocessing_and_training/aramis_target_breast_risk_preprocessing_and_training_v0_1.yaml
+  --config config/preprocessing_and_training/config_preprocess_and_train_target_breast_risk_v0_1.yaml
 ```
 
 Output is written under one unique folder with `preprocessing/dataframe.joblib`,

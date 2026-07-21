@@ -2,7 +2,7 @@
 set -euo pipefail
 
 CONFIG_ROOT="/opt/Aramis/config"
-DEFAULT_PREPROCESS_TRAIN_CONFIG="${CONFIG_ROOT}/preprocessing_and_training/aramis_target_breast_risk_preprocessing_and_training_v0_1.yaml"
+DEFAULT_PREPROCESS_TRAIN_CONFIG="${CONFIG_ROOT}/preprocessing_and_training/config_preprocess_and_train_target_breast_risk_v0_1.yaml"
 PREPROCESS_TRAIN_CONFIG="${DEFAULT_PREPROCESS_TRAIN_CONFIG}"
 
 while [[ $# -gt 0 ]]; do
@@ -61,7 +61,7 @@ fi
 if [[ "${PREPROCESS_TRAIN_CONFIG}" == "${DEFAULT_PREPROCESS_TRAIN_CONFIG}" ]]; then
   stage "Compare generated model with reference"
   python scripts/compare_model_artifacts.py \
-    --reference models/aramis_target_breast_risk_0_2_8-beta_509f84b2a745/model.joblib \
+    --reference models/aramis_target_breast_risk_0_2_9-beta_2479efef4979/model.joblib \
     --candidate "${MODEL_PATH}"
 else
   stage "Custom preprocess-train completed"

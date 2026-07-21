@@ -1,0 +1,25 @@
+output_type: aramis_external_report
+report_version: '0.3'
+report_id: EXAMPLE_REPORT_ID
+created_at: '2026-07-21T12:00:00+00:00'
+analysis_author: EXAMPLE_ANALYST
+prediction_comment: Example output only
+patient_id: EXAMPLE_PATIENT
+patient_age: 47.0
+target_side: left
+mammography_suspicious_field: unknown
+scan_date_time: unknown
+operator_id: unknown
+hardware_version: unknown
+eoscan_version: unknown
+model_name: aramis_target_breast_risk
+model_version: 0.2.9-beta
+model_metrics:
+  metric_scope: in_sample_not_independent
+  sensitivity: 0.96053
+  specificity: 0.46465
+risk_probability: 0.84062
+risk_level: high
+decision_threshold: 0.24451
+reliability: high
+reliability_reason: at least 3 valid measurements per breast

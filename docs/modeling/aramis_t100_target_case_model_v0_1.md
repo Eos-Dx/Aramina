@@ -96,9 +96,9 @@ No current result establishes stable 0.95 sensitivity on unseen patients.
 A larger independent cohort is required before any stronger product claim.
 ```
 
-## Current 0.2.8-beta Evaluation Record
+## Current 0.2.9-beta Evaluation Record
 
-The current `0.2.8-beta` packaged artifact was evaluated on the T100 biopsy-patient cohort
+The current `0.2.9-beta` packaged artifact was evaluated on the T100 biopsy-patient cohort
 using the fixed 100 patient-safe folds. The target threshold was derived on the
 training patients in each fold and then applied once to that fold's held-out
 patients.

@@ -7,10 +7,10 @@ This directory contains small, non-clinical examples of the files written by
 Real model records are stored beside their `model.joblib` under `models/`.
 
 ```text
-model_description_example.yaml
-evaluation_example.yaml
-evaluation_metrics_example.csv
-evaluation_predictions_example.csv
+examples/model_description.yaml
+examples/evaluation_summary.yaml
+examples/fold_metrics.csv
+examples/fold_predictions.csv
 ```
 
 CSV is used only for one-row-per-fold and one-row-per-held-out-case data.

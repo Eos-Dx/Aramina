@@ -64,5 +64,5 @@ Validation commands:
 ```text
 python -m ruff check .
 pytest -q
-python -m aramis predict --config config/prediction/prediction_examples/cancer_predict.yaml
+python -m aramis predict --config examples/prediction/configs/config_predict_cancer_example.yaml
 ```

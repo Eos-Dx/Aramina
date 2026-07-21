@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CONFIG_ROOT="/opt/Aramis/config/prediction/prediction_examples"
+CONFIG_ROOT="/opt/Aramis/examples/prediction/configs"
 OUTPUT_ROOT="/opt/Aramis/examples/outputs"
 MODEL_PATH=""
 
@@ -27,9 +27,9 @@ stage() {
 
 run_example() {
   local name="$1"
-  local template="${CONFIG_ROOT}/${name}_predict.yaml"
+  local template="${CONFIG_ROOT}/config_predict_${name}_example.yaml"
   local resolved_dir="${OUTPUT_ROOT}/prediction_examples/resolved_configs"
-  local resolved="${resolved_dir}/${name}_predict.yaml"
+  local resolved="${resolved_dir}/config_predict_${name}_resolved.yaml"
 
   [[ -f "${template}" ]] || { echo "Missing prediction config: ${template}" >&2; exit 1; }
   mkdir -p "${resolved_dir}"

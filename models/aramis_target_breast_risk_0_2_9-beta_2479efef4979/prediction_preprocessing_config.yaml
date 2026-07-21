@@ -360,7 +360,7 @@ aramis_preprocessing:
   clinical_stage: research draft
 provenance:
   status: research draft prediction preprocessing config
-  canonical_location: config/preprocessing/aramis_prediction_patient_model_input_v0_1.yaml
+  canonical_location: config/preprocessing/config_preprocessing_prediction_patient_v0_1.yaml
   product_filter_rule: one incoming patient H5; no historical date, diagnosis, biopsy,
     or AgBH exclusion filters
   clinical_safety_note: Decision-support preprocessing only; not autonomous diagnosis.

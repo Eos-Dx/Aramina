@@ -1,14 +1,14 @@
 extends:
 - ./config/preprocessing/shared/aramis_policy_v0_1.yaml
 - ./config/preprocessing/shared/aramis_pipeline_v0_1.yaml
-- ./config/preprocessing/outputs/prediction_model_input_output_v0_1.yaml
+- ./config/preprocessing/schema/prediction_input_columns_v0_1.yaml
 aramis_preprocessing:
   name: aramis_prediction_patient_model_input
   version: 0.1
   clinical_stage: research draft
 provenance:
   status: research draft prediction preprocessing config
-  canonical_location: config/preprocessing/aramis_prediction_patient_model_input_v0_1.yaml
+  canonical_location: config/preprocessing/config_preprocessing_prediction_patient_v0_1.yaml
   product_filter_rule: one incoming patient H5; no historical date, diagnosis, biopsy, or AgBH exclusion filters
   clinical_safety_note: Decision-support preprocessing only; not autonomous diagnosis.
 io:

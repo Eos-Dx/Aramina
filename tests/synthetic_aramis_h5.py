@@ -32,8 +32,8 @@ PAYLOAD_COLUMNS = {
 
 def load_synthetic_config(cohort: str = "biopsy_patients") -> dict:
     config_file = {
-        "biopsy_patients": "aramis_biopsy_patients_model_input_v0_1.yaml",
-        "prediction_patient": "aramis_prediction_patient_model_input_v0_1.yaml",
+        "biopsy_patients": "config_preprocessing_biopsy_patients_v0_1.yaml",
+        "prediction_patient": "config_preprocessing_prediction_patient_v0_1.yaml",
     }[cohort]
     config_path = Path(__file__).parents[1] / "config" / "preprocessing" / config_file
     config = load_preprocessing_config(config_path)

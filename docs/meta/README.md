@@ -23,8 +23,8 @@ Aramis/config/preprocessing/
 Current runnable preprocessing YAMLs:
 
 ```text
-config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
-config/preprocessing/aramis_prediction_patient_model_input_v0_1.yaml
+config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
+config/preprocessing/config_preprocessing_prediction_patient_v0_1.yaml
 ```
 
 They compose smaller fragments:
@@ -33,8 +33,8 @@ They compose smaller fragments:
 shared/aramis_policy_v0_1.yaml      GFRM-only product policy
 shared/aramis_pipeline_v0_1.yaml    ordered transformer steps
 exclusions/agbh_quality_exclusions_t100_v0_1.yaml
-outputs/model_input_output_v0_1.yaml
-outputs/prediction_model_input_output_v0_1.yaml
+schema/model_input_columns_v0_1.yaml
+schema/prediction_input_columns_v0_1.yaml
 ```
 
 Runnable root YAMLs extend the shared policy, pipeline, output schema, and
@@ -90,7 +90,7 @@ product filtering policy
 Use this file when deciding whether a measurement batch is product-usable for a
 K-alpha-only Aramis workflow.
 
-### `config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml`
+### `config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml`
 
 Purpose:
 
@@ -111,7 +111,7 @@ both breast sides when available for symmetry/asymmetry feature generation. At
 training time, each biopsied breast becomes one target case; bilateral cases are
 never separated across patient-safe folds.
 
-### `config/preprocessing/aramis_prediction_patient_model_input_v0_1.yaml`
+### `config/preprocessing/config_preprocessing_prediction_patient_v0_1.yaml`
 
 Purpose:
 
@@ -146,7 +146,7 @@ io.output_joblib_path
 The product command should receive only the YAML path:
 
 ```text
-python -m aramis preprocess --config config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
+python -m aramis preprocess --config config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
 ```
 
 Current XRD-preprocessing dependency marker:
@@ -215,8 +215,8 @@ Aramis/docs/agbh_quality_exclusions.md
 Used by:
 
 ```text
-Aramis/config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
-Aramis/config/preprocessing/aramis_prediction_patient_model_input_v0_1.yaml
+Aramis/config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
+Aramis/config/preprocessing/config_preprocessing_prediction_patient_v0_1.yaml
 ```
 
 ### `aramis_agbh_kbeta_batch5_6_exclusion_justification_v0_1.py`

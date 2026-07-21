@@ -5,8 +5,8 @@ Formal product contract: `docs/contracts/preprocessing_config_v0_1.md`.
 Current development configs:
 
 ```text
-aramis_biopsy_patients_model_input_v0_1.yaml
-aramis_prediction_patient_model_input_v0_1.yaml
+config_preprocessing_biopsy_patients_v0_1.yaml
+config_preprocessing_prediction_patient_v0_1.yaml
 ```
 
 The first config builds the T100 historical training cohort. It keeps patients
@@ -29,7 +29,7 @@ root. Repository configs use root-level paths such as
 ```text
 shared/       common XRD settings and ordered transformer pipeline
 exclusions/   T100 AgBH quality exclusions and evidence reference
-outputs/      explicit retained DataFrame columns
+schema/       explicit retained DataFrame columns
 ```
 
 Canonical product constraints:
@@ -49,7 +49,7 @@ Run:
 
 ```bash
 python -m aramis preprocess \
-  --config config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
+  --config config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
 ```
 
 Output joblib contains:

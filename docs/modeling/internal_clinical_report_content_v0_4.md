@@ -20,7 +20,7 @@ prediction_comment: "optional free-text request comment"
 model:
   id: MODEL_ARTIFACT_ID
   name: aramis_target_breast_risk
-  version: 0.2.8-beta
+  version: 0.2.9-beta
   artifact_sha256: SHA256
 model_metrics:
   metric_scope: in_sample_not_independent

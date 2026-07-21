@@ -20,7 +20,7 @@ patient:
 Run from the Aramis project root:
 
 ```bash
-python -m aramis predict --config config/prediction/prediction_examples/cancer_predict.yaml
+python -m aramis predict --config examples/prediction/configs/config_predict_cancer_example.yaml
 ```
 
 All relative paths are resolved from the Aramis root. `analysis_author` is the person requesting the report. `prediction_comment` is optional free text and is copied to both reports. `patient_id` must exactly match the only H5 patient. `target_side` is clinical input and must be `left` or `right` in the preprocessed H5 data. Optional H5 metadata is retained when available; absent, blank, or unrecognised optional values are reported as `unknown` and do not stop prediction.

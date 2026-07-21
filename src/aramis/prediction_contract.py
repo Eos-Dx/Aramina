@@ -317,10 +317,12 @@ def _config_path(
 
 
 def _config_root(config_path: Path) -> Path:
-    """Return the project root immediately above the nearest ``config`` directory."""
+    """Return the project root for a config or a runnable example YAML."""
     for parent in config_path.resolve().parents:
         if parent.name == "config":
             return parent.parent
+        if (parent / "pyproject.toml").is_file():
+            return parent
     return config_path.parent
 
 

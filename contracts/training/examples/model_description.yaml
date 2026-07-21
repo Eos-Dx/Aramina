@@ -1,9 +1,9 @@
 output_type: aramis_model_description
 version: '0.1'
 model:
-  id: aramis_target_breast_risk_0_2_8-beta_<sha12>
+  id: aramis_target_breast_risk_0_2_9-beta_<sha12>
   name: aramis_target_breast_risk
-  version: 0.2.8-beta
+  version: 0.2.9-beta
   artifact_sha256: <sha256>
 model_joblib: model.joblib
 model_performance:

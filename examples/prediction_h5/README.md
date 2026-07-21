@@ -36,16 +36,16 @@ Run:
 cd Aramis
 conda activate eosproduct
 
-python -m aramis predict --config config/prediction/prediction_examples/benign_predict.yaml
-python -m aramis predict --config config/prediction/prediction_examples/cancer_predict.yaml
-python -m aramis predict --config config/prediction/prediction_examples/atypical_predict.yaml
+python -m aramis predict --config examples/prediction/configs/config_predict_benign_example.yaml
+python -m aramis predict --config examples/prediction/configs/config_predict_cancer_example.yaml
+python -m aramis predict --config examples/prediction/configs/config_predict_atypical_example.yaml
 ```
 
-The canonical prediction YAML files in `config/prediction/prediction_examples/`
+The canonical prediction YAML files in `examples/prediction/configs/`
 use the tracked final product-model artifact:
 
 ```text
-models/aramis_target_breast_risk_0_2_8-beta_509f84b2a745/model.joblib
+models/aramis_target_breast_risk_0_2_9-beta_2479efef4979/model.joblib
 ```
 
 The fixture-builder script is provided for reproducibility. It requires local

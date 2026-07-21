@@ -33,14 +33,14 @@ in both train and test.
 ## Current Product Preprocessing Configs
 
 ```text
-config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
+config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
   primary model-development dataset
   keep patients with at least one biopsy-associated row
   keep contralateral rows for symmetry features
   map NORMAL to BENIGN
   apply T100 AgBH quality exclusions
 
-config/preprocessing/aramis_prediction_patient_model_input_v0_1.yaml
+config/preprocessing/config_preprocessing_prediction_patient_v0_1.yaml
   one incoming prediction patient
   no historical date, diagnosis, biopsy, or AgBH cohort filters
   stored inside trained model joblibs

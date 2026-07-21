@@ -30,8 +30,8 @@ from .synthetic_aramis_h5 import load_synthetic_config, write_known_synthetic_h5
 def test_shipped_product_yaml_contracts_build_or_validate():
     root = Path(__file__).parents[1]
     expected_steps = {
-        "aramis_biopsy_patients_model_input_v0_1.yaml": 19,
-        "aramis_prediction_patient_model_input_v0_1.yaml": 16,
+        "config_preprocessing_biopsy_patients_v0_1.yaml": 19,
+        "config_preprocessing_prediction_patient_v0_1.yaml": 16,
     }
     for filename, count in expected_steps.items():
         config = load_preprocessing_config(root / "config" / "preprocessing" / filename)
@@ -39,20 +39,20 @@ def test_shipped_product_yaml_contracts_build_or_validate():
         validate_aramis_preprocessing_config(config)
 
     load_training_config(
-        root / "config" / "training" / "aramis_target_breast_risk_primary_train_v0_1.yaml"
+        root / "config" / "training" / "config_training_target_breast_risk_v0_1.yaml"
     )
     _load_preprocess_train_config(
         root
         / "config"
         / "preprocessing_and_training"
-        / "aramis_target_breast_risk_preprocessing_and_training_v0_1.yaml"
+        / "config_preprocess_and_train_target_breast_risk_v0_1.yaml"
     )
     for path in sorted((root / "config" / "prediction").glob("*.yaml")):
         _validate_prediction_config(
             yaml.safe_load(path.read_text(encoding="utf-8")), path
         )
     for path in sorted(
-        (root / "config" / "prediction" / "prediction_examples").glob("*.yaml")
+        (root / "examples" / "prediction" / "configs").glob("*.yaml")
     ):
         _validate_prediction_config(
             yaml.safe_load(path.read_text(encoding="utf-8")), path
@@ -84,7 +84,7 @@ def test_aramis_product_preprocessing_contract_rejects_policy_changes(
         Path(__file__).parents[1]
         / "config"
         / "preprocessing"
-        / "aramis_biopsy_patients_model_input_v0_1.yaml"
+        / "config_preprocessing_biopsy_patients_v0_1.yaml"
     )
     mutate(config)
 

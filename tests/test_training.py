@@ -98,13 +98,13 @@ def test_model_owned_preprocessing_path_uses_training_config_project_root(tmp_pa
         / "Aramis"
         / "config"
         / "preprocessing"
-        / "aramis_prediction_patient_model_input_v0_1.yaml"
+        / "config_preprocessing_prediction_patient_v0_1.yaml"
     )
     expected.parent.mkdir()
     expected.touch()
 
     resolved = _project_owned_path(
-        "config/preprocessing/aramis_prediction_patient_model_input_v0_1.yaml",
+        "config/preprocessing/config_preprocessing_prediction_patient_v0_1.yaml",
         config_path,
     )
 

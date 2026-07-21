@@ -21,7 +21,7 @@ ARAMIS_CONFIG = (
     Path(__file__).parents[1]
     / "config"
     / "preprocessing"
-    / "aramis_biopsy_patients_model_input_v0_1.yaml"
+    / "config_preprocessing_biopsy_patients_v0_1.yaml"
 )
 
 

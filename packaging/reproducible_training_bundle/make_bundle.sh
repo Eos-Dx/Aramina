@@ -6,11 +6,11 @@ ARAMIS_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 XRD_ROOT="${XRD_ROOT:-${ARAMIS_ROOT}/../XRD-preprocessing}"
 SOURCE_H5="${SOURCE_H5:-${ARAMIS_ROOT}/../eos_play/jupyter_notebooks/Clinical_trials/data/product-aramis-data/combined_archive.h5}"
 DIST_DIR="${DIST_DIR:-${ARAMIS_ROOT}/dist}"
-BUNDLE_NAME="aramis_docker_training_bundle_0_2_8_beta"
-AMD64_IMAGE_TAG="eosdx/aramis-training:0.2.8-beta-amd64"
-AMD64_IMAGE_ARCHIVE="aramis_training_linux_amd64_0_2_8_beta.tar"
-ARM64_IMAGE_TAG="eosdx/aramis-training:0.2.8-beta-arm64"
-ARM64_IMAGE_ARCHIVE="aramis_training_linux_arm64_0_2_8_beta.tar"
+BUNDLE_NAME="aramis_docker_training_bundle_0_2_9_beta"
+AMD64_IMAGE_TAG="eosdx/aramis-training:0.2.9-beta-amd64"
+AMD64_IMAGE_ARCHIVE="aramis_training_linux_amd64_0_2_9_beta.tar"
+ARM64_IMAGE_TAG="eosdx/aramis-training:0.2.9-beta-arm64"
+ARM64_IMAGE_ARCHIVE="aramis_training_linux_arm64_0_2_9_beta.tar"
 WORK_DIR="${DIST_DIR}/${BUNDLE_NAME}"
 ARCHIVE_PATH="${DIST_DIR}/${BUNDLE_NAME}.zip"
 BUILD_CONTEXT="$(mktemp -d)"
@@ -30,32 +30,32 @@ rm -rf "${WORK_DIR}" "${ARCHIVE_PATH}"
 mkdir -p \
   "${WORK_DIR}/data" \
   "${WORK_DIR}/config/preprocessing_and_training" \
-  "${WORK_DIR}/config/prediction/prediction_examples" \
+  "${WORK_DIR}/examples/prediction/configs" \
   "${WORK_DIR}/config/training" \
   "${WORK_DIR}/config/preprocessing/exclusions" \
-  "${WORK_DIR}/config/preprocessing/outputs" \
+  "${WORK_DIR}/config/preprocessing/schema" \
   "${WORK_DIR}/config/preprocessing/shared" \
   "${WORK_DIR}/examples/prediction_h5" \
   "${DIST_DIR}"
 cp "${SOURCE_H5}" "${WORK_DIR}/data/combined_archive.h5"
-cp "${ARAMIS_ROOT}/config/preprocessing_and_training/aramis_target_breast_risk_preprocessing_and_training_v0_1.yaml" \
+cp "${ARAMIS_ROOT}/config/preprocessing_and_training/config_preprocess_and_train_target_breast_risk_v0_1.yaml" \
   "${WORK_DIR}/config/preprocessing_and_training/"
-cp "${ARAMIS_ROOT}/config/training/aramis_target_breast_risk_primary_train_v0_1.yaml" \
+cp "${ARAMIS_ROOT}/config/training/config_training_target_breast_risk_v0_1.yaml" \
   "${WORK_DIR}/config/training/"
-cp "${ARAMIS_ROOT}/config/prediction/prediction_examples/"*_predict.yaml \
-  "${WORK_DIR}/config/prediction/prediction_examples/"
+cp "${ARAMIS_ROOT}/examples/prediction/configs/"config_predict_*_example.yaml \
+  "${WORK_DIR}/examples/prediction/configs/"
 cp "${ARAMIS_ROOT}/examples/prediction_h5/"*_one_patient.h5 \
   "${WORK_DIR}/examples/prediction_h5/"
-cp "${ARAMIS_ROOT}/config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml" \
+cp "${ARAMIS_ROOT}/config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml" \
   "${WORK_DIR}/config/preprocessing/"
-cp "${ARAMIS_ROOT}/config/preprocessing/aramis_prediction_patient_model_input_v0_1.yaml" \
+cp "${ARAMIS_ROOT}/config/preprocessing/config_preprocessing_prediction_patient_v0_1.yaml" \
   "${WORK_DIR}/config/preprocessing/"
 cp "${ARAMIS_ROOT}/config/preprocessing/exclusions/agbh_quality_exclusions_t100_v0_1.yaml" \
   "${WORK_DIR}/config/preprocessing/exclusions/"
-cp "${ARAMIS_ROOT}/config/preprocessing/outputs/model_input_output_v0_1.yaml" \
-  "${WORK_DIR}/config/preprocessing/outputs/"
-cp "${ARAMIS_ROOT}/config/preprocessing/outputs/prediction_model_input_output_v0_1.yaml" \
-  "${WORK_DIR}/config/preprocessing/outputs/"
+cp "${ARAMIS_ROOT}/config/preprocessing/schema/model_input_columns_v0_1.yaml" \
+  "${WORK_DIR}/config/preprocessing/schema/"
+cp "${ARAMIS_ROOT}/config/preprocessing/schema/prediction_input_columns_v0_1.yaml" \
+  "${WORK_DIR}/config/preprocessing/schema/"
 cp "${ARAMIS_ROOT}/config/preprocessing/shared/aramis_pipeline_v0_1.yaml" \
   "${WORK_DIR}/config/preprocessing/shared/"
 sed \
@@ -117,11 +117,11 @@ payload = {
     "aramis_commit": aramis_commit,
     "xrd_preprocessing_commit": xrd_commit,
     "h5_sha256": digest(h5_path),
-    "image_amd64_tag": "eosdx/aramis-training:0.2.8-beta-amd64",
+    "image_amd64_tag": "eosdx/aramis-training:0.2.9-beta-amd64",
     "image_amd64_platform": "linux/amd64",
-    "image_amd64_archive": "aramis_training_linux_amd64_0_2_8_beta.tar",
+    "image_amd64_archive": "aramis_training_linux_amd64_0_2_9_beta.tar",
     "image_amd64_archive_sha256": digest(amd64_image_path),
-    "image_arm64_tag": "eosdx/aramis-training:0.2.8-beta-arm64",
+    "image_arm64_tag": "eosdx/aramis-training:0.2.9-beta-arm64",
     "image_arm64_platform": "linux/arm64",
     "image_arm64_archive": "aramis_training_linux_arm64_0_2_8_beta.tar",
     "image_arm64_archive_sha256": digest(arm64_image_path),

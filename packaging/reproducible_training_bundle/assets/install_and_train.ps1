@@ -1,5 +1,5 @@
 param(
-    [string]$PreprocessTrainConfig = "config/preprocessing_and_training/aramis_target_breast_risk_preprocessing_and_training_v0_1.yaml"
+    [string]$PreprocessTrainConfig = "config/preprocessing_and_training/config_preprocess_and_train_target_breast_risk_v0_1.yaml"
 )
 
 $ErrorActionPreference = "Stop"

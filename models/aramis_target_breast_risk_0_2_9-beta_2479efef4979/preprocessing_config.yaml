@@ -427,7 +427,7 @@ aramis_preprocessing:
   clinical_stage: research draft
 provenance:
   status: research draft biopsy-patients model-input preprocessing config
-  canonical_location: config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
+  canonical_location: config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
   product_filter_rule: keep patients with at least one biopsy row; include contralateral
     rows; NORMAL mapped to BENIGN; AgBH T100 monochromaticity exclusions
   quality_exclusion_reason_doc: ./docs/agbh_quality_exclusions.md

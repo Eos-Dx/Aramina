@@ -10,7 +10,7 @@ mkdir -p "${LOG_DIR}"
 LOG_PATH="${LOG_DIR}/install_and_train_$(date -u +%Y%m%dT%H%M%SZ).log"
 exec > >(tee -a "${LOG_PATH}") 2>&1
 
-DEFAULT_PREPROCESS_TRAIN_CONFIG="config/preprocessing_and_training/aramis_target_breast_risk_preprocessing_and_training_v0_1.yaml"
+DEFAULT_PREPROCESS_TRAIN_CONFIG="config/preprocessing_and_training/config_preprocess_and_train_target_breast_risk_v0_1.yaml"
 PREPROCESS_TRAIN_CONFIG="${DEFAULT_PREPROCESS_TRAIN_CONFIG}"
 while [[ $# -gt 0 ]]; do
   case "$1" in

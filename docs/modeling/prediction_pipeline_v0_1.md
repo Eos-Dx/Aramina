@@ -10,7 +10,7 @@ report retains `p_cancer` and TRA for audit.
 ## Command
 
 ```bash
-python -m aramis predict --config config/prediction/prediction_examples/cancer_predict.yaml
+python -m aramis predict --config examples/prediction/configs/config_predict_cancer_example.yaml
 ```
 
 ## Input Contract

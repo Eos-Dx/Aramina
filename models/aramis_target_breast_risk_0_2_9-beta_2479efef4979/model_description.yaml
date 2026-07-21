@@ -2,9 +2,9 @@ output_type: aramis_model_description
 version: '0.1'
 model:
   name: aramis_target_breast_risk
-  version: 0.2.8-beta
-  id: aramis_target_breast_risk_0_2_8-beta_509f84b2a745
-  artifact_sha256: 509f84b2a745b14ed5e0581421b8ec58c5fdbe3e8fe262a2a9bb0b255640e585
+  version: 0.2.9-beta
+  id: aramis_target_breast_risk_0_2_9-beta_2479efef4979
+  artifact_sha256: 2479efef497956b50e2361c26145ea18287f18063aaa9039474fde55bc9fab29
 model_summary:
   architecture:
     stage_1: target_xrd_profile_logistic_regression
@@ -499,11 +499,13 @@ reproducibility:
     sha256: d2d61e83850b282c3d2479ea436deed821c4488b96983252d294f3d56ee3f1f9
   source_code:
     aramis:
-      version: 0.2.8b0
-      git_sha: fe97e57d681fb36b62e0c7a1dfd180279296de07
+      version: 0.2.9b0
+      git_sha: f2c31e4bd70f251691e10181f4818aa75db71918
     xrd_preprocessing:
       version: 0.1.7b0
-      url: file:///Users/sad/dev/XRD-preprocessing
+      url: https://github.com/Eos-Dx/XRD-preprocessing.git
+      requested_revision: c221a6e
+      git_commit: c221a6eec02f3974244592172a8eaa153fc887d7
   runtime:
     python: 3.13.14
     platform: macOS-26.5.2-arm64-arm-64bit-Mach-O
@@ -521,10 +523,10 @@ reproducibility:
     preprocess_train_yaml: "contract: aramis_preprocessing_and_training_config_v0_1\n\
       preprocessing_and_training:\n  name: aramis_target_breast_risk_preprocessing_and_training\n\
       \  run_author: Sergey Denisov\n  output_folder: examples/outputs/preprocessing_and_training\n\
-      preprocessing_config_path: config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml\n\
-      training_config_path: config/training/aramis_target_breast_risk_primary_train_v0_1.yaml\n"
+      preprocessing_config_path: config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml\n\
+      training_config_path: config/training/config_training_target_breast_risk_v0_1.yaml\n"
     training_yaml: "contract: aramis_training_config_v0_3\nmodel:\n  name: aramis_target_breast_risk\n\
-      \  version: 0.2.8-beta\n  model_author: Sergey Denisov\n  clinical_stage: research\
+      \  version: 0.2.9-beta\n  model_author: Sergey Denisov\n  clinical_stage: research\
       \ draft\n  intended_use: Breast cancer decision support; requires radiologist\
       \ review.\nrun:\n  evaluation: true\n  train_on_all: true\ninput:\n  dataframe_joblib_path:\
       \ examples/outputs/model_input/aramis_biopsy_patients_model_input_v0_1.joblib\n\
@@ -674,7 +676,7 @@ reproducibility:
       \  - radial_profile_value_pass\naramis_preprocessing:\n  name: aramis_biopsy_patients_model_input\n\
       \  version: 0.1\n  clinical_stage: research draft\nprovenance:\n  status: research\
       \ draft biopsy-patients model-input preprocessing config\n  canonical_location:\
-      \ config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml\n  product_filter_rule:\
+      \ config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml\n  product_filter_rule:\
       \ keep patients with at least one biopsy row; include contralateral\n    rows;\
       \ NORMAL mapped to BENIGN; AgBH T100 monochromaticity exclusions\n  quality_exclusion_reason_doc:\
       \ ./docs/agbh_quality_exclusions.md\nexperiment:\n  monochromaticity_threshold_factor:\
@@ -799,14 +801,14 @@ reproducibility:
       \  - radial_profile_q_delta_nm_inv\n  - radial_profile_value_pass\naramis_preprocessing:\n\
       \  name: aramis_prediction_patient_model_input\n  version: 0.1\n  clinical_stage:\
       \ research draft\nprovenance:\n  status: research draft prediction preprocessing\
-      \ config\n  canonical_location: config/preprocessing/aramis_prediction_patient_model_input_v0_1.yaml\n\
+      \ config\n  canonical_location: config/preprocessing/config_preprocessing_prediction_patient_v0_1.yaml\n\
       \  product_filter_rule: one incoming patient H5; no historical date, diagnosis,\
       \ biopsy,\n    or AgBH exclusion filters\n  clinical_safety_note: Decision-support\
       \ preprocessing only; not autonomous diagnosis.\n"
   checksums:
-    preprocess_train_yaml_sha256: 6dc80c69775cb993e99cf33e48d5ff6ab9186253714e956d5c25f48a3b334a5f
-    training_yaml_sha256: 7c3cb2838c6086604fbdcf47d74fa718491509f1453d7e5effc9b71ff918afaf
-    historical_preprocessing_yaml_sha256: c1d9c49bd7dfadacd8aa519d051d9a18c075c4b6e0bd38d6c8133388f7cdd5de
-    prediction_preprocessing_yaml_sha256: 3cae3963ad87d84d8e13834efa13e4ff0c47d29af249da6513633a147de35d40
+    preprocess_train_yaml_sha256: f290af12fa15da4ba32cdcffe3dc11c48d16f258ebf84d1484ff11374454c4c9
+    training_yaml_sha256: 144ff9846caa781dd05e464c73ec893cf4ca05930b8241a0edb098e96121c3d7
+    historical_preprocessing_yaml_sha256: 2829b46e16a196188ff950c5e1c559f83b412bb10507e50a9c7d6e8713a5e377
+    prediction_preprocessing_yaml_sha256: 18ace800f3903397dc1dc0001b00f45dc6fa5b6627c9c805dda035a0b557e34d
 clinical_stage: research draft
 requires_radiologist_review: true

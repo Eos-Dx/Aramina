@@ -59,10 +59,10 @@ Detailed instructions: [INSTALL.md](INSTALL.md).
 ## Main Commands
 
 ```bash
-python -m aramis preprocess --config config/preprocessing/aramis_biopsy_patients_model_input_v0_1.yaml
-python -m aramis train --config config/training/aramis_target_breast_risk_primary_train_v0_1.yaml
-python -m aramis preprocess-train --config config/preprocessing_and_training/aramis_target_breast_risk_preprocessing_and_training_v0_1.yaml
-python -m aramis predict --config config/prediction/prediction_examples/cancer_predict.yaml
+python -m aramis preprocess --config config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
+python -m aramis train --config config/training/config_training_target_breast_risk_v0_1.yaml
+python -m aramis preprocess-train --config config/preprocessing_and_training/config_preprocess_and_train_target_breast_risk_v0_1.yaml
+python -m aramis predict --config examples/prediction/configs/config_predict_cancer_example.yaml
 ```
 
 `preprocess` and `train` are development routes. Production-style H5 scoring
@@ -81,7 +81,8 @@ config/preprocessing_and_training/README.md     combined route
 docs/modeling/aramis_t100_target_case_model_v0_1.md
                                                 model rationale and limits
 docs/modeling/prediction_pipeline_v0_1.md       prediction route
-docs/contracts/                                 YAML and artifact contracts
+contracts/                                      filled output-contract examples
+docs/contracts/                                 canonical YAML and artifact contracts
 docs/meta/README.md                             decision evidence
 ```
 

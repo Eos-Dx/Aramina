@@ -24,23 +24,21 @@ from aramis.training_config import PRODUCT_MODEL_NAME
 from .synthetic_aramis_h5 import write_v0_3_one_patient_h5
 
 
-PREDICTION_EXAMPLE_ROOT = (
-    Path(__file__).parents[1] / "config" / "prediction" / "prediction_examples"
-)
+PREDICTION_EXAMPLE_ROOT = Path(__file__).parents[1] / "examples" / "prediction" / "configs"
 FINAL_EXAMPLE_MODEL = (
     Path(__file__).parents[1]
     / "models"
-    / "aramis_target_breast_risk_0_2_8-beta_509f84b2a745"
+    / "aramis_target_breast_risk_0_2_9-beta_2479efef4979"
     / "model.joblib"
 )
 
 
 def test_tracked_prediction_examples_use_final_product_artifact():
-    configs = sorted(PREDICTION_EXAMPLE_ROOT.glob("*_predict.yaml"))
+    configs = sorted(PREDICTION_EXAMPLE_ROOT.glob("config_predict_*_example.yaml"))
     assert [path.name for path in configs] == [
-        "atypical_predict.yaml",
-        "benign_predict.yaml",
-        "cancer_predict.yaml",
+        "config_predict_atypical_example.yaml",
+        "config_predict_benign_example.yaml",
+        "config_predict_cancer_example.yaml",
     ]
 
     for config_path in configs:
@@ -70,12 +68,27 @@ def test_prediction_relative_paths_resolve_from_configuration_root(tmp_path: Pat
     )
 
 
+def test_prediction_example_paths_resolve_from_project_root(tmp_path: Path):
+    project_root = tmp_path / "aramis"
+    config_path = project_root / "examples" / "prediction" / "configs" / "example.yaml"
+    config_path.parent.mkdir(parents=True)
+    (project_root / "pyproject.toml").touch()
+    config = {"io": {"input_model_joblib_path": "models/example/model.joblib"}}
+
+    assert _config_path(
+        config,
+        config_path,
+        section="io",
+        key="input_model_joblib_path",
+    ) == (project_root / "models" / "example" / "model.joblib")
+
+
 @pytest.mark.parametrize(
     ("config_name", "target_p_cancer", "contralateral_p_cancer"),
     [
-        ("atypical_predict.yaml", 0.45023, 0.79691),
-        ("benign_predict.yaml", 0.34270, 0.25711),
-        ("cancer_predict.yaml", 0.84062, 0.76857),
+        ("config_predict_atypical_example.yaml", 0.45023, 0.79691),
+        ("config_predict_benign_example.yaml", 0.34270, 0.25711),
+        ("config_predict_cancer_example.yaml", 0.84062, 0.76857),
     ],
 )
 def test_frozen_model_examples_keep_stable_scores(
