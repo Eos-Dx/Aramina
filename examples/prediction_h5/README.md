@@ -45,7 +45,7 @@ The canonical prediction YAML files in `examples/prediction/configs/`
 use the tracked final product-model artifact:
 
 ```text
-models/aramis_target_breast_risk_0_2_10-beta_592a62609379/model.joblib
+models/aramis_target_breast_risk_0_2_10-beta_3a0cb1c1d4ac/model.joblib
 ```
 
 The fixture-builder script is provided for reproducibility. It requires local

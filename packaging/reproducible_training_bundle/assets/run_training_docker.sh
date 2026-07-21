@@ -61,7 +61,7 @@ fi
 if [[ "${PREPROCESS_TRAIN_CONFIG}" == "${DEFAULT_PREPROCESS_TRAIN_CONFIG}" ]]; then
   stage "Compare generated model with reference"
   python scripts/compare_model_artifacts.py \
-    --reference models/aramis_target_breast_risk_0_2_10-beta_592a62609379/model.joblib \
+    --reference models/aramis_target_breast_risk_0_2_10-beta_3a0cb1c1d4ac/model.joblib \
     --candidate "${MODEL_PATH}"
 else
   stage "Custom preprocess-train completed"
