@@ -23,7 +23,8 @@ model:
   version: 0.2.10-beta
   artifact_sha256: SHA256
 model_metrics:
-  metric_scope: in_sample_not_independent
+  dataset: train_on_all_target_breast_cases
+  validation: not_performed
   sensitivity: 0.96053
   specificity: 0.46465
 decision_threshold:
@@ -72,13 +73,10 @@ azimuthal_integration_target_profile:
 final_prediction:
   p_cancer: 0.59489
   suggested_class: CANCER
-  tissue_risk_assessment:
-    index: 74.00000
-    level: TRA 3
-    reference_population: train_on_all target-breast cases
+  level: TRA 3
   score_percentiles:
     reference_score: final_prediction.p_cancer
-    reference_population: train_on_all target-breast cases
+    reference_population: train_on_all_target_breast_cases
     all_training_target_cases: 0.74000
     benign_training_target_cases: 0.93000
     cancer_training_target_cases: 0.32000
@@ -96,13 +94,13 @@ The final score combines the profile, optional gated SK symmetry refinement, and
 age when available. The decision uses only `target.final_prediction`: `CANCER`
 when `p_cancer >= decision_threshold.threshold`, otherwise `BENIGN`.
 
-`final_prediction.tissue_risk_assessment` is the product-facing ordinal Tissue
-Risk Assessment. Its `index` is the all-training-target-case percentile of the
-final score, on a 0–100 scale. `TRA 1` is below the 20th percentile, `TRA 2`
-is 20th–below 50th, `TRA 3` is 50th–below 80th, `TRA 4` is 80th–below 90th,
-and `TRA 5` is at or above the 90th percentile. TRA is a fixed rank in the
-frozen reference cohort, not an individual cancer probability, diagnosis, or
-clinical calibration. It does not replace the shared threshold-based
+`final_prediction.level` is the product-facing ordinal Tissue Risk Assessment.
+The model calculates its unreported internal index as the all-training-target-
+case percentile of the final score. `TRA 1` is below the 20th percentile,
+`TRA 2` is 20th–below 50th, `TRA 3` is 50th–below 80th, `TRA 4` is 80th–below
+90th, and `TRA 5` is at or above the 90th percentile. TRA is a fixed rank in
+the frozen reference cohort, not an individual cancer probability, diagnosis,
+or clinical calibration. It does not replace the shared threshold-based
 `suggested_class` or clinician review.
 
 Target `score_percentiles` are empirical percentiles of final `p_cancer` against
@@ -114,7 +112,7 @@ diagnosis, population risk, calibration, or a decision rule. They are never
 recalculated from incoming scans.
 
 The available contralateral block contains the LR1 profile evidence and the
-full M2Q score with SK symmetry terms neutralized. Its `suggested_class` is
+full final-model score with SK symmetry terms neutralized. Its `suggested_class` is
 calculated with the same shared threshold as the target breast. The target
 remains the caller-supplied primary decision-support result:
 
@@ -128,13 +126,10 @@ azimuthal_integration_contralateral_profile:
 final_prediction:
   p_cancer: 0.48611
   suggested_class: CANCER
-  tissue_risk_assessment:
-    index: 51.00000
-    level: TRA 3
-    reference_population: train_on_all target-breast cases
+  level: TRA 3
   score_percentiles:
     reference_score: final_prediction.p_cancer
-    reference_population: train_on_all target-breast cases
+    reference_population: train_on_all_target_breast_cases
     all_training_target_cases: 0.51000
     benign_training_target_cases: 0.67000
     cancer_training_target_cases: 0.25000
@@ -144,14 +139,14 @@ reliability:
 symmetry:
   available: false
 model_execution:
-  scoring_path: azimuthal_integration_age_with_neutral_symmetry_gate
+  scoring_path: azimuthal_integration_age
 ```
 
 Both target and contralateral `final_prediction.p_cancer` values use the same
 frozen final-score distribution from historical target-breast cases. This
 comparison is descriptive evidence only and does not make the contralateral
 score equivalent to a symmetry-supported target result. Contralateral
-reliability is always `low`: its M2Q score intentionally does not use SK
+reliability is always `low`: its final score intentionally does not use SK
 symmetry refinement.
 
 If the contralateral breast is absent after preprocessing, its block is:
@@ -166,10 +161,7 @@ azimuthal_integration_contralateral_profile:
 final_prediction:
   p_cancer: unknown
   suggested_class: unknown
-  tissue_risk_assessment:
-    index: unknown
-    level: unknown
-    reference_population: unknown
+  level: unknown
   score_percentiles:
     reference_score: unknown
     reference_population: unknown
@@ -184,14 +176,16 @@ reason: contralateral breast is unavailable after preprocessing
 
 When the target breast has no usable contralateral breast, the target block
 still has a valid final prediction. Its `model_execution.scoring_path` is
-`azimuthal_integration_age_with_neutral_symmetry_gate`: the same LR2 is used, but the optional
+`azimuthal_integration_age`: the same LR2 is used, but the optional
 SK symmetry terms are neutral and do not affect the score. This is not a second
 model and it must not be interpreted as a symmetry-supported result.
 
 `model_metrics` contains sensitivity and specificity calculated for the frozen
-final model on its accepted train-on-all target cases. `metric_scope` makes
-explicit that these are not independent validation estimates. Full evaluation
-records remain in the model artifact and its adjacent evaluation files.
+final model on its accepted train-on-all target cases. `dataset` identifies
+these cases as `train_on_all_target_breast_cases`; `validation: not_performed`
+makes explicit that these are not independent validation estimates. Full
+evaluation records remain in the model artifact and its adjacent evaluation
+files.
 `prediction_comment` is copied unchanged from the caller's predict YAML.
 
 The report deliberately excludes estimator objects, model weights, raw SK feature values, feature contributions, duplicate prediction-config fields, filesystem paths, and training configuration. Those remain in the model joblib and its `model_description.yaml`.

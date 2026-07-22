@@ -36,8 +36,9 @@ both YAML/JSON external and internal reports. Full report fields are defined in
 `docs/modeling/internal_clinical_report_content_v0_5.md`.
 
 The frozen model additionally defines the TRA score contract for internal audit.
-Internal reports expose `tissue_risk_assessment.index` (0–100) and
-`tissue_risk_assessment.level` (`TRA 1` through `TRA 5`) for each available
-breast. External reports expose only `risk_level` (`low` or `high`), derived by
-comparing the final target score with the fixed decision threshold. Full TRA
+Internal reports expose `final_prediction.level` (`TRA 1` through `TRA 5`) for
+each available breast. TRA is assigned from the frozen reference-score
+percentile held in the model artifact; the percentile index itself is not
+reported. External reports expose only `risk_level` (`low` or `high`), derived
+by comparing the final target score with the fixed decision threshold. Full TRA
 semantics are defined in `docs/contracts/tissue_risk_assessment_v0_1.md`.

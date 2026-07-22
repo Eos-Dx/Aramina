@@ -164,7 +164,9 @@ def _prediction_quantiles(
     }
     out: dict[str, Any] = {
         "reference_score": str(reference.get("score", "unknown")),
-        "reference_population": str(reference.get("population", "unknown")),
+        "reference_population": _report_identifier(
+            reference.get("population", "unknown")
+        ),
     }
     for report_key, reference_key in keys.items():
         values = np.asarray(reference.get(reference_key, []), dtype=float)
@@ -177,6 +179,11 @@ def _prediction_quantiles(
             np.searchsorted(np.sort(values), p_cancer, side="right") / values.size
         )
     return out
+
+
+def _report_identifier(value: Any) -> str:
+    """Render a frozen report identifier with stable underscore separators."""
+    return "_".join(str(value).replace("-", " ").split())
 
 
 def _tissue_risk_assessment(model_info: dict[str, Any], p_cancer: float) -> dict[str, Any]:

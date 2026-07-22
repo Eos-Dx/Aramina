@@ -4,19 +4,21 @@ Status: research draft.
 
 ## Decision
 
-Aramis reports a Tissue Risk Assessment (`TRA`) index for every available final
-breast prediction. TRA is an ordinal representation of the final model score
-relative to the frozen target-breast reference cohort stored in the selected
-model artifact.
+Aramis reports a Tissue Risk Assessment (`TRA`) level for every available final
+breast prediction. The level is an ordinal representation of the final model
+score relative to the frozen target-breast reference cohort stored in the
+selected model artifact.
 
 ```text
 TRA index = percentage of frozen final target-case scores <= incoming final p_cancer
 ```
 
-The index ranges from `0` to `100`. A higher TRA indicates that the model score
-is high relative to the historical target-breast cases and therefore gives
-stronger model support for considering biopsy. It does not replace radiologist
-review, and is not an individual cancer probability or diagnosis.
+The internally calculated index ranges from `0` to `100` and assigns the
+reported level. A higher TRA level indicates that the model score is high
+relative to historical target-breast cases and therefore gives stronger model
+support for considering biopsy. The index itself is not emitted in either
+report. TRA does not replace radiologist review and is not an individual cancer
+probability or diagnosis.
 
 | TRA level | TRA index | Meaning |
 | --- | --- | --- |

@@ -13,8 +13,8 @@ all accepted train-on-all target-breast cases. For an incoming breast score:
 TRA index = percentage of frozen reference scores less than or equal to p_cancer
 ```
 
-The index is reported on a 0–100 scale and rounded to five decimal places.
-It is never recalculated from incoming scans.
+The index is used internally to assign a TRA level. It is never recalculated
+from incoming scans and is not emitted in the internal or external report.
 
 | TRA level | Index range |
 | --- | --- |
@@ -30,16 +30,17 @@ mean a 90% cancer probability.
 
 ## Report Fields
 
-Internal report stores TRA under both available breast results:
+Internal report stores the derived TRA level under both available breast
+results:
 
 ```yaml
 breast_predictions:
   target:
     final_prediction:
-      tissue_risk_assessment: {}
+      level: TRA 3
   contralateral:
     final_prediction:
-      tissue_risk_assessment: {}
+      level: TRA 3
 ```
 
 External reports do not expose TRA. They expose `risk_probability`,

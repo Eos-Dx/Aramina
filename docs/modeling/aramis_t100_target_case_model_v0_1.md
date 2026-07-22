@@ -37,7 +37,7 @@ is no paired/fallback model route. Measurement counts determine report
 reliability only and do not enter LR2.
 
 For an unpaired target breast, internal report records
-`azimuthal_integration_age_with_neutral_symmetry_gate`.
+`azimuthal_integration_age`.
 The contralateral report block is filled with `unknown`; its absence is never
 encoded as zero risk or a BENIGN result.
 

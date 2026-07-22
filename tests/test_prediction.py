@@ -124,9 +124,9 @@ def test_frozen_model_examples_keep_stable_scores(
         abs=1e-5,
     )
     for side in ("target", "contralateral"):
-        tra = predictions[side]["final_prediction"]["tissue_risk_assessment"]
-        assert 0.0 <= tra["index"] <= 100.0
-        assert tra["level"] in {"TRA 1", "TRA 2", "TRA 3", "TRA 4", "TRA 5"}
+        final = predictions[side]["final_prediction"]
+        assert final["level"] in {"TRA 1", "TRA 2", "TRA 3", "TRA 4", "TRA 5"}
+        assert "tissue_risk_assessment" not in final
 
 
 @pytest.mark.parametrize(
@@ -328,7 +328,8 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
     assert external["risk_level"] in {"low", "high"}
     assert "tissue_risk_assessment" not in external
     metrics = external["model_metrics"]
-    assert metrics["metric_scope"] == "in_sample_not_independent"
+    assert metrics["dataset"] == "train_on_all_target_breast_cases"
+    assert metrics["validation"] == "not_performed"
     assert 0.0 <= metrics["sensitivity"] <= 1.0
     assert 0.0 <= metrics["specificity"] <= 1.0
     assert internal["model_metrics"] == metrics
@@ -339,7 +340,7 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
     contralateral = internal["breast_predictions"]["contralateral"]
     decision = internal["decision_threshold"]
     assert 0.0 <= target["final_prediction"]["p_cancer"] <= 1.0
-    assert target["final_prediction"]["tissue_risk_assessment"]["level"] in {
+    assert target["final_prediction"]["level"] in {
         "TRA 1",
         "TRA 2",
         "TRA 3",
@@ -363,14 +364,18 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
         "BENIGN",
         "CANCER",
     }
-    assert contralateral["final_prediction"]["tissue_risk_assessment"][
-        "level"
-    ] in {"TRA 1", "TRA 2", "TRA 3", "TRA 4", "TRA 5"}
+    assert contralateral["final_prediction"]["level"] in {
+        "TRA 1",
+        "TRA 2",
+        "TRA 3",
+        "TRA 4",
+        "TRA 5",
+    }
     assert contralateral["symmetry"]["available"] is False
     assert contralateral["symmetry"] == {"available": False}
     assert contralateral["reliability"]["level"] == "low"
     assert contralateral["model_execution"]["scoring_path"] == (
-        "azimuthal_integration_age_with_neutral_symmetry_gate"
+        "azimuthal_integration_age"
     )
     assert 0.0 <= contralateral[
         "azimuthal_integration_contralateral_profile"
@@ -382,6 +387,9 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
         "benign_training_target_cases",
         "cancer_training_target_cases",
     }
+    assert target["final_prediction"]["score_percentiles"][
+        "reference_population"
+    ] == "train_on_all_target_breast_cases"
     assert external["prediction_comment"] == "synthetic test"
     assert internal["prediction_comment"] == "synthetic test"
     assert internal["scan_metadata"]["patient_id"] == "P00"
@@ -458,9 +466,7 @@ def test_predict_without_contralateral_uses_unavailable_symmetry(
 
     target = report["breast_predictions"]["target"]
     assert target["symmetry"]["available"] is False
-    assert target["model_execution"]["scoring_path"] == (
-        "azimuthal_integration_age_with_neutral_symmetry_gate"
-    )
+    assert target["model_execution"]["scoring_path"] == "azimuthal_integration_age"
     assert target["reliability"]["level"] == "low"
     contralateral = report["breast_predictions"]["contralateral"]
     assert contralateral["available"] is False

@@ -103,10 +103,11 @@ def _external_report(
 
 
 def _final_model_metrics(model_artifact: dict[str, Any]) -> dict[str, Any]:
-    """Expose the selected final model's fixed training metrics in reports."""
+    """Expose the selected final model's descriptive train-on-all metrics."""
     metrics = model_artifact.get("final_fit_training_metrics", {})
     return {
-        "metric_scope": metrics.get("evaluation_status", "unknown"),
+        "dataset": "train_on_all_target_breast_cases",
+        "validation": "not_performed",
         "sensitivity": metrics.get("sensitivity", "unknown"),
         "specificity": metrics.get("specificity", "unknown"),
     }
@@ -188,7 +189,7 @@ def _target_breast_prediction_report(prediction: dict[str, Any]) -> dict[str, An
         "final_prediction": {
             "p_cancer": prediction["p_cancer"],
             "suggested_class": prediction["suggested_class"],
-            "tissue_risk_assessment": prediction["tissue_risk_assessment"],
+            "level": prediction["tissue_risk_assessment"]["level"],
             "score_percentiles": prediction["quantiles"],
         },
         "reliability": {
@@ -202,7 +203,7 @@ def _target_breast_prediction_report(prediction: dict[str, Any]) -> dict[str, An
             "scoring_path": (
                 "azimuthal_integration_age_with_symmetry"
                 if bool(row.get("symmetry_available", 0))
-                else "azimuthal_integration_age_with_neutral_symmetry_gate"
+                else "azimuthal_integration_age"
             ),
         },
     }
@@ -224,7 +225,7 @@ def _contralateral_breast_prediction_report(
             "final_prediction": {
                 "p_cancer": "unknown",
                 "suggested_class": "unknown",
-                "tissue_risk_assessment": _unknown_tissue_risk_assessment(),
+                "level": "unknown",
                 "score_percentiles": _unknown_score_percentiles(),
             },
             "reliability": {"level": "unknown", "reason": "unknown"},
@@ -242,7 +243,7 @@ def _contralateral_breast_prediction_report(
         "final_prediction": {
             "p_cancer": prediction["p_cancer"],
             "suggested_class": prediction["suggested_class"],
-            "tissue_risk_assessment": prediction["tissue_risk_assessment"],
+            "level": prediction["tissue_risk_assessment"]["level"],
             "score_percentiles": prediction["quantiles"],
         },
         "reliability": {
@@ -251,7 +252,7 @@ def _contralateral_breast_prediction_report(
         },
         "symmetry": {"available": False},
         "model_execution": {
-            "scoring_path": "azimuthal_integration_age_with_neutral_symmetry_gate",
+            "scoring_path": "azimuthal_integration_age",
         },
     }
 
@@ -263,14 +264,6 @@ def _unknown_score_percentiles() -> dict[str, str]:
         "all_training_target_cases": "unknown",
         "benign_training_target_cases": "unknown",
         "cancer_training_target_cases": "unknown",
-    }
-
-
-def _unknown_tissue_risk_assessment() -> dict[str, str]:
-    return {
-        "index": "unknown",
-        "level": "unknown",
-        "reference_population": "unknown",
     }
 
 

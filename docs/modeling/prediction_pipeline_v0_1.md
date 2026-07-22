@@ -135,7 +135,7 @@ logit-average target p_cancer
 compute target-vs-contralateral SK symmetry when contralateral breast is present
 add age if present
 add reliability counters
-score contralateral with full M2Q while forcing SK symmetry refinement neutral
+score contralateral with full final model while forcing SK symmetry refinement neutral
 ```
 
 Risk and reliability are kept separate:
@@ -191,7 +191,8 @@ hardware_version
 eoscan_version
 model_name
 model_version
-model_metrics.metric_scope
+model_metrics.dataset
+model_metrics.validation
 model_metrics.sensitivity
 model_metrics.specificity
 risk_probability
@@ -206,8 +207,9 @@ symmetry, TRA, provenance, raw data, or model internals. `risk_probability` is
 the frozen final target-breast score and `decision_threshold` is the associated
 fixed model threshold. `risk_level` is `high` when the score meets or exceeds
 that threshold, otherwise `low`. The report includes sensitivity and
-specificity of the selected frozen final model. `model_metrics.metric_scope`
-states that these figures are train-on-all fit metrics, not independent
+specificity of the selected frozen final model. `model_metrics.dataset` is
+`train_on_all_target_breast_cases` and `model_metrics.validation` is
+`not_performed`: these figures are final-fit training metrics, not independent
 evaluation estimates. `report_id` is
 generated automatically and shared with the internal report from the same
 prediction operation. `created_at` is a Europe/Paris ISO timestamp with a
@@ -225,7 +227,7 @@ one shared decision threshold
 scan metadata and measurement summary
 target final decision and contralateral full-model evidence
 frozen score percentiles, symmetry availability, and reliability
-frozen TRA index and TRA level for each available breast
+derived TRA level for each available breast
 ```
 
 Report-level naming:
@@ -245,7 +247,7 @@ in `model_description.yaml` and the executable model joblib artifact.
 Internal report excludes profile statistics, filesystem paths, generic
 provenance, and output-file paths.
 
-The internal report scores the contralateral breast with the same M2Q model,
+The internal report scores the contralateral breast with the same final model,
 but forces its SK symmetry gate to neutral. It exposes LR1 profile evidence,
 final `p_cancer`, and `suggested_class` from the single shared threshold. The
 target remains the caller-supplied primary decision-support result. If no
