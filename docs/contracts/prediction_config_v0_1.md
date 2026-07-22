@@ -18,8 +18,10 @@ patient:
   target_side: left
 ```
 
-All paths are absolute or relative to the Aramis project root. Required values
-are non-empty strings. `target_side` is `left` or `right`. Exactly one input is
+For a YAML stored below `<Aramis>/config/`, relative paths resolve from the
+Aramis project root. For an external top-level YAML, they resolve from that
+YAML's directory. Required values are non-empty strings. `target_side` is
+`left` or `right`. Exactly one input is
 required: `input_h5_path` for product prediction, or
 `input_dataframe_joblib_path` only with `run.synthetic_test_mode: true` for
 tests.

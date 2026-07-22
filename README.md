@@ -91,6 +91,8 @@ docs/modeling/prediction_pipeline_v0_1.md       prediction route
 contracts/                                      filled output-contract examples
 docs/contracts/                                 canonical YAML and artifact contracts
 docs/meta/README.md                             decision evidence
+DATA_RELEASE.md                                 controlled-data and fixture policy
+docs/future_development_steps.md                deferred product work
 ```
 
 ## Verification

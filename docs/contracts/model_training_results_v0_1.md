@@ -88,9 +88,10 @@ model_summary:
   architecture:
     stage_1: target_xrd_profile_logistic_regression
     stage_2: age_and_optional_symmetry_refinement
-    symmetry_behavior: bypassed_when_contralateral_data_are_unavailable
+    symmetry_behavior: neutralized_unless_2_valid_measurements_per_breast_and_finite_core4_features
   lr1_profile_model: <fitted pipeline summary>
   final_model: <fitted gated logistic-regression summary>
+  symmetry_feature_contract: aramis_sk_symmetry_v0_2
 model_joblib: model.joblib
 model_performance: <held-out validation record>
 final_fit_training_metrics: <in-sample final-fit record>
@@ -117,6 +118,7 @@ created_at: <ISO-8601 timestamp with second precision>
 model: <same immutable identity as model_description.yaml>
 threshold_selection: train_fold_target_sensitivity
 target_sensitivity: 0.95
+training_config_sha256: <SHA256 of the frozen training_config.yaml text>
 decision_threshold:
   id: target_sensitivity_0_95
   value: <final train-on-all threshold>
@@ -159,5 +161,7 @@ identifiers.
 
 `python -m aramis promote --run-folder <completed-run-folder>` copies a reviewed
 final-fit run to `models/<immutable_model_id>/`. Promotion does not retrain or
-modify the source run, refuses an existing destination, and copies the executable
-joblib, YAML snapshots, model description, and any evaluation files present.
+modify the source run, refuses an existing destination, and requires the
+evaluation YAML plus its fold CSVs. It verifies that model name/version,
+artifact SHA256, feature schema, and evaluation model reference match the
+executable joblib before copying the complete portable model directory.

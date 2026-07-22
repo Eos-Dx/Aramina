@@ -8,7 +8,7 @@ Real model records are stored beside their `model.joblib` under `models/`.
 
 ```text
 examples/model_description.yaml
-examples/evaluation_summary.yaml
+examples/evaluation.yaml
 examples/fold_metrics.csv
 examples/fold_predictions.csv
 ```

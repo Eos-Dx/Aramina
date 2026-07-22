@@ -16,6 +16,10 @@ from aramis.prediction import (
     _validate_prediction_config,
     run_prediction_from_config,
 )
+from aramis.patient_features import (
+    build_patient_prediction_feature_row,
+    prediction_metadata_from_target_rows,
+)
 from aramis.prediction_contract import _config_path
 from aramis.prediction_scoring import _tissue_risk_assessment
 from aramis.training import run_training_from_config
@@ -60,14 +64,60 @@ def test_tracked_prediction_examples_use_final_product_artifact():
             assert sides == {"left", "right"}
 
 
+@pytest.mark.parametrize(
+    ("filename", "expected_p_cancer"),
+    [
+        ("config_predict_atypical_example.yaml", 0.45023),
+        ("config_predict_benign_example.yaml", 0.34270),
+        ("config_predict_cancer_example.yaml", 0.84062),
+    ],
+)
+def test_tracked_prediction_fixtures_remain_compatible_with_frozen_artifact(
+    tmp_path: Path,
+    filename: str,
+    expected_p_cancer: float,
+):
+    root = Path(__file__).parents[1]
+    source = PREDICTION_EXAMPLE_ROOT / filename
+    config = yaml.safe_load(source.read_text(encoding="utf-8"))
+    config["io"]["input_h5_path"] = str(root / config["io"]["input_h5_path"])
+    config["io"]["input_model_joblib_path"] = str(
+        root / config["io"]["input_model_joblib_path"]
+    )
+    config["io"]["output_folder"] = str(tmp_path / source.stem)
+    request_path = tmp_path / filename
+    request_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+
+    reports = run_prediction_from_config(request_path)
+
+    assert reports["external_report"]["risk_probability"] == pytest.approx(
+        expected_p_cancer, abs=1e-5
+    )
+    assert reports["internal_report"]["model"]["id"].endswith("ccad65e77adb")
+    assert reports["internal_report"]["breast_predictions"]["target"][
+        "model_execution"
+    ]["scoring_path"] == "azimuthal_integration_age_with_symmetry"
+
+
 def test_prediction_relative_paths_resolve_from_configuration_root(tmp_path: Path):
     project_root = tmp_path / "aramis"
     config_path = project_root / "config" / "prediction" / "example.yaml"
     config_path.parent.mkdir(parents=True)
+    (project_root / "pyproject.toml").touch()
     config = {"io": {"input_h5_path": "examples/prediction_h5/example.h5"}}
 
     assert _config_path(config, config_path, section="io", key="input_h5_path") == (
         project_root / "examples" / "prediction_h5" / "example.h5"
+    )
+
+
+def test_external_prediction_paths_resolve_from_config_directory(tmp_path: Path):
+    config_path = tmp_path / "external_request" / "predict.yaml"
+    config_path.parent.mkdir(parents=True)
+    config = {"io": {"input_h5_path": "inputs/one_patient.h5"}}
+
+    assert _config_path(config, config_path, section="io", key="input_h5_path") == (
+        config_path.parent / "inputs" / "one_patient.h5"
     )
 
 
@@ -341,6 +391,40 @@ def test_optional_scan_metadata_blanks_are_reported_as_unknown():
     assert _metadata_value({"operator_id": "OPT-001"}, "operator_id") == "OPT-001"
 
 
+def test_target_side_metadata_drops_conflicting_values():
+    metadata = prediction_metadata_from_target_rows(
+        pd.DataFrame(
+            {
+                "operator_id": ["OPT-001", "OPT-002"],
+                "hardware_version": ["human-1", "human-1"],
+                "scan_date_time": ["", None],
+            }
+        )
+    )
+
+    assert metadata == {"hardware_version": "human-1"}
+
+
+def test_target_side_metadata_reaches_prediction_feature_row(tmp_path: Path, trained_model):
+    model_path, dataframe_path = trained_model
+    frame = joblib.load(dataframe_path)["dataframe"].copy()
+    left = frame["side"] == "Left"
+    frame.loc[left, "operator_id"] = "OPT-TARGET"
+    frame.loc[~left, "operator_id"] = "OPT-CONTRALATERAL"
+    frame.loc[left, "scan_date_time"] = "2026-07-22T10:15:00+02:00"
+
+    model_info = joblib.load(model_path)["models"][PRODUCT_MODEL_NAME]
+    feature_row = build_patient_prediction_feature_row(
+        frame,
+        model_info,
+        patient_id="P00",
+        target_side="Left",
+    ).iloc[0]
+
+    assert feature_row["operator_id"] == "OPT-TARGET"
+    assert feature_row["scan_date_time"] == "2026-07-22T10:15:00+02:00"
+
+
 def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_model):
     model_path, dataframe_path = trained_model
     config_path = tmp_path / "predict.yaml"
@@ -427,7 +511,7 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
     }
     assert target["final_prediction"]["score_percentiles"][
         "reference_population"
-    ] == "train_on_all_target_breast_cases"
+    ] == "train_on_all_target-breast_cases"
     assert external["prediction_comment"] == "synthetic test"
     assert internal["prediction_comment"] == "synthetic test"
     assert internal["scan_metadata"]["patient_id"] == "P00"
@@ -505,7 +589,7 @@ def test_predict_without_contralateral_uses_unavailable_symmetry(
     target = report["breast_predictions"]["target"]
     assert target["symmetry"]["available"] is False
     assert target["model_execution"]["scoring_path"] == "azimuthal_integration_age"
-    assert target["reliability"]["level"] == "low"
+    assert target["reliability"]["level"] == "medium"
     contralateral = report["breast_predictions"]["contralateral"]
     assert contralateral["available"] is False
     assert contralateral["side"] == "unknown"

@@ -32,7 +32,10 @@ def m2q_feature_schema() -> dict[str, Any]:
                 *SK_CORE4_FEATURE_COLUMNS,
             ],
             "symmetry_gate": "symmetry_available",
-            "symmetry_policy": "single_model_gated_optional_refinement",
+            "symmetry_policy": (
+                "single_model_gated_optional_refinement_requires_2_valid_measurements_"
+                "per_breast_and_finite_core4"
+            ),
             "reliability_fields": [
                 "profile_p_cancer_n_measurements",
                 "target_measurements",
@@ -58,14 +61,14 @@ def m2q_warnings(feature_table: pd.DataFrame) -> list[str]:
         warnings.append(
             f"{unavailable} target-breast cases have unavailable paired-breast symmetry features."
         )
-    low_target = int((feature_table["target_measurements"] < 3).sum())
+    low_target = int((feature_table["target_measurements"] < 2).sum())
     if low_target:
         warnings.append(
-            f"{low_target} target-breast cases have fewer than 3 valid target-breast measurements."
+            f"{low_target} target-breast cases have fewer than 2 valid target-breast measurements."
         )
-    low_contralateral = int((feature_table["contralateral_measurements"] < 3).sum())
+    low_contralateral = int((feature_table["contralateral_measurements"] < 2).sum())
     if low_contralateral:
         warnings.append(
-            f"{low_contralateral} target-breast cases have fewer than 3 valid contralateral-breast measurements."
+            f"{low_contralateral} target-breast cases have fewer than 2 valid contralateral-breast measurements."
         )
     return warnings

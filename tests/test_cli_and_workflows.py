@@ -159,6 +159,7 @@ def test_workflow_resolves_root_relative_paths_from_external_config_tree(
 ):
     config_path = tmp_path / "Aramis" / "config" / "preprocess_train" / "product.yaml"
     config_path.parent.mkdir(parents=True)
+    (config_path.parents[2] / "pyproject.toml").touch()
     config_path.write_text(
         yaml.safe_dump(
             {

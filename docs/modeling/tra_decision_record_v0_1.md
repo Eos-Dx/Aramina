@@ -40,7 +40,7 @@ The model joblib contains:
 tissue_risk_assessment:
   contract: aramis_tra_v0_1
   reference_score: final_prediction.p_cancer
-  reference_population: train_on_all target-breast cases
+  reference_population: train_on_all_target-breast_cases
   levels:
     - {level: TRA 1, minimum_percentile: 0, maximum_percentile: 20}
     - {level: TRA 2, minimum_percentile: 20, maximum_percentile: 50}

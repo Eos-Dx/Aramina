@@ -20,6 +20,10 @@ from aramis.training import (
 )
 from aramis.training_config import load_training_config
 from aramis.training_config import PRODUCT_MODEL_NAME
+from aramis.symmetry_features import (
+    SK_SYMMETRY_COLUMNS,
+    target_contralateral_symmetry_features,
+)
 
 
 def _patient_training_frame() -> pd.DataFrame:
@@ -338,7 +342,7 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
     assert description["model_summary"]["architecture"] == {
         "stage_1": "target_xrd_profile_logistic_regression",
         "stage_2": "age_and_optional_symmetry_refinement",
-        "symmetry_behavior": "bypassed_when_contralateral_data_are_unavailable",
+        "symmetry_behavior": "neutralized_unless_2_valid_measurements_per_breast_and_finite_core4_features",
     }
     assert (
         description["model_summary"]["lr1_profile_model"]["steps"]["logreg"][
@@ -360,6 +364,7 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
     assert "kind" not in evaluation
     assert evaluation["model"] == description["model"]
     assert evaluation["threshold_selection"] == "train_fold_target_sensitivity"
+    assert evaluation["training_config_sha256"]
     assert evaluation["decision_threshold"]["id"] == "target_sensitivity_0_95"
     assert evaluation["decision_threshold"]["value"] == pytest.approx(
         round(
@@ -403,6 +408,7 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
         "model",
         "threshold_selection",
         "target_sensitivity",
+        "training_config_sha256",
         "decision_threshold",
         "dataset_summary",
         "metric_summary",
@@ -489,6 +495,60 @@ def test_lr1_single_class_error_reports_the_retained_cohort():
         )
 
 
+def test_symmetry_refinement_requires_two_measurements_per_breast():
+    frame = _patient_training_frame().query("patientId == 'P00'").copy()
+    q = np.linspace(2.0, 23.0, 100)
+    for index, row in frame.iterrows():
+        measurement_index = int(str(row["measurementId"])[-1])
+        shift = 0.8 if row["side"] == "Left" else -0.4
+        frame.at[index, "q_range"] = q
+        frame.at[index, "radial_profile_data"] = (
+            shift + np.sin(q / 3.0) + measurement_index * 0.01
+        )
+    paired = target_contralateral_symmetry_features(
+        frame,
+        profile_column="radial_profile_data",
+        q_column="q_range",
+        side_column="side",
+        target_side_norm="LEFT",
+        contralateral_side_norm="RIGHT",
+    )
+    assert paired["symmetry_available"] == 1
+
+    unpaired = frame.drop(frame.query("side == 'Right'").index[1])
+    neutral = target_contralateral_symmetry_features(
+        unpaired,
+        profile_column="radial_profile_data",
+        q_column="q_range",
+        side_column="side",
+        target_side_norm="LEFT",
+        contralateral_side_norm="RIGHT",
+    )
+    assert neutral["symmetry_available"] == 0
+    assert neutral["symmetry_reason"] == "fewer_than_2_valid_measurements_per_breast"
+    assert {neutral[column] for column in SK_SYMMETRY_COLUMNS} == {0.0}
+
+
+def test_noncomputable_core4_neutralizes_symmetry_without_using_zero_as_data():
+    frame = _patient_training_frame().query("patientId == 'P00'").copy()
+    q = np.linspace(2.0, 6.0, 100)
+    frame["q_range"] = [q for _ in range(len(frame))]
+    frame["radial_profile_data"] = [np.sin(q / 3.0) for _ in range(len(frame))]
+
+    features = target_contralateral_symmetry_features(
+        frame,
+        profile_column="radial_profile_data",
+        q_column="q_range",
+        side_column="side",
+        target_side_norm="LEFT",
+        contralateral_side_norm="RIGHT",
+    )
+
+    assert features["symmetry_available"] == 0
+    assert features["symmetry_reason"] == "sk_core4_not_computable"
+    assert {features[column] for column in SK_SYMMETRY_COLUMNS} == {0.0}
+
+
 def test_final_fit_rejects_plain_dataframe_without_preprocessing_lineage(tmp_path: Path):
     input_path = tmp_path / "plain.joblib"
     joblib.dump(_patient_training_frame(), input_path)
@@ -500,3 +560,52 @@ def test_final_fit_rejects_plain_dataframe_without_preprocessing_lineage(tmp_pat
 
     with pytest.raises(ValueError, match="preprocessing artifact joblib"):
         run_training_from_config(config_path)
+
+
+def test_training_output_contract_examples_are_complete():
+    example_root = Path(__file__).parents[1] / "contracts" / "training" / "examples"
+    description = yaml.safe_load(
+        (example_root / "model_description.yaml").read_text(encoding="utf-8")
+    )
+    evaluation = yaml.safe_load(
+        (example_root / "evaluation.yaml").read_text(encoding="utf-8")
+    )
+
+    assert {
+        "output_type",
+        "model",
+        "model_summary",
+        "model_performance",
+        "final_fit_training_metrics",
+        "decision_thresholds",
+        "dataset_summary",
+        "evaluation_artifacts",
+        "reproducibility",
+    }.issubset(description)
+    assert (
+        description["model_summary"]["symmetry_feature_contract"]
+        == "aramis_sk_symmetry_v0_2"
+    )
+    assert {
+        "roc_auc",
+        "sensitivity",
+        "specificity",
+        "calibration_intercept",
+        "calibration_slope",
+        "true_positives",
+        "true_negatives",
+        "false_negatives",
+        "false_positives",
+    }.issubset(description["final_fit_training_metrics"])
+    assert {
+        "output_type",
+        "model",
+        "training_config_sha256",
+        "dataset_summary",
+        "metric_summary",
+        "files",
+    }.issubset(evaluation)
+    assert evaluation["files"] == {
+        "metrics": "evaluation_metrics.csv",
+        "predictions": "evaluation_predictions.csv",
+    }

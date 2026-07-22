@@ -6,7 +6,7 @@ Public contract: `aramis_training_config_v0_3`.
 contract: aramis_training_config_v0_3
 model:
   name: aramis_target_breast_risk
-  version: 0.2.10-beta
+  version: 0.2.11-beta
   model_author: Sergey Denisov
   clinical_stage: research draft
   intended_use: Breast cancer decision support; requires radiologist review.
@@ -24,7 +24,16 @@ evaluation:
   random_seed: 42
 ```
 
-All relative paths resolve from the Aramis project root. At least one `run` flag must be true. `evaluation` writes patient-safe evaluation artifacts. `train_on_all` writes a frozen executable model; it can be run with or without an evaluation artifact. The caller may set run flags, model identity, input/output paths, and supported evaluation folds, repeats, and seed. The selected model name fixes architecture, feature schema, LR1/LR2 regularization, label policy, prediction preprocessing, and target sensitivity. `model_author` identifies the author of the approved model recipe; `run_author` in the combined preprocess-train YAML identifies the person executing a particular run.
+For a YAML under `Aramis/config`, relative paths resolve from the Aramis root.
+For an external top-level YAML, they resolve from that YAML's directory. At
+least one `run` flag must be true. `evaluation` writes patient-safe evaluation
+artifacts. `train_on_all` writes a frozen executable model; it can be run with
+or without an evaluation artifact. The caller may set run flags, model identity,
+input/output paths, and supported evaluation folds, repeats, and seed. The
+selected model name fixes architecture, feature schema, LR1/LR2 regularization,
+label policy, prediction preprocessing, and target sensitivity. `model_author`
+identifies the author of the approved model recipe; `run_author` in the combined
+preprocess-train YAML identifies the person executing a particular run.
 
 ```bash
 python -m aramis train --list-models

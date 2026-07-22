@@ -7,14 +7,6 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import (
-    average_precision_score,
-    brier_score_loss,
-    confusion_matrix,
-    log_loss,
-    roc_auc_score,
-)
 from sklearn.model_selection import RepeatedStratifiedKFold
 
 from .m2q_model import (
@@ -22,6 +14,7 @@ from .m2q_model import (
     build_profile_logistic as _profile_logistic,
 )
 from .model_utils import compute_binary_thresholds, profile_matrix
+from .model_metrics import binary_metric_values as _binary_metric_values
 from .patient_features import (
     TARGET_CASE_ID,
     empty_lr1_scores as _empty_lr1_scores,
@@ -282,30 +275,31 @@ def _patient_metric_row(
     evaluation_mode: str,
 ) -> dict[str, Any]:
     y = test_df["label"].to_numpy(dtype=int)
+    values = _binary_metric_values(y, score, decision_thresholds)
     pred = (score >= decision_thresholds).astype(int)
-    tn, fp, fn, tp = confusion_matrix(y, pred, labels=[0, 1]).ravel()
-    sensitivity = _ratio(tp, tp + fn)
-    specificity = _ratio(tn, tn + fp)
-    calibration_intercept, calibration_slope = _calibration_parameters(y, score)
+    tn = int(((y == 0) & (pred == 0)).sum())
+    fp = int(((y == 0) & (pred == 1)).sum())
+    fn = int(((y == 1) & (pred == 0)).sum())
+    tp = int(((y == 1) & (pred == 1)).sum())
     return {
         "model_name": model_name,
         "split_id": int(split_id),
         "evaluation_mode": evaluation_mode,
-        "roc_auc": float(roc_auc_score(y, score)),
-        "pr_auc": float(average_precision_score(y, score)),
-        "brier_score": float(brier_score_loss(y, score)),
-        "log_loss": float(log_loss(y, score, labels=[0, 1])),
-        "calibration_intercept": calibration_intercept,
-        "calibration_slope": calibration_slope,
-        "sensitivity_target": sensitivity,
-        "specificity_target": specificity,
-        "balanced_accuracy_target": _mean_finite([sensitivity, specificity]),
-        "ppv_target": _ratio(tp, tp + fp),
-        "npv_target": _ratio(tn, tn + fn),
-        "tp_target": int(tp),
-        "tn_target": int(tn),
-        "fp_target": int(fp),
-        "fn_target": int(fn),
+        "roc_auc": values["roc_auc"],
+        "pr_auc": values["pr_auc"],
+        "brier_score": values["brier_score"],
+        "log_loss": values["log_loss"],
+        "calibration_intercept": values["calibration_intercept"],
+        "calibration_slope": values["calibration_slope"],
+        "sensitivity_target": values["sensitivity"],
+        "specificity_target": values["specificity"],
+        "balanced_accuracy_target": values["balanced_accuracy"],
+        "ppv_target": values["ppv"],
+        "npv_target": values["npv"],
+        "tp_target": tp,
+        "tn_target": tn,
+        "fp_target": fp,
+        "fn_target": fn,
         "train_patients": int(train_df["patientId"].nunique()),
         "test_patients": int(test_df["patientId"].nunique()),
         "train_target_cases": int(len(train_df)),
@@ -466,55 +460,6 @@ def _patient_bootstrap_intervals(
     return pd.DataFrame(rows)
 
 
-def _binary_metric_values(
-    y: np.ndarray,
-    score: np.ndarray,
-    threshold: np.ndarray,
-) -> dict[str, float]:
-    pred = (score >= threshold).astype(int)
-    tn, fp, fn, tp = confusion_matrix(y, pred, labels=[0, 1]).ravel()
-    sensitivity = _ratio(tp, tp + fn)
-    specificity = _ratio(tn, tn + fp)
-    calibration_intercept, calibration_slope = _calibration_parameters(y, score)
-    return {
-        "roc_auc": float(roc_auc_score(y, score)),
-        "pr_auc": float(average_precision_score(y, score)),
-        "sensitivity": sensitivity,
-        "specificity": specificity,
-        "balanced_accuracy": _mean_finite([sensitivity, specificity]),
-        "ppv": _ratio(tp, tp + fp),
-        "npv": _ratio(tn, tn + fn),
-        "brier_score": float(brier_score_loss(y, score)),
-        "log_loss": float(log_loss(y, score, labels=[0, 1])),
-        "calibration_intercept": calibration_intercept,
-        "calibration_slope": calibration_slope,
-    }
-
-
-def _final_fit_training_metrics(
-    y: np.ndarray,
-    score: np.ndarray,
-    *,
-    threshold: float,
-) -> dict[str, Any]:
-    """Describe fit-to-training-cohort performance without implying validation."""
-    decision_thresholds = np.full(len(y), threshold, dtype=float)
-    pred = (score >= decision_thresholds).astype(int)
-    tn, fp, fn, tp = confusion_matrix(y, pred, labels=[0, 1]).ravel()
-    return {
-        "evaluation_status": "in_sample_not_independent",
-        "target_cases": int(len(y)),
-        "cancer_target_cases": int((y == 1).sum()),
-        "benign_target_cases": int((y == 0).sum()),
-        "decision_threshold": threshold,
-        **_binary_metric_values(y, score, decision_thresholds),
-        "true_positives": int(tp),
-        "true_negatives": int(tn),
-        "false_negatives": int(fn),
-        "false_positives": int(fp),
-    }
-
-
 def _patient_dataset_summary(
     df: pd.DataFrame,
     feature_table: pd.DataFrame,
@@ -541,25 +486,3 @@ def _require_training_columns(df: pd.DataFrame, columns: Sequence[str]) -> None:
     missing = [column for column in columns if column not in df.columns]
     if missing:
         raise KeyError(f"Missing training columns: {missing}")
-
-
-def _ratio(numerator: int, denominator: int) -> float:
-    return float(numerator / denominator) if denominator else float("nan")
-
-
-def _mean_finite(values: Sequence[float]) -> float:
-    finite = [float(value) for value in values if np.isfinite(value)]
-    return float(np.mean(finite)) if finite else float("nan")
-
-
-def _calibration_parameters(y: np.ndarray, score: np.ndarray) -> tuple[float, float]:
-    clipped = np.clip(np.asarray(score, dtype=float), 1e-6, 1.0 - 1e-6)
-    logits = np.log(clipped / (1.0 - clipped)).reshape(-1, 1)
-    if np.unique(y).size != 2:
-        return float("nan"), float("nan")
-    calibrator = LogisticRegression(C=1e6, solver="lbfgs", max_iter=5000)
-    calibrator.fit(logits, y)
-    return (
-        float(calibrator.intercept_[0]),
-        float(calibrator.coef_[0, 0]),
-    )

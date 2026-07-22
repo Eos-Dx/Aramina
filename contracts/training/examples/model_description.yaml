@@ -1,10 +1,16 @@
 output_type: aramis_model_description
 version: '0.1'
 model:
-  id: aramis_target_breast_risk_0_2_10-beta_<sha12>
+  id: aramis_target_breast_risk_<version>_<sha12>
   name: aramis_target_breast_risk
-  version: 0.2.10-beta
+  version: <version>
   artifact_sha256: <sha256>
+model_summary:
+  architecture:
+    stage_1: target_xrd_profile_logistic_regression
+    stage_2: age_and_optional_symmetry_refinement
+    symmetry_behavior: neutralized_unless_2_valid_measurements_per_breast_and_finite_core4_features
+  symmetry_feature_contract: aramis_sk_symmetry_v0_2
 model_joblib: model.joblib
 model_performance:
   evaluation_available: true
@@ -16,11 +22,34 @@ model_performance:
 final_fit_training_metrics:
   evaluation_status: in_sample_not_independent
   target_cases: <integer>
+  cancer_target_cases: <integer>
+  benign_target_cases: <integer>
+  decision_threshold: <float>
   roc_auc: <float>
+  pr_auc: <float>
   sensitivity: <float>
   specificity: <float>
+  balanced_accuracy: <float>
+  ppv: <float>
+  npv: <float>
+  brier_score: <float>
+  log_loss: <float>
+  calibration_intercept: <float>
+  calibration_slope: <float>
+  true_positives: <integer>
+  true_negatives: <integer>
+  false_negatives: <integer>
+  false_positives: <integer>
 decision_thresholds:
   threshold_target: <float>
+dataset_summary:
+- measurements: <integer>
+  patients: <integer>
+  final_target_cases: <integer>
+evaluation_artifacts:
+  summary: evaluation.yaml
+  metrics: evaluation_metrics.csv
+  predictions: evaluation_predictions.csv
 reproducibility:
   source_h5:
     filename: <filename>

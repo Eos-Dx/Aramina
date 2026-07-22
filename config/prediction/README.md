@@ -23,7 +23,14 @@ Run from the Aramis project root:
 python -m aramis predict --config examples/prediction/configs/config_predict_cancer_example.yaml
 ```
 
-All relative paths are resolved from the Aramis root. `analysis_author` is the person requesting the report. `prediction_comment` is optional free text and is copied to both reports. `patient_id` must exactly match the only H5 patient. `target_side` is clinical input and must be `left` or `right` in the preprocessed H5 data. Optional H5 metadata is retained when available; absent, blank, or unrecognised optional values are reported as `unknown` and do not stop prediction.
+For a YAML under `Aramis/config`, relative paths resolve from the Aramis root.
+For an external top-level YAML, they resolve from that YAML's directory.
+`analysis_author` is the person requesting the report. `prediction_comment` is
+optional free text and is copied to both reports. `patient_id` must exactly
+match the only H5 patient. `target_side` is clinical input and must be `left`
+or `right` in the preprocessed H5 data. Optional H5 metadata is retained only
+when one non-empty target-side value is present; absent or conflicting values
+are reported as `unknown` and do not stop prediction.
 
 The model joblib supplies everything else: model identity, preprocessing YAML, H5 schema/format contract, report versions, threshold, feature schema, and executable estimator. Predict YAML cannot override any of these fields.
 

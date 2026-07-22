@@ -132,7 +132,8 @@ For one patient:
 select target breast rows
 score target radial_profile_data with LR1
 logit-average target p_cancer
-compute target-vs-contralateral SK symmetry when contralateral breast is present
+compute target-vs-contralateral SK symmetry only when both breasts have at least
+two valid measurements and all Core4 values are finite
 add age if present
 add reliability counters
 score contralateral with full final model while forcing SK symmetry refinement neutral
@@ -149,6 +150,18 @@ Low reliability does not reduce `p_cancer`. It tells the report that the result
 needs more caution, for example when only one valid target-breast measurement is
 available or paired-breast symmetry is unavailable.
 
+Reliability levels are operational data-sufficiency fields:
+
+```text
+high:   target >=2 and contralateral >=2 valid measurements; SK refinement applied
+medium: target >=2 but paired symmetry cannot be applied
+low:    target <2 valid measurements
+```
+
+Optional scan metadata is copied only when a single non-empty value is present
+among valid target-side rows. Missing or conflicting optional metadata is
+reported as `unknown` and never blocks prediction.
+
 ## Output
 
 Prediction YAML specifies one output folder:
@@ -158,7 +171,8 @@ io:
   output_folder: ./examples/outputs/prediction
 ```
 
-The path is relative to the Aramis project root, not to the prediction YAML.
+For a YAML under `Aramis/config`, the path is relative to the Aramis project
+root. For an external top-level YAML, it is relative to that YAML's directory.
 
 Aramis writes automatic file names:
 

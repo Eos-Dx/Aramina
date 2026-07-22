@@ -1,6 +1,9 @@
 # Aramis T100 Target-Case Model v0.1
 
-Status: current research-draft model record.
+Status: next research-draft model definition; retraining required before release.
+
+Candidate model version: `0.2.11-beta`. The prior `0.2.10-beta` artifact
+remains a separately versioned v0.1-SK compatibility artifact.
 
 This document fixes the current Aramis model architecture and its current
 development evidence. It is decision support for radiologist review, not
@@ -31,10 +34,11 @@ gated SK Core4 symmetry fields:
 ```
 
 The profile and age terms always reach LR2. SK terms are standardized from
-paired training cases and set to zero when no contralateral breast is available.
-`symmetry_available` is a gate and audit field, not a learned predictor. There
-is no paired/fallback model route. Measurement counts determine report
-reliability only and do not enter LR2.
+paired training cases and set to zero unless both breasts have at least two
+valid measurements and all Core4 values are finite. `symmetry_available` is a
+gate and audit field, not a learned predictor. There is no paired/fallback
+model route. Measurement counts determine report reliability only and do not
+enter LR2.
 
 For an unpaired target breast, internal report records
 `azimuthal_integration_age`.
@@ -87,6 +91,11 @@ train-derived threshold transfers to unseen patients. Each run with
 predictions next to the run-specific model artifact. Historical architecture comparisons are
 retained in the `experiment` branch rather than duplicated in product docs.
 
+LR2 is trained from LR1 scores fitted on the same training partition rather
+than out-of-fold LR1 scores. This is retained deliberately for the current
+small research cohort and is documented as a limitation; it must be revisited
+before a future independent validation claim.
+
 Current interpretation:
 
 ```text
@@ -96,9 +105,10 @@ No current result establishes stable 0.95 sensitivity on unseen patients.
 A larger independent cohort is required before any stronger product claim.
 ```
 
-## Current 0.2.10-beta Evaluation Record
+## Legacy 0.2.10-beta Evaluation Record
 
-The current `0.2.10-beta` packaged artifact was evaluated on the T100 biopsy-patient cohort
+The legacy `0.2.10-beta` packaged artifact used the prior
+`aramis_sk_symmetry_v0_1` feature contract and was evaluated on the T100 biopsy-patient cohort
 using the fixed 100 patient-safe folds. The target threshold was derived on the
 training patients in each fold and then applied once to that fold's held-out
 patients.
@@ -109,7 +119,10 @@ patients.
 | sensitivity | 0.819 +/- 0.099 | 0.855 (0.769 to 0.932) |
 | specificity | 0.383 +/- 0.116 | 0.323 (0.231 to 0.422) |
 
-These are research-draft evaluation results, not a clinical performance claim.
+These are legacy research-draft evaluation results, not a clinical performance
+claim for the current source definition. The v0.2 SK gate must be retrained and
+evaluated with the approved historical H5 archive before a replacement artifact
+or updated metric table is released.
 
 ## Train On All
 

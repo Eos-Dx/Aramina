@@ -15,8 +15,9 @@ training_config_path: config/training/config_training_target_breast_risk_v0_1.ya
 ```
 
 All fields are required. All paths and nested values are non-empty strings.
-Unknown or missing fields stop execution. Relative paths resolve from the
-Aramis project root, not from the working directory.
+Unknown or missing fields stop execution. For a YAML under `Aramis/config`,
+relative paths resolve from the Aramis project root. For an external top-level
+YAML, they resolve from its own directory, not from the working directory.
 
 The generated run folder contains `preprocessing/dataframe.joblib`,
 `preprocessing/cohort_summary.json`, requested evaluation artifacts, and the

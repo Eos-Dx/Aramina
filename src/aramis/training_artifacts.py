@@ -303,6 +303,9 @@ def _write_evaluation_outputs(
             "model": model or artifact["model"],
             "threshold_selection": "train_fold_target_sensitivity",
             "target_sensitivity": artifact["target_sensitivity"],
+            "training_config_sha256": _text_sha256(
+                str(artifact["training_config_yaml"])
+            ),
             "decision_threshold": decision_threshold,
             "dataset_summary": _records(artifact["dataset_summary"]),
             "metric_summary": _records(artifact["metric_summary"]),

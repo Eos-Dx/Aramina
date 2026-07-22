@@ -11,9 +11,11 @@ python -m aramis preprocess-train --config <preprocessing-and-training.yaml>
 python -m aramis predict --config <prediction.yaml>
 ```
 
-Operational paths inside public YAML resolve from the Aramis project root.
-Preprocessing `extends` paths resolve from the Aramis project root. Unknown fields
-in training, preprocessing-and-training, and prediction contracts fail immediately.
+For a YAML under `Aramis/config`, operational paths resolve from the Aramis
+project root. External top-level YAML paths resolve from their YAML directory.
+Preprocessing `extends` paths resolve under the XRD-preprocessing config loader.
+Unknown fields in training, preprocessing-and-training, and prediction contracts
+fail immediately.
 
 ## Preprocess
 
@@ -47,6 +49,10 @@ measurement profiles
 `run.evaluation` writes patient-safe repeated stratified k-fold artifacts.
 `run.train_on_all` fits the fixed product model on all accepted patients and
 freezes its train-on-all threshold at target sensitivity `>=0.95`.
+
+SK refinement is applied only when both breasts have at least two valid
+measurements and Core4 is finite. Otherwise the same final logistic model uses
+neutral SK inputs and retains profile-plus-age evidence.
 
 The model joblib contains executable estimators, feature schema, threshold,
 model identity, and resolved YAML snapshots. Fold metrics and predictions stay

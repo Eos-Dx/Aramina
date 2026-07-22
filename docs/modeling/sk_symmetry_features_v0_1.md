@@ -3,7 +3,7 @@
 Status: research draft.
 
 This document defines the SK target/contralateral symmetry calculations. The
-the current product schema uses only the four fields marked **Core4** below.
+current product schema uses only the four fields marked **Core4** below.
 
 Code source:
 
@@ -15,6 +15,15 @@ target_contralateral_symmetry_features()
 src/aramis/model_schema.py
 m2q_model_input_columns()
 ```
+
+## Feature Contract Versioning
+
+New training writes `aramis_sk_symmetry_v0_2`. It uses the q ranges and
+neutral-gating rule defined in this document. The tracked
+`0.2.10-beta` artifact carries the prior `aramis_sk_symmetry_v0_1` contract;
+the code retains that implementation only so its frozen predictions remain
+reproducible. A v0.1 artifact must not be presented as a v0.2 result, and a
+v0.2 source definition requires a newly trained and evaluated artifact.
 
 ## Input
 
@@ -38,10 +47,12 @@ For target and contralateral breast profiles:
 ```text
 1. restrict q range
 2. smooth profile with Savitzky-Golay filter
-3. normalize by near-minimum baseline around q = 6.7 +/- 0.25 nm^-1
-4. interpolate to common q grid
-5. compute side mean and side standard deviation
+3. interpolate to common q grid
+4. compute side mean and side standard deviation
 ```
+
+`radial_profile_data` has already been normalized by the approved Aramis
+preprocessing pipeline. The SK block does not apply a second normalization.
 
 Notation:
 
@@ -54,16 +65,18 @@ sigma_T(q) = target profile standard deviation across measurements
 sigma_C(q) = contralateral profile standard deviation across measurements
 ```
 
-When both target and contralateral profiles are available, Core4 measures their
-asymmetry and refines the one final LR2 score. If the contralateral profile is
-absent, `symmetry_available = 0` makes every SK contribution neutral.
+Core4 measures target/contralateral asymmetry and refines one final LR2 score
+only when both breasts have at least two valid measurements and every Core4
+value is finite. Otherwise, `symmetry_available = 0` makes every SK
+contribution neutral. A non-computable value is not converted to zero before
+this gate: zero retains its physical meaning of no measured difference.
 `symmetry_available` is a gate and audit field, not a learned model input.
 
 ## Q Regions
 
 ```text
-internal SK ROI: 7.5..23.0 nm^-1
-region 1: 7.0..15.0 nm^-1
+internal SK ROI: 6.7..23.0 nm^-1
+region 1: 6.7..15.0 nm^-1
 region 2: 15.0..23.0 nm^-1
 full_q2 ROI: 2.0..23.0 nm^-1
 ```
@@ -85,7 +98,8 @@ profile_p_cancer_logit_average = sigmoid(mean(logit_i))
 ### symmetry_available
 
 ```text
-1 if both target and contralateral breast profiles are present
+1 if target and contralateral breasts each have at least two valid measurements
+  and all Core4 features are finite
 0 otherwise
 ```
 
@@ -96,7 +110,7 @@ This field is not a model input for the current product model.
 RMS difference between target and contralateral mean profiles in region 1:
 
 ```text
-sqrt(mean((mu_T(q) - mu_C(q))^2)), q in 7.0..15.0
+sqrt(mean((mu_T(q) - mu_C(q))^2)), q in 6.7..15.0
 ```
 
 ### sk_weightedrms1 (Core4)
@@ -116,7 +130,7 @@ This downweights q points where replicate variability is high.
 Target-breast replicate variability in region 1:
 
 ```text
-sqrt(mean(sigma_T(q)^2)), q in 7.0..15.0
+sqrt(mean(sigma_T(q)^2)), q in 6.7..15.0
 ```
 
 ### sk_sigma_contralateral1
@@ -124,7 +138,7 @@ sqrt(mean(sigma_T(q)^2)), q in 7.0..15.0
 Contralateral-breast replicate variability in region 1:
 
 ```text
-sqrt(mean(sigma_C(q)^2)), q in 7.0..15.0
+sqrt(mean(sigma_C(q)^2)), q in 6.7..15.0
 ```
 
 ### sk_mahalanobis1
@@ -207,7 +221,7 @@ Wasserstein-like distance between target and contralateral mean profiles in the
 internal SK ROI:
 
 ```text
-ROI: 7.5..23.0 nm^-1
+ROI: 6.7..23.0 nm^-1
 a(q) = clip(mu_T(q), 0, inf)
 b(q) = clip(mu_C(q), 0, inf)
 a_norm = a / sum(a)
@@ -248,7 +262,7 @@ ROI: 2.0..23.0 nm^-1
 ```text
 sk_wasserstein_distance_mu_tc:
   profile: mu_target vs mu_contralateral
-  q range: 7.5..23.0 nm^-1
+  q range: 6.7..23.0 nm^-1
   purpose: target/contralateral shape shift in SK internal ROI
 
 sk_wasserstein_distance_full_q2:

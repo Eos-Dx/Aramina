@@ -1,0 +1,53 @@
+output_type: aramis_evaluation_artifact
+version: '0.1'
+created_at: '2026-07-22T12:00:00+00:00'
+model:
+  id: aramis_target_breast_risk_<version>_<sha12>
+  name: aramis_target_breast_risk
+  version: <version>
+  artifact_sha256: <sha256>
+threshold_selection: train_fold_target_sensitivity
+target_sensitivity: 0.95
+training_config_sha256: <sha256 of frozen training_config.yaml>
+decision_threshold:
+  id: target_sensitivity_0_95
+  value: <final train-on-all threshold>
+  target_sensitivity: 0.95
+dataset_summary:
+- measurements: <integer>
+  patients: <integer>
+  specimens: <integer>
+  lr1_measurements: <integer>
+  lr1_patients: <integer>
+  final_patients: <integer>
+  final_target_cases: <integer>
+  final_cancer_target_cases: <integer>
+  final_benign_target_cases: <integer>
+metric_summary:
+- evaluation_mode: stratified_kfold
+  evidence_status: patient_safe_validation
+  splits: 100
+  roc_auc_mean: <float>
+  roc_auc_std: <float>
+  pr_auc_mean: <float>
+  pr_auc_std: <float>
+  sensitivity_target_mean: <float>
+  sensitivity_target_std: <float>
+  specificity_target_mean: <float>
+  specificity_target_std: <float>
+  brier_score_mean: <float>
+  brier_score_std: <float>
+  log_loss_mean: <float>
+  log_loss_std: <float>
+  roc_auc_pooled: <float>
+  roc_auc_ci_low: <float>
+  roc_auc_ci_high: <float>
+  sensitivity_pooled: <float>
+  sensitivity_ci_low: <float>
+  sensitivity_ci_high: <float>
+  specificity_pooled: <float>
+  specificity_ci_low: <float>
+  specificity_ci_high: <float>
+files:
+  metrics: evaluation_metrics.csv
+  predictions: evaluation_predictions.csv

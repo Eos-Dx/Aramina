@@ -23,4 +23,4 @@ risk_probability: 0.84062
 risk_level: high
 decision_threshold: 0.24451
 reliability: high
-reliability_reason: at least 3 valid measurements per breast
+reliability_reason: at least 2 valid measurements per breast; symmetry refinement applied

@@ -10,6 +10,7 @@ model, preprocessing, labels, threshold, or validation protocol.
 
 | Module | Responsibility |
 |---|---|
+| `config_paths.py` | Apply one documented relative-path policy to public YAML. |
 | `pipelines.py` | Build and run YAML-declared preprocessing. |
 | `workflows.py` | Run the combined `preprocess-train` workflow. |
 | `patient_features.py` | Build historical target cases, LR1 evidence, age and reliability fields. |
@@ -17,6 +18,7 @@ model, preprocessing, labels, threshold, or validation protocol.
 | `m2q_model.py` | Define LR1 and the gated final logistic estimator. |
 | `training_model.py` | Fit LR1 and the final model on accepted target cases. |
 | `training_evaluation.py` | Patient-safe repeated stratified folds and evaluation metrics. |
+| `model_metrics.py` | Calculate shared discrimination, threshold, calibration, and confusion metrics. |
 | `training_artifacts.py` | Build training lineage, reproducibility, evaluation and final-model payloads. |
 | `model_description.py` | Write model descriptions, YAML and immutable artifact identifiers. |
 | `training.py` | Public training API and sklearn-compatible orchestration only. |
@@ -58,6 +60,7 @@ ruff check .
 pytest -q
 ```
 
-The frozen final model and all three one-patient H5 examples must retain their
-stable target and contralateral `p_cancer` values. The regression test in
-`tests/test_prediction.py` enforces this requirement.
+Released model artifacts and their one-patient H5 examples must retain stable
+target and contralateral `p_cancer` values. An intentional preprocessing,
+feature, or model change requires a new evaluated artifact and updated regression
+expectations before release.

@@ -11,6 +11,7 @@ from uuid import uuid4
 
 import yaml
 
+from .config_paths import resolve_config_path
 from .pipelines import run_preprocessing_artifact_from_config
 from .training import run_training_from_config
 
@@ -116,10 +117,7 @@ def _load_preprocess_train_config(config_path: Path) -> dict[str, Any]:
 
 
 def _project_path(value: Any, config_path: Path) -> Path:
-    path = Path(str(value)).expanduser()
-    if path.is_absolute():
-        return path
-    return (_project_root(config_path) / path).resolve()
+    return resolve_config_path(value, config_path)
 
 
 def _require_nonempty_string(value: Any, where: str) -> None:
@@ -127,14 +125,6 @@ def _require_nonempty_string(value: Any, where: str) -> None:
         raise TypeError(f"{where} must be a string.")
     if not value.strip():
         raise ValueError(f"{where} must not be empty.")
-
-
-def _project_root(config_path: Path) -> Path:
-    """Find the project root for a config stored under ``config/``."""
-    for parent in config_path.parents:
-        if parent.name == "config":
-            return parent.parent
-    return config_path.parent
 
 
 def _preprocess_train_run_folder(config: dict[str, Any], config_path: Path) -> Path:

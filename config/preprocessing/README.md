@@ -22,8 +22,10 @@ routes, but the two Aramis product routes have a fixed validated order under the
 Aramis preprocessing contract. XRD-preprocessing does not impose an Aramis
 branch concept.
 
-Operational `io` paths and `extends` paths are relative to the Aramis project
-root. Repository configs use root-level paths such as
+For a YAML stored beneath `Aramis/config`, operational `io` paths resolve from
+the Aramis project root. An external top-level YAML resolves public paths from
+its own directory. Repository `extends` are resolved by the XRD-preprocessing
+loader. Repository configs use root-level paths such as
 `./config/preprocessing/shared/aramis_pipeline_v0_1.yaml`.
 
 ```text

@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 import h5py
 import yaml
 
+from .config_paths import config_reference_root, resolve_config_path
 
 def _model_info(model_artifact: dict[str, Any], model_name: str) -> dict[str, Any]:
     if model_artifact.get("kind") != "aramis_training_artifact":
@@ -310,20 +311,12 @@ def _config_path(
     value = config.get(section, {}).get(key)
     if value in {None, ""}:
         raise ValueError(f"Missing {section}.{key} in {config_path}")
-    path = Path(str(value)).expanduser()
-    if path.is_absolute():
-        return path
-    return (_config_root(config_path) / path).resolve()
+    return resolve_config_path(value, config_path)
 
 
 def _config_root(config_path: Path) -> Path:
     """Return the project root for a config or a runnable example YAML."""
-    for parent in config_path.resolve().parents:
-        if parent.name == "config":
-            return parent.parent
-        if (parent / "pyproject.toml").is_file():
-            return parent
-    return config_path.parent
+    return config_reference_root(config_path)
 
 
 def _file_sha256(path: str | Path) -> str:

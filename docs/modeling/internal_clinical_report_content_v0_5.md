@@ -2,6 +2,10 @@
 
 Status: research-draft internal audit contract. It is not for autonomous diagnosis.
 
+Examples use the tracked frozen `0.2.10-beta` artifact only to illustrate
+field shape. Every produced report records the identity of the model artifact
+actually used for scoring.
+
 The report is produced once per request. It contains one formal decision-support
 result for the caller-specified target breast and an internal full-model score
 for the contralateral breast when it remains available after preprocessing. The
@@ -76,13 +80,13 @@ final_prediction:
   level: TRA 3
   score_percentiles:
     reference_score: final_prediction.p_cancer
-    reference_population: train_on_all_target_breast_cases
+    reference_population: train_on_all_target-breast_cases
     all_training_target_cases: 0.74000
     benign_training_target_cases: 0.93000
     cancer_training_target_cases: 0.32000
 reliability:
   level: high
-  reason: at least 3 valid measurements per breast
+  reason: at least 2 valid measurements per breast; symmetry refinement applied
 symmetry:
   available: true
 model_execution:
@@ -93,6 +97,10 @@ model_execution:
 The final score combines the profile, optional gated SK symmetry refinement, and
 age when available. The decision uses only `target.final_prediction`: `CANCER`
 when `p_cancer >= decision_threshold.threshold`, otherwise `BENIGN`.
+
+For each optional H5 metadata field, Aramis retains one non-empty unique value
+from valid target-side rows. Missing or conflicting values are `unknown` and do
+not stop prediction.
 
 `final_prediction.level` is the product-facing ordinal Tissue Risk Assessment.
 The model calculates its unreported internal index as the all-training-target-
@@ -129,7 +137,7 @@ final_prediction:
   level: TRA 3
   score_percentiles:
     reference_score: final_prediction.p_cancer
-    reference_population: train_on_all_target_breast_cases
+    reference_population: train_on_all_target-breast_cases
     all_training_target_cases: 0.51000
     benign_training_target_cases: 0.67000
     cancer_training_target_cases: 0.25000

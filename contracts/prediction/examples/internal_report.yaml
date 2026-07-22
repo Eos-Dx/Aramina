@@ -52,13 +52,13 @@ breast_predictions:
       level: TRA 5
       score_percentiles:
         reference_score: final_prediction.p_cancer
-        reference_population: train_on_all target-breast cases
+        reference_population: train_on_all_target-breast_cases
         all_training_target_cases: 0.90286
         benign_training_target_cases: 1.0
         cancer_training_target_cases: 0.77632
     reliability:
       level: high
-      reason: at least 3 valid measurements per breast
+      reason: at least 2 valid measurements per breast; symmetry refinement applied
     symmetry:
       available: true
     model_execution:
@@ -76,7 +76,7 @@ breast_predictions:
       level: TRA 3
       score_percentiles:
         reference_score: final_prediction.p_cancer
-        reference_population: train_on_all target-breast cases
+        reference_population: train_on_all_target-breast_cases
         all_training_target_cases: 0.77143
         benign_training_target_cases: 0.9596
         cancer_training_target_cases: 0.52632

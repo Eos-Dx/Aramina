@@ -157,7 +157,7 @@ def test_config_path_resolves_absolute_relative_and_missing(tmp_path):
     config_path.parent.mkdir()
 
     assert _config_path(config, config_path, "input_h5_path") == (
-        Path(__file__).parents[1] / "data" / "input.h5"
+        config_path.parent / "data" / "input.h5"
     ).resolve()
     with pytest.raises(ValueError, match="Missing io.output_joblib_path"):
         _config_path(config, config_path, "output_joblib_path")

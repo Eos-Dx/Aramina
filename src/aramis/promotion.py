@@ -17,12 +17,12 @@ REQUIRED_FILES = (
     "preprocessing_config.yaml",
     "prediction_preprocessing_config.yaml",
     "training_config.yaml",
-)
-OPTIONAL_FILES = (
-    "preprocess_and_train_config.yaml",
     "evaluation.yaml",
     "evaluation_metrics.csv",
     "evaluation_predictions.csv",
+)
+OPTIONAL_FILES = (
+    "preprocess_and_train_config.yaml",
 )
 
 
@@ -74,9 +74,45 @@ def _validate_source_run(source: Path) -> None:
     missing = [name for name in REQUIRED_FILES if not (source / name).is_file()]
     if missing:
         raise ValueError(f"Training run is not promotable; missing files: {missing}")
-    description = yaml.safe_load((source / "model_description.yaml").read_text(encoding="utf-8"))
+    description = yaml.safe_load(
+        (source / "model_description.yaml").read_text(encoding="utf-8")
+    )
     if not isinstance(description, dict) or description.get("output_type") != "aramis_model_description":
         raise ValueError("model_description.yaml is not an Aramis model description.")
+    artifact = joblib.load(source / "model.joblib")
+    identity = artifact.get("model_identity")
+    if not isinstance(identity, dict):
+        raise ValueError("model.joblib has no model_identity.")
+    description_model = description.get("model", {})
+    if {
+        "name": description_model.get("name"),
+        "version": description_model.get("version"),
+    } != {
+        "name": identity.get("name"),
+        "version": identity.get("version"),
+    }:
+        raise ValueError("model_description.yaml identity does not match model.joblib.")
+    model_sha256 = _file_sha256(source / "model.joblib")
+    if description_model.get("artifact_sha256") != model_sha256:
+        raise ValueError("model_description.yaml SHA256 does not match model.joblib.")
+    if description.get("feature_schema") != artifact.get("feature_schema"):
+        raise ValueError("model_description.yaml feature schema does not match model.joblib.")
+    evaluation = yaml.safe_load((source / "evaluation.yaml").read_text(encoding="utf-8"))
+    if not isinstance(evaluation, dict) or evaluation.get("output_type") != "aramis_evaluation_artifact":
+        raise ValueError("evaluation.yaml is not an Aramis evaluation artifact.")
+    evaluation_model = evaluation.get("model", {})
+    if {
+        "name": evaluation_model.get("name"),
+        "version": evaluation_model.get("version"),
+        "artifact_sha256": evaluation_model.get("artifact_sha256"),
+    } != {
+        "name": identity.get("name"),
+        "version": identity.get("version"),
+        "artifact_sha256": model_sha256,
+    }:
+        raise ValueError("evaluation.yaml model reference does not match model.joblib.")
+    if not artifact.get("evaluation", {}).get("requested"):
+        raise ValueError("Training artifact is not promotable without requested evaluation.")
 
 
 def _file_sha256(path: Path) -> str:

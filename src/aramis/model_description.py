@@ -127,7 +127,7 @@ def _model_summary(model_info: dict[str, Any]) -> dict[str, Any]:
         "architecture": {
             "stage_1": "target_xrd_profile_logistic_regression",
             "stage_2": "age_and_optional_symmetry_refinement",
-            "symmetry_behavior": "bypassed_when_contralateral_data_are_unavailable",
+            "symmetry_behavior": "neutralized_unless_2_valid_measurements_per_breast_and_finite_core4_features",
         },
         "lr1_profile_model": _pipeline_summary(model_info.get("lr1_model")),
         "thresholds": _jsonable(model_info.get("thresholds", {})),
@@ -138,6 +138,9 @@ def _model_summary(model_info: dict[str, Any]) -> dict[str, Any]:
         if "symmetry_policy" in model_info:
             summary["symmetry_policy"] = model_info["symmetry_policy"]
             summary["symmetry_gate"] = model_info["symmetry_gate"]
+            summary["symmetry_feature_contract"] = model_info.get(
+                "symmetry_feature_contract", "aramis_sk_symmetry_v0_1"
+            )
         if "tissue_risk_assessment" in model_info:
             summary["tissue_risk_assessment"] = _jsonable(
                 model_info["tissue_risk_assessment"]

@@ -10,10 +10,28 @@ import pandas as pd
 from sklearn.pipeline import Pipeline
 
 from .model_utils import LABEL_MAP, profile_matrix
-from .symmetry_features import target_contralateral_symmetry_features
+from .symmetry_features import (
+    SK_FEATURE_CONTRACT_V0_1,
+    SK_FEATURE_CONTRACT_V0_2,
+    target_contralateral_symmetry_features,
+)
 
 
 TARGET_CASE_ID = "target_case_id"
+
+PREDICTION_METADATA_COLUMNS = (
+    "session_uid",
+    "session_id",
+    "scan_date_time",
+    "started_at",
+    "operator_id",
+    "hardware_version",
+    "eoscan_version",
+    "experimental_protocol_version",
+    "product_protocol_version",
+    "mammography_suspicious_field",
+    "mammography_conclusion",
+)
 
 
 def require_columns(df: pd.DataFrame, columns: Sequence[str]) -> None:
@@ -269,6 +287,7 @@ def patient_feature_table(
             side_column=side_column,
             target_side_norm=target_case.target_side_norm,
             contralateral_side_norm=target_case.contralateral_side_norm,
+            feature_contract=SK_FEATURE_CONTRACT_V0_2,
         )
         rows.append(
             {
@@ -340,6 +359,9 @@ def build_patient_prediction_feature_row(
         side_column=side_column,
         target_side_norm=target_side_norm,
         contralateral_side_norm=contralateral_side_norm,
+        feature_contract=str(
+            model_info.get("symmetry_feature_contract", SK_FEATURE_CONTRACT_V0_1)
+        ),
     )
     row = {
         TARGET_CASE_ID: f"{patient_id}::{target_side_norm}",
@@ -353,6 +375,7 @@ def build_patient_prediction_feature_row(
         "profile_p_cancer_probability_mean": float(np.mean(target_scores)),
         "profile_p_cancer_logit_average": logit_average_probability(target_scores),
         "profile_p_cancer_n_measurements": int(target_scores.size),
+        **prediction_metadata_from_target_rows(target_df),
         **symmetry,
     }
     return add_patient_reliability_columns(pd.DataFrame([row]))
@@ -366,38 +389,75 @@ def add_patient_reliability_columns(feature_table: pd.DataFrame) -> pd.DataFrame
         out["contralateral_measurements"].astype(int),
     )
     out["target_measurements_ok"] = (
-        out["target_measurements"].astype(int) >= 3
+        out["target_measurements"].astype(int) >= 2
     ).astype(int)
     out["contralateral_measurements_ok"] = (
-        out["contralateral_measurements"].astype(int) >= 3
+        out["contralateral_measurements"].astype(int) >= 2
     ).astype(int)
     out["paired_measurements_ok"] = (
         (out["symmetry_available"].astype(int) == 1)
-        & (out["min_measurements_per_breast"].astype(int) >= 3)
+        & (out["min_measurements_per_breast"].astype(int) >= 2)
     ).astype(int)
     out["profile_measurements_ok"] = (
-        out["profile_p_cancer_n_measurements"].astype(int) >= 3
+        out["profile_p_cancer_n_measurements"].astype(int) >= 2
     ).astype(int)
     out["result_reliability"] = np.select(
         [
             out["paired_measurements_ok"].astype(bool),
-            out["symmetry_available"].astype(bool),
+            out["target_measurements_ok"].astype(bool),
         ],
         ["high", "medium"],
         default="low",
     )
+    symmetry_reason = out.get("symmetry_reason", pd.Series("", index=out.index))
+    symmetry_reason = symmetry_reason.fillna("").astype(str)
     out["result_reliability_reason"] = np.select(
         [
             out["paired_measurements_ok"].astype(bool),
-            out["symmetry_available"].astype(bool),
+            symmetry_reason.eq("sk_core4_not_computable"),
+            out["contralateral_measurements"].astype(int).eq(0),
+            out["target_measurements_ok"].astype(bool),
         ],
         [
-            "at least 3 valid measurements per breast",
-            "paired breasts available but fewer than 3 measurements in at least one breast",
+            "at least 2 valid measurements per breast; symmetry refinement applied",
+            "symmetry features could not be computed; symmetry refinement not applied",
+            "contralateral breast unavailable after preprocessing; symmetry refinement not applied",
+            "fewer than 2 valid contralateral-breast measurements; symmetry refinement not applied",
         ],
-        default="paired breast symmetry unavailable",
+        default="fewer than 2 valid target-breast measurements",
     )
     return out
+
+
+def prediction_metadata_from_target_rows(target_df: pd.DataFrame) -> dict[str, Any]:
+    """Keep one non-conflicting target-side metadata value for report generation."""
+    metadata: dict[str, Any] = {}
+    for column in PREDICTION_METADATA_COLUMNS:
+        if column not in target_df.columns:
+            continue
+        values = [
+            value
+            for value in target_df[column].tolist()
+            if not _metadata_value_is_empty(value)
+        ]
+        unique = _unique_metadata_values(values)
+        if len(unique) == 1:
+            metadata[column] = unique[0]
+    return metadata
+
+
+def _metadata_value_is_empty(value: Any) -> bool:
+    if value is None or pd.isna(value):
+        return True
+    return isinstance(value, str) and not value.strip()
+
+
+def _unique_metadata_values(values: Sequence[Any]) -> list[Any]:
+    unique: list[Any] = []
+    for value in values:
+        if not any(value == existing for existing in unique):
+            unique.append(value.strip() if isinstance(value, str) else value)
+    return unique
 
 
 def numeric_median(df: pd.DataFrame, column: str, *, default: float) -> float:

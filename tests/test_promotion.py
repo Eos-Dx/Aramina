@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from hashlib import sha256
 from pathlib import Path
 
 import joblib
@@ -12,18 +13,29 @@ from aramis.promotion import promote_model_run
 def _completed_run(root: Path) -> Path:
     run = root / "run"
     run.mkdir()
-    joblib.dump(
-        {
-            "kind": "aramis_training_artifact",
-            "model_identity": {
-                "name": "aramis_target_breast_risk",
-                "version": "0.2.7-beta",
-            },
+    artifact = {
+        "kind": "aramis_training_artifact",
+        "model_identity": {
+            "name": "aramis_target_breast_risk",
+            "version": "0.2.7-beta",
         },
-        run / "model.joblib",
-    )
+        "feature_schema": {"final_model": {"feature_columns": ["age"]}},
+        "evaluation": {"requested": True},
+    }
+    joblib.dump(artifact, run / "model.joblib")
+    model_sha256 = sha256((run / "model.joblib").read_bytes()).hexdigest()
     (run / "model_description.yaml").write_text(
-        yaml.safe_dump({"output_type": "aramis_model_description"}),
+        yaml.safe_dump(
+            {
+                "output_type": "aramis_model_description",
+                "model": {
+                    "name": "aramis_target_breast_risk",
+                    "version": "0.2.7-beta",
+                    "artifact_sha256": model_sha256,
+                },
+                "feature_schema": artifact["feature_schema"],
+            }
+        ),
         encoding="utf-8",
     )
     for filename in (
@@ -31,9 +43,21 @@ def _completed_run(root: Path) -> Path:
         "prediction_preprocessing_config.yaml",
         "training_config.yaml",
         "preprocess_and_train_config.yaml",
-        "evaluation.yaml",
     ):
         (run / filename).write_text("contract: test\n", encoding="utf-8")
+    (run / "evaluation.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "output_type": "aramis_evaluation_artifact",
+                "model": {
+                    "name": "aramis_target_breast_risk",
+                    "version": "0.2.7-beta",
+                    "artifact_sha256": model_sha256,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
     (run / "evaluation_metrics.csv").write_text("fold_id\n0\n", encoding="utf-8")
     (run / "evaluation_predictions.csv").write_text(
         "target_case_id\ncase-1\n", encoding="utf-8"

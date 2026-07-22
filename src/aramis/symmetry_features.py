@@ -8,6 +8,8 @@ import numpy as np
 import pandas as pd
 from scipy.signal import savgol_filter
 
+from .m2q_model import SK_CORE4_FEATURE_COLUMNS
+
 
 SK_SYMMETRY_COLUMNS = (
     "sk_meanrms1",
@@ -28,6 +30,11 @@ SK_SYMMETRY_COLUMNS = (
 )
 
 
+SYMMETRY_MIN_MEASUREMENTS_PER_BREAST = 2
+SK_FEATURE_CONTRACT_V0_1 = "aramis_sk_symmetry_v0_1"
+SK_FEATURE_CONTRACT_V0_2 = "aramis_sk_symmetry_v0_2"
+
+
 def target_contralateral_symmetry_features(
     patient_df: pd.DataFrame,
     *,
@@ -36,8 +43,15 @@ def target_contralateral_symmetry_features(
     side_column: str,
     target_side_norm: str,
     contralateral_side_norm: str | None,
-) -> dict[str, float | int]:
-    """Calculate optional paired-breast symmetry features for one target side."""
+    feature_contract: str = SK_FEATURE_CONTRACT_V0_2,
+) -> dict[str, Any]:
+    """Calculate paired-breast features when the Core4 refinement is usable."""
+    if feature_contract not in {
+        SK_FEATURE_CONTRACT_V0_1,
+        SK_FEATURE_CONTRACT_V0_2,
+    }:
+        raise ValueError(f"Unsupported SK feature contract: {feature_contract!r}")
+    legacy = feature_contract == SK_FEATURE_CONTRACT_V0_1
     target = _side_profiles(patient_df, profile_column, side_column, target_side_norm)
     contralateral = (
         _side_profiles(patient_df, profile_column, side_column, contralateral_side_norm)
@@ -46,9 +60,29 @@ def target_contralateral_symmetry_features(
     )
     target_within = _mean_pairwise_cosine(target)
     contralateral_within = _mean_pairwise_cosine(contralateral)
-    if not target or not contralateral:
+    if not contralateral:
         out = {
             "symmetry_available": 0,
+            "symmetry_reason": "contralateral_breast_unavailable",
+            "target_measurements": int(len(target)),
+            "contralateral_measurements": int(len(contralateral)),
+            "target_within_cosine_distance_mean": _finite_or_zero(target_within),
+            "contralateral_within_cosine_distance_mean": _finite_or_zero(
+                contralateral_within
+            ),
+            "between_breasts_cosine_distance_mean": 0.0,
+            "symmetry_cosine_score": 0.0,
+        }
+        out.update(empty_sk_symmetry_features())
+        return out
+
+    if not legacy and (
+        len(target) < SYMMETRY_MIN_MEASUREMENTS_PER_BREAST
+        or len(contralateral) < SYMMETRY_MIN_MEASUREMENTS_PER_BREAST
+    ):
+        out = {
+            "symmetry_available": 0,
+            "symmetry_reason": "fewer_than_2_valid_measurements_per_breast",
             "target_measurements": int(len(target)),
             "contralateral_measurements": int(len(contralateral)),
             "target_within_cosine_distance_mean": _finite_or_zero(target_within),
@@ -68,8 +102,36 @@ def target_contralateral_symmetry_features(
         value for value in (target_within, contralateral_within) if np.isfinite(value)
     ]
     within_mean = float(np.mean(within_values)) if within_values else 0.0
+    raw_sk = _sk_target_contralateral_features(
+        patient_df,
+        profile_column=profile_column,
+        q_column=q_column,
+        side_column=side_column,
+        target_side_norm=target_side_norm,
+        contralateral_side_norm=contralateral_side_norm,
+        legacy=legacy,
+    )
+    if not legacy and not all(
+        np.isfinite(raw_sk[column]) for column in SK_CORE4_FEATURE_COLUMNS
+    ):
+        out = {
+            "symmetry_available": 0,
+            "symmetry_reason": "sk_core4_not_computable",
+            "target_measurements": int(len(target)),
+            "contralateral_measurements": int(len(contralateral)),
+            "target_within_cosine_distance_mean": _finite_or_zero(target_within),
+            "contralateral_within_cosine_distance_mean": _finite_or_zero(
+                contralateral_within
+            ),
+            "between_breasts_cosine_distance_mean": _finite_or_zero(between),
+            "symmetry_cosine_score": _finite_or_zero(between - within_mean),
+        }
+        out.update(empty_sk_symmetry_features())
+        return out
+
     out = {
         "symmetry_available": 1,
+        "symmetry_reason": "",
         "target_measurements": int(len(target)),
         "contralateral_measurements": int(len(contralateral)),
         "target_within_cosine_distance_mean": _finite_or_zero(target_within),
@@ -79,16 +141,7 @@ def target_contralateral_symmetry_features(
         "between_breasts_cosine_distance_mean": _finite_or_zero(between),
         "symmetry_cosine_score": _finite_or_zero(between - within_mean),
     }
-    out.update(
-        _sk_target_contralateral_features(
-            patient_df,
-            profile_column=profile_column,
-            q_column=q_column,
-            side_column=side_column,
-            target_side_norm=target_side_norm,
-            contralateral_side_norm=contralateral_side_norm,
-        )
-    )
+    out.update({column: _finite_or_zero(value) for column, value in raw_sk.items()})
     return out
 
 
@@ -105,6 +158,7 @@ def _sk_target_contralateral_features(
     side_column: str,
     target_side_norm: str,
     contralateral_side_norm: str | None,
+    legacy: bool = False,
 ) -> dict[str, float]:
     if contralateral_side_norm is None:
         return empty_sk_symmetry_features()
@@ -115,7 +169,8 @@ def _sk_target_contralateral_features(
         side_column=side_column,
         target_side_norm=target_side_norm,
         contralateral_side_norm=contralateral_side_norm,
-        q_roi=(7.5, 23.0),
+        q_roi=(7.5, 23.0) if legacy else (6.7, 23.0),
+        legacy=legacy,
     )
     metrics_full = _side_mean_metrics(
         patient_df,
@@ -125,55 +180,52 @@ def _sk_target_contralateral_features(
         target_side_norm=target_side_norm,
         contralateral_side_norm=contralateral_side_norm,
         q_roi=(2.0, 23.0),
+        legacy=legacy,
     )
     if not metrics or not metrics_full:
-        return empty_sk_symmetry_features()
+        return (
+            empty_sk_symmetry_features()
+            if legacy
+            else {column: float("nan") for column in SK_SYMMETRY_COLUMNS}
+        )
     q = metrics["q"]
     mu_target = metrics["mu_target"]
     mu_contralateral = metrics["mu_contralateral"]
     std_target = metrics["std_target"]
     std_contralateral = metrics["std_contralateral"]
-    mask1 = (q >= 7.0) & (q <= 15.0)
+    mask1 = (q >= (7.0 if legacy else 6.7)) & (q <= 15.0)
     mask2 = (q >= 15.0) & (q <= 23.0)
-    return {
-        "sk_meanrms1": _finite_or_zero(
-            _rms_difference(mu_target, mu_contralateral, mask1)
-        ),
-        "sk_weightedrms1": _finite_or_zero(
+    raw = {
+        "sk_meanrms1": _rms_difference(mu_target, mu_contralateral, mask1),
+        "sk_weightedrms1": (
             _weighted_rms_difference(
                 mu_target, mu_contralateral, std_target, std_contralateral, mask1
             )
         ),
-        "sk_sigma_target1": _finite_or_zero(_sigma_rms(std_target, mask1)),
-        "sk_sigma_contralateral1": _finite_or_zero(
-            _sigma_rms(std_contralateral, mask1)
-        ),
-        "sk_mahalanobis1": _finite_or_zero(
+        "sk_sigma_target1": _sigma_rms(std_target, mask1),
+        "sk_sigma_contralateral1": _sigma_rms(std_contralateral, mask1),
+        "sk_mahalanobis1": (
             _mahalanobis_difference(
                 mu_target, mu_contralateral, std_target, std_contralateral, mask1
             )
         ),
-        "sk_meanrms2": _finite_or_zero(
-            _rms_difference(mu_target, mu_contralateral, mask2)
-        ),
-        "sk_weightedrms2": _finite_or_zero(
+        "sk_meanrms2": _rms_difference(mu_target, mu_contralateral, mask2),
+        "sk_weightedrms2": (
             _weighted_rms_difference(
                 mu_target, mu_contralateral, std_target, std_contralateral, mask2
             )
         ),
-        "sk_sigma_target2": _finite_or_zero(_sigma_rms(std_target, mask2)),
-        "sk_sigma_contralateral2": _finite_or_zero(
-            _sigma_rms(std_contralateral, mask2)
-        ),
-        "sk_mahalanobis2": _finite_or_zero(
+        "sk_sigma_target2": _sigma_rms(std_target, mask2),
+        "sk_sigma_contralateral2": _sigma_rms(std_contralateral, mask2),
+        "sk_mahalanobis2": (
             _mahalanobis_difference(
                 mu_target, mu_contralateral, std_target, std_contralateral, mask2
             )
         ),
-        "sk_peak14_intensity_abs_delta": _finite_or_zero(
-            _peak14_intensity_abs_delta(q, mu_target, mu_contralateral)
+        "sk_peak14_intensity_abs_delta": _peak14_intensity_abs_delta(
+            q, mu_target, mu_contralateral
         ),
-        "sk_mean_peak_value_abs_delta": _finite_or_zero(
+        "sk_mean_peak_value_abs_delta": (
             _mean_peak_value_abs_delta(
                 patient_df,
                 q_column=q_column,
@@ -183,22 +235,21 @@ def _sk_target_contralateral_features(
                 contralateral_side_norm=contralateral_side_norm,
             )
         ),
-        "sk_wasserstein_distance_mu_tc": _finite_or_zero(
-            _profile_wasserstein(q, mu_target, mu_contralateral)
+        "sk_wasserstein_distance_mu_tc": _profile_wasserstein(
+            q, mu_target, mu_contralateral
         ),
-        "sk_cosine_distance_full_q2": _finite_or_zero(
+        "sk_cosine_distance_full_q2": (
             _cosine_distance(
                 metrics_full["mu_target"], metrics_full["mu_contralateral"]
             )
         ),
-        "sk_wasserstein_distance_full_q2": _finite_or_zero(
-            _profile_wasserstein(
-                metrics_full["q"],
-                metrics_full["mu_target"],
-                metrics_full["mu_contralateral"],
-            )
+        "sk_wasserstein_distance_full_q2": _profile_wasserstein(
+            metrics_full["q"],
+            metrics_full["mu_target"],
+            metrics_full["mu_contralateral"],
         ),
     }
+    return {column: _finite_or_zero(value) for column, value in raw.items()} if legacy else raw
 
 
 def _side_profiles(
@@ -222,6 +273,7 @@ def _side_mean_metrics(
     target_side_norm: str,
     contralateral_side_norm: str,
     q_roi: tuple[float, float],
+    legacy: bool = False,
 ) -> dict[str, np.ndarray] | None:
     target_profiles: list[np.ndarray] = []
     contralateral_profiles: list[np.ndarray] = []
@@ -232,8 +284,14 @@ def _side_mean_metrics(
             continue
         q = np.asarray(getattr(row, q_column), dtype=float).ravel()
         y = np.asarray(getattr(row, profile_column), dtype=float).ravel()
-        q, y = _profile_roi(q, y, q_roi)
-        y = _normalize_profile_near_minimum(q, _smooth_profile(y))
+        q, y = _profile_roi(q, y, q_roi, fallback_full_range=legacy)
+        if q.size < 5:
+            continue
+        y = (
+            _normalize_profile_near_minimum(q, _smooth_profile(y))
+            if legacy
+            else _smooth_profile(y)
+        )
         if q_common is None:
             q_common = q
         y_common = np.interp(q_common, q, y)
@@ -255,10 +313,16 @@ def _side_mean_metrics(
 
 
 def _profile_roi(
-    q: np.ndarray, y: np.ndarray, q_roi: tuple[float, float]
+    q: np.ndarray,
+    y: np.ndarray,
+    q_roi: tuple[float, float],
+    *,
+    fallback_full_range: bool = False,
 ) -> tuple[np.ndarray, np.ndarray]:
     mask = (q >= float(q_roi[0])) & (q <= float(q_roi[1]))
-    return (q[mask], y[mask]) if int(mask.sum()) >= 5 else (q, y)
+    if fallback_full_range and int(mask.sum()) < 5:
+        return q, y
+    return q[mask], y[mask]
 
 
 def _smooth_profile(y: np.ndarray) -> np.ndarray:
@@ -277,6 +341,7 @@ def _normalize_profile_near_minimum(
     q0: float = 6.7,
     halfwidth: float = 0.25,
 ) -> np.ndarray:
+    """Legacy v0.1 SK-only normalization retained for released artifacts."""
     mask = (q >= q0 - halfwidth) & (q <= q0 + halfwidth) & np.isfinite(y)
     baseline = (
         float(np.nanpercentile(y[mask], 5))

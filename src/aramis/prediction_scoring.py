@@ -16,7 +16,7 @@ from .training_config import PRODUCT_MODEL_NAME
 _DEFAULT_TRA_POLICY = {
     "contract": "aramis_tra_v0_1",
     "reference_score": "final_prediction.p_cancer",
-    "reference_population": "train_on_all target-breast cases",
+    "reference_population": "train_on_all_target-breast_cases",
     "levels": [
         {"level": "TRA 1", "minimum_percentile": 0.0, "maximum_percentile": 20.0},
         {"level": "TRA 2", "minimum_percentile": 20.0, "maximum_percentile": 50.0},
@@ -43,7 +43,9 @@ def _prediction_target_side(
 def _prediction_model_route(
     feature_row: pd.DataFrame, model_info: dict[str, Any]
 ) -> str | None:
-    if model_info.get("symmetry_policy") == "single_model_gated_optional_refinement":
+    if str(model_info.get("symmetry_policy", "")).startswith(
+        "single_model_gated_optional_refinement"
+    ):
         return None
     if "routes" not in model_info:
         return None
@@ -182,8 +184,8 @@ def _prediction_quantiles(
 
 
 def _report_identifier(value: Any) -> str:
-    """Render a frozen report identifier with stable underscore separators."""
-    return "_".join(str(value).replace("-", " ").split())
+    """Render a frozen identifier with spaces normalized to underscores."""
+    return "_".join(str(value).split())
 
 
 def _tissue_risk_assessment(model_info: dict[str, Any], p_cancer: float) -> dict[str, Any]:

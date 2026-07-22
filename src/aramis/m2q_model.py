@@ -41,8 +41,9 @@ class GatedSymmetryLogistic(BaseEstimator):
     """LR2 with profile and age plus an optional neutral SK refinement.
 
     Profile evidence and age are always evaluated. SK Core4 terms are scaled
-    from paired training cases and set to zero when no contralateral breast is
-    available. The availability flag is a gate, never a learned risk feature.
+    from paired training cases and set to zero unless each breast has at least
+    two valid measurements and all Core4 values are finite. The availability
+    flag is a gate, never a learned risk feature.
     """
 
     def __init__(self, *, logreg_c: float = 0.1, random_state: int = 42) -> None:

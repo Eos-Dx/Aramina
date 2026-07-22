@@ -18,6 +18,7 @@ from xrd_preprocessing import (
 )
 
 from .model_utils import profile_matrix
+from .config_paths import resolve_config_path
 from .patient_features import (
     lr1_training_rows as _lr1_training_rows,
     patient_feature_table as _patient_feature_table,
@@ -598,12 +599,7 @@ def _public_config_path(
     key: str,
 ) -> Path:
     value = config[section][key]
-    path = Path(str(value)).expanduser()
-    return (
-        path
-        if path.is_absolute()
-        else (Path(__file__).resolve().parents[2] / path).resolve()
-    )
+    return resolve_config_path(value, config_path)
 
 
 def _new_training_run_folder(output_root: Path, model: dict[str, Any]) -> Path:

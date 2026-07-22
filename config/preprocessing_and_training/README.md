@@ -15,9 +15,10 @@ preprocessing_config_path: config/preprocessing/config_preprocessing_biopsy_pati
 training_config_path: config/training/config_training_target_breast_risk_v0_1.yaml
 ```
 
-All relative paths resolve from the Aramis project root. `run_author` identifies the
-person starting the run. The resolved preprocessing and training YAML are embedded
-in the resulting model artifact.
+For a YAML under `Aramis/config`, relative paths resolve from the Aramis root.
+For an external top-level YAML, they resolve from that YAML's directory.
+`run_author` identifies the person starting the run. The resolved preprocessing
+and training YAML are embedded in the resulting model artifact.
 
 ```bash
 python -m aramis preprocess-train \

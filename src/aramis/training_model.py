@@ -6,20 +6,15 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import (
-    average_precision_score,
-    brier_score_loss,
-    confusion_matrix,
-    log_loss,
-    roc_auc_score,
-)
 
 from .m2q_model import (
     GatedSymmetryLogistic,
     build_profile_logistic as _profile_logistic,
 )
 from .model_utils import compute_binary_thresholds, profile_matrix
+from .model_metrics import final_fit_training_metrics as _final_fit_training_metrics
 from .model_schema import m2q_model_input_columns
+from .symmetry_features import SK_FEATURE_CONTRACT_V0_2
 from .patient_features import (
     lr1_training_rows as _lr1_training_rows,
     patient_feature_table as _patient_feature_table,
@@ -115,8 +110,12 @@ def _fit_m2q_model(
         "lr1_model": lr1_model,
         "final_model": final_model,
         "feature_columns": m2q_model_input_columns(),
-        "symmetry_policy": "single_model_gated_optional_refinement",
+        "symmetry_policy": (
+            "single_model_gated_optional_refinement_requires_2_valid_measurements_"
+            "per_breast_and_finite_core4"
+        ),
         "symmetry_gate": "symmetry_available",
+        "symmetry_feature_contract": SK_FEATURE_CONTRACT_V0_2,
         "thresholds": thresholds,
         "final_fit_training_metrics": _final_fit_training_metrics(
             y,
@@ -130,7 +129,7 @@ def _fit_m2q_model(
         "tissue_risk_assessment": {
             "contract": "aramis_tra_v0_1",
             "reference_score": "final_prediction.p_cancer",
-            "reference_population": "train_on_all target-breast cases",
+            "reference_population": "train_on_all_target-breast_cases",
             "levels": [
                 {
                     "level": "TRA 1",
@@ -176,63 +175,8 @@ def _score_reference_distribution(
     """Freeze one score-specific target-case reference distribution."""
     return {
         "score": score,
-        "population": "train_on_all target-breast cases",
+        "population": "train_on_all_target-breast_cases",
         "all_target_cases": _sorted_scores(score_values),
         "benign_target_cases": _sorted_scores(score_values[labels == 0]),
         "cancer_target_cases": _sorted_scores(score_values[labels == 1]),
     }
-
-
-def _final_fit_training_metrics(
-    y: np.ndarray,
-    score: np.ndarray,
-    *,
-    threshold: float,
-) -> dict[str, Any]:
-    """Describe train-on-all fit without representing it as validation."""
-    decision_thresholds = np.full(len(y), threshold, dtype=float)
-    pred = (score >= decision_thresholds).astype(int)
-    tn, fp, fn, tp = confusion_matrix(y, pred, labels=[0, 1]).ravel()
-    return {
-        "evaluation_status": "in_sample_not_independent",
-        "target_cases": int(len(y)),
-        "cancer_target_cases": int((y == 1).sum()),
-        "benign_target_cases": int((y == 0).sum()),
-        "decision_threshold": threshold,
-        **_binary_metrics(y, score, decision_thresholds),
-        "true_positives": int(tp),
-        "true_negatives": int(tn),
-        "false_negatives": int(fn),
-        "false_positives": int(fp),
-    }
-
-
-def _binary_metrics(
-    y: np.ndarray,
-    score: np.ndarray,
-    threshold: np.ndarray,
-) -> dict[str, float]:
-    pred = (score >= threshold).astype(int)
-    tn, fp, fn, tp = confusion_matrix(y, pred, labels=[0, 1]).ravel()
-    sensitivity = _ratio(tp, tp + fn)
-    specificity = _ratio(tn, tn + fp)
-    return {
-        "roc_auc": float(roc_auc_score(y, score)),
-        "pr_auc": float(average_precision_score(y, score)),
-        "sensitivity": sensitivity,
-        "specificity": specificity,
-        "balanced_accuracy": _mean_finite([sensitivity, specificity]),
-        "ppv": _ratio(tp, tp + fp),
-        "npv": _ratio(tn, tn + fn),
-        "brier_score": float(brier_score_loss(y, score)),
-        "log_loss": float(log_loss(y, score, labels=[0, 1])),
-    }
-
-
-def _ratio(numerator: int, denominator: int) -> float:
-    return float(numerator / denominator) if denominator else float("nan")
-
-
-def _mean_finite(values: list[float]) -> float:
-    finite = [float(value) for value in values if np.isfinite(value)]
-    return float(np.mean(finite)) if finite else float("nan")

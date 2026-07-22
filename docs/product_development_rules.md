@@ -39,7 +39,8 @@ product: Aramis
 target population: women with BI-RADS 3 / BI-RADS 4 suspicious findings
 clinical question: does the clinically suspicious breast likely need biopsy?
 clinical user: radiologist / qualified breast-imaging clinician
-output: p_cancer, suggested BENIGN/CANCER class, reliability metadata
+internal output: p_cancer, suggested BENIGN/CANCER class, reliability metadata
+external output: risk_probability, risk_level, decision threshold, reliability metadata
 ```
 
 ## Required Traceability
@@ -140,13 +141,19 @@ prediction_preprocessing_config stored inside model artifact
 External prediction report must output:
 
 ```text
-suggested_class
+risk_probability
+risk_level
+decision_threshold
 reliability
 reliability_reason
 report_id
 created_at
-decision-support limitations
+model identity and final-fit sensitivity/specificity
 ```
+
+`suggested_class` is retained only in the internal report. External reports do
+not expose TRA, profile-only values, raw symmetry fields, model coefficients,
+or configuration provenance.
 
 Internal prediction report additionally carries the target-side decision and
 `p_cancer`, the contralateral full-model `p_cancer` with symmetry neutralized,

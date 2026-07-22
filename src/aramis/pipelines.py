@@ -18,6 +18,7 @@ from xrd_preprocessing import (
     save_preprocessing_artifact,
 )
 
+from .config_paths import resolve_config_path
 from .preprocessing_contract import validate_if_aramis_product_config
 
 
@@ -122,10 +123,7 @@ def _config_path(config: dict[str, Any], config_path: Path, key: str) -> Path:
     value = config.get("io", {}).get(key)
     if value in {None, ""}:
         raise ValueError(f"Missing io.{key} in preprocessing config: {config_path}")
-    path = Path(str(value)).expanduser()
-    if path.is_absolute():
-        return path
-    return (Path(__file__).resolve().parents[2] / path).resolve()
+    return resolve_config_path(value, config_path)
 
 
 def _load_config(config: dict[str, Any] | str | Path) -> dict[str, Any]:

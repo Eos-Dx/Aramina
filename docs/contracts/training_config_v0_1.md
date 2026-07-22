@@ -8,7 +8,7 @@ Status: research draft.
 contract: aramis_training_config_v0_3
 model:
   name: aramis_target_breast_risk
-  version: 0.2.10-beta
+  version: 0.2.11-beta
   model_author: Sergey Denisov
   clinical_stage: research draft
   intended_use: Breast cancer decision support; requires radiologist review.
@@ -26,7 +26,10 @@ evaluation:
   random_seed: 42
 ```
 
-All relative paths resolve from the Aramis project root. Unknown or missing fields fail immediately.
+For a YAML stored below `<Aramis>/config/`, relative paths resolve from the
+Aramis project root. For an external top-level YAML, relative paths resolve
+from that YAML's own directory. This same rule is used by CLI, direct Python,
+and Docker. Unknown or missing fields fail immediately.
 
 | Field | Meaning |
 |---|---|
