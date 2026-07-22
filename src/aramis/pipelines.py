@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gc
 import logging
 import subprocess
 from hashlib import sha256
@@ -73,6 +74,10 @@ def run_preprocessing_pipeline(
         effective_config=pipeline.config_,
         input_h5_path=h5_path,
     )
+    # Fitted H5 readers retain calibration frames that are not part of the
+    # returned DataFrame. Release them before downstream model training.
+    del pipeline
+    gc.collect()
     return df
 
 
@@ -92,12 +97,17 @@ def run_preprocessing_artifact_from_config(
     )
     pipeline = AramisPreprocessingPipeline(config=config, verbose=verbose)
     df = pipeline.fit_transform(h5_path)
-    return _write_joblib_if_requested(
+    artifact = _write_joblib_if_requested(
         df,
         output_joblib_path,
         effective_config=pipeline.config_,
         input_h5_path=h5_path,
     )
+    # Keep only the compact artifact; fitted readers can retain raw calibration
+    # frames and would otherwise overlap with the following training stage.
+    del pipeline
+    gc.collect()
+    return artifact
 
 
 def run_preprocessing_from_config(
