@@ -21,6 +21,13 @@ The script verifies the bundled H5 checksum, loads the bundled native
 It does not install Conda, Git, Python, pyFAI, Aramis, or XRD-preprocessing on
 Windows.
 
+The runtime is `0.2.11-beta`. The bundled frozen reference artifact remains
+`aramis_target_breast_risk_0_2_10-beta_ccad65e77adb` because it is the last
+tracked product-model artifact. Training produces a traceable `0.2.11-beta`
+candidate. Exact parameter comparison runs only when candidate and reference
+model versions match; otherwise the launcher records that the model contracts
+are intentionally different.
+
 The H5 archive is mounted read-only from `data/combined_archive.h5`; it is
 never copied into the Docker image. Generated artifacts and logs are written
 to `outputs/` beside this README.
