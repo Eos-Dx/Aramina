@@ -3,8 +3,8 @@ version: '0.1'
 model:
   name: aramis_target_breast_risk
   version: 0.2.10-beta
-  id: aramis_target_breast_risk_0_2_10-beta_3a0cb1c1d4ac
-  artifact_sha256: 3a0cb1c1d4ac757f0619b0b0d042d8f0fba521c65c5c8703186ed8e914639048
+  id: aramis_target_breast_risk_0_2_10-beta_ccad65e77adb
+  artifact_sha256: ccad65e77adbf0be09b0b7f2b424589fb08c6d3165bbcbf5e878b6fd2b33d078
 model_summary:
   architecture:
     stage_1: target_xrd_profile_logistic_regression
@@ -500,7 +500,7 @@ reproducibility:
   source_code:
     aramis:
       version: 0.2.10b0
-      git_sha: c6caef59120d483f5e7301f8ffbd9e6382265bce
+      git_sha: c67b0ea9085e6e110dc3ee84bf636c364f154a83
     xrd_preprocessing:
       version: 0.1.7b0
       url: https://github.com/Eos-Dx/XRD-preprocessing.git

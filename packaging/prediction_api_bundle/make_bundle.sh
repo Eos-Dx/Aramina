@@ -18,7 +18,7 @@ docker info >/dev/null || { echo "Docker Linux engine is not running." >&2; exit
 for path in \
   "${ARAMIS_ROOT}/demo/model_service/app.py" \
   "${ARAMIS_ROOT}/demo/model_service/Dockerfile" \
-  "${ARAMIS_ROOT}/models/aramis_target_breast_risk_0_2_10-beta_3a0cb1c1d4ac/model.joblib"; do
+  "${ARAMIS_ROOT}/models/aramis_target_breast_risk_0_2_10-beta_ccad65e77adb/model.joblib"; do
   [[ -f "${path}" ]] || { echo "Missing API bundle input: ${path}" >&2; exit 1; }
 done
 
@@ -79,7 +79,7 @@ import subprocess
 import sys
 
 target, root, amd64_archive, arm64_archive = map(Path, sys.argv[1:])
-model = root / "models/aramis_target_breast_risk_0_2_10-beta_3a0cb1c1d4ac/model.joblib"
+model = root / "models/aramis_target_breast_risk_0_2_10-beta_ccad65e77adb/model.joblib"
 service = root / "demo/model_service/app.py"
 dockerfile = root / "demo/model_service/Dockerfile"
 

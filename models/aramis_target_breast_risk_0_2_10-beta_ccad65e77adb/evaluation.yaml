@@ -1,11 +1,11 @@
 output_type: aramis_evaluation_artifact
 version: '0.1'
-created_at: '2026-07-21T18:29:48+00:00'
+created_at: '2026-07-22T16:26:04+00:00'
 model:
   name: aramis_target_breast_risk
   version: 0.2.10-beta
-  id: aramis_target_breast_risk_0_2_10-beta_3a0cb1c1d4ac
-  artifact_sha256: 3a0cb1c1d4ac757f0619b0b0d042d8f0fba521c65c5c8703186ed8e914639048
+  id: aramis_target_breast_risk_0_2_10-beta_ccad65e77adb
+  artifact_sha256: ccad65e77adbf0be09b0b7f2b424589fb08c6d3165bbcbf5e878b6fd2b33d078
 threshold_selection: train_fold_target_sensitivity
 target_sensitivity: 0.95
 decision_threshold:
