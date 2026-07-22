@@ -25,6 +25,9 @@ from .synthetic_aramis_h5 import write_v0_3_one_patient_h5
 
 
 PREDICTION_EXAMPLE_ROOT = Path(__file__).parents[1] / "examples" / "prediction" / "configs"
+PREDICTION_REPORT_EXAMPLE_ROOT = (
+    Path(__file__).parents[1] / "contracts" / "prediction" / "examples"
+)
 FINAL_EXAMPLE_MODEL = (
     Path(__file__).parents[1]
     / "models"
@@ -127,6 +130,41 @@ def test_frozen_model_examples_keep_stable_scores(
         final = predictions[side]["final_prediction"]
         assert final["level"] in {"TRA 1", "TRA 2", "TRA 3", "TRA 4", "TRA 5"}
         assert "tissue_risk_assessment" not in final
+
+
+def test_report_contract_examples_match_generated_report_schema(tmp_path: Path):
+    """Keep tracked report examples aligned with the frozen model output."""
+    source = PREDICTION_EXAMPLE_ROOT / "config_predict_cancer_example.yaml"
+    config = yaml.safe_load(source.read_text(encoding="utf-8"))
+    project_root = Path(__file__).parents[1]
+    config["io"]["input_h5_path"] = str(project_root / config["io"]["input_h5_path"])
+    config["io"]["input_model_joblib_path"] = str(
+        project_root / config["io"]["input_model_joblib_path"]
+    )
+    config["io"]["output_folder"] = str(tmp_path / "reports")
+    config_path = tmp_path / "predict.yaml"
+    config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+
+    reports = run_prediction_from_config(config_path)
+    for report_name, filename in (
+        ("internal_report", "internal_report.yaml"),
+        ("external_report", "external_report.yaml"),
+    ):
+        example = yaml.safe_load(
+            (PREDICTION_REPORT_EXAMPLE_ROOT / filename).read_text(encoding="utf-8")
+        )
+        assert _mapping_key_paths(example) == _mapping_key_paths(reports[report_name])
+
+
+def _mapping_key_paths(value: object, path: str = "") -> set[str]:
+    if not isinstance(value, dict):
+        return set()
+    paths = set()
+    for key, nested in value.items():
+        current = f"{path}.{key}" if path else str(key)
+        paths.add(current)
+        paths.update(_mapping_key_paths(nested, current))
+    return paths
 
 
 @pytest.mark.parametrize(

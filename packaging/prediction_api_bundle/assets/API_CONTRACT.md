@@ -77,7 +77,7 @@ the model applies its neutral symmetry gate and the internal report records
 The target external report carries `risk_probability`, `risk_level`, fixed
 `decision_threshold`, reliability, model version, and final-fit model
 sensitivity/specificity. The internal report contains target and contralateral
-profile/final predictions, decision class, TRA score, audit metadata and
+profile/final predictions, decision class, TRA level, audit metadata and
 symmetry availability.
 
 The service deliberately returns payloads in memory. It deletes the uploaded

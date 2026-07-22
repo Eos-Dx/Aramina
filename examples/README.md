@@ -7,7 +7,7 @@ Current product-model artifacts:
 
 ```text
 prediction_h5/
-prediction_models/
+../models/
 ```
 
 Run a complete one-patient H5 prediction example:

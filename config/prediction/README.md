@@ -11,7 +11,7 @@ run:
 io:
   input_h5_path: examples/prediction_h5/cancer_one_patient.h5
   input_model_joblib_path: models/aramis_target_breast_risk_<model_id>/model.joblib
-  output_folder: examples/outputs/prediction_h5_examples
+  output_folder: examples/outputs/prediction
 patient:
   patient_id: PATIENT_ID_FROM_H5
   target_side: left

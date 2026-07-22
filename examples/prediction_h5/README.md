@@ -59,7 +59,7 @@ python examples/prediction_h5/create_gfrm_prediction_fixtures.py \
 Reports are written to:
 
 ```text
-examples/outputs/prediction_h5_examples/
+examples/outputs/prediction_examples/<fixture>/
 ```
 
 Product preprocessing is read from the model artifact; it is not overridden by

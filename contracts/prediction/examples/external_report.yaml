@@ -15,7 +15,8 @@ eoscan_version: unknown
 model_name: aramis_target_breast_risk
 model_version: 0.2.10-beta
 model_metrics:
-  metric_scope: in_sample_not_independent
+  dataset: train_on_all_target_breast_cases
+  validation: not_performed
   sensitivity: 0.96053
   specificity: 0.46465
 risk_probability: 0.84062
