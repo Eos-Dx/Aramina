@@ -29,7 +29,7 @@ model_metrics:
   specificity: 0.46465
 decision_threshold:
   threshold_id: target_sensitivity_0.95
-  threshold: 0.32787
+  threshold: 0.24451
   applies_to: [target.final_prediction, contralateral.final_prediction]
 scan_metadata:
   patient_id: PATIENT_ID
@@ -57,7 +57,7 @@ scores:
 
 ```yaml
 threshold_id: target_sensitivity_0.95
-threshold: 0.32787
+threshold: 0.24451
 applies_to: [target.final_prediction, contralateral.final_prediction]
 ```
 
