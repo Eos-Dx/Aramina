@@ -56,6 +56,13 @@ install.bat
 
 Detailed instructions: [INSTALL.md](INSTALL.md).
 
+Local `preprocess`, `train`, and `preprocess-train` require the full historical
+H5 archive, which is intentionally not stored in Git. Place the approved
+archive at `data/combined_archive.h5` under the Aramis project root before
+running those commands. The one-patient prediction examples are self-contained
+and do not require this archive. The Docker bundle includes its own verified
+copy under `data/`.
+
 ## Main Commands
 
 ```bash

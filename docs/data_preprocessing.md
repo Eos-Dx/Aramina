@@ -139,6 +139,11 @@ workspace/
     data/combined_archive.h5
 ```
 
+`combined_archive.h5` is a controlled external input and is excluded from Git.
+The local historical preprocessing and training commands require it at this
+location. The reproducible Docker bundle supplies and verifies its own copy;
+one-patient prediction does not require the historical archive.
+
 ## Fixed Numerical Choices
 
 ```text

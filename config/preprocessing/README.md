@@ -52,6 +52,12 @@ python -m aramis preprocess \
   --config config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
 ```
 
+Before using the historical-training config, supply the approved full archive
+as `data/combined_archive.h5` under the Aramis project root. This large input
+is deliberately excluded from Git. The prediction preprocessing config receives
+its one-patient H5 path from the prediction request and does not use the
+historical archive.
+
 Output joblib contains:
 
 ```text
