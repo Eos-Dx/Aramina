@@ -67,7 +67,7 @@ def run_preprocessing_pipeline(
 ) -> pd.DataFrame:
     """Build the Aramis preprocessing DataFrame declared by YAML."""
     pipeline = AramisPreprocessingPipeline(config=config, verbose=verbose)
-    df = pipeline.fit_transform(h5_path)
+    df = pipeline.fit_transform(h5_path).copy(deep=True)
     _write_joblib_if_requested(
         df,
         output_joblib_path,
@@ -96,7 +96,7 @@ def run_preprocessing_artifact_from_config(
         config, config_path, "output_joblib_path"
     )
     pipeline = AramisPreprocessingPipeline(config=config, verbose=verbose)
-    df = pipeline.fit_transform(h5_path)
+    df = pipeline.fit_transform(h5_path).copy(deep=True)
     artifact = _write_joblib_if_requested(
         df,
         output_joblib_path,

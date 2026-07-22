@@ -68,7 +68,8 @@ import joblib
 
 candidate = joblib.load(Path(sys.argv[1]))
 identity = candidate["model_identity"]
-print(f"candidate_model_id={identity['id']}")
+print(f"candidate_model_id={candidate.get('model_id', 'unassigned')}")
+print(f"candidate_model_name={identity['name']}")
 print(f"candidate_model_version={identity['version']}")
 PY
 
