@@ -165,7 +165,6 @@ def _prediction_quantiles(
         "cancer_training_target_cases": "cancer_target_cases",
     }
     out: dict[str, Any] = {
-        "reference_score": str(reference.get("score", "unknown")),
         "reference_population": _report_identifier(
             reference.get("population", "unknown")
         ),

@@ -78,7 +78,6 @@ final_prediction:
   suggested_class: CANCER
   level: TRA 3
   score_percentiles:
-    reference_score: final_prediction.p_cancer
     reference_population: train_on_all_target-breast_cases
     all_training_target_cases: 0.74000
     benign_training_target_cases: 0.93000
@@ -134,7 +133,6 @@ final_prediction:
   suggested_class: CANCER
   level: TRA 3
   score_percentiles:
-    reference_score: final_prediction.p_cancer
     reference_population: train_on_all_target-breast_cases
     all_training_target_cases: 0.51000
     benign_training_target_cases: 0.67000
@@ -168,7 +166,6 @@ final_prediction:
   suggested_class: unknown
   level: unknown
   score_percentiles:
-    reference_score: unknown
     reference_population: unknown
     all_training_target_cases: unknown
     benign_training_target_cases: unknown

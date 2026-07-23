@@ -511,7 +511,6 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
         "per_measurement_p_cancer",
     }
     assert set(target["final_prediction"]["score_percentiles"]) == {
-        "reference_score",
         "reference_population",
         "all_training_target_cases",
         "benign_training_target_cases",

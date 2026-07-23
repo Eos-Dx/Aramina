@@ -256,7 +256,6 @@ def _contralateral_breast_prediction_report(
 
 def _unknown_score_percentiles() -> dict[str, str]:
     return {
-        "reference_score": "unknown",
         "reference_population": "unknown",
         "all_training_target_cases": "unknown",
         "benign_training_target_cases": "unknown",
