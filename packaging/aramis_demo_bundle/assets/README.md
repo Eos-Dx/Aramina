@@ -56,6 +56,11 @@ were included in the frozen model's training dataframe; blue entries were not.
 This is provenance for the demonstrator only. Both types remain selectable, and
 the displayed prediction is not an independent validation result.
 
+For a red entry, the target breast follows the training case: a single recorded
+training target side is preselected, while bilateral training cases allow a
+left/right choice. Blue entries retain free selection among their available
+breasts.
+
 The `INTERPRETATION GUIDELINES` section of external PDFs explains the fixed
 threshold interpretation: `high` supports `Biopsy required`; `low` supports
 `Biopsy not required`. This is research-draft decision support; final clinical
