@@ -475,6 +475,10 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
     ]
     assert 0.0 <= decision["threshold"] <= 1.0
     assert "decision_threshold" not in target["final_prediction"]
+    assert set(target["azimuthal_integration_target_profile"]) == {
+        "p_cancer",
+        "per_measurement_p_cancer",
+    }
     assert target["azimuthal_integration_target_profile"]["p_cancer"] is not None
     assert target["symmetry"] == {"available": True}
     assert target["model_execution"] == {
@@ -502,6 +506,10 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
     assert 0.0 <= contralateral[
         "azimuthal_integration_contralateral_profile"
     ]["p_cancer"] <= 1.0
+    assert set(contralateral["azimuthal_integration_contralateral_profile"]) == {
+        "p_cancer",
+        "per_measurement_p_cancer",
+    }
     assert set(target["final_prediction"]["score_percentiles"]) == {
         "reference_score",
         "reference_population",
@@ -596,6 +604,10 @@ def test_predict_without_contralateral_uses_unavailable_symmetry(
     assert contralateral["azimuthal_integration_contralateral_profile"][
         "p_cancer"
     ] == "unknown"
+    assert set(contralateral["azimuthal_integration_contralateral_profile"]) == {
+        "p_cancer",
+        "per_measurement_p_cancer",
+    }
 
 
 def test_h5_contract_requires_one_matching_patient(tmp_path: Path, trained_model):

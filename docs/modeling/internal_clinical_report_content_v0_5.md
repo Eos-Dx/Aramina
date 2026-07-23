@@ -71,7 +71,6 @@ The available target block has this shape:
 available: true
 side: left
 azimuthal_integration_target_profile:
-  available: true
   p_cancer: 0.63482
   per_measurement_p_cancer: [0.62203, 0.64908, 0.63332]
 final_prediction:
@@ -128,7 +127,6 @@ remains the caller-supplied primary decision-support result:
 available: true
 side: right
 azimuthal_integration_contralateral_profile:
-  available: true
   p_cancer: 0.51234
   per_measurement_p_cancer: [0.50120, 0.51492, 0.52087]
 final_prediction:
@@ -163,7 +161,6 @@ If the contralateral breast is absent after preprocessing, its block is:
 available: false
 side: unknown
 azimuthal_integration_contralateral_profile:
-  available: false
   p_cancer: unknown
   per_measurement_p_cancer: []
 final_prediction:

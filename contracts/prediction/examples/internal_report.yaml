@@ -43,7 +43,6 @@ breast_predictions:
     available: true
     side: left
     azimuthal_integration_target_profile:
-      available: true
       p_cancer: 0.64729
       per_measurement_p_cancer: [0.84206, 0.63532, 0.39958]
     final_prediction:
@@ -67,7 +66,6 @@ breast_predictions:
     available: true
     side: right
     azimuthal_integration_contralateral_profile:
-      available: true
       p_cancer: 0.64087
       per_measurement_p_cancer: [0.83631, 0.31505, 0.70744]
     final_prediction:

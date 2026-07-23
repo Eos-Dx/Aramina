@@ -180,7 +180,6 @@ def _target_breast_prediction_report(prediction: dict[str, Any]) -> dict[str, An
         "available": True,
         "side": _lower_side(row["target_side"]),
         "azimuthal_integration_target_profile": {
-            "available": bool(prediction["xrd_profile"]["available"]),
             "p_cancer": prediction["xrd_profile"]["profile_p_cancer"],
             "per_measurement_p_cancer": prediction["xrd_profile"][
                 "measurement_p_cancer"
@@ -218,7 +217,6 @@ def _contralateral_breast_prediction_report(
             "available": False,
             "side": "unknown",
             "azimuthal_integration_contralateral_profile": {
-                "available": False,
                 "p_cancer": "unknown",
                 "per_measurement_p_cancer": [],
             },
@@ -236,7 +234,6 @@ def _contralateral_breast_prediction_report(
         "available": True,
         "side": _lower_side(prediction["feature_row"]["target_side"]),
         "azimuthal_integration_contralateral_profile": {
-            "available": bool(profile["available"]),
             "p_cancer": profile["profile_p_cancer"],
             "per_measurement_p_cancer": profile["measurement_p_cancer"],
         },
