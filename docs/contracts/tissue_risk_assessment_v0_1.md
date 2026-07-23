@@ -44,6 +44,6 @@ breast_predictions:
 ```
 
 External reports do not expose TRA. They expose `risk_probability`,
-`decision_threshold`, and `risk_level`: `high` when the probability meets or
+`decision_threshold`, and `target_class_risk_level`: `high` when the probability meets or
 exceeds the threshold, otherwise `low`. `reliability` remains a separate
 measurement-quality statement. TRA does not change either field.

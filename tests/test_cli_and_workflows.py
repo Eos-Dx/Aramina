@@ -47,7 +47,7 @@ def test_cli_commands_delegate_to_product_entrypoints(monkeypatch, capsys, tmp_p
                 "patient_id": "P01",
                 "target_side": "left",
                 "risk_probability": 0.12345,
-                "risk_level": "low",
+                "target_class_risk_level": "low",
                 "reliability": "high",
             },
             "internal_report": {"model": {"name": PRODUCT_MODEL_NAME}},

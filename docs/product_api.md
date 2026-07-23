@@ -107,7 +107,7 @@ Outputs use one generated report ID:
 *_internal_report.yaml
 ```
 
-External report contains target-side risk probability, risk level, decision
+External report contains target-side risk probability, target-class risk level, decision
 threshold, reliability, reliability reason, patient/target identity, report
 identity, model name/version, and final-model sensitivity/specificity. It
 intentionally excludes `suggested_class`, profile-only scores, symmetry, TRA,

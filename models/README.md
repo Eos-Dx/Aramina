@@ -25,18 +25,16 @@ evaluation YAML are generated output records.
 Prediction configurations reference a specific `model.joblib`. They never
 modify the artifact.
 
-Tracked legacy compatibility artifact:
+Tracked frozen product artifact:
 
 ```text
-aramis_target_breast_risk_0_2_10-beta_ccad65e77adb/
+aramis_target_breast_risk_0_2_11-beta_ce4b016ec4d7/
 ```
 
-It carries `aramis_sk_symmetry_v0_1` and remains executable under the
-compatibility path. The current source definition uses
-`aramis_sk_symmetry_v0_2` and candidate version `0.2.11-beta`; it requires a
-new evaluated train-on-all artifact before it can replace the tracked release
-artifact.
+It carries `aramis_sk_symmetry_v0_2` and the current report contracts. The
+prior `aramis_target_breast_risk_0_2_10-beta_ccad65e77adb/` artifact remains a
+separately documented compatibility artifact using `aramis_sk_symmetry_v0_1`.
 
-Only the frozen reference artifact required by the current Git-tracked examples
-is retained on `main`. Historical candidate artifacts belong on the experimental
-branch.
+Only frozen artifacts required for the current product configs or explicit
+compatibility documentation are retained on `main`. Historical candidates
+belong on the experimental branch.

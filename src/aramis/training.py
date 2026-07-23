@@ -350,6 +350,8 @@ class AramisPatientTrainingPipeline(BaseEstimator):
             target_sensitivity=target_sensitivity,
         )
         self.model_trainer_.fit(self.feature_table_, self.input_builder_.lr1_rows_)
+        for model_info in self.model_trainer_.models_.values():
+            model_info["class_definition"] = dict(self.config["class_definition"])
         self.artifact_ = _patient_training_artifact(
             df=x,
             config=self.config,
@@ -579,6 +581,7 @@ def _effective_training_config(
         "model_identity": dict(public_config["model"]),
         "run": dict(public_config["run"]),
         "model": dict(model_definition["model"]),
+        "class_definition": dict(model_definition["class_definition"]),
         "evaluation": {
             "mode": "stratified_kfold",
             "n_splits": int(evaluation["folds"]),

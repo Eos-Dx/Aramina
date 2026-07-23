@@ -42,6 +42,7 @@ def _prediction_reports(
         common=common,
         version=str(reporting["external_report"]["version"]),
         risk_probability=target_prediction["p_cancer"],
+        target_class_risk_level=target_prediction["target_class_risk_level"],
         decision_threshold=target_prediction["threshold"],
         reliability=row["result_reliability"],
         reliability_reason=row["result_reliability_reason"],
@@ -70,6 +71,7 @@ def _external_report(
     common: dict[str, Any],
     version: str,
     risk_probability: float,
+    target_class_risk_level: str,
     decision_threshold: float,
     reliability: str,
     reliability_reason: str,
@@ -95,7 +97,7 @@ def _external_report(
         "model_version": common["model_version"],
         "model_metrics": model_metrics,
         "risk_probability": risk_probability,
-        "risk_level": _risk_level(risk_probability, decision_threshold),
+        "target_class_risk_level": target_class_risk_level,
         "decision_threshold": decision_threshold,
         "reliability": reliability,
         "reliability_reason": reliability_reason,
@@ -168,11 +170,6 @@ def _decision_policy(prediction: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _risk_level(risk_probability: float, decision_threshold: float) -> str:
-    """Return the external two-level interpretation of the fixed decision."""
-    return "high" if risk_probability >= decision_threshold else "low"
-
-
 def _target_breast_prediction_report(prediction: dict[str, Any]) -> dict[str, Any]:
     """Render the formally validated target-breast decision-support result."""
     row = prediction["feature_row"]
@@ -187,6 +184,9 @@ def _target_breast_prediction_report(prediction: dict[str, Any]) -> dict[str, An
         },
         "final_prediction": {
             "p_cancer": prediction["p_cancer"],
+            "reference_class": prediction["class_definition"]["reference_class"],
+            "target_class": prediction["class_definition"]["target_class"],
+            "target_class_risk_level": prediction["target_class_risk_level"],
             "suggested_class": prediction["suggested_class"],
             "level": prediction["tissue_risk_assessment"]["level"],
             "score_percentiles": prediction["quantiles"],
@@ -222,6 +222,9 @@ def _contralateral_breast_prediction_report(
             },
             "final_prediction": {
                 "p_cancer": "unknown",
+                "reference_class": prediction["class_definition"]["reference_class"],
+                "target_class": prediction["class_definition"]["target_class"],
+                "target_class_risk_level": "unknown",
                 "suggested_class": "unknown",
                 "level": "unknown",
                 "score_percentiles": _unknown_score_percentiles(),
@@ -239,6 +242,9 @@ def _contralateral_breast_prediction_report(
         },
         "final_prediction": {
             "p_cancer": prediction["p_cancer"],
+            "reference_class": prediction["class_definition"]["reference_class"],
+            "target_class": prediction["class_definition"]["target_class"],
+            "target_class_risk_level": prediction["target_class_risk_level"],
             "suggested_class": prediction["suggested_class"],
             "level": prediction["tissue_risk_assessment"]["level"],
             "score_percentiles": prediction["quantiles"],
@@ -258,8 +264,8 @@ def _unknown_score_percentiles() -> dict[str, str]:
     return {
         "reference_population": "unknown",
         "all_training_target_cases": "unknown",
-        "benign_training_target_cases": "unknown",
-        "cancer_training_target_cases": "unknown",
+        "reference_class_training_target_cases": "unknown",
+        "target_class_training_target_cases": "unknown",
     }
 
 

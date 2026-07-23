@@ -1,13 +1,13 @@
 # Aramis Prediction API Bundle
 
 Local research-draft API bundle for one-patient Aramis prediction. It contains
-the immutable `aramis_target_breast_risk` model version `0.2.10-beta`, its
+the immutable `aramis_target_breast_risk` model version `0.2.11-beta`, its
 prediction preprocessing contract, and two Docker images:
 
 | Platform | Image archive |
 |---|---|
-| Windows x86-64 / Intel macOS | `aramis_prediction_api_linux_amd64_0_2_10_beta.tar` |
-| Apple Silicon macOS | `aramis_prediction_api_linux_arm64_0_2_10_beta.tar` |
+| Windows x86-64 / Intel macOS | `aramis_prediction_api_linux_amd64_0_2_11_beta.tar` |
+| Apple Silicon macOS | `aramis_prediction_api_linux_arm64_0_2_11_beta.tar` |
 
 The API is the same local service used by the Aramisvisor Streamlit
 demonstrator. It receives one EOS H5 v0.3 container and a small request JSON;
@@ -36,7 +36,7 @@ network.
 macOS/Linux:
 
 ```bash
-cd aramis_prediction_api_bundle_0_2_10_beta
+cd aramis_prediction_api_bundle_0_2_11_beta
 bash ./start_api.sh
 curl http://127.0.0.1:8000/health
 ```
@@ -44,7 +44,7 @@ curl http://127.0.0.1:8000/health
 Windows PowerShell:
 
 ```powershell
-Set-Location aramis_prediction_api_bundle_0_2_10_beta
+Set-Location aramis_prediction_api_bundle_0_2_11_beta
 .\start_api.ps1
 curl.exe http://127.0.0.1:8000/health
 ```

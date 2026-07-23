@@ -82,11 +82,11 @@ import joblib
 print(joblib.load(Path(sys.argv[1]))["model_identity"]["version"])
 PY
 )"
-  REFERENCE_VERSION="0.2.10-beta"
+  REFERENCE_VERSION="0.2.11-beta"
   if [[ "${CANDIDATE_VERSION}" == "${REFERENCE_VERSION}" ]]; then
     stage "Compare generated model with frozen reference"
     python scripts/compare_model_artifacts.py \
-      --reference models/aramis_target_breast_risk_0_2_10-beta_ccad65e77adb/model.joblib \
+      --reference models/aramis_target_breast_risk_0_2_11-beta_ce4b016ec4d7/model.joblib \
       --candidate "${MODEL_PATH}"
   else
     printf '%s\n' \

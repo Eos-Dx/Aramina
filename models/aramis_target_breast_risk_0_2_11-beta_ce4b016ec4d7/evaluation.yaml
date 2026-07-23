@@ -1,0 +1,89 @@
+output_type: aramis_evaluation_artifact
+version: '0.1'
+created_at: '2026-07-23T08:06:29+00:00'
+model:
+  name: aramis_target_breast_risk
+  version: 0.2.11-beta
+  id: aramis_target_breast_risk_0_2_11-beta_ce4b016ec4d7
+  artifact_sha256: ce4b016ec4d738f6f2f9fa1aac33ec11d2a9e7ca61d383d42ddbff317ce9adc1
+threshold_selection: train_fold_target_sensitivity
+target_sensitivity: 0.95
+training_config_sha256: 036a1e1cf36630d7c271163b0469b5184a8e64ef6f8489119c9f6e4853d05212
+decision_threshold:
+  id: target_sensitivity_0_95
+  value: 0.24666
+  target_sensitivity: 0.95
+dataset_summary:
+- measurements: 893
+  patients: 164
+  specimens: 314
+  lr1_measurements: 496
+  lr1_patients: 164
+  final_patients: 164
+  final_target_cases: 175
+  final_cancer_target_cases: 76
+  final_benign_target_cases: 99
+metric_summary:
+- model_name: aramis_target_breast_risk
+  evaluation_mode: stratified_kfold
+  evidence_status: patient_safe_validation
+  splits: 100
+  roc_auc_mean: 0.64541
+  roc_auc_std: 0.06874
+  pr_auc_mean: 0.60477
+  pr_auc_std: 0.08539
+  brier_score_mean: 0.25519
+  brier_score_std: 0.03279
+  log_loss_mean: 0.73209
+  log_loss_std: 0.08934
+  calibration_intercept_mean: -0.2077
+  calibration_slope_mean: 0.39933
+  sensitivity_target_mean: 0.8175
+  sensitivity_target_std: 0.09902
+  specificity_target_mean: 0.3763
+  specificity_target_std: 0.13254
+  balanced_accuracy_target_mean: 0.5969
+  ppv_target_mean: 0.50611
+  npv_target_mean: 0.73558
+  true_positives_mean: 12.43
+  true_negatives_mean: 7.42
+  false_negatives_mean: 2.77
+  false_positives_mean: 12.38
+  pooled_patients: 164
+  pooled_target_cases: 175
+  roc_auc_pooled: 0.6559
+  roc_auc_ci_low: 0.57393
+  roc_auc_ci_high: 0.73111
+  pr_auc_pooled: 0.58597
+  pr_auc_ci_low: 0.48883
+  pr_auc_ci_high: 0.69212
+  sensitivity_pooled: 0.82895
+  sensitivity_ci_low: 0.74074
+  sensitivity_ci_high: 0.91026
+  specificity_pooled: 0.32323
+  specificity_ci_low: 0.22806
+  specificity_ci_high: 0.42003
+  balanced_accuracy_pooled: 0.57609
+  balanced_accuracy_ci_low: 0.50954
+  balanced_accuracy_ci_high: 0.63751
+  ppv_pooled: 0.48462
+  ppv_ci_low: 0.40624
+  ppv_ci_high: 0.56923
+  npv_pooled: 0.71111
+  npv_ci_low: 0.5609
+  npv_ci_high: 0.83791
+  brier_score_pooled: 0.24532
+  brier_score_ci_low: 0.21236
+  brier_score_ci_high: 0.28105
+  log_loss_pooled: 0.69515
+  log_loss_ci_low: 0.61337
+  log_loss_ci_high: 0.78549
+  calibration_intercept_pooled: -0.21344
+  calibration_intercept_ci_low: -0.52263
+  calibration_intercept_ci_high: 0.08867
+  calibration_slope_pooled: 0.44143
+  calibration_slope_ci_low: 0.22131
+  calibration_slope_ci_high: 0.69858
+files:
+  metrics: evaluation_metrics.csv
+  predictions: evaluation_predictions.csv

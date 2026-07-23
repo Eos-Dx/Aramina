@@ -1,5 +1,5 @@
 output_type: aramis_external_report
-report_version: '0.3'
+report_version: '0.4'
 report_id: EXAMPLE_REPORT_ID
 created_at: '2026-07-21T12:00:00+00:00'
 analysis_author: EXAMPLE_ANALYST
@@ -13,14 +13,14 @@ operator_id: unknown
 hardware_version: unknown
 eoscan_version: unknown
 model_name: aramis_target_breast_risk
-model_version: 0.2.10-beta
+model_version: 0.2.11-beta
 model_metrics:
   dataset: train_on_all_target_breast_cases
   validation: not_performed
   sensitivity: 0.96053
-  specificity: 0.46465
+  specificity: 0.49495
 risk_probability: 0.84062
-risk_level: high
-decision_threshold: 0.24451
+target_class_risk_level: high
+decision_threshold: 0.24666
 reliability: high
-reliability_reason: at least 2 valid measurements per breast; symmetry refinement applied
+reliability_reason: at least 3 valid measurements per breast; symmetry refinement applied

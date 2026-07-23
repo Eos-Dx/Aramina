@@ -1,23 +1,23 @@
 output_type: aramis_internal_clinical_report
-report_version: '0.5'
-reference_doc: docs/modeling/internal_clinical_report_content_v0_5.md
+report_version: '0.6'
+reference_doc: docs/modeling/internal_clinical_report_content_v0_6.md
 report_id: EXAMPLE_REPORT_ID
 created_at: '2026-07-21T12:00:00+00:00'
 analysis_author: EXAMPLE_ANALYST
 prediction_comment: Example output only
 model:
-  id: aramis_target_breast_risk_0_2_10-beta_EXAMPLE
+  id: aramis_target_breast_risk_0_2_11-beta_ce4b016ec4d7
   name: aramis_target_breast_risk
-  version: 0.2.10-beta
+  version: 0.2.11-beta
   artifact_sha256: EXAMPLE_SHA256
 model_metrics:
   dataset: train_on_all_target_breast_cases
   validation: not_performed
   sensitivity: 0.96053
-  specificity: 0.46465
+  specificity: 0.49495
 decision_threshold:
   threshold_id: target_sensitivity_0.95
-  threshold: 0.24451
+  threshold: 0.24666
   applies_to:
   - target.final_prediction
   - contralateral.final_prediction
@@ -47,16 +47,19 @@ breast_predictions:
       per_measurement_p_cancer: [0.84206, 0.63532, 0.39958]
     final_prediction:
       p_cancer: 0.84062
+      reference_class: BENIGN
+      target_class: CANCER
+      target_class_risk_level: high
       suggested_class: CANCER
       level: TRA 5
       score_percentiles:
         reference_population: train_on_all_target-breast_cases
         all_training_target_cases: 0.90286
-        benign_training_target_cases: 1.0
-        cancer_training_target_cases: 0.77632
+        reference_class_training_target_cases: 1.0
+        target_class_training_target_cases: 0.77632
     reliability:
       level: high
-      reason: at least 2 valid measurements per breast; symmetry refinement applied
+      reason: at least 3 valid measurements per breast; symmetry refinement applied
     symmetry:
       available: true
     model_execution:
@@ -69,13 +72,16 @@ breast_predictions:
       per_measurement_p_cancer: [0.83631, 0.31505, 0.70744]
     final_prediction:
       p_cancer: 0.76857
+      reference_class: BENIGN
+      target_class: CANCER
+      target_class_risk_level: high
       suggested_class: CANCER
       level: TRA 3
       score_percentiles:
         reference_population: train_on_all_target-breast_cases
         all_training_target_cases: 0.77143
-        benign_training_target_cases: 0.9596
-        cancer_training_target_cases: 0.52632
+        reference_class_training_target_cases: 0.9596
+        target_class_training_target_cases: 0.52632
     reliability:
       level: low
       reason: SK symmetry refinement is intentionally unavailable for contralateral scoring

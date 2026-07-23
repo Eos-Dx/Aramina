@@ -116,7 +116,15 @@ def _side_prediction(
         "xrd_profile": profile,
         "threshold_key": threshold_key,
         "threshold": threshold,
-        "suggested_class": "CANCER" if p_cancer >= threshold else "BENIGN",
+        "class_definition": _model_class_definition(model_info),
+        "target_class_risk_level": (
+            "high" if p_cancer >= threshold else "low"
+        ),
+        "suggested_class": (
+            _model_class_definition(model_info)["target_class"]
+            if p_cancer >= threshold
+            else _model_class_definition(model_info)["reference_class"]
+        ),
         "quantiles": _prediction_quantiles(
             model_info,
             p_cancer,
@@ -137,10 +145,26 @@ def _with_neutral_symmetry_gate(feature_table: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def _unavailable_side_prediction() -> dict[str, Any]:
+def _model_class_definition(model_info: dict[str, Any]) -> dict[str, str]:
+    """Return frozen binary output labels, with legacy-artifact compatibility."""
+    definition = model_info.get("class_definition", {})
+    if not isinstance(definition, dict):
+        definition = {}
+    reference_class = str(definition.get("reference_class", "BENIGN"))
+    target_class = str(definition.get("target_class", "CANCER"))
+    if not reference_class or not target_class:
+        raise ValueError("Model class_definition must name both binary classes.")
+    return {
+        "reference_class": reference_class,
+        "target_class": target_class,
+    }
+
+
+def _unavailable_side_prediction(class_definition: dict[str, str]) -> dict[str, Any]:
     return {
         "available": False,
         "reason": "contralateral breast is unavailable after preprocessing",
+        "class_definition": class_definition,
     }
 
 
@@ -161,8 +185,8 @@ def _prediction_quantiles(
         )
     keys = {
         "all_training_target_cases": "all_target_cases",
-        "benign_training_target_cases": "benign_target_cases",
-        "cancer_training_target_cases": "cancer_target_cases",
+        "reference_class_training_target_cases": "benign_target_cases",
+        "target_class_training_target_cases": "cancer_target_cases",
     }
     out: dict[str, Any] = {
         "reference_population": _report_identifier(

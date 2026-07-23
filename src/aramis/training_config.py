@@ -14,6 +14,10 @@ PRODUCT_MODEL_NAME = "aramis_target_breast_risk"
 PRODUCT_MODELS = {
     PRODUCT_MODEL_NAME: {
         "description": "Aramis target-breast risk model with age and optional SK symmetry refinement.",
+        "class_definition": {
+            "reference_class": "BENIGN",
+            "target_class": "CANCER",
+        },
         "model": {
             "type": "m2q_gated_target_case",
             "profile_column": "radial_profile_data",
@@ -35,12 +39,12 @@ PRODUCT_MODELS = {
             "container": {"schema_version": "0.3", "format": "xrd-session"},
             "reporting": {
                 "external_report": {
-                    "version": "0.3",
+                    "version": "0.4",
                     "reference_doc": "docs/modeling/prediction_pipeline_v0_1.md",
                 },
                 "internal_report": {
-                    "version": "0.5",
-                    "reference_doc": "docs/modeling/internal_clinical_report_content_v0_5.md",
+                    "version": "0.6",
+                    "reference_doc": "docs/modeling/internal_clinical_report_content_v0_6.md",
                 },
             },
             "decision": {"threshold_key": "threshold_target"},

@@ -4,13 +4,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ARAMIS_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 DIST_DIR="${DIST_DIR:-${ARAMIS_ROOT}/dist}"
-BUNDLE_NAME="aramis_prediction_api_bundle_0_2_10_beta"
+BUNDLE_NAME="aramis_prediction_api_bundle_0_2_11_beta"
 ARCHIVE_PATH="${DIST_DIR}/${BUNDLE_NAME}.zip"
 WORK_DIR="${DIST_DIR}/${BUNDLE_NAME}"
-AMD64_IMAGE_TAG="eosdx/aramis-prediction-api:0.2.10-beta-amd64"
-ARM64_IMAGE_TAG="eosdx/aramis-prediction-api:0.2.10-beta-arm64"
-AMD64_IMAGE_ARCHIVE="aramis_prediction_api_linux_amd64_0_2_10_beta.tar"
-ARM64_IMAGE_ARCHIVE="aramis_prediction_api_linux_arm64_0_2_10_beta.tar"
+AMD64_IMAGE_TAG="eosdx/aramis-prediction-api:0.2.11-beta-amd64"
+ARM64_IMAGE_TAG="eosdx/aramis-prediction-api:0.2.11-beta-arm64"
+AMD64_IMAGE_ARCHIVE="aramis_prediction_api_linux_amd64_0_2_11_beta.tar"
+ARM64_IMAGE_ARCHIVE="aramis_prediction_api_linux_arm64_0_2_11_beta.tar"
 
 command -v docker >/dev/null || { echo "Docker is required to build this bundle." >&2; exit 1; }
 docker info >/dev/null || { echo "Docker Linux engine is not running." >&2; exit 1; }
@@ -18,7 +18,7 @@ docker info >/dev/null || { echo "Docker Linux engine is not running." >&2; exit
 for path in \
   "${ARAMIS_ROOT}/demo/model_service/app.py" \
   "${ARAMIS_ROOT}/demo/model_service/Dockerfile" \
-  "${ARAMIS_ROOT}/models/aramis_target_breast_risk_0_2_10-beta_ccad65e77adb/model.joblib"; do
+  "${ARAMIS_ROOT}/models/aramis_target_breast_risk_0_2_11-beta_ce4b016ec4d7/model.joblib"; do
   [[ -f "${path}" ]] || { echo "Missing API bundle input: ${path}" >&2; exit 1; }
 done
 
@@ -42,8 +42,8 @@ cp "${ARAMIS_ROOT}/docs/contracts/prediction_config_v0_1.md" \
   "${WORK_DIR}/contracts/direct_cli_prediction_config_v0_1.md"
 cp "${ARAMIS_ROOT}/docs/modeling/prediction_pipeline_v0_1.md" \
   "${WORK_DIR}/contracts/prediction_pipeline_v0_1.md"
-cp "${ARAMIS_ROOT}/docs/modeling/internal_clinical_report_content_v0_5.md" \
-  "${WORK_DIR}/contracts/internal_report_v0_5.md"
+cp "${ARAMIS_ROOT}/docs/modeling/internal_clinical_report_content_v0_6.md" \
+  "${WORK_DIR}/contracts/internal_report_v0_6.md"
 
 cp "${ARAMIS_ROOT}/examples/prediction_h5/"*_one_patient.h5 "${WORK_DIR}/examples/h5/"
 cp "${ARAMIS_ROOT}/examples/prediction_h5/README.md" "${WORK_DIR}/examples/h5/README.md"
@@ -79,7 +79,7 @@ import subprocess
 import sys
 
 target, root, amd64_archive, arm64_archive = map(Path, sys.argv[1:])
-model = root / "models/aramis_target_breast_risk_0_2_10-beta_ccad65e77adb/model.joblib"
+model = root / "models/aramis_target_breast_risk_0_2_11-beta_ce4b016ec4d7/model.joblib"
 service = root / "demo/model_service/app.py"
 dockerfile = root / "demo/model_service/Dockerfile"
 
@@ -99,7 +99,7 @@ target.write_text(
         [
             "contract: aramis_prediction_api_bundle_v0_1",
             "model_name: aramis_target_breast_risk",
-            "model_version: 0.2.10-beta",
+            "model_version: 0.2.11-beta",
             "api_contract: v0.1",
             "aramis_commit: " + commit,
             "model_joblib_sha256: " + digest(model),
@@ -107,12 +107,12 @@ target.write_text(
             "model_service_dockerfile_sha256: " + digest(dockerfile),
             "images:",
             "  amd64:",
-            "    tag: eosdx/aramis-prediction-api:0.2.10-beta-amd64",
+            "    tag: eosdx/aramis-prediction-api:0.2.11-beta-amd64",
             "    platform: linux/amd64",
             "    archive: " + amd64_archive.name,
             "    sha256: " + digest(amd64_archive),
             "  arm64:",
-            "    tag: eosdx/aramis-prediction-api:0.2.10-beta-arm64",
+            "    tag: eosdx/aramis-prediction-api:0.2.11-beta-arm64",
             "    platform: linux/arm64",
             "    archive: " + arm64_archive.name,
             "    sha256: " + digest(arm64_archive),

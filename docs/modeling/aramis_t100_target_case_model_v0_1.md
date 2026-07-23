@@ -1,9 +1,10 @@
 # Aramis T100 Target-Case Model v0.1
 
-Status: next research-draft model definition; retraining required before release.
+Status: frozen research-draft product model definition.
 
-Candidate model version: `0.2.11-beta`. The prior `0.2.10-beta` artifact
-remains a separately versioned v0.1-SK compatibility artifact.
+Frozen model version: `0.2.11-beta`.
+The prior `0.2.10-beta` artifact remains a separately versioned v0.1-SK
+compatibility artifact.
 
 This document fixes the current Aramis model architecture and its current
 development evidence. It is decision support for radiologist review, not
@@ -112,24 +113,23 @@ No current result establishes stable 0.95 sensitivity on unseen patients.
 A larger independent cohort is required before any stronger product claim.
 ```
 
-## Legacy 0.2.10-beta Evaluation Record
+## Frozen 0.2.11-beta Evaluation Record
 
-The legacy `0.2.10-beta` packaged artifact used the prior
-`aramis_sk_symmetry_v0_1` feature contract and was evaluated on the T100 biopsy-patient cohort
+The frozen `0.2.11-beta` packaged artifact uses the current
+`aramis_sk_symmetry_v0_2` feature contract and was evaluated on the T100 biopsy-patient cohort
 using the fixed 100 patient-safe folds. The target threshold was derived on the
 training patients in each fold and then applied once to that fold's held-out
 patients.
 
 | metric | mean across 100 folds | pooled held-out cases (95% bootstrap CI) |
 |---|---:|---:|
-| ROC AUC | 0.662 +/- 0.069 | 0.673 (0.592 to 0.750) |
-| sensitivity | 0.819 +/- 0.099 | 0.855 (0.769 to 0.932) |
-| specificity | 0.383 +/- 0.116 | 0.323 (0.231 to 0.422) |
+| ROC AUC | 0.645 +/- 0.069 | 0.656 (0.574 to 0.731) |
+| sensitivity | 0.818 +/- 0.099 | 0.829 (0.741 to 0.910) |
+| specificity | 0.376 +/- 0.133 | 0.323 (0.228 to 0.420) |
 
-These are legacy research-draft evaluation results, not a clinical performance
-claim for the current source definition. The v0.2 SK gate must be retrained and
-evaluated with the approved historical H5 archive before a replacement artifact
-or updated metric table is released.
+These are research-draft evaluation results, not a clinical performance claim.
+The prior `0.2.10-beta` v0.1-SK record is retained only for compatibility
+comparison.
 
 ## Train On All
 

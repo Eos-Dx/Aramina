@@ -35,7 +35,7 @@ PREDICTION_REPORT_EXAMPLE_ROOT = (
 FINAL_EXAMPLE_MODEL = (
     Path(__file__).parents[1]
     / "models"
-    / "aramis_target_breast_risk_0_2_10-beta_ccad65e77adb"
+    / "aramis_target_breast_risk_0_2_11-beta_ce4b016ec4d7"
     / "model.joblib"
 )
 
@@ -64,12 +64,23 @@ def test_tracked_prediction_examples_use_final_product_artifact():
             assert sides == {"left", "right"}
 
 
+def test_frozen_product_artifact_keeps_binary_class_definition():
+    """Keep report labels tied to the executable frozen model artifact."""
+    artifact = joblib.load(FINAL_EXAMPLE_MODEL)
+    model_info = artifact["models"][PRODUCT_MODEL_NAME]
+
+    assert model_info["class_definition"] == {
+        "reference_class": "BENIGN",
+        "target_class": "CANCER",
+    }
+
+
 @pytest.mark.parametrize(
     ("filename", "expected_p_cancer"),
     [
-        ("config_predict_atypical_example.yaml", 0.45023),
-        ("config_predict_benign_example.yaml", 0.34270),
-        ("config_predict_cancer_example.yaml", 0.84062),
+        ("config_predict_atypical_example.yaml", 0.61924),
+        ("config_predict_benign_example.yaml", 0.33870),
+        ("config_predict_cancer_example.yaml", 0.86939),
     ],
 )
 def test_tracked_prediction_fixtures_remain_compatible_with_frozen_artifact(
@@ -93,7 +104,7 @@ def test_tracked_prediction_fixtures_remain_compatible_with_frozen_artifact(
     assert reports["external_report"]["risk_probability"] == pytest.approx(
         expected_p_cancer, abs=1e-5
     )
-    assert reports["internal_report"]["model"]["id"].endswith("ccad65e77adb")
+    assert reports["internal_report"]["model"]["id"].endswith("ce4b016ec4d7")
     assert reports["internal_report"]["breast_predictions"]["target"][
         "model_execution"
     ]["scoring_path"] == "azimuthal_integration_age_with_symmetry"
@@ -139,9 +150,9 @@ def test_prediction_example_paths_resolve_from_project_root(tmp_path: Path):
 @pytest.mark.parametrize(
     ("config_name", "target_p_cancer", "contralateral_p_cancer"),
     [
-        ("config_predict_atypical_example.yaml", 0.45023, 0.79691),
-        ("config_predict_benign_example.yaml", 0.34270, 0.25711),
-        ("config_predict_cancer_example.yaml", 0.84062, 0.76857),
+        ("config_predict_atypical_example.yaml", 0.61924, 0.81365),
+        ("config_predict_benign_example.yaml", 0.33870, 0.25089),
+        ("config_predict_cancer_example.yaml", 0.86939, 0.78536),
     ],
 )
 def test_frozen_model_examples_keep_stable_scores(
@@ -439,15 +450,15 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
     internal = reports["internal_report"]
 
     assert external["output_type"] == "aramis_external_report"
-    assert internal["report_version"] == "0.5"
+    assert internal["report_version"] == "0.6"
     assert internal["reference_doc"] == (
-        "./docs/modeling/internal_clinical_report_content_v0_5.md"
+        "./docs/modeling/internal_clinical_report_content_v0_6.md"
     )
     assert 0.0 <= external["risk_probability"] <= 1.0
     assert 0.0 <= external["decision_threshold"] <= 1.0
     assert "suggested_class" not in external
     assert "p_cancer" not in external
-    assert external["risk_level"] in {"low", "high"}
+    assert external["target_class_risk_level"] in {"low", "high"}
     assert "tissue_risk_assessment" not in external
     metrics = external["model_metrics"]
     assert metrics["dataset"] == "train_on_all_target_breast_cases"
@@ -462,6 +473,9 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
     contralateral = internal["breast_predictions"]["contralateral"]
     decision = internal["decision_threshold"]
     assert 0.0 <= target["final_prediction"]["p_cancer"] <= 1.0
+    assert target["final_prediction"]["reference_class"] == "BENIGN"
+    assert target["final_prediction"]["target_class"] == "CANCER"
+    assert target["final_prediction"]["target_class_risk_level"] in {"low", "high"}
     assert target["final_prediction"]["level"] in {
         "TRA 1",
         "TRA 2",
@@ -490,6 +504,12 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
         "BENIGN",
         "CANCER",
     }
+    assert contralateral["final_prediction"]["reference_class"] == "BENIGN"
+    assert contralateral["final_prediction"]["target_class"] == "CANCER"
+    assert contralateral["final_prediction"]["target_class_risk_level"] in {
+        "low",
+        "high",
+    }
     assert contralateral["final_prediction"]["level"] in {
         "TRA 1",
         "TRA 2",
@@ -513,8 +533,8 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
     assert set(target["final_prediction"]["score_percentiles"]) == {
         "reference_population",
         "all_training_target_cases",
-        "benign_training_target_cases",
-        "cancer_training_target_cases",
+        "reference_class_training_target_cases",
+        "target_class_training_target_cases",
     }
     assert target["final_prediction"]["score_percentiles"][
         "reference_population"

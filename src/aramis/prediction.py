@@ -27,6 +27,7 @@ from .prediction_reports import _prediction_reports
 from .prediction_reports import _metadata_value  # noqa: F401
 from .prediction_scoring import (
     _normalize_side,
+    _model_class_definition,
     _prediction_columns,
     _side_prediction,
     _unavailable_side_prediction,
@@ -81,7 +82,7 @@ def run_prediction_from_config(config_path: str | Path) -> dict[str, Any]:
             force_no_symmetry=True,
         )
         if _normalize_side(contralateral_side) is not None
-        else _unavailable_side_prediction()
+        else _unavailable_side_prediction(_model_class_definition(model_info))
     )
     reports = _prediction_reports(
         config=config,

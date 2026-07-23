@@ -35,12 +35,12 @@ stop the request before scoring.
 The generated output folder receives one preprocessed DataFrame artifact and
 both YAML/JSON external and internal reports. Full report fields are defined in
 `config/prediction/README.md` and
-`docs/modeling/internal_clinical_report_content_v0_5.md`.
+`docs/modeling/internal_clinical_report_content_v0_6.md`.
 
 The frozen model additionally defines the TRA score contract for internal audit.
 Internal reports expose `final_prediction.level` (`TRA 1` through `TRA 5`) for
 each available breast. TRA is assigned from the frozen reference-score
 percentile held in the model artifact; the percentile index itself is not
-reported. External reports expose only `risk_level` (`low` or `high`), derived
+reported. External reports expose only `target_class_risk_level` (`low` or `high`), derived
 by comparing the final target score with the fixed decision threshold. Full TRA
 semantics are defined in `docs/contracts/tissue_risk_assessment_v0_1.md`.

@@ -1,7 +1,7 @@
 # Aramis Prediction HTTP API Contract v0.1
 
 Status: local research-draft decision-support API. It serves one frozen model
-artifact only: `aramis_target_breast_risk` version `0.2.10-beta`.
+artifact only: `aramis_target_breast_risk` version `0.2.11-beta`.
 
 ## Base URL
 
@@ -69,12 +69,12 @@ the model applies its neutral symmetry gate and the internal report records
 
 ```json
 {
-  "external_report": {"...": "external report v0.3 payload"},
-  "internal_report": {"...": "internal clinical report v0.5 payload"}
+  "external_report": {"...": "external report v0.4 payload"},
+  "internal_report": {"...": "internal clinical report v0.6 payload"}
 }
 ```
 
-The target external report carries `risk_probability`, `risk_level`, fixed
+The target external report carries `risk_probability`, `target_class_risk_level`, fixed
 `decision_threshold`, reliability, model version, and final-fit model
 sensitivity/specificity. The internal report contains target and contralateral
 profile/final predictions, decision class, TRA level, audit metadata and

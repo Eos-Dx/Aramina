@@ -40,7 +40,7 @@ target population: women with BI-RADS 3 / BI-RADS 4 suspicious findings
 clinical question: does the clinically suspicious breast likely need biopsy?
 clinical user: radiologist / qualified breast-imaging clinician
 internal output: p_cancer, suggested BENIGN/CANCER class, reliability metadata
-external output: risk_probability, risk_level, decision threshold, reliability metadata
+external output: risk_probability, target_class_risk_level, decision threshold, reliability metadata
 ```
 
 ## Required Traceability
@@ -142,7 +142,7 @@ External prediction report must output:
 
 ```text
 risk_probability
-risk_level
+target_class_risk_level
 decision_threshold
 reliability
 reliability_reason

@@ -398,12 +398,16 @@ def add_patient_reliability_columns(feature_table: pd.DataFrame) -> pd.DataFrame
         (out["symmetry_available"].astype(int) == 1)
         & (out["min_measurements_per_breast"].astype(int) >= 2)
     ).astype(int)
+    out["high_reliability_measurements_ok"] = (
+        out["paired_measurements_ok"].astype(bool)
+        & (out["min_measurements_per_breast"].astype(int) >= 3)
+    ).astype(int)
     out["profile_measurements_ok"] = (
         out["profile_p_cancer_n_measurements"].astype(int) >= 2
     ).astype(int)
     out["result_reliability"] = np.select(
         [
-            out["paired_measurements_ok"].astype(bool),
+            out["high_reliability_measurements_ok"].astype(bool),
             out["target_measurements_ok"].astype(bool),
         ],
         ["high", "medium"],
@@ -413,13 +417,15 @@ def add_patient_reliability_columns(feature_table: pd.DataFrame) -> pd.DataFrame
     symmetry_reason = symmetry_reason.fillna("").astype(str)
     out["result_reliability_reason"] = np.select(
         [
+            out["high_reliability_measurements_ok"].astype(bool),
             out["paired_measurements_ok"].astype(bool),
             symmetry_reason.eq("sk_core4_not_computable"),
             out["contralateral_measurements"].astype(int).eq(0),
             out["target_measurements_ok"].astype(bool),
         ],
         [
-            "at least 2 valid measurements per breast; symmetry refinement applied",
+            "at least 3 valid measurements per breast; symmetry refinement applied",
+            "at least 2 valid measurements per breast; symmetry refinement applied, but fewer than 3 valid measurements per breast",
             "symmetry features could not be computed; symmetry refinement not applied",
             "contralateral breast unavailable after preprocessing; symmetry refinement not applied",
             "fewer than 2 valid contralateral-breast measurements; symmetry refinement not applied",

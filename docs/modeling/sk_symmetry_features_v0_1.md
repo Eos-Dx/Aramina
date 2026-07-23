@@ -19,11 +19,12 @@ m2q_model_input_columns()
 ## Feature Contract Versioning
 
 New training writes `aramis_sk_symmetry_v0_2`. It uses the q ranges and
-neutral-gating rule defined in this document. The tracked
-`0.2.10-beta` artifact carries the prior `aramis_sk_symmetry_v0_1` contract;
-the code retains that implementation only so its frozen predictions remain
-reproducible. A v0.1 artifact must not be presented as a v0.2 result, and a
-v0.2 source definition requires a newly trained and evaluated artifact.
+neutral-gating rule defined in this document. The frozen `0.2.11-beta` artifact
+carries `aramis_sk_symmetry_v0_2`; the legacy `0.2.10-beta` artifact carries
+the prior `aramis_sk_symmetry_v0_1` contract. The legacy implementation remains
+only so its frozen predictions can be reproduced. A v0.1 artifact must not be
+presented as a v0.2 result. The current v0.2 source definition and frozen
+`0.2.11-beta` artifact are paired.
 
 ## Input
 
