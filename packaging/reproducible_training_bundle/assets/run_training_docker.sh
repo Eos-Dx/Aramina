@@ -86,7 +86,7 @@ PY
   if [[ "${CANDIDATE_VERSION}" == "${REFERENCE_VERSION}" ]]; then
     stage "Compare generated model with frozen reference"
     python scripts/compare_model_artifacts.py \
-      --reference models/aramis_target_breast_risk_0_2_11-beta_ce4b016ec4d7/model.joblib \
+      --reference models/aramis_target_breast_risk_0_2_11-beta_d28469aa2a62/model.joblib \
       --candidate "${MODEL_PATH}"
   else
     printf '%s\n' \

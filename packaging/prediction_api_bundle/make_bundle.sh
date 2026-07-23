@@ -18,7 +18,7 @@ docker info >/dev/null || { echo "Docker Linux engine is not running." >&2; exit
 for path in \
   "${ARAMIS_ROOT}/demo/model_service/app.py" \
   "${ARAMIS_ROOT}/demo/model_service/Dockerfile" \
-  "${ARAMIS_ROOT}/models/aramis_target_breast_risk_0_2_11-beta_ce4b016ec4d7/model.joblib"; do
+  "${ARAMIS_ROOT}/models/aramis_target_breast_risk_0_2_11-beta_d28469aa2a62/model.joblib"; do
   [[ -f "${path}" ]] || { echo "Missing API bundle input: ${path}" >&2; exit 1; }
 done
 
@@ -42,8 +42,8 @@ cp "${ARAMIS_ROOT}/docs/contracts/prediction_config_v0_1.md" \
   "${WORK_DIR}/contracts/direct_cli_prediction_config_v0_1.md"
 cp "${ARAMIS_ROOT}/docs/modeling/prediction_pipeline_v0_1.md" \
   "${WORK_DIR}/contracts/prediction_pipeline_v0_1.md"
-cp "${ARAMIS_ROOT}/docs/modeling/internal_clinical_report_content_v0_6.md" \
-  "${WORK_DIR}/contracts/internal_report_v0_6.md"
+cp "${ARAMIS_ROOT}/docs/modeling/internal_clinical_report_content_v0_7.md" \
+  "${WORK_DIR}/contracts/internal_report_v0_7.md"
 
 cp "${ARAMIS_ROOT}/examples/prediction_h5/"*_one_patient.h5 "${WORK_DIR}/examples/h5/"
 cp "${ARAMIS_ROOT}/examples/prediction_h5/README.md" "${WORK_DIR}/examples/h5/README.md"
@@ -79,7 +79,7 @@ import subprocess
 import sys
 
 target, root, amd64_archive, arm64_archive = map(Path, sys.argv[1:])
-model = root / "models/aramis_target_breast_risk_0_2_11-beta_ce4b016ec4d7/model.joblib"
+model = root / "models/aramis_target_breast_risk_0_2_11-beta_d28469aa2a62/model.joblib"
 service = root / "demo/model_service/app.py"
 dockerfile = root / "demo/model_service/Dockerfile"
 

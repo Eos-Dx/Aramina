@@ -1,12 +1,12 @@
 output_type: aramis_internal_clinical_report
-report_version: '0.6'
-reference_doc: docs/modeling/internal_clinical_report_content_v0_6.md
+report_version: '0.7'
+reference_doc: docs/modeling/internal_clinical_report_content_v0_7.md
 report_id: EXAMPLE_REPORT_ID
 created_at: '2026-07-21T12:00:00+00:00'
 analysis_author: EXAMPLE_ANALYST
 prediction_comment: Example output only
 model:
-  id: aramis_target_breast_risk_0_2_11-beta_ce4b016ec4d7
+  id: aramis_target_breast_risk_0_2_11-beta_d28469aa2a62
   name: aramis_target_breast_risk
   version: 0.2.11-beta
   artifact_sha256: EXAMPLE_SHA256
@@ -50,7 +50,6 @@ breast_predictions:
       reference_class: BENIGN
       target_class: CANCER
       target_class_risk_level: high
-      suggested_class: CANCER
       level: TRA 5
       score_percentiles:
         reference_population: train_on_all_target-breast_cases
@@ -75,7 +74,6 @@ breast_predictions:
       reference_class: BENIGN
       target_class: CANCER
       target_class_risk_level: high
-      suggested_class: CANCER
       level: TRA 3
       score_percentiles:
         reference_population: train_on_all_target-breast_cases

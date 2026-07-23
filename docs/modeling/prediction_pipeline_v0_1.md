@@ -216,8 +216,8 @@ reliability
 reliability_reason
 ```
 
-External report does not expose the internal `suggested_class`, profile-only scores,
-symmetry, TRA, provenance, raw data, or model internals. `risk_probability` is
+External report does not expose profile-only scores, symmetry, TRA, provenance,
+raw data, or model internals. `risk_probability` is
 the frozen final target-breast score and `decision_threshold` is the associated
 fixed model threshold. `target_class_risk_level` is `high` when the score meets or exceeds
 that threshold, otherwise `low`. The report includes sensitivity and
@@ -229,7 +229,7 @@ generated automatically and shared with the internal report from the same
 prediction operation. `created_at` is a Europe/Paris ISO timestamp with a
 numeric UTC offset.
 
-Internal report follows `internal_clinical_report_content_v0_6.md` and contains:
+Internal report follows `internal_clinical_report_content_v0_7.md` and contains:
 
 ```text
 output_type: aramis_internal_clinical_report
@@ -263,7 +263,7 @@ provenance, and output-file paths.
 
 The internal report scores the contralateral breast with the same final model,
 but forces its SK symmetry gate to neutral. It exposes LR1 profile evidence,
-final `p_cancer`, and `suggested_class` from the single shared threshold. The
+final `p_cancer` and target-class risk level from the single shared threshold. The
 target remains the caller-supplied primary decision-support result. If no
 usable contralateral data remain after QC,
 that block is explicitly `unknown`; the target still uses the same LR2 with its

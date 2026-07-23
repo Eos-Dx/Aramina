@@ -3,8 +3,8 @@ version: '0.1'
 model:
   name: aramis_target_breast_risk
   version: 0.2.11-beta
-  id: aramis_target_breast_risk_0_2_11-beta_ce4b016ec4d7
-  artifact_sha256: ce4b016ec4d738f6f2f9fa1aac33ec11d2a9e7ca61d383d42ddbff317ce9adc1
+  id: aramis_target_breast_risk_0_2_11-beta_d28469aa2a62
+  artifact_sha256: d28469aa2a622266f706d57d4a80c450cf49a78560b9835d4e8c051282a7827b
 model_summary:
   architecture:
     stage_1: target_xrd_profile_logistic_regression
@@ -496,14 +496,14 @@ evaluation_artifacts:
   predictions: evaluation_predictions.csv
 reproducibility:
   contract: aramis_reproducibility_v0_1
-  reproduction_mode: preprocessed_artifact_train
+  reproduction_mode: raw_h5_preprocess_train
   source_h5:
     filename: combined_archive.h5
     sha256: d2d61e83850b282c3d2479ea436deed821c4488b96983252d294f3d56ee3f1f9
   source_code:
     aramis:
       version: 0.2.11b0
-      git_sha: c2321c9e2bc884dc255d916a5abc8f159dc808b1
+      git_sha: 6da1046b662e49d2f8e3978c09d046f7614322e8
     xrd_preprocessing:
       version: 0.1.7b0
       url: https://github.com/Eos-Dx/XRD-preprocessing.git
@@ -523,7 +523,11 @@ reproducibility:
       fabio: 2025.10.0
       PyYAML: 6.0.3
   configs:
-    preprocess_train_yaml: null
+    preprocess_train_yaml: "contract: aramis_preprocessing_and_training_config_v0_1\n\
+      preprocessing_and_training:\n  name: aramis_target_breast_risk_preprocessing_and_training\n\
+      \  run_author: Sergey Denisov\n  output_folder: examples/outputs/preprocessing_and_training\n\
+      preprocessing_config_path: config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml\n\
+      training_config_path: config/training/config_training_target_breast_risk_v0_1.yaml\n"
     training_yaml: "contract: aramis_training_config_v0_3\nmodel:\n  name: aramis_target_breast_risk\n\
       \  version: 0.2.11-beta\n  model_author: Sergey Denisov\n  clinical_stage: research\
       \ draft\n  intended_use: Breast cancer decision support; requires radiologist\
@@ -805,6 +809,7 @@ reproducibility:
       \ biopsy,\n    or AgBH exclusion filters\n  clinical_safety_note: Decision-support\
       \ preprocessing only; not autonomous diagnosis.\n"
   checksums:
+    preprocess_train_yaml_sha256: f290af12fa15da4ba32cdcffe3dc11c48d16f258ebf84d1484ff11374454c4c9
     training_yaml_sha256: 036a1e1cf36630d7c271163b0469b5184a8e64ef6f8489119c9f6e4853d05212
     historical_preprocessing_yaml_sha256: 2829b46e16a196188ff950c5e1c559f83b412bb10507e50a9c7d6e8713a5e377
     prediction_preprocessing_yaml_sha256: 18ace800f3903397dc1dc0001b00f45dc6fa5b6627c9c805dda035a0b557e34d

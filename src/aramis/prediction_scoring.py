@@ -120,11 +120,6 @@ def _side_prediction(
         "target_class_risk_level": (
             "high" if p_cancer >= threshold else "low"
         ),
-        "suggested_class": (
-            _model_class_definition(model_info)["target_class"]
-            if p_cancer >= threshold
-            else _model_class_definition(model_info)["reference_class"]
-        ),
         "quantiles": _prediction_quantiles(
             model_info,
             p_cancer,

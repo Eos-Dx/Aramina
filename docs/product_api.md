@@ -110,15 +110,15 @@ Outputs use one generated report ID:
 External report contains target-side risk probability, target-class risk level, decision
 threshold, reliability, reliability reason, patient/target identity, report
 identity, model name/version, and final-model sensitivity/specificity. It
-intentionally excludes `suggested_class`, profile-only scores, symmetry, TRA,
-and model internals. The internal report repeats `model_metrics` for audit as
+intentionally excludes profile-only scores, symmetry, TRA, and model internals.
+The internal report repeats `model_metrics` for audit as
 `dataset: train_on_all_target_breast_cases` and `validation: not_performed`.
 
 Internal report contains one shared threshold policy, a target block with LR1
 profile and final p_cancer, and a contralateral full-model score with SK
 symmetry refinement neutralized. Both available final scores receive a
-suggested class from the shared threshold; the target remains the primary
-decision-support result. Both final scores use the same frozen final-score
+target-class risk level from the shared threshold; the target remains the
+primary decision-support result. Both final scores use the same frozen final-score
 target-case reference distribution. Report contracts:
 `config/prediction/README.md`.
 

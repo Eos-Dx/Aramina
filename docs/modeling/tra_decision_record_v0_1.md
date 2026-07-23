@@ -28,8 +28,8 @@ probability or diagnosis.
 | `TRA 4` | 80 to below 90 | high model-score range |
 | `TRA 5` | 90 to 100 | highest model-score range |
 
-The threshold-derived `suggested_class` remains the formal decision-support
-class. `reliability` remains independent and describes input-data sufficiency.
+The threshold-derived `target_class_risk_level` remains the formal
+decision-support result. `reliability` remains independent and describes input-data sufficiency.
 TRA does not alter the fixed threshold or reduce a score for low reliability.
 
 ## Frozen Artifact Content

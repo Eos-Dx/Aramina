@@ -28,7 +28,7 @@ modify the artifact.
 Tracked frozen product artifact:
 
 ```text
-aramis_target_breast_risk_0_2_11-beta_ce4b016ec4d7/
+aramis_target_breast_risk_0_2_11-beta_d28469aa2a62/
 ```
 
 It carries `aramis_sk_symmetry_v0_2` and the current report contracts. The

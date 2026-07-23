@@ -117,7 +117,7 @@ payload = {
     "aramis_commit": aramis_commit,
     "xrd_preprocessing_commit": xrd_commit,
     "h5_sha256": digest(h5_path),
-    "reference_model_id": "aramis_target_breast_risk_0_2_11-beta_ce4b016ec4d7",
+    "reference_model_id": "aramis_target_breast_risk_0_2_11-beta_d28469aa2a62",
     "reference_model_version": "0.2.11-beta",
     "image_amd64_tag": "eosdx/aramis-training:0.2.11-beta-amd64",
     "image_amd64_platform": "linux/amd64",

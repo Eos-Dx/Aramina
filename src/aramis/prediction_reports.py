@@ -187,7 +187,6 @@ def _target_breast_prediction_report(prediction: dict[str, Any]) -> dict[str, An
             "reference_class": prediction["class_definition"]["reference_class"],
             "target_class": prediction["class_definition"]["target_class"],
             "target_class_risk_level": prediction["target_class_risk_level"],
-            "suggested_class": prediction["suggested_class"],
             "level": prediction["tissue_risk_assessment"]["level"],
             "score_percentiles": prediction["quantiles"],
         },
@@ -211,7 +210,7 @@ def _target_breast_prediction_report(prediction: dict[str, Any]) -> dict[str, An
 def _contralateral_breast_prediction_report(
     prediction: dict[str, Any]
 ) -> dict[str, Any]:
-    """Render internal full-model evidence with the shared threshold class."""
+    """Render internal full-model evidence with the shared threshold risk level."""
     if not prediction["available"]:
         return {
             "available": False,
@@ -225,7 +224,6 @@ def _contralateral_breast_prediction_report(
                 "reference_class": prediction["class_definition"]["reference_class"],
                 "target_class": prediction["class_definition"]["target_class"],
                 "target_class_risk_level": "unknown",
-                "suggested_class": "unknown",
                 "level": "unknown",
                 "score_percentiles": _unknown_score_percentiles(),
             },
@@ -245,7 +243,6 @@ def _contralateral_breast_prediction_report(
             "reference_class": prediction["class_definition"]["reference_class"],
             "target_class": prediction["class_definition"]["target_class"],
             "target_class_risk_level": prediction["target_class_risk_level"],
-            "suggested_class": prediction["suggested_class"],
             "level": prediction["tissue_risk_assessment"]["level"],
             "score_percentiles": prediction["quantiles"],
         },

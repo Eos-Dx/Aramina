@@ -50,9 +50,9 @@ Internal report contains one shared threshold policy and two breast blocks. The
 target block is the formal decision-support result. The
 contralateral block is an internal full-model score: it contains LR1 profile
 evidence and final `p_cancer` with SK symmetry refinement neutralized. It
-uses the shared threshold to provide `suggested_class`, but its reliability is
-always `low`. Full contract:
-`docs/modeling/internal_clinical_report_content_v0_6.md`.
+uses the shared threshold to calculate `target_class_risk_level`, but its
+reliability is always `low`. Full contract:
+`docs/modeling/internal_clinical_report_content_v0_7.md`.
 
 Both reports copy final-model sensitivity and specificity from the selected model artifact. `model_metrics.dataset: train_on_all_target_breast_cases` identifies the data used for these final-fit figures; `model_metrics.validation: not_performed` states that they are not an independent validation estimate. Full evaluation records remain in the artifact and its adjacent evaluation files.
 

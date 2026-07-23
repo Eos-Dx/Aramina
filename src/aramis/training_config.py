@@ -43,8 +43,8 @@ PRODUCT_MODELS = {
                     "reference_doc": "docs/modeling/prediction_pipeline_v0_1.md",
                 },
                 "internal_report": {
-                    "version": "0.6",
-                    "reference_doc": "docs/modeling/internal_clinical_report_content_v0_6.md",
+                    "version": "0.7",
+                    "reference_doc": "docs/modeling/internal_clinical_report_content_v0_7.md",
                 },
             },
             "decision": {"threshold_key": "threshold_target"},

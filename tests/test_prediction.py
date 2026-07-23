@@ -35,7 +35,7 @@ PREDICTION_REPORT_EXAMPLE_ROOT = (
 FINAL_EXAMPLE_MODEL = (
     Path(__file__).parents[1]
     / "models"
-    / "aramis_target_breast_risk_0_2_11-beta_ce4b016ec4d7"
+    / "aramis_target_breast_risk_0_2_11-beta_d28469aa2a62"
     / "model.joblib"
 )
 
@@ -104,7 +104,7 @@ def test_tracked_prediction_fixtures_remain_compatible_with_frozen_artifact(
     assert reports["external_report"]["risk_probability"] == pytest.approx(
         expected_p_cancer, abs=1e-5
     )
-    assert reports["internal_report"]["model"]["id"].endswith("ce4b016ec4d7")
+    assert reports["internal_report"]["model"]["id"].endswith("d28469aa2a62")
     assert reports["internal_report"]["breast_predictions"]["target"][
         "model_execution"
     ]["scoring_path"] == "azimuthal_integration_age_with_symmetry"
@@ -450,9 +450,9 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
     internal = reports["internal_report"]
 
     assert external["output_type"] == "aramis_external_report"
-    assert internal["report_version"] == "0.6"
+    assert internal["report_version"] == "0.7"
     assert internal["reference_doc"] == (
-        "./docs/modeling/internal_clinical_report_content_v0_6.md"
+        "./docs/modeling/internal_clinical_report_content_v0_7.md"
     )
     assert 0.0 <= external["risk_probability"] <= 1.0
     assert 0.0 <= external["decision_threshold"] <= 1.0
@@ -476,6 +476,7 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
     assert target["final_prediction"]["reference_class"] == "BENIGN"
     assert target["final_prediction"]["target_class"] == "CANCER"
     assert target["final_prediction"]["target_class_risk_level"] in {"low", "high"}
+    assert "suggested_class" not in target["final_prediction"]
     assert target["final_prediction"]["level"] in {
         "TRA 1",
         "TRA 2",
@@ -500,10 +501,7 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
     }
     assert contralateral["available"] is True
     assert 0.0 <= contralateral["final_prediction"]["p_cancer"] <= 1.0
-    assert contralateral["final_prediction"]["suggested_class"] in {
-        "BENIGN",
-        "CANCER",
-    }
+    assert "suggested_class" not in contralateral["final_prediction"]
     assert contralateral["final_prediction"]["reference_class"] == "BENIGN"
     assert contralateral["final_prediction"]["target_class"] == "CANCER"
     assert contralateral["final_prediction"]["target_class_risk_level"] in {

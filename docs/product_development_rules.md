@@ -151,9 +151,9 @@ created_at
 model identity and final-fit sensitivity/specificity
 ```
 
-`suggested_class` is retained only in the internal report. External reports do
-not expose TRA, profile-only values, raw symmetry fields, model coefficients,
-or configuration provenance.
+Both reports use `target_class_risk_level` as the threshold-derived decision.
+External reports do not expose TRA, profile-only values, raw symmetry fields,
+model coefficients, or configuration provenance.
 
 Internal prediction report additionally carries the target-side decision and
 `p_cancer`, the contralateral full-model `p_cancer` with symmetry neutralized,

@@ -22,7 +22,7 @@ It does not install Conda, Git, Python, pyFAI, Aramis, or XRD-preprocessing on
 Windows.
 
 The runtime and bundled frozen reference artifact are `0.2.11-beta`:
-`aramis_target_breast_risk_0_2_11-beta_ce4b016ec4d7`. Training produces a
+`aramis_target_breast_risk_0_2_11-beta_d28469aa2a62`. Training produces a
 traceable `0.2.11-beta` candidate and compares it with this reference when the
 model contracts match.
 
