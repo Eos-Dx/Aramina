@@ -21,6 +21,11 @@ current research-draft model or its released artifact.
   an endpoint appropriate for that clinical question is available. The current
   model remains trained on biopsied target breasts and uses the contralateral
   breast only as patient-internal symmetry context.
+- Evaluate bilateral-biopsy patients as a distinct, clinically harder subgroup.
+  Each biopsied breast is correctly retained as its own target case, but the two
+  cases are correlated within one patient and may be harder than unilateral
+  cases. Future validation should report unilateral and bilateral target-breast
+  results separately while keeping both breasts in the same patient-safe fold.
 - Implement the API service as a versioned package with automated contract
   tests; website and PDF clients must consume Aramis report contracts without
   adding clinical logic.

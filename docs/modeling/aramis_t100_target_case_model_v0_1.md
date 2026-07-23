@@ -62,6 +62,13 @@ One biopsied breast creates one historical target case. A bilateral-biopsy
 patient creates two target cases. All measurements and target cases from a
 patient remain together in every patient-safe fold.
 
+Bilateral-biopsy cases are retained because they match intended product
+behaviour: each clinically selected target breast receives an independent
+prediction. They form a potentially harder subgroup, however, because both
+breasts contribute correlated target cases from one patient. The current
+patient-safe split prevents leakage between them; a later validation should
+also report bilateral and unilateral target-breast performance separately.
+
 ## Frozen Regularization And Evaluation
 
 Historical experiments selected the frozen regularization values. Current
