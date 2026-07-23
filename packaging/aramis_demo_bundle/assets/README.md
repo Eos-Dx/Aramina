@@ -51,6 +51,11 @@ case is exported temporarily as a one-patient H5, predicted by the frozen
 model, then removed. YAML, JSON and PDF reports are retained under the supplied
 host `output-folder`.
 
+The patient selector contains both groups available in the archive: red entries
+were included in the frozen model's training dataframe; blue entries were not.
+This is provenance for the demonstrator only. Both types remain selectable, and
+the displayed prediction is not an independent validation result.
+
 The `INTERPRETATION GUIDELINES` section of external PDFs explains the fixed
 threshold interpretation: `high` supports `Biopsy required`; `low` supports
 `Biopsy not required`. This is research-draft decision support; final clinical

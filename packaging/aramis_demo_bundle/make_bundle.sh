@@ -20,6 +20,7 @@ for path in \
   "${SCRIPT_DIR}/assets/Dockerfile" \
   "${ARAMIS_ROOT}/demo/platform/streamlit_app.py" \
   "${ARAMIS_ROOT}/demo/platform/pdf_report.py" \
+  "${ARAMIS_ROOT}/demo/platform/assets/training_patient_ids.json" \
   "${MODEL_PATH}"; do
   [[ -f "${path}" ]] || { echo "Missing demo bundle input: ${path}" >&2; exit 1; }
 done
@@ -66,6 +67,7 @@ target, root, amd64_archive, arm64_archive = map(Path, sys.argv[1:])
 model = root / "models/aramis_target_breast_risk_0_2_11-beta_d28469aa2a62/model.joblib"
 app = root / "demo/platform/streamlit_app.py"
 pdf = root / "demo/platform/pdf_report.py"
+training_patient_ids = root / "demo/platform/assets/training_patient_ids.json"
 dockerfile = root / "packaging/aramis_demo_bundle/assets/Dockerfile"
 
 def digest(path: Path) -> str:
@@ -89,6 +91,7 @@ target.write_text(
             "model_joblib_sha256: " + digest(model),
             "streamlit_app_sha256: " + digest(app),
             "pdf_report_sha256: " + digest(pdf),
+            "training_patient_ids_sha256: " + digest(training_patient_ids),
             "dockerfile_sha256: " + digest(dockerfile),
             "images:",
             "  amd64:",
