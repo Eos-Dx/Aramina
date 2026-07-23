@@ -44,7 +44,7 @@ Aramis writes automatic names under `io.output_folder`:
 <patient_id>_<model_id>_<report_id>_internal_report.yaml
 ```
 
-External report is target-side only and contains report identity, requesting analyst, optional comment, patient/target identity, model version, final-model sensitivity/specificity, risk probability, the fixed decision threshold, `target_class_risk_level` (`low` or `high`), and reliability. `high` means `risk_probability >= decision_threshold`; `low` means it is below the threshold. The external report intentionally excludes TRA, suggested class, profile-only scores, and model internals.
+External report is target-side only and contains report identity, requesting analyst, optional comment, patient/target identity, model version, final-model sensitivity/specificity, risk probability, the fixed decision threshold, `target_class_risk_level` (`low` or `high`), and reliability. `high` means `risk_probability >= decision_threshold`; `low` means it is below the threshold. The external PDF `INTERPRETATION GUIDELINES` states that `high` supports `Biopsy required` and `low` supports `Biopsy not required`; no separate recommendation field is added to YAML. It is research-draft decision support; final clinical decisions remain with the qualified clinician. The external report intentionally excludes TRA, suggested class, profile-only scores, and model internals.
 
 Internal report contains one shared threshold policy and two breast blocks. The
 target block is the formal decision-support result. The

@@ -47,3 +47,9 @@ External reports do not expose TRA. They expose `risk_probability`,
 `decision_threshold`, and `target_class_risk_level`: `high` when the probability meets or
 exceeds the threshold, otherwise `low`. `reliability` remains a separate
 measurement-quality statement. TRA does not change either field.
+
+For the target breast, the external PDF `INTERPRETATION GUIDELINES` states that
+`high` supports `Biopsy required` and `low` supports `Biopsy not required`. The
+interpretation is not serialized as a separate report field because it is fully
+determined by the threshold-derived risk level. It remains research-draft
+decision support and requires qualified clinician review.

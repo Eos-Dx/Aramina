@@ -155,6 +155,12 @@ Both reports use `target_class_risk_level` as the threshold-derived decision.
 External reports do not expose TRA, profile-only values, raw symmetry fields,
 model coefficients, or configuration provenance.
 
+For the target breast only, the external PDF `INTERPRETATION GUIDELINES`
+states that `high` supports `Biopsy required` and `low` supports `Biopsy not
+required`. This interpretation is derived from the frozen threshold and is not
+a separate learned output or an autonomous clinical decision. A contralateral
+internal score never receives a biopsy recommendation.
+
 Internal prediction report additionally carries the target-side decision and
 `p_cancer`, the contralateral full-model `p_cancer` with symmetry neutralized,
 shared threshold policy, symmetry/QC/reliability state, and model/report

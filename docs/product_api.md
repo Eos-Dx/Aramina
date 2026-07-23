@@ -109,7 +109,11 @@ Outputs use one generated report ID:
 
 External report contains target-side risk probability, target-class risk level, decision
 threshold, reliability, reliability reason, patient/target identity, report
-identity, model name/version, and final-model sensitivity/specificity. It
+identity, model name/version, and final-model sensitivity/specificity. The
+external PDF `INTERPRETATION GUIDELINES` states that `high` supports `Biopsy
+required`, and `low` supports `Biopsy not required`. This is a
+threshold-derived, target-side decision-support interpretation, not a new model
+output field; the qualified clinician retains the final clinical decision. It
 intentionally excludes profile-only scores, symmetry, TRA, and model internals.
 The internal report repeats `model_metrics` for audit as
 `dataset: train_on_all_target_breast_cases` and `validation: not_performed`.
