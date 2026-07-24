@@ -9,6 +9,7 @@ WORKDIR /opt
 
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends \
+        build-essential \
         ocl-icd-libopencl1 \
     && rm -rf /var/lib/apt/lists/*
 

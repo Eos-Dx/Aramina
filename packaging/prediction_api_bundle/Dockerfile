@@ -11,7 +11,7 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
 WORKDIR /opt/Aramis
 
 RUN apt-get update \
-    && apt-get install --yes --no-install-recommends git ocl-icd-libopencl1 \
+    && apt-get install --yes --no-install-recommends build-essential git ocl-icd-libopencl1 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY . /opt/Aramis
