@@ -20,7 +20,7 @@ m2q_model_input_columns()
 
 New training writes `aramis_sk_symmetry_v0_2`. It uses the q ranges and
 neutral-gating rule defined in this document. The frozen
-`aramis_target_breast_risk_0_2_11-beta_d531ea38c5dc` artifact carries this
+`aramis_target_breast_risk_0_2_12-beta_f8af641a2e49` artifact carries this
 contract. Historical feature contracts remain on the experimental branch and
 must not be presented as current-product results.
 

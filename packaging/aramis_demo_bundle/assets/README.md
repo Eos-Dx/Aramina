@@ -1,37 +1,28 @@
-# Aramis Browser Demonstrator Bundle
+# Aramisvisor Demonstrator Bundle
 
-Local research-draft browser demonstrator for the frozen
-`aramis_target_breast_risk` model version `0.2.11-beta`. The selected model,
-its prediction preprocessing contract, threshold, feature schema and report
-generation code are embedded in the Docker image.
+Local research-draft demonstrator for frozen product artifact
+`aramis_target_breast_risk_0_2_12-beta_f8af641a2e49`.
 
-This bundle is for an interactive visual demonstration. For programmatic
-one-patient prediction, use the separate Aramis Prediction API Bundle.
-
-## Contents
+The bundle contains two immutable Docker images:
 
 ```text
-aramis_demo_linux_amd64_0_2_11_beta.tar    Windows x86-64 / Intel macOS image
-aramis_demo_linux_arm64_0_2_11_beta.tar    Apple Silicon macOS image
-start_demo.sh / start_demo.ps1             Start the local browser demonstrator
-stop_demo.sh                               Stop the demonstrator
-fixtures/                                  Three one-patient H5 reference fixtures
-bundle_manifest.yaml                       Image and model identity / checksums
+Aramis prediction API -> owns model.joblib and preprocessing contract
+Aramisvisor Streamlit platform -> selects a patient, sends one H5 to API, renders reports
 ```
 
-The image does not contain the clinical archive. Provide a local EOS H5 v0.3
-archive at start-up; it is mounted read-only. The archive must have
-`format = xrd-session-archive` and contain sample sessions with GFRM payloads,
-PONI geometry, sample thicknesses and AgBH calibrant thicknesses.
+The browser platform never loads a model artifact. It sends an H5 v0.3 and the
+minimal request fields to `POST /predict`. The API returns external and
+internal report payloads. The platform writes YAML and PDF reports to the host
+output folder.
 
 ## Start
 
-Install and start Docker Desktop first.
+Install and start Docker Desktop.
 
 macOS/Linux:
 
 ```bash
-cd aramis_demo_bundle_0_2_11_beta
+cd aramis_demo_bundle_0_2_12_beta
 bash ./start_demo.sh \
   --source-h5 /absolute/path/to/combined_archive.h5 \
   --output-folder ./outputs
@@ -40,31 +31,33 @@ bash ./start_demo.sh \
 Windows PowerShell:
 
 ```powershell
-Set-Location aramis_demo_bundle_0_2_11_beta
+Set-Location aramis_demo_bundle_0_2_12_beta
 .\start_demo.ps1 `
   -SourceH5 C:\data\combined_archive.h5 `
   -OutputFolder .\outputs
 ```
 
-Open `http://localhost:8501`. The source archive is read-only. Each selected
-case is exported temporarily as a one-patient H5, predicted by the frozen
-model, then removed. YAML, JSON and PDF reports are retained under the supplied
-host `output-folder`.
+Open `http://localhost:8501`. API documentation is at
+`http://localhost:8000/docs`. The archive is mounted read-only. Each selected
+case is temporarily exported as one H5 v0.3, sent to the API, then removed.
 
-The patient selector contains both groups available in the archive: red entries
-were included in the frozen model's training dataframe; blue entries were not.
-This is provenance for the demonstrator only. Both types remain selectable, and
-the displayed prediction is not an independent validation result.
+Output files:
 
-For a red entry, the target breast follows the training case: a single recorded
-training target side is preselected, while bilateral training cases allow a
-left/right choice. Blue entries retain free selection among their available
-breasts.
+```text
+outputs/<report_id>/
+  external_report.yaml
+  internal_report.yaml
+  external_report.pdf
+  internal_report.pdf
+```
 
-The `INTERPRETATION GUIDELINES` section of external PDFs explains the fixed
-threshold interpretation: `high` supports `Biopsy required`; `low` supports
-`Biopsy not required`. This is research-draft decision support; final clinical
-decisions remain with the qualified clinician.
+The patient selector labels training-cohort patients red and patients not used
+for model training blue. This is demonstration provenance only, not model input
+or independent validation.
+
+The bundled Model test tab uses a separate T130 quality-controlled,
+patient-disjoint same-source cohort. It is exploratory evidence, not an
+independent external-validation claim.
 
 ## Stop
 
@@ -77,5 +70,5 @@ bash ./stop_demo.sh
 Windows PowerShell:
 
 ```powershell
-docker rm --force aramis-demo
+.\stop_demo.ps1
 ```

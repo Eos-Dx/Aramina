@@ -21,9 +21,9 @@ The script verifies the bundled H5 checksum, loads the bundled native
 It does not install Conda, Git, Python, pyFAI, Aramis, or XRD-preprocessing on
 Windows.
 
-The runtime and bundled frozen reference artifact are `0.2.11-beta`:
-`aramis_target_breast_risk_0_2_11-beta_d531ea38c5dc`. Training produces a
-traceable `0.2.11-beta` candidate and compares it with this reference when the
+The runtime and bundled frozen reference artifact are `0.2.12-beta`:
+`aramis_target_breast_risk_0_2_12-beta_f8af641a2e49`. Training produces a
+traceable `0.2.12-beta` candidate and compares it with this reference when the
 model contracts match.
 
 The H5 archive is mounted read-only from `data/combined_archive.h5`; it is
@@ -68,8 +68,8 @@ contract, but the Docker launcher replaces them only in the resolved runtime
 copy with the selected H5, model, and output folder. The original YAML is never
 modified. The H5 must satisfy the one-patient EOS H5 `0.3` contract.
 
-The output folder receives a preprocessed DataFrame joblib, an external report
-in YAML/JSON, an internal report in YAML/JSON, and the resolved request YAML.
+The output folder receives a preprocessed DataFrame joblib, external and
+internal reports in YAML, and the resolved request YAML.
 The external report is target-breast decision support. The internal report also
 contains the contralateral score and quality/reliability information.
 The launcher also prints the external YAML report to the terminal after a

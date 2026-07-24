@@ -1,15 +1,15 @@
 output_type: aramis_internal_clinical_report
 report_version: '0.9'
 reference_doc: ./docs/modeling/internal_clinical_report_content_v0_9.md
-report_id: GENERATED_UNIQUE_ID
-created_at: '2026-07-24T11:15:59+02:00'
+report_id: 20260724T150446_eae484fb
+created_at: '2026-07-24T15:04:48+02:00'
 analysis_author: Aramis bundle example
 prediction_comment: Bundled cancer fixture
 model:
-  id: aramis_target_breast_risk_0_2_11-beta_d531ea38c5dc
+  id: aramis_target_breast_risk_0_2_12-beta_f8af641a2e49
   name: aramis_target_breast_risk
-  version: 0.2.11-beta
-  artifact_sha256: d531ea38c5dc9dba484f09b0b9fe7d3f680ed19288a10c182579ec9f15e588c8
+  version: 0.2.12-beta
+  artifact_sha256: f8af641a2e49b49be71916554025c6b014c4c732dda6ea19376de27dd09c86c1
 model_metrics:
   dataset: train_on_all_target_breast_cases
   validation: not_performed
@@ -25,7 +25,7 @@ scan_metadata:
   target_side: left
   patient_age: 47.0
   patient_age_available: true
-  session_id: H5_SESSION_ID
+  session_id: 63f79230-5778-5930-905f-e099d98b7866
   scan_date_time: '2025-05-14 12:55:46'
   operator_id: unknown
   hardware_version: unknown
@@ -43,7 +43,10 @@ breast_predictions:
     side: left
     azimuthal_integration_profile:
       p_cancer: 0.64729
-      per_measurement_p_cancer: [0.84206, 0.63532, 0.39958]
+      per_measurement_p_cancer:
+      - 0.84206
+      - 0.63532
+      - 0.39958
     final_prediction:
       p_cancer: 0.86939
       reference_class: BENIGN
@@ -68,7 +71,10 @@ breast_predictions:
     side: right
     azimuthal_integration_profile:
       p_cancer: 0.64087
-      per_measurement_p_cancer: [0.83631, 0.31505, 0.70744]
+      per_measurement_p_cancer:
+      - 0.83631
+      - 0.31505
+      - 0.70744
     final_prediction:
       p_cancer: 0.78536
       reference_class: BENIGN
@@ -81,7 +87,8 @@ breast_predictions:
         target_class: 0.57895
     reliability:
       level: low
-      reason: SK symmetry refinement is intentionally unavailable for contralateral scoring
+      reason: SK symmetry refinement is intentionally unavailable for contralateral
+        scoring
     symmetry:
       available: false
     model_execution:

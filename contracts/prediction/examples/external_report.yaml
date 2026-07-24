@@ -1,7 +1,7 @@
 output_type: aramis_external_report
 report_version: '0.6'
-report_id: GENERATED_UNIQUE_ID
-created_at: '2026-07-24T11:15:59+02:00'
+report_id: 20260724T150446_eae484fb
+created_at: '2026-07-24T15:04:48+02:00'
 analysis_author: Aramis bundle example
 prediction_comment: Bundled cancer fixture
 patient_id: Nova_214
@@ -13,7 +13,7 @@ operator_id: unknown
 hardware_version: unknown
 eoscan_version: unknown
 model_name: aramis_target_breast_risk
-model_version: 0.2.11-beta
+model_version: 0.2.12-beta
 model_metrics:
   dataset: train_on_all_target_breast_cases
   validation: not_performed
@@ -24,4 +24,5 @@ target_class_risk_level: high
 decision_threshold: 0.24666
 biopsy_required: true
 reliability: high
-reliability_reason: at least 2 valid measurements per breast; symmetry refinement applied
+reliability_reason: at least 2 valid measurements per breast; symmetry refinement
+  applied

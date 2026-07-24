@@ -18,7 +18,7 @@ models/<model_id>/
 `model.joblib` is executable. `model_description.yaml` is its human-readable
 identity and final-fit record. `evaluation.yaml` summarizes patient-safe
 validation; the two CSV files hold row-oriented fold metrics and held-out
-predictions. The preprocessing, prediction-preprocessing, training, and optional
+predictions. The preprocessing, prediction-preprocessing, training, and
 preprocess-train YAML files are frozen inputs; the model description and
 evaluation YAML are generated output records.
 
@@ -28,7 +28,7 @@ modify the artifact.
 Tracked frozen product artifact:
 
 ```text
-aramis_target_breast_risk_0_2_11-beta_d531ea38c5dc/
+aramis_target_breast_risk_0_2_12-beta_f8af641a2e49/
 ```
 
 It carries `aramis_sk_symmetry_v0_2`, the threshold-centred

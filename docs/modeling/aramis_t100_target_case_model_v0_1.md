@@ -2,9 +2,9 @@
 
 Status: frozen research-draft product model definition.
 
-Frozen model version: `0.2.11-beta`.
+Frozen model version: `0.2.12-beta`.
 Frozen model artifact:
-`aramis_target_breast_risk_0_2_11-beta_d531ea38c5dc`.
+`aramis_target_breast_risk_0_2_12-beta_f8af641a2e49`.
 
 This document fixes the current Aramis model architecture and its current
 development evidence. It is decision support for radiologist review, not
@@ -113,9 +113,9 @@ No current result establishes stable 0.95 sensitivity on unseen patients.
 A larger independent cohort is required before any stronger product claim.
 ```
 
-## Frozen 0.2.11-beta Evaluation Record
+## Frozen 0.2.12-beta Evaluation Record
 
-The frozen `0.2.11-beta` packaged artifact uses the current
+The frozen `0.2.12-beta` packaged artifact uses the current
 `aramis_sk_symmetry_v0_2` feature contract and was evaluated on the T100 biopsy-patient cohort
 using the fixed 100 patient-safe folds. The target threshold was derived on the
 training patients in each fold and then applied once to that fold's held-out
