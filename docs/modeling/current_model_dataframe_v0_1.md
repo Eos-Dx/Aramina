@@ -191,7 +191,7 @@ endpoint: BENIGN vs CANCER decision-support p_cancer
 row unit: measurement
 grouping unit: patientId
 decision-support level: target breast with patient-internal symmetry context
-status: research draft, requires radiologist review
+status: research-draft decision support, not autonomous diagnosis
 ```
 
 Training target-side rule:

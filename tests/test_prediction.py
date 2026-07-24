@@ -24,6 +24,7 @@ from aramis.prediction_contract import _config_path
 from aramis.prediction_scoring import _tissue_risk_assessment
 from aramis.training import run_training_from_config
 from aramis.training_config import PRODUCT_MODEL_NAME
+from aramis.tra_policy import TRA_POLICY_CONTRACT, derive_tra_policy
 
 from .synthetic_aramis_h5 import write_v0_3_one_patient_h5
 
@@ -35,7 +36,7 @@ PREDICTION_REPORT_EXAMPLE_ROOT = (
 FINAL_EXAMPLE_MODEL = (
     Path(__file__).parents[1]
     / "models"
-    / "aramis_target_breast_risk_0_2_11-beta_d28469aa2a62"
+    / "aramis_target_breast_risk_0_2_11-beta_d531ea38c5dc"
     / "model.joblib"
 )
 
@@ -104,7 +105,7 @@ def test_tracked_prediction_fixtures_remain_compatible_with_frozen_artifact(
     assert reports["external_report"]["risk_probability"] == pytest.approx(
         expected_p_cancer, abs=1e-5
     )
-    assert reports["internal_report"]["model"]["id"].endswith("d28469aa2a62")
+    assert reports["internal_report"]["model"]["id"].endswith("d531ea38c5dc")
     assert reports["internal_report"]["breast_predictions"]["target"][
         "model_execution"
     ]["scoring_path"] == "azimuthal_integration_age_with_symmetry"
@@ -180,7 +181,7 @@ def test_frozen_model_examples_keep_stable_scores(
         abs=1e-5,
     )
     contralateral_profile = predictions["contralateral"][
-        "azimuthal_integration_contralateral_profile"
+        "azimuthal_integration_profile"
     ]
     assert 0.0 <= contralateral_profile["p_cancer"] <= 1.0
     assert predictions["contralateral"]["final_prediction"]["p_cancer"] == pytest.approx(
@@ -231,22 +232,51 @@ def _mapping_key_paths(value: object, path: str = "") -> set[str]:
 @pytest.mark.parametrize(
     ("score", "expected"),
     [
-        (0.05, "TRA 1"),
-        (0.10, "TRA 2"),
-        (0.50, "TRA 3"),
-        (0.70, "TRA 4"),
-        (0.95, "TRA 5"),
+        (0.10, "TRA 1"),
+        (0.20, "TRA 2"),
+        (0.25, "TRA 3"),
+        (0.40, "TRA 4"),
+        (0.70, "TRA 5"),
     ],
 )
-def test_tra_uses_frozen_percentile_reference(score: float, expected: str):
-    model_info = {
-        "prediction_reference_scores": {
-            "final_prediction": {"all_target_cases": [0.1, 0.3, 0.5, 0.7, 0.9]}
-        }
+def test_tra_is_threshold_centred(score: float, expected: str):
+    policy = {
+        "contract": TRA_POLICY_CONTRACT,
+        "decision_threshold": 0.25,
+        "logit_margin_boundaries": {
+            "tra_1_to_2": -0.5,
+            "tra_2_to_3": 0.0,
+            "tra_3_to_4": 0.5,
+            "tra_4_to_5": 1.5,
+        },
     }
-    tra = _tissue_risk_assessment(model_info, score)
-    assert tra["level"] == expected
-    assert 0.0 <= tra["index"] <= 100.0
+    tra = _tissue_risk_assessment({"tissue_risk_assessment": policy}, score)
+    assert tra == {"level": expected}
+
+
+def test_tra_policy_is_derived_from_patient_safe_oof_predictions():
+    rows = []
+    for case_index in range(5):
+        for split_index in range(4):
+            rows.append(
+                {
+                    "target_case_id": f"P{case_index}",
+                    "p_cancer": 0.25,
+                    "y_pred_target": split_index % 2,
+                }
+            )
+    policy = derive_tra_policy(pd.DataFrame(rows), decision_threshold=0.25)
+
+    assert policy["contract"] == TRA_POLICY_CONTRACT
+    assert policy["decision_threshold"] == pytest.approx(0.25)
+    assert policy["calibration"]["method"] == "patient_safe_oof_decision_stability"
+    assert policy["calibration"]["target_cases"] == 5
+    assert policy["logit_margin_boundaries"] == {
+        "tra_1_to_2": -0.1,
+        "tra_2_to_3": 0.0,
+        "tra_3_to_4": 0.1,
+        "tra_4_to_5": 0.3,
+    }
 
 
 def _patient_frame() -> pd.DataFrame:
@@ -450,15 +480,15 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
     internal = reports["internal_report"]
 
     assert external["output_type"] == "aramis_external_report"
-    assert internal["report_version"] == "0.7"
+    assert internal["report_version"] == "0.8"
     assert internal["reference_doc"] == (
-        "./docs/modeling/internal_clinical_report_content_v0_7.md"
+        "./docs/modeling/internal_clinical_report_content_v0_8.md"
     )
     assert 0.0 <= external["risk_probability"] <= 1.0
     assert 0.0 <= external["decision_threshold"] <= 1.0
     assert "suggested_class" not in external
     assert "p_cancer" not in external
-    assert external["target_class_risk_level"] in {"low", "high"}
+    assert external["biopsy_required"] is True
     assert "tissue_risk_assessment" not in external
     metrics = external["model_metrics"]
     assert metrics["dataset"] == "train_on_all_target_breast_cases"
@@ -475,8 +505,8 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
     assert 0.0 <= target["final_prediction"]["p_cancer"] <= 1.0
     assert target["final_prediction"]["reference_class"] == "BENIGN"
     assert target["final_prediction"]["target_class"] == "CANCER"
-    assert target["final_prediction"]["target_class_risk_level"] in {"low", "high"}
-    assert "suggested_class" not in target["final_prediction"]
+    assert target["final_prediction"]["suggested_class"] == "CANCER"
+    assert target["final_prediction"]["biopsy_required"] is True
     assert target["final_prediction"]["level"] in {
         "TRA 1",
         "TRA 2",
@@ -484,18 +514,19 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
         "TRA 4",
         "TRA 5",
     }
-    assert decision["applies_to"] == [
-        "target.final_prediction",
-        "contralateral.final_prediction",
-    ]
+    assert decision["applies_to"] == ["target.final_prediction"]
     assert 0.0 <= decision["threshold"] <= 1.0
     assert "decision_threshold" not in target["final_prediction"]
-    assert set(target["azimuthal_integration_target_profile"]) == {
+    assert set(target["azimuthal_integration_profile"]) == {
         "p_cancer",
         "per_measurement_p_cancer",
     }
-    assert target["azimuthal_integration_target_profile"]["p_cancer"] is not None
+    assert target["azimuthal_integration_profile"]["p_cancer"] is not None
     assert target["symmetry"] == {"available": True}
+    assert target["reliability"] == {
+        "level": "high",
+        "reason": "at least 2 valid measurements per breast; symmetry refinement applied",
+    }
     assert target["model_execution"] == {
         "scoring_path": "azimuthal_integration_age_with_symmetry"
     }
@@ -504,10 +535,8 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
     assert "suggested_class" not in contralateral["final_prediction"]
     assert contralateral["final_prediction"]["reference_class"] == "BENIGN"
     assert contralateral["final_prediction"]["target_class"] == "CANCER"
-    assert contralateral["final_prediction"]["target_class_risk_level"] in {
-        "low",
-        "high",
-    }
+    assert "suggested_class" not in contralateral["final_prediction"]
+    assert "biopsy_required" not in contralateral["final_prediction"]
     assert contralateral["final_prediction"]["level"] in {
         "TRA 1",
         "TRA 2",
@@ -522,17 +551,17 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
         "azimuthal_integration_age"
     )
     assert 0.0 <= contralateral[
-        "azimuthal_integration_contralateral_profile"
+        "azimuthal_integration_profile"
     ]["p_cancer"] <= 1.0
-    assert set(contralateral["azimuthal_integration_contralateral_profile"]) == {
+    assert set(contralateral["azimuthal_integration_profile"]) == {
         "p_cancer",
         "per_measurement_p_cancer",
     }
     assert set(target["final_prediction"]["score_percentiles"]) == {
         "reference_population",
-        "all_training_target_cases",
-        "reference_class_training_target_cases",
-        "target_class_training_target_cases",
+        "all",
+        "reference_class",
+        "target_class",
     }
     assert target["final_prediction"]["score_percentiles"][
         "reference_population"
@@ -578,11 +607,11 @@ def test_predict_target_side_controls_profile_evidence(tmp_path: Path, trained_m
     right = run_prediction_from_config(right_config)["internal_report"]
 
     assert (
-        left["breast_predictions"]["target"]["azimuthal_integration_target_profile"][
+        left["breast_predictions"]["target"]["azimuthal_integration_profile"][
             "p_cancer"
         ]
         != right["breast_predictions"]["target"][
-            "azimuthal_integration_target_profile"
+            "azimuthal_integration_profile"
         ]["p_cancer"]
     )
 
@@ -618,10 +647,10 @@ def test_predict_without_contralateral_uses_unavailable_symmetry(
     contralateral = report["breast_predictions"]["contralateral"]
     assert contralateral["available"] is False
     assert contralateral["side"] == "unknown"
-    assert contralateral["azimuthal_integration_contralateral_profile"][
+    assert contralateral["azimuthal_integration_profile"][
         "p_cancer"
     ] == "unknown"
-    assert set(contralateral["azimuthal_integration_contralateral_profile"]) == {
+    assert set(contralateral["azimuthal_integration_profile"]) == {
         "p_cancer",
         "per_measurement_p_cancer",
     }

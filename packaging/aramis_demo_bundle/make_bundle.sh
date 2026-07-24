@@ -11,7 +11,7 @@ AMD64_IMAGE_TAG="eosdx/aramis-demo:0.2.11-beta-amd64"
 ARM64_IMAGE_TAG="eosdx/aramis-demo:0.2.11-beta-arm64"
 AMD64_IMAGE_ARCHIVE="aramis_demo_linux_amd64_0_2_11_beta.tar"
 ARM64_IMAGE_ARCHIVE="aramis_demo_linux_arm64_0_2_11_beta.tar"
-MODEL_PATH="${ARAMIS_ROOT}/models/aramis_target_breast_risk_0_2_11-beta_d28469aa2a62/model.joblib"
+MODEL_PATH="${ARAMIS_ROOT}/models/aramis_target_breast_risk_0_2_11-beta_d531ea38c5dc/model.joblib"
 
 command -v docker >/dev/null || { echo "Docker is required to build this bundle." >&2; exit 1; }
 docker info >/dev/null || { echo "Docker Desktop is not running." >&2; exit 1; }
@@ -64,7 +64,7 @@ import subprocess
 import sys
 
 target, root, amd64_archive, arm64_archive = map(Path, sys.argv[1:])
-model = root / "models/aramis_target_breast_risk_0_2_11-beta_d28469aa2a62/model.joblib"
+model = root / "models/aramis_target_breast_risk_0_2_11-beta_d531ea38c5dc/model.joblib"
 app = root / "demo/platform/streamlit_app.py"
 pdf = root / "demo/platform/pdf_report.py"
 training_patient_ids = root / "demo/platform/assets/training_patient_ids.json"

@@ -29,6 +29,7 @@ from .training_evaluation import (
     _patient_dataset_summary,
     _summarize_patient_model_metrics,
 )
+from .tra_policy import derive_tra_policy
 
 
 PATIENT_BOOTSTRAP_SAMPLES = 2_000
@@ -322,6 +323,11 @@ def _final_model_artifact(
     training_config_yaml: str,
 ) -> dict[str, Any]:
     model_name = next(iter(artifact["models"]))
+    model_info = artifact["models"][model_name]
+    model_info["tissue_risk_assessment"] = derive_tra_policy(
+        artifact["split_predictions"],
+        decision_threshold=float(model_info["thresholds"]["threshold_target"]),
+    )
     return {
         "kind": "aramis_training_artifact",
         "version": "0.3",

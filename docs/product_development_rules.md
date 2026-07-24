@@ -39,8 +39,8 @@ product: Aramis
 target population: women with BI-RADS 3 / BI-RADS 4 suspicious findings
 clinical question: does the clinically suspicious breast likely need biopsy?
 clinical user: radiologist / qualified breast-imaging clinician
-internal output: p_cancer, suggested BENIGN/CANCER class, reliability metadata
-external output: risk_probability, target_class_risk_level, decision threshold, reliability metadata
+internal output: p_cancer, suggested BENIGN/CANCER class, biopsy_required, reliability metadata
+external output: risk_probability, biopsy_required, decision threshold, reliability metadata
 ```
 
 ## Required Traceability
@@ -142,8 +142,8 @@ External prediction report must output:
 
 ```text
 risk_probability
-target_class_risk_level
 decision_threshold
+biopsy_required
 reliability
 reliability_reason
 report_id
@@ -151,15 +151,16 @@ created_at
 model identity and final-fit sensitivity/specificity
 ```
 
-Both reports use `target_class_risk_level` as the threshold-derived decision.
+The target-side `biopsy_required` field is the threshold-derived decision.
 External reports do not expose TRA, profile-only values, raw symmetry fields,
 model coefficients, or configuration provenance.
 
 For the target breast only, the external PDF `INTERPRETATION GUIDELINES`
-states that `high` supports `Biopsy required` and `low` supports `Biopsy not
-required`. This interpretation is derived from the frozen threshold and is not
-a separate learned output or an autonomous clinical decision. A contralateral
-internal score never receives a biopsy recommendation.
+states that `biopsy_required: true` supports biopsy and
+`biopsy_required: false` supports no biopsy requirement. This interpretation is
+derived from the frozen threshold and is not a separate learned output or an
+autonomous clinical decision. A contralateral internal score never receives a
+biopsy recommendation.
 
 Internal prediction report additionally carries the target-side decision and
 `p_cancer`, the contralateral full-model `p_cancer` with symmetry neutralized,

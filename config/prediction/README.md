@@ -44,15 +44,15 @@ Aramis writes automatic names under `io.output_folder`:
 <patient_id>_<model_id>_<report_id>_internal_report.yaml
 ```
 
-External report is target-side only and contains report identity, requesting analyst, optional comment, patient/target identity, model version, final-model sensitivity/specificity, risk probability, the fixed decision threshold, `target_class_risk_level` (`low` or `high`), and reliability. `high` means `risk_probability >= decision_threshold`; `low` means it is below the threshold. The external PDF `INTERPRETATION GUIDELINES` states that `high` supports `Biopsy required` and `low` supports `Biopsy not required`; no separate recommendation field is added to YAML. It is research-draft decision support; final clinical decisions remain with the qualified clinician. The external report intentionally excludes TRA, suggested class, profile-only scores, and model internals.
+External report is target-side only and contains report identity, requesting analyst, optional comment, patient/target identity, model version, final-model sensitivity/specificity, risk probability, the fixed decision threshold, `biopsy_required`, and reliability. `biopsy_required` is `true` when `risk_probability >= decision_threshold`, otherwise `false`. It is research-draft decision support; final clinical decisions remain with the qualified clinician. The external report intentionally excludes TRA, suggested class, profile-only scores, and model internals.
 
 Internal report contains one shared threshold policy and two breast blocks. The
 target block is the formal decision-support result. The
 contralateral block is an internal full-model score: it contains LR1 profile
 evidence and final `p_cancer` with SK symmetry refinement neutralized. It
-uses the shared threshold to calculate `target_class_risk_level`, but its
-reliability is always `low`. Full contract:
-`docs/modeling/internal_clinical_report_content_v0_7.md`.
+does not create a second suggested class or biopsy action. Its reliability is
+always `low`. Full contract:
+`docs/modeling/internal_clinical_report_content_v0_8.md`.
 
 Both reports copy final-model sensitivity and specificity from the selected model artifact. `model_metrics.dataset: train_on_all_target_breast_cases` identifies the data used for these final-fit figures; `model_metrics.validation: not_performed` states that they are not an independent validation estimate. Full evaluation records remain in the artifact and its adjacent evaluation files.
 

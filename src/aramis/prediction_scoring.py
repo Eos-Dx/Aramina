@@ -11,20 +11,7 @@ from .model_utils import profile_matrix
 from .patient_features import build_patient_prediction_feature_row
 from .prediction_contract import _model_threshold
 from .training_config import PRODUCT_MODEL_NAME
-
-
-_DEFAULT_TRA_POLICY = {
-    "contract": "aramis_tra_v0_1",
-    "reference_score": "final_prediction.p_cancer",
-    "reference_population": "train_on_all_target-breast_cases",
-    "levels": [
-        {"level": "TRA 1", "minimum_percentile": 0.0, "maximum_percentile": 20.0},
-        {"level": "TRA 2", "minimum_percentile": 20.0, "maximum_percentile": 50.0},
-        {"level": "TRA 3", "minimum_percentile": 50.0, "maximum_percentile": 80.0},
-        {"level": "TRA 4", "minimum_percentile": 80.0, "maximum_percentile": 90.0},
-        {"level": "TRA 5", "minimum_percentile": 90.0, "maximum_percentile": 100.0},
-    ],
-}
+from .tra_policy import tra_level
 
 
 def _prediction_target_side(
@@ -107,6 +94,8 @@ def _side_prediction(
         side=target_side,
         columns=columns,
     )
+    class_definition = _model_class_definition(model_info)
+    biopsy_required = bool(p_cancer >= threshold)
     return {
         "available": True,
         "reason": None,
@@ -116,10 +105,13 @@ def _side_prediction(
         "xrd_profile": profile,
         "threshold_key": threshold_key,
         "threshold": threshold,
-        "class_definition": _model_class_definition(model_info),
-        "target_class_risk_level": (
-            "high" if p_cancer >= threshold else "low"
+        "class_definition": class_definition,
+        "suggested_class": (
+            class_definition["target_class"]
+            if biopsy_required
+            else class_definition["reference_class"]
         ),
+        "biopsy_required": biopsy_required,
         "quantiles": _prediction_quantiles(
             model_info,
             p_cancer,
@@ -179,9 +171,9 @@ def _prediction_quantiles(
             f"{score_kind!r} score reference. Retrain model."
         )
     keys = {
-        "all_training_target_cases": "all_target_cases",
-        "reference_class_training_target_cases": "benign_target_cases",
-        "target_class_training_target_cases": "cancer_target_cases",
+        "all": "all_target_cases",
+        "reference_class": "benign_target_cases",
+        "target_class": "cancer_target_cases",
     }
     out: dict[str, Any] = {
         "reference_population": _report_identifier(
@@ -207,38 +199,11 @@ def _report_identifier(value: Any) -> str:
 
 
 def _tissue_risk_assessment(model_info: dict[str, Any], p_cancer: float) -> dict[str, Any]:
-    """Map a final score to the model-held ordinal TRA reference scale."""
-    policy = model_info.get("tissue_risk_assessment", _DEFAULT_TRA_POLICY)
-    if policy.get("contract") != "aramis_tra_v0_1":
-        raise ValueError("Unsupported tissue risk assessment policy in model artifact.")
-
-    references = model_info.get("prediction_reference_scores", {})
-    reference = references.get("final_prediction", {})
-    values = np.asarray(reference.get("all_target_cases", []), dtype=float)
-    values = np.sort(values[np.isfinite(values)])
-    if values.size == 0:
-        raise ValueError("Model prediction reference has no final target-case scores.")
-
-    index = 100.0 * np.searchsorted(values, p_cancer, side="right") / values.size
-    return {
-        "index": float(index),
-        "level": _tra_level(policy, index),
-        "reference_population": str(
-            policy.get("reference_population", reference.get("population", "unknown"))
-        ),
-    }
-
-
-def _tra_level(policy: dict[str, Any], index: float) -> str:
-    """Return the sole TRA level whose upper boundary contains ``index``."""
-    levels = policy.get("levels")
-    if not isinstance(levels, list) or len(levels) != 5:
-        raise ValueError("TRA policy must define exactly five ordered levels.")
-    for item in levels:
-        upper = float(item["maximum_percentile"])
-        if index < upper or upper == 100.0:
-            return str(item["level"]).replace("_", " ")
-    raise ValueError("TRA index is outside the frozen policy range.")
+    """Map a final score to the frozen threshold-centred TRA level."""
+    policy = model_info.get("tissue_risk_assessment")
+    if not isinstance(policy, dict):
+        raise ValueError("Model artifact has no tissue risk assessment policy. Retrain model.")
+    return {"level": tra_level(policy, p_cancer)}
 
 
 def _prediction_columns(model_artifact: dict[str, Any]) -> dict[str, str]:

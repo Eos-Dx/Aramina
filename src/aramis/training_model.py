@@ -126,38 +126,6 @@ def _fit_m2q_model(
             "contract": "aramis_prediction_score_percentiles_v0_2",
             "final_prediction": final_score_reference,
         },
-        "tissue_risk_assessment": {
-            "contract": "aramis_tra_v0_1",
-            "reference_score": "final_prediction.p_cancer",
-            "reference_population": "train_on_all_target-breast_cases",
-            "levels": [
-                {
-                    "level": "TRA 1",
-                    "minimum_percentile": 0.0,
-                    "maximum_percentile": 20.0,
-                },
-                {
-                    "level": "TRA 2",
-                    "minimum_percentile": 20.0,
-                    "maximum_percentile": 50.0,
-                },
-                {
-                    "level": "TRA 3",
-                    "minimum_percentile": 50.0,
-                    "maximum_percentile": 80.0,
-                },
-                {
-                    "level": "TRA 4",
-                    "minimum_percentile": 80.0,
-                    "maximum_percentile": 90.0,
-                },
-                {
-                    "level": "TRA 5",
-                    "minimum_percentile": 90.0,
-                    "maximum_percentile": 100.0,
-                },
-            ],
-        },
     }
 
 

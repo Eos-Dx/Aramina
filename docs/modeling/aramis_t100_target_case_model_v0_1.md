@@ -3,8 +3,8 @@
 Status: frozen research-draft product model definition.
 
 Frozen model version: `0.2.11-beta`.
-The prior `0.2.10-beta` artifact remains a separately versioned v0.1-SK
-compatibility artifact.
+Frozen model artifact:
+`aramis_target_breast_risk_0_2_11-beta_d531ea38c5dc`.
 
 This document fixes the current Aramis model architecture and its current
 development evidence. It is decision support for radiologist review, not
@@ -128,8 +128,8 @@ patients.
 | specificity | 0.376 +/- 0.133 | 0.323 (0.228 to 0.420) |
 
 These are research-draft evaluation results, not a clinical performance claim.
-The prior `0.2.10-beta` v0.1-SK record is retained only for compatibility
-comparison.
+Historical candidate artifacts are retained in the experimental branch rather
+than as compatibility artifacts in `main`.
 
 ## Train On All
 

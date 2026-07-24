@@ -274,6 +274,17 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
     assert artifact["prediction_preprocessing_yaml"]
     assert artifact["prediction_contract_yaml"]
     assert artifact["reproducibility"]["source_h5"]["sha256"] == "abc"
+    tra_policy = artifact["models"][PRODUCT_MODEL_NAME]["tissue_risk_assessment"]
+    assert tra_policy["contract"] == "aramis_tra_v0_2"
+    assert tra_policy["decision_threshold"] == pytest.approx(
+        artifact["models"][PRODUCT_MODEL_NAME]["thresholds"]["threshold_target"]
+    )
+    assert tra_policy["calibration"]["method"] in {
+        "patient_safe_oof_decision_stability",
+        "fixed_logit_margin_without_oof_calibration",
+    }
+    assert tra_policy["calibration"]["target_cases"] > 0
+    assert tra_policy["logit_margin_boundaries"]["tra_2_to_3"] == 0.0
     assert artifact["evaluation"]["protocol"] == {
         "method": "repeated_stratified_kfold",
         "folds": 5,
@@ -399,7 +410,6 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
         "evaluation_artifacts",
         "reproducibility",
         "clinical_stage",
-        "requires_radiologist_review",
     }
     assert set(evaluation) == {
         "output_type",

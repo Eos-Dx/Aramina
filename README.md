@@ -16,7 +16,7 @@ one-patient H5
 -> normalized radial_profile_data
 -> LR1 target-breast profile score
 -> LR2: profile + age + optional gated SK symmetry refinement
--> p_cancer, suggested class, reliability
+-> p_cancer, biopsy_required, reliability
 ```
 
 Current product definition:

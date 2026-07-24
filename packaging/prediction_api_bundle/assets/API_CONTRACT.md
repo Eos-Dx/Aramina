@@ -69,16 +69,17 @@ the model applies its neutral symmetry gate and the internal report records
 
 ```json
 {
-  "external_report": {"...": "external report v0.4 payload"},
-  "internal_report": {"...": "internal clinical report v0.6 payload"}
+  "external_report": {"...": "external report v0.5 payload"},
+  "internal_report": {"...": "internal clinical report v0.8 payload"}
 }
 ```
 
-The target external report carries `risk_probability`, `target_class_risk_level`, fixed
-`decision_threshold`, reliability, model version, and final-fit model
-sensitivity/specificity. The internal report contains target and contralateral
-profile/final predictions, decision class, TRA level, audit metadata and
-symmetry availability.
+The target external report carries `risk_probability`, fixed
+`decision_threshold`, threshold-derived `biopsy_required`, reliability, model
+version, and final-fit model sensitivity/specificity. The internal report
+contains target and contralateral profile/final predictions, target-side
+suggested class and biopsy action, TRA level, audit metadata, and symmetry
+availability. The contralateral block is evidence only and has no biopsy action.
 
 The service deliberately returns payloads in memory. It deletes the uploaded
 H5 and temporary prediction files after the response. The client is responsible

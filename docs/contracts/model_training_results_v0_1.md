@@ -43,6 +43,14 @@ reproducibility: <H5 checksum, source-code provenance, runtime versions>
 fold count, repeat count, seed, target sensitivity, and ROC AUC, sensitivity,
 and specificity as fold mean and standard deviation.
 
+The final model entry also contains `tissue_risk_assessment`, a frozen
+`aramis_tra_v0_2` policy. It is derived automatically from the final threshold
+and the patient-safe OOF predictions produced during this training run. It
+records the OOF calibration population, decision-stability counts, logit-margin
+boundaries, and threshold-dependent probability boundaries. TRA does not alter
+`p_cancer` or the target-side `biopsy_required` action. Full contract:
+`docs/contracts/tissue_risk_assessment_v0_2.md`.
+
 `final_fit_training_metrics` describes the frozen model fitted on all accepted
 target-breast cases:
 
@@ -101,7 +109,6 @@ dataset_summary: <accepted-cohort counts>
 evaluation_artifacts: {summary, metrics, predictions}
 reproducibility: <H5 checksum, config checksums, code and runtime provenance>
 clinical_stage: research draft
-requires_radiologist_review: true
 ```
 
 Logistic-regression `classes` must be `BENIGN` and `CANCER`, never `0` and

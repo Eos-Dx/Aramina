@@ -1,6 +1,6 @@
 # Aramis Product API v0.1
 
-Status: research draft. Decision support only. Requires radiologist review.
+Status: research draft. Decision support only; not autonomous diagnosis.
 
 ## Commands
 
@@ -107,23 +107,21 @@ Outputs use one generated report ID:
 *_internal_report.yaml
 ```
 
-External report contains target-side risk probability, target-class risk level, decision
-threshold, reliability, reliability reason, patient/target identity, report
-identity, model name/version, and final-model sensitivity/specificity. The
-external PDF `INTERPRETATION GUIDELINES` states that `high` supports `Biopsy
-required`, and `low` supports `Biopsy not required`. This is a
-threshold-derived, target-side decision-support interpretation, not a new model
-output field; the qualified clinician retains the final clinical decision. It
-intentionally excludes profile-only scores, symmetry, TRA, and model internals.
+External report contains the target-side final risk probability, decision
+threshold, `biopsy_required`, reliability, reliability reason, patient/target
+identity, report identity, model name/version, and final-model
+sensitivity/specificity. `biopsy_required` is the sole target-side action:
+`true` when the final risk probability meets or exceeds the frozen threshold,
+otherwise `false`. It intentionally excludes profile-only scores, symmetry,
+TRA, and model internals.
 The internal report repeats `model_metrics` for audit as
 `dataset: train_on_all_target_breast_cases` and `validation: not_performed`.
 
 Internal report contains one shared threshold policy, a target block with LR1
 profile and final p_cancer, and a contralateral full-model score with SK
-symmetry refinement neutralized. Both available final scores receive a
-target-class risk level from the shared threshold; the target remains the
-primary decision-support result. Both final scores use the same frozen final-score
-target-case reference distribution. Report contracts:
+symmetry refinement neutralized. Only the caller-selected target receives a
+suggested class and biopsy action. Both final scores use the same frozen
+final-score target-case reference distribution. Report contracts:
 `config/prediction/README.md`.
 
 ## Stop Conditions

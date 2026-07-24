@@ -42,7 +42,7 @@ def _prediction_reports(
         common=common,
         version=str(reporting["external_report"]["version"]),
         risk_probability=target_prediction["p_cancer"],
-        target_class_risk_level=target_prediction["target_class_risk_level"],
+        biopsy_required=target_prediction["biopsy_required"],
         decision_threshold=target_prediction["threshold"],
         reliability=row["result_reliability"],
         reliability_reason=row["result_reliability_reason"],
@@ -71,7 +71,7 @@ def _external_report(
     common: dict[str, Any],
     version: str,
     risk_probability: float,
-    target_class_risk_level: str,
+    biopsy_required: bool,
     decision_threshold: float,
     reliability: str,
     reliability_reason: str,
@@ -97,8 +97,8 @@ def _external_report(
         "model_version": common["model_version"],
         "model_metrics": model_metrics,
         "risk_probability": risk_probability,
-        "target_class_risk_level": target_class_risk_level,
         "decision_threshold": decision_threshold,
+        "biopsy_required": biopsy_required,
         "reliability": reliability,
         "reliability_reason": reliability_reason,
     }
@@ -159,14 +159,11 @@ def _internal_report(
 
 
 def _decision_policy(prediction: dict[str, Any]) -> dict[str, Any]:
-    """Return the one shared threshold policy for available breast scores."""
+    """Return the target-side decision threshold held by the frozen model."""
     return {
         "threshold_id": _decision_threshold_id(prediction["threshold_key"]),
         "threshold": prediction["threshold"],
-        "applies_to": [
-            "target.final_prediction",
-            "contralateral.final_prediction",
-        ],
+        "applies_to": ["target.final_prediction"],
     }
 
 
@@ -176,7 +173,7 @@ def _target_breast_prediction_report(prediction: dict[str, Any]) -> dict[str, An
     return {
         "available": True,
         "side": _lower_side(row["target_side"]),
-        "azimuthal_integration_target_profile": {
+        "azimuthal_integration_profile": {
             "p_cancer": prediction["xrd_profile"]["profile_p_cancer"],
             "per_measurement_p_cancer": prediction["xrd_profile"][
                 "measurement_p_cancer"
@@ -186,7 +183,8 @@ def _target_breast_prediction_report(prediction: dict[str, Any]) -> dict[str, An
             "p_cancer": prediction["p_cancer"],
             "reference_class": prediction["class_definition"]["reference_class"],
             "target_class": prediction["class_definition"]["target_class"],
-            "target_class_risk_level": prediction["target_class_risk_level"],
+            "suggested_class": prediction["suggested_class"],
+            "biopsy_required": prediction["biopsy_required"],
             "level": prediction["tissue_risk_assessment"]["level"],
             "score_percentiles": prediction["quantiles"],
         },
@@ -210,12 +208,12 @@ def _target_breast_prediction_report(prediction: dict[str, Any]) -> dict[str, An
 def _contralateral_breast_prediction_report(
     prediction: dict[str, Any]
 ) -> dict[str, Any]:
-    """Render internal full-model evidence with the shared threshold risk level."""
+    """Render internal contralateral evidence without a biopsy action."""
     if not prediction["available"]:
         return {
             "available": False,
             "side": "unknown",
-            "azimuthal_integration_contralateral_profile": {
+            "azimuthal_integration_profile": {
                 "p_cancer": "unknown",
                 "per_measurement_p_cancer": [],
             },
@@ -223,7 +221,6 @@ def _contralateral_breast_prediction_report(
                 "p_cancer": "unknown",
                 "reference_class": prediction["class_definition"]["reference_class"],
                 "target_class": prediction["class_definition"]["target_class"],
-                "target_class_risk_level": "unknown",
                 "level": "unknown",
                 "score_percentiles": _unknown_score_percentiles(),
             },
@@ -234,7 +231,7 @@ def _contralateral_breast_prediction_report(
     return {
         "available": True,
         "side": _lower_side(prediction["feature_row"]["target_side"]),
-        "azimuthal_integration_contralateral_profile": {
+        "azimuthal_integration_profile": {
             "p_cancer": profile["profile_p_cancer"],
             "per_measurement_p_cancer": profile["measurement_p_cancer"],
         },
@@ -242,7 +239,6 @@ def _contralateral_breast_prediction_report(
             "p_cancer": prediction["p_cancer"],
             "reference_class": prediction["class_definition"]["reference_class"],
             "target_class": prediction["class_definition"]["target_class"],
-            "target_class_risk_level": prediction["target_class_risk_level"],
             "level": prediction["tissue_risk_assessment"]["level"],
             "score_percentiles": prediction["quantiles"],
         },
@@ -260,9 +256,9 @@ def _contralateral_breast_prediction_report(
 def _unknown_score_percentiles() -> dict[str, str]:
     return {
         "reference_population": "unknown",
-        "all_training_target_cases": "unknown",
-        "reference_class_training_target_cases": "unknown",
-        "target_class_training_target_cases": "unknown",
+        "all": "unknown",
+        "reference_class": "unknown",
+        "target_class": "unknown",
     }
 
 
@@ -294,7 +290,7 @@ def _scan_metadata(
         ),
         "measurement_summary": {
             "target_valid_measurements": feature_row.get("target_measurements", 0),
-            "contralateral_present": bool(
+            "contralateral_available": bool(
                 feature_row.get("contralateral_measurements", 0)
             ),
             "contralateral_valid_measurements": feature_row.get(

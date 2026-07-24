@@ -28,13 +28,11 @@ modify the artifact.
 Tracked frozen product artifact:
 
 ```text
-aramis_target_breast_risk_0_2_11-beta_d28469aa2a62/
+aramis_target_breast_risk_0_2_11-beta_d531ea38c5dc/
 ```
 
-It carries `aramis_sk_symmetry_v0_2` and the current report contracts. The
-prior `aramis_target_breast_risk_0_2_10-beta_ccad65e77adb/` artifact remains a
-separately documented compatibility artifact using `aramis_sk_symmetry_v0_1`.
-
-Only frozen artifacts required for the current product configs or explicit
-compatibility documentation are retained on `main`. Historical candidates
-belong on the experimental branch.
+It carries `aramis_sk_symmetry_v0_2`, the threshold-centred
+`aramis_tra_v0_2` policy, and the current report contracts. Its TRA policy is
+calibrated from the repeated patient-safe OOF evaluation stored beside the
+artifact. Only the current frozen product artifact is retained on `main`;
+historical candidates belong on the experimental branch.

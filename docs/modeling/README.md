@@ -9,7 +9,7 @@ definitions, and prediction-report contract. Product readers should start here:
 aramis_t100_target_case_model_v0_1.md
 prediction_pipeline_v0_1.md
 current_model_dataframe_v0_1.md
-tra_decision_record_v0_1.md
+tra_decision_record_v0_2.md
 ```
 
 ## Development Candidate
@@ -46,8 +46,8 @@ current_model_dataframe_v0_1.md
 sk_symmetry_features_v0_1.md
   mathematical definitions of SK Core4 fields
 
-tra_decision_record_v0_1.md
-  frozen TRA index, levels, artifact content, and interpretation limit
+tra_decision_record_v0_2.md
+  threshold-centred TRA levels, automatic OOF calibration, and artifact content
 ```
 
 ## Product Contracts

@@ -84,7 +84,6 @@ def _model_description(
         "evaluation_artifacts": _evaluation_artifact_paths(model_path.parent),
         "reproducibility": _jsonable(artifact["reproducibility"]),
         "clinical_stage": "research draft",
-        "requires_radiologist_review": True,
     }
 
 

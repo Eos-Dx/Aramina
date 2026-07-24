@@ -11,6 +11,15 @@ model_summary:
     stage_2: age_and_optional_symmetry_refinement
     symmetry_behavior: neutralized_unless_2_valid_measurements_per_breast_and_finite_core4_features
   symmetry_feature_contract: aramis_sk_symmetry_v0_2
+  tissue_risk_assessment:
+    contract: aramis_tra_v0_2
+    decision_threshold: <float>
+    calibration:
+      method: patient_safe_oof_decision_stability
+      target_cases: <integer>
+      unstable_target_cases: <integer>
+      borderline_margin_logit: <float>
+    logit_margin_boundaries: {tra_1_to_2: <float>, tra_2_to_3: 0.0, tra_3_to_4: <float>, tra_4_to_5: <float>}
 model_joblib: model.joblib
 model_performance:
   evaluation_available: true
@@ -57,4 +66,3 @@ reproducibility:
   checksums:
     training_yaml_sha256: <sha256>
 clinical_stage: research draft
-requires_radiologist_review: true

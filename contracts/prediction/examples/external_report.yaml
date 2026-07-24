@@ -1,14 +1,14 @@
 output_type: aramis_external_report
-report_version: '0.4'
-report_id: EXAMPLE_REPORT_ID
-created_at: '2026-07-21T12:00:00+00:00'
-analysis_author: EXAMPLE_ANALYST
-prediction_comment: Example output only
-patient_id: EXAMPLE_PATIENT
+report_version: '0.5'
+report_id: GENERATED_UNIQUE_ID
+created_at: '2026-07-24T11:15:59+02:00'
+analysis_author: Aramis bundle example
+prediction_comment: Bundled cancer fixture
+patient_id: Nova_214
 patient_age: 47.0
 target_side: left
 mammography_suspicious_field: unknown
-scan_date_time: unknown
+scan_date_time: '2025-05-14 12:55:46'
 operator_id: unknown
 hardware_version: unknown
 eoscan_version: unknown
@@ -19,8 +19,8 @@ model_metrics:
   validation: not_performed
   sensitivity: 0.96053
   specificity: 0.49495
-risk_probability: 0.84062
-target_class_risk_level: high
+risk_probability: 0.86939
 decision_threshold: 0.24666
+biopsy_required: true
 reliability: high
-reliability_reason: at least 3 valid measurements per breast; symmetry refinement applied
+reliability_reason: at least 2 valid measurements per breast; symmetry refinement applied

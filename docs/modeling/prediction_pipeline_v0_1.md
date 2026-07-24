@@ -3,9 +3,9 @@
 Status: research draft.
 
 This document describes the first Aramis prediction route. It is clinical
-decision support only. The external report returns `target_class_risk_level` (`low` or
-`high`), reliability metadata, and frozen method performance; the internal
-report retains `p_cancer` and TRA for audit.
+decision support only. The external report returns the target-side
+`biopsy_required` action, reliability metadata, and frozen method performance;
+the internal report retains `p_cancer` and TRA for audit.
 
 ## Command
 
@@ -153,8 +153,8 @@ available or paired-breast symmetry is unavailable.
 Reliability levels are operational data-sufficiency fields:
 
 ```text
-high:   target >=3 and contralateral >=3 valid measurements; SK refinement applied
-medium: target >=2 but the high-reliability criterion is not met
+high:   target >=2 and contralateral >=2 valid measurements; SK refinement applied
+medium: target >=2 but paired symmetry is unavailable or cannot be computed
 low:    target <2 valid measurements
 ```
 
@@ -210,8 +210,8 @@ model_metrics.validation
 model_metrics.sensitivity
 model_metrics.specificity
 risk_probability
-target_class_risk_level
 decision_threshold
+biopsy_required
 reliability
 reliability_reason
 ```
@@ -219,8 +219,8 @@ reliability_reason
 External report does not expose profile-only scores, symmetry, TRA, provenance,
 raw data, or model internals. `risk_probability` is
 the frozen final target-breast score and `decision_threshold` is the associated
-fixed model threshold. `target_class_risk_level` is `high` when the score meets or exceeds
-that threshold, otherwise `low`. The report includes sensitivity and
+fixed model threshold. `biopsy_required` is `true` when the score meets or
+exceeds that threshold, otherwise `false`. The report includes sensitivity and
 specificity of the selected frozen final model. `model_metrics.dataset` is
 `train_on_all_target_breast_cases` and `model_metrics.validation` is
 `not_performed`: these figures are final-fit training metrics, not independent
@@ -229,7 +229,7 @@ generated automatically and shared with the internal report from the same
 prediction operation. `created_at` is a Europe/Paris ISO timestamp with a
 numeric UTC offset.
 
-Internal report follows `internal_clinical_report_content_v0_7.md` and contains:
+Internal report follows `internal_clinical_report_content_v0_8.md` and contains:
 
 ```text
 output_type: aramis_internal_clinical_report
@@ -244,13 +244,18 @@ frozen score percentiles, symmetry availability, and reliability
 derived TRA level for each available breast
 ```
 
+TRA is an internal threshold-centred tier. Every completed training run
+automatically recalibrates its TRA margins from patient-safe OOF decision
+stability and freezes them in the promoted model artifact. It does not change
+the target-side `p_cancer` threshold or the `biopsy_required` action.
+
 Report-level naming:
 
 ```text
 breast_predictions.target.final_prediction.p_cancer
   final target-side decision-support score
 
-breast_predictions.target.azimuthal_integration_target_profile.p_cancer
+breast_predictions.target.azimuthal_integration_profile.p_cancer
   target-breast LR1 profile-only probability
 ```
 
@@ -263,8 +268,9 @@ provenance, and output-file paths.
 
 The internal report scores the contralateral breast with the same final model,
 but forces its SK symmetry gate to neutral. It exposes LR1 profile evidence,
-final `p_cancer` and target-class risk level from the single shared threshold. The
-target remains the caller-supplied primary decision-support result. If no
+final `p_cancer` and TRA level with the SK symmetry gate neutralized. It has no
+separate suggested class or biopsy action. The target remains the
+caller-supplied primary decision-support result. If no
 usable contralateral data remain after QC,
 that block is explicitly `unknown`; the target still uses the same LR2 with its
 gated SK terms neutralized. The external report remains target-side only.
