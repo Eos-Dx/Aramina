@@ -9,16 +9,26 @@ WORKDIR /opt
 
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends \
-        build-essential \
         ocl-icd-libopencl1 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY XRD-preprocessing /opt/XRD-preprocessing
 
-# Linux pyFAI is deliberately pinned: it is the validated integration runtime.
+# Deliberately exclude notebook and visualization-only dependencies. The bundle
+# contains the fixed product preprocessing, training, and prediction runtime.
 RUN python -m pip install --upgrade pip \
-    && python -m pip install pyFAI==2026.5.0 fabio==2025.10.0 pyopencl==2026.1.2 \
-    && python -m pip install /opt/XRD-preprocessing
+    && python -m pip install \
+        numpy==2.4.1 \
+        pandas==3.0.5 \
+        scipy==1.18.0 \
+        scikit-learn==1.9.0 \
+        joblib==1.5.3 \
+        h5py==3.15.1 \
+        pyyaml==6.0.3 \
+        pyFAI==2026.5.0 \
+        fabio==2025.10.0 \
+        pyopencl==2026.1.2 \
+    && python -m pip install --no-deps /opt/XRD-preprocessing
 
 COPY Aramis /opt/Aramis
 COPY run_training_docker.sh /opt/aramis-bundle/run_training_docker.sh
