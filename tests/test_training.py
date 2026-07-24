@@ -314,7 +314,6 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
         "false_negatives",
     }
     assert not (model_path.parent / "model_performance.yaml").exists()
-    assert description["reproducibility"] == artifact["reproducibility"]
     for filename in (
         "preprocessing_config.yaml",
         "prediction_preprocessing_config.yaml",
@@ -408,7 +407,6 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
         "feature_schema",
         "dataset_summary",
         "evaluation_artifacts",
-        "reproducibility",
         "clinical_stage",
     }
     assert set(evaluation) == {
@@ -590,7 +588,6 @@ def test_training_output_contract_examples_are_complete():
         "decision_thresholds",
         "dataset_summary",
         "evaluation_artifacts",
-        "reproducibility",
     }.issubset(description)
     assert (
         description["model_summary"]["symmetry_feature_contract"]

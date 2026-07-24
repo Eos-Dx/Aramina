@@ -107,12 +107,13 @@ decision_thresholds: <Youden and target-sensitivity thresholds>
 feature_schema: {final_model: <feature schema>}
 dataset_summary: <accepted-cohort counts>
 evaluation_artifacts: {summary, metrics, predictions}
-reproducibility: <H5 checksum, config checksums, code and runtime provenance>
 clinical_stage: research draft
 ```
 
 Logistic-regression `classes` must be `BENIGN` and `CANCER`, never `0` and
-`1`.
+`1`. Learned coefficients, scaler values, full config snapshots, H5 checksum,
+source-code provenance, and runtime versions remain in the executable
+`model.joblib`, rather than being duplicated into this concise description.
 
 ## evaluation.yaml
 

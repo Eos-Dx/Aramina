@@ -82,7 +82,6 @@ def _model_description(
         "feature_schema": _jsonable(artifact["feature_schema"]),
         "dataset_summary": _records(artifact["dataset_summary"]),
         "evaluation_artifacts": _evaluation_artifact_paths(model_path.parent),
-        "reproducibility": _jsonable(artifact["reproducibility"]),
         "clinical_stage": "research draft",
     }
 

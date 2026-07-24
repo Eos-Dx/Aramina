@@ -59,10 +59,4 @@ evaluation_artifacts:
   summary: evaluation.yaml
   metrics: evaluation_metrics.csv
   predictions: evaluation_predictions.csv
-reproducibility:
-  source_h5:
-    filename: <filename>
-    sha256: <sha256>
-  checksums:
-    training_yaml_sha256: <sha256>
 clinical_stage: research draft
