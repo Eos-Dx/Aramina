@@ -15,7 +15,7 @@ probability boundaries, and the final threshold. This makes the tiering policy
 reproducible without changing `p_cancer`, model coefficients, or the classifier
 threshold-selection method.
 
-The target report uses `suggested_class` and `biopsy_required` from the frozen
+The target report uses `target_class_risk_level` and `biopsy_required` from the frozen
 probability threshold. TRA is internal explanatory evidence only. Contralateral
 scoring retains TRA but has no independent action because it is not the
 clinician-selected suspicious breast and its symmetry terms are neutralized.

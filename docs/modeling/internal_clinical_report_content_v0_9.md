@@ -1,16 +1,17 @@
-# Aramis Internal Clinical Report Content v0.8
+# Aramis Internal Clinical Report Content v0.9
 
 Status: research-draft internal audit contract. It is not for autonomous diagnosis.
 
 One report contains a formal target-breast decision-support result and, when
 available after preprocessing, an internal contralateral score. The caller
-selects the target side. The target alone receives `suggested_class` and
-`biopsy_required`; contralateral evidence never creates a second biopsy action.
+selects the target side. The target alone receives the threshold-derived risk
+level and `biopsy_required`; contralateral evidence never creates a second
+biopsy action.
 
 ```yaml
 output_type: aramis_internal_clinical_report
-report_version: "0.8"
-reference_doc: ./docs/modeling/internal_clinical_report_content_v0_8.md
+report_version: "0.9"
+reference_doc: ./docs/modeling/internal_clinical_report_content_v0_9.md
 report_id: GENERATED_UNIQUE_ID
 created_at: "2026-07-24T14:11:00+02:00"
 analysis_author: REQUESTING_ANALYST
@@ -67,7 +68,7 @@ final_prediction:
   p_cancer: 0.59489
   reference_class: BENIGN
   target_class: CANCER
-  suggested_class: CANCER
+  target_class_risk_level: high
   biopsy_required: true
   level: TRA 4
   score_percentiles:
@@ -86,12 +87,12 @@ model_execution:
 
 `azimuthal_integration_profile.p_cancer` is the first-layer LR1 score. The
 final `p_cancer` combines profile evidence, age when available, and optional
-gated SK symmetry refinement. `suggested_class` and `biopsy_required` are both
-derived only from the frozen decision threshold:
+gated SK symmetry refinement. `target_class_risk_level` and
+`biopsy_required` are both derived only from the frozen decision threshold:
 
 ```text
-p_cancer < decision_threshold  -> BENIGN, biopsy_required: false
-p_cancer >= decision_threshold -> CANCER, biopsy_required: true
+p_cancer < decision_threshold  -> target_class_risk_level: low, biopsy_required: false
+p_cancer >= decision_threshold -> target_class_risk_level: high, biopsy_required: true
 ```
 
 This is research-draft decision support, not an autonomous diagnosis.
@@ -133,8 +134,9 @@ model_execution:
 ```
 
 The contralateral score uses the same frozen model with SK symmetry inputs
-neutralized. It provides internal evidence only. It has no `suggested_class`,
-no `biopsy_required`, and no independent decision threshold application.
+neutralized. It provides internal evidence only. It has no
+`target_class_risk_level`, no `biopsy_required`, and no independent decision
+threshold application.
 
 If no usable contralateral breast remains after preprocessing:
 

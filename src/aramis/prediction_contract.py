@@ -79,9 +79,7 @@ def _prediction_output_paths(
         "folder": folder,
         "report_id": report_id,
         "dataframe_joblib": folder / f"{stem}_prediction_dataframe.joblib",
-        "external_json": folder / f"{stem}_external_report.json",
         "external_yaml": folder / f"{stem}_external_report.yaml",
-        "internal_json": folder / f"{stem}_internal_report.json",
         "internal_yaml": folder / f"{stem}_internal_report.yaml",
     }
 

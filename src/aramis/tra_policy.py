@@ -56,27 +56,27 @@ def derive_tra_policy(
         "levels": [
             {
                 "level": "TRA 1",
-                "suggested_class": "BENIGN",
+                "biopsy_required": False,
                 "interpretation": "below decision threshold",
             },
             {
                 "level": "TRA 2",
-                "suggested_class": "BENIGN",
+                "biopsy_required": False,
                 "interpretation": "near decision threshold, below threshold",
             },
             {
                 "level": "TRA 3",
-                "suggested_class": "CANCER",
+                "biopsy_required": True,
                 "interpretation": "borderline, above decision threshold",
             },
             {
                 "level": "TRA 4",
-                "suggested_class": "CANCER",
+                "biopsy_required": True,
                 "interpretation": "high score above decision threshold",
             },
             {
                 "level": "TRA 5",
-                "suggested_class": "CANCER",
+                "biopsy_required": True,
                 "interpretation": "very high score above decision threshold",
             },
         ],

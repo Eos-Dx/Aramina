@@ -1,5 +1,5 @@
 output_type: aramis_external_report
-report_version: '0.5'
+report_version: '0.6'
 report_id: GENERATED_UNIQUE_ID
 created_at: '2026-07-24T11:15:59+02:00'
 analysis_author: Aramis bundle example
@@ -20,6 +20,7 @@ model_metrics:
   sensitivity: 0.96053
   specificity: 0.49495
 risk_probability: 0.86939
+target_class_risk_level: high
 decision_threshold: 0.24666
 biopsy_required: true
 reliability: high

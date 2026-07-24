@@ -97,6 +97,7 @@ def _external_report(
         "model_version": common["model_version"],
         "model_metrics": model_metrics,
         "risk_probability": risk_probability,
+        "target_class_risk_level": _target_class_risk_level(biopsy_required),
         "decision_threshold": decision_threshold,
         "biopsy_required": biopsy_required,
         "reliability": reliability,
@@ -183,7 +184,9 @@ def _target_breast_prediction_report(prediction: dict[str, Any]) -> dict[str, An
             "p_cancer": prediction["p_cancer"],
             "reference_class": prediction["class_definition"]["reference_class"],
             "target_class": prediction["class_definition"]["target_class"],
-            "suggested_class": prediction["suggested_class"],
+            "target_class_risk_level": _target_class_risk_level(
+                prediction["biopsy_required"]
+            ),
             "biopsy_required": prediction["biopsy_required"],
             "level": prediction["tissue_risk_assessment"]["level"],
             "score_percentiles": prediction["quantiles"],
@@ -335,3 +338,8 @@ def _decision_threshold_id(threshold_key: str) -> str:
         if threshold_key == "threshold_target"
         else threshold_key
     )
+
+
+def _target_class_risk_level(biopsy_required: bool) -> str:
+    """Render the threshold-derived external and target-side risk level."""
+    return "high" if biopsy_required else "low"

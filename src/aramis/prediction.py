@@ -14,7 +14,6 @@ from .pipelines import run_preprocessing_pipeline
 from .preprocessing_contract import validate_aramis_preprocessing_config
 from .prediction_contract import (
     _config_path,
-    _json_dumps,
     _model_identity,
     _model_info,
     _prediction_contract,
@@ -162,7 +161,6 @@ def _write_reports(output_paths: dict[str, Path], reports: dict[str, Any]) -> No
     for report_name in ("external_report", "internal_report"):
         prefix = "external" if report_name == "external_report" else "internal"
         report = reports[report_name]
-        _write_text(output_paths[f"{prefix}_json"], _json_dumps(report))
         _write_text(
             output_paths[f"{prefix}_yaml"],
             yaml.safe_dump(report, sort_keys=False),

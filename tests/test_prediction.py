@@ -480,15 +480,17 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
     internal = reports["internal_report"]
 
     assert external["output_type"] == "aramis_external_report"
-    assert internal["report_version"] == "0.8"
+    assert external["report_version"] == "0.6"
+    assert internal["report_version"] == "0.9"
     assert internal["reference_doc"] == (
-        "./docs/modeling/internal_clinical_report_content_v0_8.md"
+        "./docs/modeling/internal_clinical_report_content_v0_9.md"
     )
     assert 0.0 <= external["risk_probability"] <= 1.0
     assert 0.0 <= external["decision_threshold"] <= 1.0
     assert "suggested_class" not in external
     assert "p_cancer" not in external
     assert external["biopsy_required"] is True
+    assert external["target_class_risk_level"] == "high"
     assert "tissue_risk_assessment" not in external
     metrics = external["model_metrics"]
     assert metrics["dataset"] == "train_on_all_target_breast_cases"
@@ -505,7 +507,8 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
     assert 0.0 <= target["final_prediction"]["p_cancer"] <= 1.0
     assert target["final_prediction"]["reference_class"] == "BENIGN"
     assert target["final_prediction"]["target_class"] == "CANCER"
-    assert target["final_prediction"]["suggested_class"] == "CANCER"
+    assert "suggested_class" not in target["final_prediction"]
+    assert target["final_prediction"]["target_class_risk_level"] == "high"
     assert target["final_prediction"]["biopsy_required"] is True
     assert target["final_prediction"]["level"] in {
         "TRA 1",
@@ -574,6 +577,8 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
     assert internal["model"]["artifact_sha256"]
     assert len(list(output_folder.glob("*_external_report.yaml"))) == 1
     assert len(list(output_folder.glob("*_internal_report.yaml"))) == 1
+    assert not list(output_folder.glob("*_external_report.json"))
+    assert not list(output_folder.glob("*_internal_report.json"))
 
 
 def test_predict_target_side_controls_profile_evidence(tmp_path: Path, trained_model):

@@ -106,11 +106,6 @@ def _side_prediction(
         "threshold_key": threshold_key,
         "threshold": threshold,
         "class_definition": class_definition,
-        "suggested_class": (
-            class_definition["target_class"]
-            if biopsy_required
-            else class_definition["reference_class"]
-        ),
         "biopsy_required": biopsy_required,
         "quantiles": _prediction_quantiles(
             model_info,

@@ -10,12 +10,12 @@ The target-breast action is determined only by the frozen final-model
 probability threshold:
 
 ```text
-p_cancer < decision_threshold  -> suggested_class: BENIGN, biopsy_required: false
-p_cancer >= decision_threshold -> suggested_class: CANCER, biopsy_required: true
+p_cancer < decision_threshold  -> target_class_risk_level: low, biopsy_required: false
+p_cancer >= decision_threshold -> target_class_risk_level: high, biopsy_required: true
 ```
 
 TRA does not replace or modify this rule. Contralateral evidence has a TRA
-level but no suggested class or biopsy action.
+level but no risk level or biopsy action.
 
 ## Automatic Calibration at Training
 

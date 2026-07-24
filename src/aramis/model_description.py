@@ -163,7 +163,7 @@ def _model_summary(model_info: dict[str, Any]) -> dict[str, Any]:
 def _pipeline_summary(
     model: Pipeline | GatedSymmetryLogistic | None,
 ) -> dict[str, Any] | None:
-    """Describe fitted sklearn pipeline parameters without serializing estimators."""
+    """Describe architecture and frozen hyperparameters, not learned weights."""
     if model is None:
         return None
     if isinstance(model, GatedSymmetryLogistic):
@@ -172,8 +172,6 @@ def _pipeline_summary(
             "base_feature_columns": list(model.base_feature_columns_),
             "symmetry_feature_columns": list(SK_CORE4_FEATURE_COLUMNS),
             "symmetry_gate": "symmetry_available",
-            "symmetry_means": _jsonable(model.symmetry_means_.to_numpy()),
-            "symmetry_scales": _jsonable(model.symmetry_scales_.to_numpy()),
             "logreg": {
                 "C": float(model.logreg_.C),
                 "class_weight": model.logreg_.class_weight,
@@ -181,8 +179,7 @@ def _pipeline_summary(
                 "max_iter": int(model.logreg_.max_iter),
                 "random_state": model.logreg_.random_state,
                 "classes": _class_labels(model.logreg_.classes_),
-                "coef": _jsonable(model.logreg_.coef_),
-                "intercept": _jsonable(model.logreg_.intercept_),
+                "feature_count": int(model.logreg_.n_features_in_),
             },
         }
     summary: dict[str, Any] = {"type": type(model).__name__, "steps": {}}
@@ -190,10 +187,8 @@ def _pipeline_summary(
         step_summary: dict[str, Any] = {"type": type(step).__name__}
         if isinstance(step, SimpleImputer):
             step_summary["strategy"] = step.strategy
-            step_summary["statistics"] = _jsonable(step.statistics_)
         elif isinstance(step, StandardScaler):
-            step_summary["mean"] = _jsonable(step.mean_)
-            step_summary["scale"] = _jsonable(step.scale_)
+            step_summary["feature_count"] = int(step.n_features_in_)
         elif isinstance(step, LogisticRegression):
             step_summary.update(
                 {
@@ -203,8 +198,7 @@ def _pipeline_summary(
                     "max_iter": int(step.max_iter),
                     "random_state": step.random_state,
                     "classes": _class_labels(step.classes_),
-                    "coef": _jsonable(step.coef_),
-                    "intercept": _jsonable(step.intercept_),
+                    "feature_count": int(step.n_features_in_),
                 }
             )
         summary["steps"][step_name] = step_summary

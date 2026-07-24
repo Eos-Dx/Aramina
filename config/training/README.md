@@ -6,7 +6,7 @@ Public contract: `aramis_training_config_v0_3`.
 contract: aramis_training_config_v0_3
 model:
   name: aramis_target_breast_risk
-  version: 0.2.11-beta
+  version: 0.2.12-beta
   model_author: Sergey Denisov
   clinical_stage: research draft
   intended_use: Breast cancer decision support; requires radiologist review.

@@ -20,8 +20,6 @@ REQUIRED_FILES = (
     "evaluation.yaml",
     "evaluation_metrics.csv",
     "evaluation_predictions.csv",
-)
-OPTIONAL_FILES = (
     "preprocess_and_train_config.yaml",
 )
 
@@ -56,7 +54,7 @@ def promote_model_run(
         raise FileExistsError(f"Refusing to overwrite existing promoted model: {destination}")
 
     destination.mkdir(parents=True)
-    for filename in (*REQUIRED_FILES, *OPTIONAL_FILES):
+    for filename in REQUIRED_FILES:
         source_path = source / filename
         if source_path.exists():
             copy2(source_path, destination / filename)

@@ -1,6 +1,6 @@
 output_type: aramis_internal_clinical_report
-report_version: '0.8'
-reference_doc: ./docs/modeling/internal_clinical_report_content_v0_8.md
+report_version: '0.9'
+reference_doc: ./docs/modeling/internal_clinical_report_content_v0_9.md
 report_id: GENERATED_UNIQUE_ID
 created_at: '2026-07-24T11:15:59+02:00'
 analysis_author: Aramis bundle example
@@ -48,7 +48,7 @@ breast_predictions:
       p_cancer: 0.86939
       reference_class: BENIGN
       target_class: CANCER
-      suggested_class: CANCER
+      target_class_risk_level: high
       biopsy_required: true
       level: TRA 5
       score_percentiles:
