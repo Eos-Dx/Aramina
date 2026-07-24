@@ -1,7 +1,7 @@
 # Aramis Prediction HTTP API Contract v0.1
 
 Status: local research-draft decision-support API. It serves one frozen model
-artifact only: `aramis_target_breast_risk` version `0.2.11-beta`.
+artifact only: `aramis_target_breast_risk` version `0.2.12-beta`.
 
 ## Base URL
 
@@ -69,17 +69,18 @@ the model applies its neutral symmetry gate and the internal report records
 
 ```json
 {
-  "external_report": {"...": "external report v0.5 payload"},
-  "internal_report": {"...": "internal clinical report v0.8 payload"}
+  "external_report": {"...": "external report v0.6 payload"},
+  "internal_report": {"...": "internal clinical report v0.9 payload"}
 }
 ```
 
 The target external report carries `risk_probability`, fixed
-`decision_threshold`, threshold-derived `biopsy_required`, reliability, model
-version, and final-fit model sensitivity/specificity. The internal report
-contains target and contralateral profile/final predictions, target-side
-suggested class and biopsy action, TRA level, audit metadata, and symmetry
-availability. The contralateral block is evidence only and has no biopsy action.
+`decision_threshold`, threshold-derived `target_class_risk_level` and
+`biopsy_required`, reliability, model version, and final-fit model
+sensitivity/specificity. The internal report contains target and contralateral
+profile/final predictions, target-side high/low risk level and biopsy action,
+TRA level, audit metadata, and symmetry availability. The contralateral block
+is evidence only and has no biopsy action.
 
 The service deliberately returns payloads in memory. It deletes the uploaded
 H5 and temporary prediction files after the response. The client is responsible

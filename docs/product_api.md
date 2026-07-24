@@ -101,14 +101,12 @@ Outputs use one generated report ID:
 
 ```text
 *_prediction_dataframe.joblib
-*_external_report.json
 *_external_report.yaml
-*_internal_report.json
 *_internal_report.yaml
 ```
 
 External report contains the target-side final risk probability, decision
-threshold, `biopsy_required`, reliability, reliability reason, patient/target
+threshold, `target_class_risk_level`, `biopsy_required`, reliability, reliability reason, patient/target
 identity, report identity, model name/version, and final-model
 sensitivity/specificity. `biopsy_required` is the sole target-side action:
 `true` when the final risk probability meets or exceeds the frozen threshold,
@@ -119,9 +117,9 @@ The internal report repeats `model_metrics` for audit as
 
 Internal report contains one shared threshold policy, a target block with LR1
 profile and final p_cancer, and a contralateral full-model score with SK
-symmetry refinement neutralized. Only the caller-selected target receives a
-suggested class and biopsy action. Both final scores use the same frozen
-final-score target-case reference distribution. Report contracts:
+symmetry refinement neutralized. Only the caller-selected target receives the
+high/low target-class risk level and biopsy action. Both final scores use the
+same frozen final-score target-case reference distribution. Report contracts:
 `config/prediction/README.md`.
 
 ## Stop Conditions

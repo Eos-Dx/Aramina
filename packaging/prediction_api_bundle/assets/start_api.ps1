@@ -4,8 +4,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 $BundleRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$ImageTag = "eosdx/aramis-prediction-api:0.2.11-beta-amd64"
-$ImageArchive = Join-Path $BundleRoot "aramis_prediction_api_linux_amd64_0_2_11_beta.tar"
+$ImageTag = "eosdx/aramis-prediction-api:0.2.12-beta-amd64"
+$ImageArchive = Join-Path $BundleRoot "aramis_prediction_api_linux_amd64_0_2_12_beta.tar"
 
 docker info | Out-Null
 if ($LASTEXITCODE -ne 0) {

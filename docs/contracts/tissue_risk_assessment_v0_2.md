@@ -44,18 +44,18 @@ TRA 5: margin >= high_margin_logit
 ```
 
 Thus the `TRA 2/3` boundary is exactly the final probability decision
-threshold. `TRA 1-2` agree with the BENIGN action; `TRA 3-5` agree with the
-CANCER action. TRA 3 is a borderline score tier above the decision threshold;
-TRA 4 and TRA 5 are high and very-high score tiers, respectively. These terms
-describe position relative to the frozen model threshold, not calibrated cancer
-probability or expected individual error.
+threshold. `TRA 1-2` have the BENIGN decision-support class and do not require
+biopsy. `TRA 3-5` have the CANCER decision-support class and require biopsy.
+TRA 3 is a borderline/low cancer-risk tier above the decision threshold; TRA 4
+is high cancer risk; TRA 5 is very high cancer risk. TRA 3-5 require
+radiologist review. These terms describe position relative to the frozen model
+threshold, not calibrated cancer probability or expected individual error.
 
 ## Frozen Artifact
 
 ```yaml
 tissue_risk_assessment:
   contract: aramis_tra_v0_2
-  reference_score: final_prediction.p_cancer
   reference_population: patient_safe_oof_target-breast_cases
   decision_threshold: 0.24666
   calibration:
@@ -75,6 +75,11 @@ tissue_risk_assessment:
     tra_3_to_4: 0.35058
     tra_4_to_5: 0.59471
 ```
+
+The policy `levels` list stored in the artifact records this derived
+interpretation for audit. It is not duplicated as `suggested_class` in either
+clinical report; reports expose the probability, target-side risk level, and
+the threshold-derived `biopsy_required` action instead.
 
 The numeric example is illustrative. Each retraining run recalculates and
 freezes its own policy, including threshold-dependent probability boundaries.

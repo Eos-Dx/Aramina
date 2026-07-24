@@ -39,8 +39,8 @@ product: Aramis
 target population: women with BI-RADS 3 / BI-RADS 4 suspicious findings
 clinical question: does the clinically suspicious breast likely need biopsy?
 clinical user: radiologist / qualified breast-imaging clinician
-internal output: p_cancer, suggested BENIGN/CANCER class, biopsy_required, reliability metadata
-external output: risk_probability, biopsy_required, decision threshold, reliability metadata
+internal output: p_cancer, target/reference class definitions, threshold-derived high/low target-class risk level, biopsy_required, reliability metadata
+external output: risk_probability, threshold-derived high/low target-class risk level, biopsy_required, decision threshold, reliability metadata
 ```
 
 ## Required Traceability
@@ -142,6 +142,7 @@ External prediction report must output:
 
 ```text
 risk_probability
+target_class_risk_level
 decision_threshold
 biopsy_required
 reliability

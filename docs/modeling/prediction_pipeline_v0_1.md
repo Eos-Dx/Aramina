@@ -178,9 +178,7 @@ Aramis writes automatic file names:
 
 ```text
 <patient_id>_<model_id>_<report_id>_prediction_dataframe.joblib
-<patient_id>_<model_id>_<report_id>_external_report.json
 <patient_id>_<model_id>_<report_id>_external_report.yaml
-<patient_id>_<model_id>_<report_id>_internal_report.json
 <patient_id>_<model_id>_<report_id>_internal_report.yaml
 ```
 
@@ -269,7 +267,7 @@ provenance, and output-file paths.
 The internal report scores the contralateral breast with the same final model,
 but forces its SK symmetry gate to neutral. It exposes LR1 profile evidence,
 final `p_cancer` and TRA level with the SK symmetry gate neutralized. It has no
-separate suggested class or biopsy action. The target remains the
+separate target-class risk level or biopsy action. The target remains the
 caller-supplied primary decision-support result. If no
 usable contralateral data remain after QC,
 that block is explicitly `unknown`; the target still uses the same LR2 with its

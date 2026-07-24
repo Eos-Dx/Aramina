@@ -6,12 +6,12 @@ PORT="${ARAMIS_API_PORT:-8000}"
 
 case "$(uname -m)" in
   arm64|aarch64)
-    IMAGE_TAG="eosdx/aramis-prediction-api:0.2.11-beta-arm64"
-    IMAGE_ARCHIVE="${SCRIPT_DIR}/aramis_prediction_api_linux_arm64_0_2_11_beta.tar"
+    IMAGE_TAG="eosdx/aramis-prediction-api:0.2.12-beta-arm64"
+    IMAGE_ARCHIVE="${SCRIPT_DIR}/aramis_prediction_api_linux_arm64_0_2_12_beta.tar"
     ;;
   x86_64|amd64)
-    IMAGE_TAG="eosdx/aramis-prediction-api:0.2.11-beta-amd64"
-    IMAGE_ARCHIVE="${SCRIPT_DIR}/aramis_prediction_api_linux_amd64_0_2_11_beta.tar"
+    IMAGE_TAG="eosdx/aramis-prediction-api:0.2.12-beta-amd64"
+    IMAGE_ARCHIVE="${SCRIPT_DIR}/aramis_prediction_api_linux_amd64_0_2_12_beta.tar"
     ;;
   *)
     echo "Unsupported CPU architecture: $(uname -m)" >&2

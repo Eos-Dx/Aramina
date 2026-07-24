@@ -36,7 +36,7 @@ PREDICTION_REPORT_EXAMPLE_ROOT = (
 FINAL_EXAMPLE_MODEL = (
     Path(__file__).parents[1]
     / "models"
-    / "aramis_target_breast_risk_0_2_11-beta_d531ea38c5dc"
+    / "aramis_target_breast_risk_0_2_12-beta_283b5ea930ae"
     / "model.joblib"
 )
 
@@ -96,6 +96,7 @@ def test_tracked_prediction_fixtures_remain_compatible_with_frozen_artifact(
     config["io"]["input_model_joblib_path"] = str(
         root / config["io"]["input_model_joblib_path"]
     )
+    expected_model_id = Path(config["io"]["input_model_joblib_path"]).parent.name
     config["io"]["output_folder"] = str(tmp_path / source.stem)
     request_path = tmp_path / filename
     request_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
@@ -105,7 +106,7 @@ def test_tracked_prediction_fixtures_remain_compatible_with_frozen_artifact(
     assert reports["external_report"]["risk_probability"] == pytest.approx(
         expected_p_cancer, abs=1e-5
     )
-    assert reports["internal_report"]["model"]["id"].endswith("d531ea38c5dc")
+    assert reports["internal_report"]["model"]["id"] == expected_model_id
     assert reports["internal_report"]["breast_predictions"]["target"][
         "model_execution"
     ]["scoring_path"] == "azimuthal_integration_age_with_symmetry"
@@ -277,6 +278,20 @@ def test_tra_policy_is_derived_from_patient_safe_oof_predictions():
         "tra_3_to_4": 0.1,
         "tra_4_to_5": 0.3,
     }
+    assert [item["decision_support_class"] for item in policy["levels"]] == [
+        "BENIGN",
+        "BENIGN",
+        "CANCER",
+        "CANCER",
+        "CANCER",
+    ]
+    assert [item["requires_radiologist_review"] for item in policy["levels"]] == [
+        False,
+        False,
+        True,
+        True,
+        True,
+    ]
 
 
 def _patient_frame() -> pd.DataFrame:

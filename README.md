@@ -16,7 +16,7 @@ one-patient H5
 -> normalized radial_profile_data
 -> LR1 target-breast profile score
 -> LR2: profile + age + optional gated SK symmetry refinement
--> p_cancer, biopsy_required, reliability
+-> p_cancer, threshold-derived high/low target-class risk level, biopsy_required, reliability
 ```
 
 Current product definition:
@@ -37,6 +37,10 @@ Two supported routes:
 Git clone + Conda: development, inspection, direct local runs.
 Docker bundle: reproducible full-H5 training and demonstration.
 ```
+
+The immutable-model HTTP API is supplied by the separate Prediction API
+Bundle. It uses the `api` dependency extra and is intended for local
+demonstrations or a separately secured integration service.
 
 For a clone and Conda environment:
 

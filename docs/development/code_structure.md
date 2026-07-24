@@ -26,6 +26,7 @@ model, preprocessing, labels, threshold, or validation protocol.
 | `prediction_scoring.py` | Score target and contralateral breasts using the frozen artifact. |
 | `prediction_reports.py` | Construct internal and external reports. |
 | `prediction.py` | Public prediction API and orchestration only. |
+| `prediction_api.py` | Immutable-model HTTP adapter for multipart H5 requests. |
 
 ## Dependency Direction
 

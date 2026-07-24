@@ -103,7 +103,9 @@ target-breast score distributions. `all`, `reference_class`, and
 decision rule. They are never recalculated from an incoming scan.
 
 `level` is the internal TRA score tier. It is not the decision rule and is not
-a probability. Its threshold-centred calibration is defined in
+a probability. It is aligned to the threshold-derived target decision: TRA 1-2
+are below the threshold and TRA 3-5 are above it. Its threshold-centred
+calibration is defined in
 `docs/contracts/tissue_risk_assessment_v0_2.md`.
 
 ## Contralateral Breast

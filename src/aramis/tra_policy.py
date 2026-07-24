@@ -37,7 +37,6 @@ def derive_tra_policy(
     threshold_logit = _logit(threshold)
     return {
         "contract": TRA_POLICY_CONTRACT,
-        "reference_score": "final_prediction.p_cancer",
         "reference_population": calibration["reference_population"],
         "decision_threshold": threshold,
         "calibration": calibration,
@@ -56,27 +55,37 @@ def derive_tra_policy(
         "levels": [
             {
                 "level": "TRA 1",
+                "decision_support_class": "BENIGN",
                 "biopsy_required": False,
+                "requires_radiologist_review": False,
                 "interpretation": "below decision threshold",
             },
             {
                 "level": "TRA 2",
+                "decision_support_class": "BENIGN",
                 "biopsy_required": False,
+                "requires_radiologist_review": False,
                 "interpretation": "near decision threshold, below threshold",
             },
             {
                 "level": "TRA 3",
+                "decision_support_class": "CANCER",
                 "biopsy_required": True,
+                "requires_radiologist_review": True,
                 "interpretation": "borderline, above decision threshold",
             },
             {
                 "level": "TRA 4",
+                "decision_support_class": "CANCER",
                 "biopsy_required": True,
+                "requires_radiologist_review": True,
                 "interpretation": "high score above decision threshold",
             },
             {
                 "level": "TRA 5",
+                "decision_support_class": "CANCER",
                 "biopsy_required": True,
+                "requires_radiologist_review": True,
                 "interpretation": "very high score above decision threshold",
             },
         ],
