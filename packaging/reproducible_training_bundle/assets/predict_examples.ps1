@@ -55,7 +55,7 @@ try {
     if (-not $resolvedModel.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) {
         throw "ModelPath must point inside bundle outputs\: $resolvedModel"
     }
-    $containerModel = "/opt/Aramis/examples/outputs/" + $resolvedModel.Substring($prefix.Length).Replace('\', '/')
+    $containerModel = "/opt/Aramina/examples/outputs/" + $resolvedModel.Substring($prefix.Length).Replace('\', '/')
 
     $imageInspect = Start-Process `
         -FilePath "docker.exe" `
@@ -76,11 +76,11 @@ try {
 
     Invoke-Docker "Run three prediction fixtures" @(
         "run", "--rm", "--platform", $ImagePlatform,
-        "--mount", "type=bind,src=$ConfigDir,dst=/opt/Aramis/config,readonly",
-        "--mount", "type=bind,src=$ExampleH5Dir,dst=/opt/Aramis/examples/prediction_h5,readonly",
-        "--mount", "type=bind,src=$OutputDir,dst=/opt/Aramis/examples/outputs",
+        "--mount", "type=bind,src=$ConfigDir,dst=/opt/Aramina/config,readonly",
+        "--mount", "type=bind,src=$ExampleH5Dir,dst=/opt/Aramina/examples/prediction_h5,readonly",
+        "--mount", "type=bind,src=$OutputDir,dst=/opt/Aramina/examples/outputs",
         $ImageTag,
-        "bash", "/opt/aramis-bundle/run_prediction_examples_docker.sh", "--model", $containerModel
+        "bash", "/opt/aramina-bundle/run_prediction_examples_docker.sh", "--model", $containerModel
     )
 
     Write-Stage "Prediction examples completed"

@@ -2,7 +2,7 @@
 
 Status: research draft.
 
-This document describes the first Aramis prediction route. It is clinical
+This document describes the first Aramina prediction route. It is clinical
 decision support only. The external report returns the target-side
 `biopsy_required` action, reliability metadata, and frozen method performance;
 the internal report retains `p_cancer` and TRA for audit.
@@ -10,7 +10,7 @@ the internal report retains `p_cancer` and TRA for audit.
 ## Command
 
 ```bash
-python -m aramis predict --config examples/prediction/configs/config_predict_cancer_example.yaml
+python -m aramina predict --config examples/prediction/configs/config_predict_cancer_example.yaml
 ```
 
 ## Input Contract
@@ -19,7 +19,7 @@ The product route starts from one incoming H5 container:
 
 ```text
 one-patient H5 container
-trained Aramis model joblib
+trained Aramina model joblib
 prediction preprocessing YAML stored in model joblib
 run.analysis_author
 io.input_h5_path
@@ -108,12 +108,12 @@ prediction runs.
 The selected joblib is the sole source for model ID, name, version, model entry,
 preprocessing contract, report contract, and decision threshold. Predict YAML
 does not duplicate these immutable model fields. The fixed development model is
-`aramis_target_breast_risk`.
+`aramina_target_breast_risk`.
 
 ## Call Chain
 
 ```text
-aramis.__main__.main
+aramina.__main__.main
 -> run_prediction_from_config(config_path)
 -> load model joblib
 -> parse resolved prediction_preprocessing_yaml from model joblib
@@ -171,10 +171,10 @@ io:
   output_folder: ./examples/outputs/prediction
 ```
 
-For a YAML under `Aramis/config`, the path is relative to the Aramis project
+For a YAML under `Aramina/config`, the path is relative to the Aramina project
 root. For an external top-level YAML, it is relative to that YAML's directory.
 
-Aramis writes automatic file names:
+Aramina writes automatic file names:
 
 ```text
 <patient_id>_<model_id>_<report_id>_prediction_dataframe.joblib
@@ -187,7 +187,7 @@ Prediction always writes two report pairs.
 External report is minimal:
 
 ```text
-output_type: aramis_external_report
+output_type: aramina_external_report
 report_version
 report_id
 created_at
@@ -230,7 +230,7 @@ numeric UTC offset.
 Internal report follows `internal_clinical_report_content_v0_9.md` and contains:
 
 ```text
-output_type: aramis_internal_clinical_report
+output_type: aramina_internal_clinical_report
 report_version
 report_id and created_at
 model ID/name/version/artifact SHA256

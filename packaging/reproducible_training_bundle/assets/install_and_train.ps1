@@ -131,11 +131,11 @@ function Resolve-PreprocessTrainConfig {
     if (-not $relative.StartsWith("preprocessing_and_training/")) {
         throw "Preprocessing-and-training config must be inside bundled config/preprocessing_and_training/: $Value"
     }
-    return "/opt/Aramis/config/$relative"
+    return "/opt/Aramina/config/$relative"
 }
 
 try {
-    Write-Stage "Aramis Docker reproducible training bundle"
+    Write-Stage "Aramina Docker reproducible training bundle"
     Write-Host "Log: $LogPath"
 
     $script:DockerExe = Ensure-DockerDesktop
@@ -177,10 +177,10 @@ try {
     Invoke-Docker "Run Linux preprocessing and training" @(
         "run", "--rm", "--platform", $ImagePlatform,
         "--mount", "type=bind,src=$DataDir,dst=/opt/data,readonly",
-        "--mount", "type=bind,src=$ConfigDir,dst=/opt/Aramis/config,readonly",
-        "--mount", "type=bind,src=$OutputDir,dst=/opt/Aramis/examples/outputs",
+        "--mount", "type=bind,src=$ConfigDir,dst=/opt/Aramina/config,readonly",
+        "--mount", "type=bind,src=$OutputDir,dst=/opt/Aramina/examples/outputs",
         $ImageTag,
-        "bash", "/opt/aramis-bundle/run_training_docker.sh", "--preprocess-train-config", $ResolvedPreprocessTrainConfig
+        "bash", "/opt/aramina-bundle/run_training_docker.sh", "--preprocess-train-config", $ResolvedPreprocessTrainConfig
     )
 
     Write-Stage "Bundle completed"

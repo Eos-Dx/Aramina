@@ -33,7 +33,7 @@ esac
   echo "Missing preprocessing-and-training config: ${BUNDLE_DIR}/${PREPROCESS_TRAIN_CONFIG}" >&2
   exit 2
 }
-CONTAINER_PREPROCESS_TRAIN_CONFIG="/opt/Aramis/${PREPROCESS_TRAIN_CONFIG}"
+CONTAINER_PREPROCESS_TRAIN_CONFIG="/opt/Aramina/${PREPROCESS_TRAIN_CONFIG}"
 
 read_manifest() {
   python3 - "${MANIFEST}" "$1" <<'PY'
@@ -84,9 +84,9 @@ stage "Run Linux preprocessing and training"
 mkdir -p "${OUTPUT_DIR}"
 docker run --rm --platform "${IMAGE_PLATFORM}" \
   --mount "type=bind,src=${DATA_DIR},dst=/opt/data,readonly" \
-  --mount "type=bind,src=${BUNDLE_DIR}/config,dst=/opt/Aramis/config,readonly" \
-  --mount "type=bind,src=${OUTPUT_DIR},dst=/opt/Aramis/examples/outputs" \
+  --mount "type=bind,src=${BUNDLE_DIR}/config,dst=/opt/Aramina/config,readonly" \
+  --mount "type=bind,src=${OUTPUT_DIR},dst=/opt/Aramina/examples/outputs" \
   "${IMAGE_TAG}" \
-  bash /opt/aramis-bundle/run_training_docker.sh --preprocess-train-config "${CONTAINER_PREPROCESS_TRAIN_CONFIG}"
+  bash /opt/aramina-bundle/run_training_docker.sh --preprocess-train-config "${CONTAINER_PREPROCESS_TRAIN_CONFIG}"
 
 printf 'Log saved to: %s\n' "${LOG_PATH}"

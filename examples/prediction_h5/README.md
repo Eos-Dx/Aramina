@@ -1,6 +1,6 @@
-# Aramis Prediction H5 Examples
+# Aramina Prediction H5 Examples
 
-These files are small one-patient H5 v0.3 containers for `aramis predict`
+These files are small one-patient H5 v0.3 containers for `aramina predict`
 examples. They are extracted from the larger study archive without modifying
 the source archive. Each contains real embedded GFRM frames, PONI geometry,
 sample thicknesses, calibrant thickness and both breast sides for one patient.
@@ -33,19 +33,19 @@ format = xrd-session
 Run:
 
 ```bash
-cd Aramis
+cd Aramina
 conda activate eosproduct
 
-python -m aramis predict --config examples/prediction/configs/config_predict_benign_example.yaml
-python -m aramis predict --config examples/prediction/configs/config_predict_cancer_example.yaml
-python -m aramis predict --config examples/prediction/configs/config_predict_atypical_example.yaml
+python -m aramina predict --config examples/prediction/configs/config_predict_benign_example.yaml
+python -m aramina predict --config examples/prediction/configs/config_predict_cancer_example.yaml
+python -m aramina predict --config examples/prediction/configs/config_predict_atypical_example.yaml
 ```
 
 The canonical prediction YAML files in `examples/prediction/configs/`
 use the tracked final product-model artifact:
 
 ```text
-models/aramis_target_breast_risk_0_2_12-beta_f8af641a2e49/model.joblib
+models/aramina_target_breast_risk_0_2_12-beta_9bb911189af6/model.joblib
 ```
 
 The fixture-builder script is provided for reproducibility. It requires local

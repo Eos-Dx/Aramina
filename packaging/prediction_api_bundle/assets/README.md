@@ -1,15 +1,15 @@
-# Aramis Prediction API Bundle
+# Aramina Prediction API Bundle
 
-Local research-draft API bundle for one-patient Aramis prediction. It contains
-the immutable `aramis_target_breast_risk` model version `0.2.12-beta`, its
+Local research-draft API bundle for one-patient Aramina prediction. It contains
+the immutable `aramina_target_breast_risk` model version `0.2.12-beta`, its
 prediction preprocessing contract, and two Docker images:
 
 | Platform | Image archive |
 |---|---|
-| Windows x86-64 / Intel macOS | `aramis_prediction_api_linux_amd64_0_2_12_beta.tar` |
-| Apple Silicon macOS | `aramis_prediction_api_linux_arm64_0_2_12_beta.tar` |
+| Windows x86-64 / Intel macOS | `aramina_prediction_api_linux_amd64_0_2_12_beta.tar` |
+| Apple Silicon macOS | `aramina_prediction_api_linux_arm64_0_2_12_beta.tar` |
 
-The API is the same local service used by the Aramisvisor Streamlit
+The API is the same local service used by the Araminavisor Streamlit
 demonstrator. It receives one EOS H5 v0.3 container and a small request JSON;
 the selected model, preprocessing, threshold, feature schema and report
 contracts cannot be overridden by the caller.
@@ -20,7 +20,7 @@ contracts cannot be overridden by the caller.
 contracts/                 API, H5, direct-CLI and report contracts
 examples/h5/               cancer, benign and atypical one-patient H5 fixtures
 examples/requests/         matching HTTP request JSON files
-examples/direct_cli_config/ reference YAML for direct `python -m aramis predict`
+examples/direct_cli_config/ reference YAML for direct `python -m aramina predict`
 start_api.sh / .ps1        load correct image and start API on localhost:8000
 predict.sh / .ps1          send an H5 + request JSON and save response JSON
 stop_api.sh                stop the local API container
@@ -36,7 +36,7 @@ network.
 macOS/Linux:
 
 ```bash
-cd aramis_prediction_api_bundle_0_2_12_beta
+cd aramina_prediction_api_bundle_0_2_12_beta
 bash ./start_api.sh
 curl http://127.0.0.1:8000/health
 ```
@@ -44,7 +44,7 @@ curl http://127.0.0.1:8000/health
 Windows PowerShell:
 
 ```powershell
-Set-Location aramis_prediction_api_bundle_0_2_12_beta
+Set-Location aramina_prediction_api_bundle_0_2_12_beta
 .\start_api.ps1
 curl.exe http://127.0.0.1:8000/health
 ```
@@ -74,7 +74,7 @@ New-Item -ItemType Directory -Force outputs | Out-Null
 ```
 
 The returned JSON contains `external_report` and `internal_report`. The API
-does not persist report files; the caller must save the response. Aramisvisor
+does not persist report files; the caller must save the response. Araminavisor
 converts these payloads into host-side YAML, JSON and PDF reports.
 
 ## HTTP request
@@ -128,5 +128,5 @@ bash ./stop_api.sh
 On Windows:
 
 ```powershell
-docker rm --force aramis-prediction-api
+docker rm --force aramina-prediction-api
 ```

@@ -1,5 +1,5 @@
 {
-  "h5_path": "/Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/data/product-aramis-data/combined_archive.h5",
+  "h5_path": "/Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/data/product-aramina-data/combined_archive.h5",
   "csv_source": "/Users/sad/Downloads/26Jun26_missing_sample_thickness_in_Nova_study(in).csv",
   "backfilled_at": "2026-07-01T08:59:31+00:00",
   "missing_before": 21,
@@ -9,7 +9,7 @@
   "backfilled_rows": 14,
   "missing_after": 7,
   "missing_after_p1_p2_p3": 7,
-  "audit_csv": "/Users/sad/dev/Aramis/docs/meta/sample_thickness_h5_backfill_2026_07_01.csv",
+  "audit_csv": "/Users/sad/dev/Aramina/docs/meta/sample_thickness_h5_backfill_2026_07_01.csv",
   "remaining_missing": [
     {
       "started_at": "2025-10-22 11:03:59",

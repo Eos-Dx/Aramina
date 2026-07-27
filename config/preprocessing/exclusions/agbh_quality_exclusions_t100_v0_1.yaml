@@ -1,7 +1,7 @@
 filters:
   quality_exclusions:
     enabled: true
-    reason_doc: Aramis/docs/agbh_quality_exclusions.md
+    reason_doc: Aramina/docs/agbh_quality_exclusions.md
     monochromaticity_max_score: 0.0075
     primary_key:
       column: linked_agbh_session_uid

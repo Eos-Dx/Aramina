@@ -1,10 +1,10 @@
 run:
-  analysis_author: Aramis bundle example
+  analysis_author: Aramina bundle example
   prediction_comment: "Bundled cancer fixture"
 
 io:
   input_h5_path: examples/prediction_h5/cancer_one_patient.h5
-  input_model_joblib_path: models/aramis_target_breast_risk_0_2_12-beta_f8af641a2e49/model.joblib
+  input_model_joblib_path: models/aramina_target_breast_risk_0_2_12-beta_9bb911189af6/model.joblib
   output_folder: examples/outputs/prediction_examples/cancer
 
 patient:

@@ -1,10 +1,10 @@
-# Aramis Test Data
+# Aramina Test Data
 
-`aramis_real_h5_subset_20260128_5_patients.h5` is a small real Eos-Dx H5 v0.3
+`aramina_real_h5_subset_20260128_5_patients.h5` is a small real Eos-Dx H5 v0.3
 archive slice copied from:
 
 ```text
-/Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/data/product-aramis-data/combined_archive.h5
+/Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/data/product-aramina-data/combined_archive.h5
 ```
 
 Copied archive group:

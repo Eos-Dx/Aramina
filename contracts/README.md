@@ -1,7 +1,7 @@
-# Aramis Output Contracts
+# Aramina Output Contracts
 
 This directory contains small filled YAML/CSV examples for files written by
-Aramis. It is not a runtime output location.
+Aramina. It is not a runtime output location.
 
 Canonical field definitions live under `docs/contracts/` and the associated
 product documentation. Actual run outputs are stored beside their model or in

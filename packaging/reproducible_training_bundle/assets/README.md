@@ -1,4 +1,4 @@
-# Aramis Docker Reproducible Training Bundle
+# Aramina Docker Reproducible Training Bundle
 
 Status: research-draft decision-support prototype.
 
@@ -18,11 +18,11 @@ is enabled, restart and run the same file again. Later runs reuse Docker.
 
 The script verifies the bundled H5 checksum, loads the bundled native
 `linux/amd64` runtime image on first use, and runs preprocessing plus training.
-It does not install Conda, Git, Python, pyFAI, Aramis, or XRD-preprocessing on
+It does not install Conda, Git, Python, pyFAI, Aramina, or XRD-preprocessing on
 Windows.
 
 The runtime and bundled frozen reference artifact are `0.2.12-beta`:
-`aramis_target_breast_risk_0_2_12-beta_f8af641a2e49`. Training produces a
+`aramina_target_breast_risk_0_2_12-beta_9bb911189af6`. Training produces a
 traceable `0.2.12-beta` candidate and compares it with this reference when the
 model contracts match.
 
@@ -46,24 +46,24 @@ Windows:
 
 ```powershell
 .\predict.ps1 `
-  -Config D:\aramis_requests\patient_001.yaml `
-  -InputH5 D:\aramis_requests\patient_001.h5 `
+  -Config D:\aramina_requests\patient_001.yaml `
+  -InputH5 D:\aramina_requests\patient_001.h5 `
   -ModelPath .\outputs\preprocessing_and_training\<run_id>\training\model.joblib `
-  -OutputFolder D:\aramis_results\patient_001
+  -OutputFolder D:\aramina_results\patient_001
 ```
 
 macOS/Linux:
 
 ```bash
 ./predict.sh \
-  --config /data/aramis_requests/patient_001.yaml \
-  --input-h5 /data/aramis_requests/patient_001.h5 \
+  --config /data/aramina_requests/patient_001.yaml \
+  --input-h5 /data/aramina_requests/patient_001.h5 \
   --model ./outputs/preprocessing_and_training/<run_id>/training/model.joblib \
-  --output-folder /data/aramis_results/patient_001
+  --output-folder /data/aramina_results/patient_001
 ```
 
 The YAML supplies `analysis_author`, `prediction_comment`, `patient_id`, and
-`target_side`. Its `io` values remain required by the Aramis prediction
+`target_side`. Its `io` values remain required by the Aramina prediction
 contract, but the Docker launcher replaces them only in the resolved runtime
 copy with the selected H5, model, and output folder. The original YAML is never
 modified. The H5 must satisfy the one-patient EOS H5 `0.3` contract.
@@ -124,7 +124,7 @@ The bundle includes only operational YAML files: one preprocessing-and-training 
 its preprocessing and training configs, the prediction preprocessing config,
 three bundled prediction templates, and required `extends` fragments. Select one preprocessing-and-training YAML; it names
 the preprocessing and training YAMLs to use. All operational paths resolve
-from the mounted Aramis project root.
+from the mounted Aramina project root.
 
 Windows:
 

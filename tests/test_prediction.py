@@ -10,23 +10,23 @@ import pytest
 import yaml
 from xrd_preprocessing import save_preprocessing_artifact
 
-from aramis.prediction import (
+from aramina.prediction import (
     _metadata_value,
     _validate_h5_container_contract,
     _validate_prediction_config,
     run_prediction_from_config,
 )
-from aramis.patient_features import (
+from aramina.patient_features import (
     build_patient_prediction_feature_row,
     prediction_metadata_from_target_rows,
 )
-from aramis.prediction_contract import _config_path
-from aramis.prediction_scoring import _tissue_risk_assessment
-from aramis.training import run_training_from_config
-from aramis.training_config import PRODUCT_MODEL_NAME
-from aramis.tra_policy import TRA_POLICY_CONTRACT, derive_tra_policy
+from aramina.prediction_contract import _config_path
+from aramina.prediction_scoring import _tissue_risk_assessment
+from aramina.training import run_training_from_config
+from aramina.training_config import PRODUCT_MODEL_NAME
+from aramina.tra_policy import TRA_POLICY_CONTRACT, derive_tra_policy
 
-from .synthetic_aramis_h5 import write_v0_3_one_patient_h5
+from .synthetic_aramina_h5 import write_v0_3_one_patient_h5
 
 
 PREDICTION_EXAMPLE_ROOT = Path(__file__).parents[1] / "examples" / "prediction" / "configs"
@@ -36,7 +36,7 @@ PREDICTION_REPORT_EXAMPLE_ROOT = (
 FINAL_EXAMPLE_MODEL = (
     Path(__file__).parents[1]
     / "models"
-    / "aramis_target_breast_risk_0_2_12-beta_f8af641a2e49"
+    / "aramina_target_breast_risk_0_2_12-beta_9bb911189af6"
     / "model.joblib"
 )
 
@@ -113,7 +113,7 @@ def test_tracked_prediction_fixtures_remain_compatible_with_frozen_artifact(
 
 
 def test_prediction_relative_paths_resolve_from_configuration_root(tmp_path: Path):
-    project_root = tmp_path / "aramis"
+    project_root = tmp_path / "aramina"
     config_path = project_root / "config" / "prediction" / "example.yaml"
     config_path.parent.mkdir(parents=True)
     (project_root / "pyproject.toml").touch()
@@ -135,7 +135,7 @@ def test_external_prediction_paths_resolve_from_config_directory(tmp_path: Path)
 
 
 def test_prediction_example_paths_resolve_from_project_root(tmp_path: Path):
-    project_root = tmp_path / "aramis"
+    project_root = tmp_path / "aramina"
     config_path = project_root / "examples" / "prediction" / "configs" / "example.yaml"
     config_path.parent.mkdir(parents=True)
     (project_root / "pyproject.toml").touch()
@@ -325,7 +325,7 @@ def _patient_frame() -> pd.DataFrame:
 
 def _training_config(input_path: Path, output_folder: Path) -> dict:
     return {
-        "contract": "aramis_training_config_v0_3",
+        "contract": "aramina_training_config_v0_3",
         "model": {
             "name": PRODUCT_MODEL_NAME,
             "version": "0.1-beta",
@@ -494,7 +494,7 @@ def test_predict_writes_external_and_internal_reports(tmp_path: Path, trained_mo
     external = reports["external_report"]
     internal = reports["internal_report"]
 
-    assert external["output_type"] == "aramis_external_report"
+    assert external["output_type"] == "aramina_external_report"
     assert external["report_version"] == "0.6"
     assert internal["report_version"] == "0.9"
     assert internal["reference_doc"] == (

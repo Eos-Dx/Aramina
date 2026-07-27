@@ -1,13 +1,13 @@
-# Aramis Data Preprocessing Contract v0.1
+# Aramina Data Preprocessing Contract v0.1
 
 Status: research draft.
 
-This document explains how Aramis converts EOS H5 XRD measurements into
-model-input DataFrames. Aramis owns product YAMLs and output schemas.
+This document explains how Aramina converts EOS H5 XRD measurements into
+model-input DataFrames. Aramina owns product YAMLs and output schemas.
 `XRD-preprocessing` owns transformer implementations and YAML pipeline
 construction.
 
-The fixed Aramis product-policy contract is
+The fixed Aramina product-policy contract is
 `docs/contracts/preprocessing_config_v0_1.md`.
 
 ## Data Levels
@@ -120,22 +120,22 @@ H5PoniGeometryCalculatorTransformer
 Shared route file:
 
 ```text
-config/preprocessing/shared/aramis_pipeline_v0_1.yaml
+config/preprocessing/shared/aramina_pipeline_v0_1.yaml
 ```
 
 Shared policy file:
 
 ```text
-config/preprocessing/shared/aramis_policy_v0_1.yaml
+config/preprocessing/shared/aramina_policy_v0_1.yaml
 ```
 
-Operational `io.input_h5_path` paths resolve from the Aramis project root.
+Operational `io.input_h5_path` paths resolve from the Aramina project root.
 The primary development config therefore uses `./data/combined_archive.h5`.
 A standard workspace is:
 
 ```text
 workspace/
-  Aramis/
+  Aramina/
     data/combined_archive.h5
 ```
 
@@ -215,15 +215,15 @@ mammography_suspicious_field
 
 ## Artifact Contract
 
-`aramis preprocess` writes a joblib with:
+`aramina preprocess` writes a joblib with:
 
 ```text
 kind / version / created_at
 dataframe
 preprocessing_config_yaml   # fully resolved effective YAML
 metadata.input_h5_sha256
-metadata.aramis_version
-metadata.aramis_git_sha
+metadata.aramina_version
+metadata.aramina_git_sha
 ```
 
 This artifact is the input to training. The same kind of artifact is written

@@ -7,7 +7,7 @@ import json
 import pytest
 from fastapi import HTTPException
 
-from aramis.prediction_api import _validated_request
+from aramina.prediction_api import _validated_request
 
 
 def test_prediction_api_accepts_the_minimal_request_contract():

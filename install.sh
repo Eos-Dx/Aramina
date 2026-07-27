@@ -101,11 +101,11 @@ conda run --no-capture-output -n "${ENV_NAME}" \
   python -m pip install -e "${REPO_DIR}[dev]"
 
 conda run --no-capture-output -n "${ENV_NAME}" \
-  python -c "import aramis, xrd_preprocessing; print('imports ok'); print('aramis', aramis.__file__); print('xrd_preprocessing', xrd_preprocessing.__file__)"
+  python -c "import aramina, xrd_preprocessing; print('imports ok'); print('aramina', aramina.__file__); print('xrd_preprocessing', xrd_preprocessing.__file__)"
 
 if [[ "${RUN_EXAMPLE}" == "1" ]]; then
   conda run --no-capture-output -n "${ENV_NAME}" \
-    python -m aramis predict --config "${REPO_DIR}/examples/prediction/configs/config_predict_cancer_example.yaml"
+    python -m aramina predict --config "${REPO_DIR}/examples/prediction/configs/config_predict_cancer_example.yaml"
 fi
 
 cat <<EOF
@@ -117,8 +117,8 @@ Activate:
 
 Run prediction example:
   cd "${REPO_DIR}"
-  python -m aramis predict --config examples/prediction/configs/config_predict_cancer_example.yaml
+  python -m aramina predict --config examples/prediction/configs/config_predict_cancer_example.yaml
 
 Run all prediction examples:
-  for f in examples/prediction/configs/config_predict_*_example.yaml; do python -m aramis predict --config "\$f"; done
+  for f in examples/prediction/configs/config_predict_*_example.yaml; do python -m aramina predict --config "\$f"; done
 EOF

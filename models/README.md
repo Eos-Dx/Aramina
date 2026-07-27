@@ -1,4 +1,4 @@
-# Aramis Model Artifacts
+# Aramina Model Artifacts
 
 Each subdirectory is one self-contained trained model artifact.
 
@@ -28,11 +28,11 @@ modify the artifact.
 Tracked frozen product artifact:
 
 ```text
-aramis_target_breast_risk_0_2_12-beta_f8af641a2e49/
+aramina_target_breast_risk_0_2_12-beta_9bb911189af6/
 ```
 
-It carries `aramis_sk_symmetry_v0_2`, the threshold-centred
-`aramis_tra_v0_2` policy, and the current report contracts. Its TRA policy is
+It carries `aramina_sk_symmetry_v0_2`, the threshold-centred
+`aramina_tra_v0_2` policy, and the current report contracts. Its TRA policy is
 calibrated from the repeated patient-safe OOF evaluation stored beside the
 artifact. Only the current frozen product artifact is retained on `main`;
 historical candidates belong on the experimental branch.

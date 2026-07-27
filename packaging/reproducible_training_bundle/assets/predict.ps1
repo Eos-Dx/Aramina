@@ -53,16 +53,16 @@ try {
 
     Invoke-Docker "Run external H5 prediction" @(
         "run", "--rm", "--platform", $imagePlatform,
-        "--mount", "type=bind,src=$(Split-Path -Parent $resolvedConfig),dst=/opt/aramis-user-config,readonly",
-        "--mount", "type=bind,src=$(Split-Path -Parent $resolvedH5),dst=/opt/aramis-user-input,readonly",
-        "--mount", "type=bind,src=$(Split-Path -Parent $resolvedModel),dst=/opt/aramis-user-model,readonly",
-        "--mount", "type=bind,src=$resolvedOutput,dst=/opt/aramis-user-output",
+        "--mount", "type=bind,src=$(Split-Path -Parent $resolvedConfig),dst=/opt/aramina-user-config,readonly",
+        "--mount", "type=bind,src=$(Split-Path -Parent $resolvedH5),dst=/opt/aramina-user-input,readonly",
+        "--mount", "type=bind,src=$(Split-Path -Parent $resolvedModel),dst=/opt/aramina-user-model,readonly",
+        "--mount", "type=bind,src=$resolvedOutput,dst=/opt/aramina-user-output",
         $imageTag,
-        "bash", "/opt/aramis-bundle/run_prediction_docker.sh",
-        "--config", "/opt/aramis-user-config/$(Split-Path -Leaf $resolvedConfig)",
-        "--input-h5", "/opt/aramis-user-input/$(Split-Path -Leaf $resolvedH5)",
-        "--model", "/opt/aramis-user-model/$(Split-Path -Leaf $resolvedModel)",
-        "--output-folder", "/opt/aramis-user-output"
+        "bash", "/opt/aramina-bundle/run_prediction_docker.sh",
+        "--config", "/opt/aramina-user-config/$(Split-Path -Leaf $resolvedConfig)",
+        "--input-h5", "/opt/aramina-user-input/$(Split-Path -Leaf $resolvedH5)",
+        "--model", "/opt/aramina-user-model/$(Split-Path -Leaf $resolvedModel)",
+        "--output-folder", "/opt/aramina-user-output"
     )
 
     Write-Stage "Prediction completed"

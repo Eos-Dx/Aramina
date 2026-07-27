@@ -3,7 +3,7 @@
 Canonical contract: `docs/contracts/model_training_results_v0_1.md`.
 
 This directory contains small, non-clinical examples of the files written by
-`aramis train` and `aramis preprocess-train`. They demonstrate the schema only.
+`aramina train` and `aramina preprocess-train`. They demonstrate the schema only.
 Real model records are stored beside their `model.joblib` under `models/`.
 
 ```text

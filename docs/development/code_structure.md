@@ -1,8 +1,8 @@
-# Aramis Code Structure
+# Aramina Code Structure
 
 ## Purpose
 
-This document defines the internal source-code boundaries for the Aramis
+This document defines the internal source-code boundaries for the Aramina
 research-draft decision-support product. It does not change the clinical
 model, preprocessing, labels, threshold, or validation protocol.
 
@@ -42,14 +42,14 @@ not write model artifacts.
 
 ## Size and Refactor Rules
 
-- Product source files under `src/aramis/` should remain at or below 700 lines.
+- Product source files under `src/aramina/` should remain at or below 700 lines.
 - A module has one responsibility. Do not mix feature calculation, evaluation,
   artifact serialisation and report construction.
 - Preserve public APIs: `run_preprocessing_from_config`,
   `run_training_from_config`, `run_preprocess_train_from_config`, and
   `run_prediction_from_config`.
 - Preserve the import path of any custom class stored in a released joblib.
-  `GatedSymmetryLogistic` remains in `aramis.m2q_model` for this reason.
+  `GatedSymmetryLogistic` remains in `aramina.m2q_model` for this reason.
 - Structural changes must not silently alter product behaviour.
 
 ## Required Verification

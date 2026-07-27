@@ -2,16 +2,16 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PORT="${ARAMIS_API_PORT:-8000}"
+PORT="${ARAMINA_API_PORT:-8000}"
 
 case "$(uname -m)" in
   arm64|aarch64)
-    IMAGE_TAG="eosdx/aramis-prediction-api:0.2.12-beta-arm64"
-    IMAGE_ARCHIVE="${SCRIPT_DIR}/aramis_prediction_api_linux_arm64_0_2_12_beta.tar"
+    IMAGE_TAG="eosdx/aramina-prediction-api:0.2.12-beta-arm64"
+    IMAGE_ARCHIVE="${SCRIPT_DIR}/aramina_prediction_api_linux_arm64_0_2_12_beta.tar"
     ;;
   x86_64|amd64)
-    IMAGE_TAG="eosdx/aramis-prediction-api:0.2.12-beta-amd64"
-    IMAGE_ARCHIVE="${SCRIPT_DIR}/aramis_prediction_api_linux_amd64_0_2_12_beta.tar"
+    IMAGE_TAG="eosdx/aramina-prediction-api:0.2.12-beta-amd64"
+    IMAGE_ARCHIVE="${SCRIPT_DIR}/aramina_prediction_api_linux_amd64_0_2_12_beta.tar"
     ;;
   *)
     echo "Unsupported CPU architecture: $(uname -m)" >&2
@@ -26,11 +26,11 @@ if ! docker image inspect "${IMAGE_TAG}" >/dev/null 2>&1; then
   docker load --input "${IMAGE_ARCHIVE}"
 fi
 
-docker rm --force aramis-prediction-api >/dev/null 2>&1 || true
+docker rm --force aramina-prediction-api >/dev/null 2>&1 || true
 docker run --detach \
-  --name aramis-prediction-api \
+  --name aramina-prediction-api \
   --publish "${PORT}:8000" \
   "${IMAGE_TAG}" >/dev/null
 
-echo "Aramis prediction API: http://127.0.0.1:${PORT}"
+echo "Aramina prediction API: http://127.0.0.1:${PORT}"
 echo "OpenAPI documentation: http://127.0.0.1:${PORT}/docs"

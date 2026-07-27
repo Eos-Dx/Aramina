@@ -55,7 +55,7 @@ threshold, not calibrated cancer probability or expected individual error.
 
 ```yaml
 tissue_risk_assessment:
-  contract: aramis_tra_v0_2
+  contract: aramina_tra_v0_2
   reference_population: patient_safe_oof_target-breast_cases
   decision_threshold: 0.24666
   calibration:

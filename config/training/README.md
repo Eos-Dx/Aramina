@@ -1,11 +1,11 @@
-# Aramis Training YAML
+# Aramina Training YAML
 
-Public contract: `aramis_training_config_v0_3`.
+Public contract: `aramina_training_config_v0_3`.
 
 ```yaml
-contract: aramis_training_config_v0_3
+contract: aramina_training_config_v0_3
 model:
-  name: aramis_target_breast_risk
+  name: aramina_target_breast_risk
   version: 0.2.12-beta
   model_author: Sergey Denisov
   clinical_stage: research draft
@@ -14,7 +14,7 @@ run:
   evaluation: true
   train_on_all: true
 input:
-  dataframe_joblib_path: examples/outputs/model_input/aramis_biopsy_patients_model_input_v0_1.joblib
+  dataframe_joblib_path: examples/outputs/model_input/aramina_biopsy_patients_model_input_v0_1.joblib
 output:
   folder: examples/outputs/training
 evaluation:
@@ -24,7 +24,7 @@ evaluation:
   random_seed: 42
 ```
 
-For a YAML under `Aramis/config`, relative paths resolve from the Aramis root.
+For a YAML under `Aramina/config`, relative paths resolve from the Aramina root.
 For an external top-level YAML, they resolve from that YAML's directory. At
 least one `run` flag must be true. `evaluation` writes patient-safe evaluation
 artifacts. `train_on_all` writes a frozen executable model; it can be run with
@@ -36,9 +36,9 @@ identifies the author of the approved model recipe; `run_author` in the combined
 preprocess-train YAML identifies the person executing a particular run.
 
 ```bash
-python -m aramis train --list-models
-python -m aramis train --describe-model aramis_target_breast_risk
-python -m aramis train --config config/training/config_training_target_breast_risk_v0_1.yaml
+python -m aramina train --list-models
+python -m aramina train --describe-model aramina_target_breast_risk
+python -m aramina train --config config/training/config_training_target_breast_risk_v0_1.yaml
 ```
 
 Full contract: `docs/contracts/training_config_v0_1.md`.

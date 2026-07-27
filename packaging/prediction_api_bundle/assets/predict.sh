@@ -4,7 +4,7 @@ set -euo pipefail
 INPUT_H5=""
 REQUEST_JSON=""
 OUTPUT_JSON=""
-API_URL="${ARAMIS_API_URL:-http://127.0.0.1:8000}"
+API_URL="${ARAMINA_API_URL:-http://127.0.0.1:8000}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in

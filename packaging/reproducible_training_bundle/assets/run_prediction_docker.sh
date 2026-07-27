@@ -68,7 +68,7 @@ target.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
 PY
 
 printf '\n=== Run external H5 prediction ===\n'
-python -m aramis predict --config "${RESOLVED_CONFIG}" --verbose
+python -m aramina predict --config "${RESOLVED_CONFIG}" --verbose
 
 REPORT_PATH="$(find "${OUTPUT_FOLDER}" -maxdepth 1 -name '*_external_report.yaml' -type f -print -quit)"
 [[ -n "${REPORT_PATH}" ]] || { echo "External report YAML was not created." >&2; exit 1; }

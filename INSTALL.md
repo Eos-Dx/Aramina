@@ -1,4 +1,4 @@
-# Aramis Install
+# Aramina Install
 
 Status: research draft decision-support prototype.
 
@@ -8,14 +8,14 @@ artifact:
 
 ```text
 examples/prediction_h5/
-models/aramis_target_breast_risk_<model_id>/model.joblib
+models/aramina_target_breast_risk_<model_id>/model.joblib
 ```
 
 ## macOS / Linux
 
 ```bash
-git clone https://github.com/Eos-Dx/Aramis.git
-cd Aramis
+git clone https://github.com/Eos-Dx/Aramina.git
+cd Aramina
 ./install.sh
 ```
 
@@ -25,8 +25,8 @@ If `conda` is missing, `install.sh` asks to install Miniforge into
 ## Windows
 
 ```bat
-git clone https://github.com/Eos-Dx/Aramis.git
-cd Aramis
+git clone https://github.com/Eos-Dx/Aramina.git
+cd Aramina
 install.bat
 ```
 
@@ -39,15 +39,15 @@ If `conda` is missing, `install.bat` asks to install Miniforge into
 conda env create -n eosproduct -f environment.yml
 conda activate eosproduct
 python -m pip install -e ".[dev]"
-python -m aramis predict --config examples/prediction/configs/config_predict_cancer_example.yaml
+python -m aramina predict --config examples/prediction/configs/config_predict_cancer_example.yaml
 ```
 
 ## Prediction Examples
 
 ```bash
-python -m aramis predict --config examples/prediction/configs/config_predict_benign_example.yaml
-python -m aramis predict --config examples/prediction/configs/config_predict_cancer_example.yaml
-python -m aramis predict --config examples/prediction/configs/config_predict_atypical_example.yaml
+python -m aramina predict --config examples/prediction/configs/config_predict_benign_example.yaml
+python -m aramina predict --config examples/prediction/configs/config_predict_cancer_example.yaml
+python -m aramina predict --config examples/prediction/configs/config_predict_atypical_example.yaml
 ```
 
 Reports are written under:

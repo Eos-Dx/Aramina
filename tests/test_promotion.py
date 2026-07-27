@@ -7,16 +7,16 @@ import joblib
 import pytest
 import yaml
 
-from aramis.promotion import promote_model_run
+from aramina.promotion import promote_model_run
 
 
 def _completed_run(root: Path) -> Path:
     run = root / "run"
     run.mkdir()
     artifact = {
-        "kind": "aramis_training_artifact",
+        "kind": "aramina_training_artifact",
         "model_identity": {
-            "name": "aramis_target_breast_risk",
+            "name": "aramina_target_breast_risk",
             "version": "0.2.7-beta",
         },
         "feature_schema": {"final_model": {"feature_columns": ["age"]}},
@@ -27,9 +27,9 @@ def _completed_run(root: Path) -> Path:
     (run / "model_description.yaml").write_text(
         yaml.safe_dump(
             {
-                "output_type": "aramis_model_description",
+                "output_type": "aramina_model_description",
                 "model": {
-                    "name": "aramis_target_breast_risk",
+                    "name": "aramina_target_breast_risk",
                     "version": "0.2.7-beta",
                     "artifact_sha256": model_sha256,
                 },
@@ -48,9 +48,9 @@ def _completed_run(root: Path) -> Path:
     (run / "evaluation.yaml").write_text(
         yaml.safe_dump(
             {
-                "output_type": "aramis_evaluation_artifact",
+                "output_type": "aramina_evaluation_artifact",
                 "model": {
-                    "name": "aramis_target_breast_risk",
+                    "name": "aramina_target_breast_risk",
                     "version": "0.2.7-beta",
                     "artifact_sha256": model_sha256,
                 },

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CONFIG_ROOT="/opt/Aramis/examples/prediction/configs"
-OUTPUT_ROOT="/opt/Aramis/examples/outputs"
+CONFIG_ROOT="/opt/Aramina/examples/prediction/configs"
+OUTPUT_ROOT="/opt/Aramina/examples/outputs"
 MODEL_PATH=""
 
 while [[ $# -gt 0 ]]; do
@@ -46,13 +46,13 @@ config["io"]["input_model_joblib_path"] = str(model_path)
 # Resolved example configs are written under outputs/. Keep the fixture H5
 # anchored at its mounted project location instead of resolving relative to that
 # output directory or the installed package.
-config["io"]["input_h5_path"] = f"/opt/Aramis/examples/prediction_h5/{name}_one_patient.h5"
-config["io"]["output_folder"] = f"/opt/Aramis/examples/outputs/prediction_examples/{name}"
+config["io"]["input_h5_path"] = f"/opt/Aramina/examples/prediction_h5/{name}_one_patient.h5"
+config["io"]["output_folder"] = f"/opt/Aramina/examples/outputs/prediction_examples/{name}"
 resolved.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
 PY
 
   stage "Predict ${name} fixture"
-  python -m aramis predict --config "${resolved}"
+  python -m aramina predict --config "${resolved}"
 
   local report
   report="$(python - "${OUTPUT_ROOT}/prediction_examples/${name}" <<'PY'

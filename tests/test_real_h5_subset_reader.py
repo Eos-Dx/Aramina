@@ -16,8 +16,8 @@ from xrd_preprocessing.transformers import (
 
 
 DATA_DIR = Path(__file__).parent / "data"
-REAL_H5_SUBSET = DATA_DIR / "aramis_real_h5_subset_20260128_5_patients.h5"
-ARAMIS_CONFIG = (
+REAL_H5_SUBSET = DATA_DIR / "aramina_real_h5_subset_20260128_5_patients.h5"
+ARAMINA_CONFIG = (
     Path(__file__).parents[1]
     / "config"
     / "preprocessing"
@@ -26,7 +26,7 @@ ARAMIS_CONFIG = (
 
 
 def test_real_h5_subset_uses_gfrm_reader_and_xrd_transformers():
-    config = load_preprocessing_config(ARAMIS_CONFIG)
+    config = load_preprocessing_config(ARAMINA_CONFIG)
     config["filters"]["accepted_dates"] = ["2026-01-28"]
     calibrant_min_mm, calibrant_max_mm = config["filters"][
         "calibrant_thickness_range_mm"

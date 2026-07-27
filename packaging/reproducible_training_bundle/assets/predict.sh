@@ -66,16 +66,16 @@ OUTPUT_FOLDER="$(mkdir -p "${OUTPUT_FOLDER}" && cd "${OUTPUT_FOLDER}" && pwd -P)
 
 stage "Run external H5 prediction"
 docker run --rm --platform "${IMAGE_PLATFORM}" \
-  --mount "type=bind,src=$(dirname "${CONFIG}"),dst=/opt/aramis-user-config,readonly" \
-  --mount "type=bind,src=$(dirname "${INPUT_H5}"),dst=/opt/aramis-user-input,readonly" \
-  --mount "type=bind,src=$(dirname "${MODEL_PATH}"),dst=/opt/aramis-user-model,readonly" \
-  --mount "type=bind,src=${OUTPUT_FOLDER},dst=/opt/aramis-user-output" \
+  --mount "type=bind,src=$(dirname "${CONFIG}"),dst=/opt/aramina-user-config,readonly" \
+  --mount "type=bind,src=$(dirname "${INPUT_H5}"),dst=/opt/aramina-user-input,readonly" \
+  --mount "type=bind,src=$(dirname "${MODEL_PATH}"),dst=/opt/aramina-user-model,readonly" \
+  --mount "type=bind,src=${OUTPUT_FOLDER},dst=/opt/aramina-user-output" \
   "${IMAGE_TAG}" \
-  bash /opt/aramis-bundle/run_prediction_docker.sh \
-    --config "/opt/aramis-user-config/$(basename "${CONFIG}")" \
-    --input-h5 "/opt/aramis-user-input/$(basename "${INPUT_H5}")" \
-    --model "/opt/aramis-user-model/$(basename "${MODEL_PATH}")" \
-    --output-folder /opt/aramis-user-output
+  bash /opt/aramina-bundle/run_prediction_docker.sh \
+    --config "/opt/aramina-user-config/$(basename "${CONFIG}")" \
+    --input-h5 "/opt/aramina-user-input/$(basename "${INPUT_H5}")" \
+    --model "/opt/aramina-user-model/$(basename "${MODEL_PATH}")" \
+    --output-folder /opt/aramina-user-output
 
 printf 'Reports: %s\n' "${OUTPUT_FOLDER}"
 printf 'Log saved to: %s\n' "${LOG_PATH}"

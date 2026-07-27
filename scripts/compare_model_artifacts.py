@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare two Aramis final-fit model artifacts for reproducible training."""
+"""Compare two Aramina final-fit model artifacts for reproducible training."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from typing import Any
 import joblib
 import numpy as np
 
-from aramis.training_config import PRODUCT_MODEL_NAME
+from aramina.training_config import PRODUCT_MODEL_NAME
 
 
 def main() -> int:
@@ -38,7 +38,7 @@ def _differences(reference: dict[str, Any], candidate: dict[str, Any]) -> list[s
     for label, artifact in (("reference", reference), ("candidate", candidate)):
         if "reproducibility" not in artifact:
             differences.append(
-                f"{label} artifact has no reproducibility record; retrain it with Aramis 0.2.9-beta or later."
+                f"{label} artifact has no reproducibility record; retrain it with Aramina 0.2.9-beta or later."
             )
     if differences:
         return differences

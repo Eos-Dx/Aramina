@@ -8,19 +8,19 @@ current product schema uses only the four fields marked **Core4** below.
 Code source:
 
 ```text
-src/aramis/symmetry_features.py
+src/aramina/symmetry_features.py
 SK_SYMMETRY_COLUMNS
 target_contralateral_symmetry_features()
 
-src/aramis/model_schema.py
+src/aramina/model_schema.py
 m2q_model_input_columns()
 ```
 
 ## Feature Contract Versioning
 
-New training writes `aramis_sk_symmetry_v0_2`. It uses the q ranges and
+New training writes `aramina_sk_symmetry_v0_2`. It uses the q ranges and
 neutral-gating rule defined in this document. The frozen
-`aramis_target_breast_risk_0_2_12-beta_f8af641a2e49` artifact carries this
+`aramina_target_breast_risk_0_2_12-beta_9bb911189af6` artifact carries this
 contract. Historical feature contracts remain on the experimental branch and
 must not be presented as current-product results.
 
@@ -50,7 +50,7 @@ For target and contralateral breast profiles:
 4. compute side mean and side standard deviation
 ```
 
-`radial_profile_data` has already been normalized by the approved Aramis
+`radial_profile_data` has already been normalized by the approved Aramina
 preprocessing pipeline. The SK block does not apply a second normalization.
 
 Notation:

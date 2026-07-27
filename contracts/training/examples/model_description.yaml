@@ -1,8 +1,8 @@
-output_type: aramis_model_description
+output_type: aramina_model_description
 version: '0.1'
 model:
-  id: aramis_target_breast_risk_<version>_<sha12>
-  name: aramis_target_breast_risk
+  id: aramina_target_breast_risk_<version>_<sha12>
+  name: aramina_target_breast_risk
   version: <version>
   artifact_sha256: <sha256>
 model_summary:
@@ -10,9 +10,9 @@ model_summary:
     stage_1: target_xrd_profile_logistic_regression
     stage_2: age_and_optional_symmetry_refinement
     symmetry_behavior: neutralized_unless_2_valid_measurements_per_breast_and_finite_core4_features
-  symmetry_feature_contract: aramis_sk_symmetry_v0_2
+  symmetry_feature_contract: aramina_sk_symmetry_v0_2
   tissue_risk_assessment:
-    contract: aramis_tra_v0_2
+    contract: aramina_tra_v0_2
     decision_threshold: <float>
     calibration:
       method: patient_safe_oof_decision_stability

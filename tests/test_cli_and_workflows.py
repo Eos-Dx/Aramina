@@ -7,9 +7,9 @@ import pandas as pd
 import pytest
 import yaml
 
-from aramis import __main__ as cli
-from aramis import workflows
-from aramis.training_config import (
+from aramina import __main__ as cli
+from aramina import workflows
+from aramina.training_config import (
     PRODUCT_MODEL_NAME,
     PRODUCT_EVALUATION,
     validate_training_config,
@@ -24,7 +24,7 @@ def test_cli_commands_delegate_to_product_entrypoints(monkeypatch, capsys, tmp_p
         cli,
         "run_training_from_config",
         lambda _: {
-            "kind": "aramis_training_artifact",
+            "kind": "aramina_training_artifact",
             "run_folder": str(tmp_path / "training"),
             "model_id": "model-id",
             "model_path": str(tmp_path / "model.joblib"),
@@ -35,7 +35,7 @@ def test_cli_commands_delegate_to_product_entrypoints(monkeypatch, capsys, tmp_p
         "run_preprocess_train_from_config",
         lambda _: {
             "preprocessing_dataframe": frame,
-            "training_artifact": {"kind": "aramis_training_artifact"},
+            "training_artifact": {"kind": "aramina_training_artifact"},
             "run_folder": str(tmp_path / "workflow"),
         },
     )
@@ -132,7 +132,7 @@ def test_workflow_passes_preprocessing_dataframe_directly_to_training(
 
     def train_stub(config, **kwargs):
         received.update(kwargs)
-        return {"kind": "aramis_training_artifact"}
+        return {"kind": "aramina_training_artifact"}
 
     monkeypatch.setattr(workflows, "run_training_from_config", train_stub)
 
@@ -157,7 +157,7 @@ def test_workflow_resolves_root_relative_paths_from_external_config_tree(
     monkeypatch,
     tmp_path: Path,
 ):
-    config_path = tmp_path / "Aramis" / "config" / "preprocess_train" / "product.yaml"
+    config_path = tmp_path / "Aramina" / "config" / "preprocess_train" / "product.yaml"
     config_path.parent.mkdir(parents=True)
     (config_path.parents[2] / "pyproject.toml").touch()
     config_path.write_text(
@@ -254,7 +254,7 @@ def test_workflow_contract_rejects_invalid_string_values(
 
 def test_training_config_rejects_unknown_and_resolves_packaged_path(tmp_path: Path):
     config = {
-        "contract": "aramis_training_config_v0_3",
+        "contract": "aramina_training_config_v0_3",
         "model": {
             "name": "test",
             "version": "0.1-beta",

@@ -6,15 +6,15 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    ARAMIS_MODEL_PATH=/opt/Aramis/models/${MODEL_ID}/model.joblib
+    ARAMINA_MODEL_PATH=/opt/Aramina/models/${MODEL_ID}/model.joblib
 
-WORKDIR /opt/Aramis
+WORKDIR /opt/Aramina
 
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends build-essential git ocl-icd-libopencl1 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY . /opt/Aramis
+COPY . /opt/Aramina
 
 # This runtime deliberately excludes notebook, visualization, and training-only
 # dependencies such as marimo. The model and preprocessing contracts are frozen.
@@ -35,6 +35,6 @@ RUN python -m pip install --upgrade pip \
         python-multipart==0.0.32 \
     && python -m pip install --no-deps \
         "git+https://github.com/Eos-Dx/XRD-preprocessing.git@c221a6e" \
-    && python -m pip install --no-deps /opt/Aramis
+    && python -m pip install --no-deps /opt/Aramina
 
-CMD ["uvicorn", "aramis.prediction_api:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "aramina.prediction_api:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CONFIG_ROOT="/opt/Aramis/config"
+CONFIG_ROOT="/opt/Aramina/config"
 DEFAULT_PREPROCESS_TRAIN_CONFIG="${CONFIG_ROOT}/preprocessing_and_training/config_preprocess_and_train_target_breast_risk_v0_1.yaml"
 PREPROCESS_TRAIN_CONFIG="${DEFAULT_PREPROCESS_TRAIN_CONFIG}"
 
@@ -37,18 +37,18 @@ stage() {
 
 stage "Verify installed packages"
 python - <<'PY'
-import aramis
+import aramina
 import pyFAI
 import xrd_preprocessing
 
-print(f"aramis={aramis.__file__}")
+print(f"aramina={aramina.__file__}")
 print(f"xrd_preprocessing={xrd_preprocessing.__file__}")
 print(f"pyfai={pyFAI.version}")
 PY
 
 stage "Run preprocessing and training"
 rm -rf examples/outputs/preprocessing_and_training
-python -m aramis preprocess-train \
+python -m aramina preprocess-train \
   --config "${PREPROCESS_TRAIN_CONFIG}" \
   --verbose
 
@@ -86,7 +86,7 @@ PY
   if [[ "${CANDIDATE_VERSION}" == "${REFERENCE_VERSION}" ]]; then
     stage "Compare generated model with frozen reference"
     python scripts/compare_model_artifacts.py \
-      --reference models/aramis_target_breast_risk_0_2_12-beta_f8af641a2e49/model.joblib \
+      --reference models/aramina_target_breast_risk_0_2_12-beta_9bb911189af6/model.joblib \
       --candidate "${MODEL_PATH}"
   else
     printf '%s\n' \

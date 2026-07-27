@@ -9,8 +9,8 @@ import pytest
 import yaml
 from xrd_preprocessing import save_preprocessing_artifact
 
-from aramis.__main__ import main
-from aramis.training import (
+from aramina.__main__ import main
+from aramina.training import (
     PatientModelInputBuilder,
     _logit_average_probability,
     _patient_split_pairs,
@@ -18,9 +18,9 @@ from aramis.training import (
     _lr1_training_rows,
     run_training_from_config,
 )
-from aramis.training_config import load_training_config
-from aramis.training_config import PRODUCT_MODEL_NAME
-from aramis.symmetry_features import (
+from aramina.training_config import load_training_config
+from aramina.training_config import PRODUCT_MODEL_NAME
+from aramina.symmetry_features import (
     SK_SYMMETRY_COLUMNS,
     target_contralateral_symmetry_features,
 )
@@ -62,7 +62,7 @@ def _training_config(
     mode: str,
 ) -> dict:
     return {
-        "contract": "aramis_training_config_v0_3",
+        "contract": "aramina_training_config_v0_3",
         "model": {
             "name": PRODUCT_MODEL_NAME,
             "version": "0.1-beta",
@@ -95,11 +95,11 @@ def _write_training_input(path: Path) -> None:
 
 
 def test_model_owned_preprocessing_path_uses_training_config_project_root(tmp_path: Path):
-    config_path = tmp_path / "Aramis" / "config" / "training" / "train.yaml"
+    config_path = tmp_path / "Aramina" / "config" / "training" / "train.yaml"
     config_path.parent.mkdir(parents=True)
     expected = (
         tmp_path
-        / "Aramis"
+        / "Aramina"
         / "config"
         / "preprocessing"
         / "config_preprocessing_prediction_patient_v0_1.yaml"
@@ -231,7 +231,7 @@ def test_evaluation_mode_writes_patient_safe_footprint_only(tmp_path: Path):
     artifact = run_training_from_config(config_path)
     run_folder = Path(artifact["run_folder"])
 
-    assert artifact["output_type"] == "aramis_evaluation_artifact"
+    assert artifact["output_type"] == "aramina_evaluation_artifact"
     assert len(artifact["split_metrics"]) == 100
     assert set(artifact["split_metrics"]["evaluation_mode"]) == {"stratified_kfold"}
     summary = artifact["metric_summary"].iloc[0]
@@ -264,7 +264,7 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
         (model_path.parent / "evaluation.yaml").read_text(encoding="utf-8")
     )
 
-    assert artifact["kind"] == "aramis_training_artifact"
+    assert artifact["kind"] == "aramina_training_artifact"
     assert "created_at" not in artifact
     assert set(artifact["models"]) == {PRODUCT_MODEL_NAME}
     assert artifact["model_identity"]["name"] == PRODUCT_MODEL_NAME
@@ -275,7 +275,7 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
     assert artifact["prediction_contract_yaml"]
     assert artifact["reproducibility"]["source_h5"]["sha256"] == "abc"
     tra_policy = artifact["models"][PRODUCT_MODEL_NAME]["tissue_risk_assessment"]
-    assert tra_policy["contract"] == "aramis_tra_v0_2"
+    assert tra_policy["contract"] == "aramina_tra_v0_2"
     assert tra_policy["decision_threshold"] == pytest.approx(
         artifact["models"][PRODUCT_MODEL_NAME]["thresholds"]["threshold_target"]
     )
@@ -322,7 +322,7 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
         assert (model_path.parent / filename).is_file()
     assert not (model_path.parent / "model_performance.json").exists()
     reproducibility = artifact["reproducibility"]
-    assert reproducibility["contract"] == "aramis_reproducibility_v0_1"
+    assert reproducibility["contract"] == "aramina_reproducibility_v0_1"
     assert reproducibility["reproduction_mode"] == "preprocessed_artifact_train"
     assert reproducibility["source_h5"]["sha256"] == "abc"
     assert reproducibility["source_h5"]["filename"] == "unknown"
@@ -370,7 +370,7 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
         "metrics": "evaluation_metrics.csv",
         "predictions": "evaluation_predictions.csv",
     }
-    assert evaluation["output_type"] == "aramis_evaluation_artifact"
+    assert evaluation["output_type"] == "aramina_evaluation_artifact"
     assert "kind" not in evaluation
     assert evaluation["model"] == description["model"]
     assert evaluation["threshold_selection"] == "train_fold_target_sensitivity"
@@ -591,7 +591,7 @@ def test_training_output_contract_examples_are_complete():
     }.issubset(description)
     assert (
         description["model_summary"]["symmetry_feature_contract"]
-        == "aramis_sk_symmetry_v0_2"
+        == "aramina_sk_symmetry_v0_2"
     )
     assert {
         "roc_auc",

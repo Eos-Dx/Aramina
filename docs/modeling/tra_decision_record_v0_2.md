@@ -2,7 +2,7 @@
 
 Status: research draft.
 
-Aramis TRA changed from a percentile-only rank to a threshold-centred internal
+Aramina TRA changed from a percentile-only rank to a threshold-centred internal
 score tier. The prior rank did not identify the decision boundary: a score near
 the threshold could be assigned any percentile-defined tier. The current policy
 keeps the fixed `p_cancer` decision threshold as the only source of the target

@@ -1,21 +1,21 @@
-# Aramis Preprocessing Config Contract v0.1
+# Aramina Preprocessing Config Contract v0.1
 
-Status: research draft. Aramis preprocessing YAML is a product policy layered
+Status: research draft. Aramina preprocessing YAML is a product policy layered
 on the general `xrd-preprocessing` YAML grammar. XRD-preprocessing builds the
-declared sklearn transformer route; Aramis validates that a resolved product
+declared sklearn transformer route; Aramina validates that a resolved product
 YAML retains the approved clinical-research policy before processing starts.
 
 ## Product Routes
 
 ```text
-aramis_biopsy_patients_model_input
+aramina_biopsy_patients_model_input
   historical training cohort
 
-aramis_prediction_patient_model_input
+aramina_prediction_patient_model_input
   one incoming prediction patient
 ```
 
-Both require non-empty `aramis_preprocessing.name`, scalar `version`,
+Both require non-empty `aramina_preprocessing.name`, scalar `version`,
 `clinical_stage`, `io.input_h5_path`, and `io.output_joblib_path` after YAML
 composition. `metadata.output_columns` is mandatory, unique, and must retain
 patient/specimen/side identifiers, age, q grid, normalized radial profile, SNR,
@@ -52,6 +52,6 @@ cohort filters. It applies only technical quality controls; target side comes
 from the prediction request YAML.
 
 The current implementation is
-`src/aramis/preprocessing_contract.py`. Product runs reject a resolved YAML
+`src/aramina/preprocessing_contract.py`. Product runs reject a resolved YAML
 that violates this contract. Generic XRD-preprocessing YAML remains flexible
-outside the Aramis product route.
+outside the Aramina product route.

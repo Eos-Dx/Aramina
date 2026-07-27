@@ -115,7 +115,7 @@ def _copy_patient_fixture(
         for key, value in target_session.attrs.items():
             target.attrs[key] = value
         target.attrs.update({"format": "xrd-session", "container_type": "session"})
-        target.attrs["container_id"] = f"aramis-example-{fixture['name']}"
+        target.attrs["container_id"] = f"aramina-example-{fixture['name']}"
         target.attrs["fixture_patient_id"] = str(fixture["patient_id"])
         target.attrs["fixture_target_side"] = str(fixture["target_side"])
         target.attrs["fixture_historical_target_status"] = str(

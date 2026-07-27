@@ -1,7 +1,7 @@
-# Current Aramis Model DataFrame v0.1
+# Current Aramina Model DataFrame v0.1
 
 Status: research draft. This document describes the current DataFrame used by
-the Aramis model-development code. It is not clinical validation.
+the Aramina model-development code. It is not clinical validation.
 
 ## Current Training Cohort
 
@@ -10,12 +10,12 @@ model-input DataFrame:
 
 ```text
 config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
-examples/outputs/model_input/aramis_biopsy_patients_model_input_v0_1.joblib
+examples/outputs/model_input/aramina_biopsy_patients_model_input_v0_1.joblib
 ```
 
 The runnable training YAML is the current public training contract. The fixed
 architecture, regularization, threshold policy, and evaluation record remain
-defined by `aramis_t100_target_case_model_v0_1.md`.
+defined by `aramina_t100_target_case_model_v0_1.md`.
 
 Current counts:
 
@@ -54,7 +54,7 @@ do not require both breasts to be biopsy-positive
 do not require two breasts for target-breast profile modeling
 ```
 
-This cohort is intended for the first research-draft Aramis model because
+This cohort is intended for the first research-draft Aramina model because
 biopsy-confirmed patients provide a cleaner endpoint than the broader mixed
 clinical metadata cohort. It is still a selected subgroup and may contain
 biopsy-workflow selection bias.
@@ -183,7 +183,7 @@ Other columns are metadata, provenance, or quality-control context.
 Current model-development default:
 
 ```text
-primary cohort: aramis_biopsy_patients_model_input_v0_1.joblib
+primary cohort: aramina_biopsy_patients_model_input_v0_1.joblib
 patients: 164
 specimens / breasts: 314
 measurement rows: 893

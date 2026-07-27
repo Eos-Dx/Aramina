@@ -1,8 +1,8 @@
-# Aramis
+# Aramina
 
 Status: research-draft breast-XRD decision-support prototype.
 
-Aramis accepts one EOS H5 `0.3` container for one patient, preprocesses its
+Aramina accepts one EOS H5 `0.3` container for one patient, preprocesses its
 left/right XRD measurements, and returns a target-breast BENIGN/CANCER
 decision-support class with reliability metadata. It is for review by a
 qualified breast-imaging clinician; it is not autonomous diagnosis or a
@@ -22,7 +22,7 @@ one-patient H5
 Current product definition:
 
 ```text
-model: aramis_target_breast_risk
+model: aramina_target_breast_risk
 training cohort: T100 biopsy-patient target-breast cases
 regularization: LR1 L2 C=0.1; LR2 L2 C=0.3
 default evaluation: repeated patient-safe stratified 5-fold x20
@@ -45,16 +45,16 @@ demonstrations or a separately secured integration service.
 For a clone and Conda environment:
 
 ```bash
-git clone https://github.com/Eos-Dx/Aramis.git
-cd Aramis
+git clone https://github.com/Eos-Dx/Aramina.git
+cd Aramina
 ./install.sh
 ```
 
 Windows:
 
 ```bat
-git clone https://github.com/Eos-Dx/Aramis.git
-cd Aramis
+git clone https://github.com/Eos-Dx/Aramina.git
+cd Aramina
 install.bat
 ```
 
@@ -62,7 +62,7 @@ Detailed instructions: [INSTALL.md](INSTALL.md).
 
 Local `preprocess`, `train`, and `preprocess-train` require the full historical
 H5 archive, which is intentionally not stored in Git. Place the approved
-archive at `data/combined_archive.h5` under the Aramis project root before
+archive at `data/combined_archive.h5` under the Aramina project root before
 running those commands. The one-patient prediction examples are self-contained
 and do not require this archive. The Docker bundle includes its own verified
 copy under `data/`.
@@ -70,10 +70,10 @@ copy under `data/`.
 ## Main Commands
 
 ```bash
-python -m aramis preprocess --config config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
-python -m aramis train --config config/training/config_training_target_breast_risk_v0_1.yaml
-python -m aramis preprocess-train --config config/preprocessing_and_training/config_preprocess_and_train_target_breast_risk_v0_1.yaml
-python -m aramis predict --config examples/prediction/configs/config_predict_cancer_example.yaml
+python -m aramina preprocess --config config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
+python -m aramina train --config config/training/config_training_target_breast_risk_v0_1.yaml
+python -m aramina preprocess-train --config config/preprocessing_and_training/config_preprocess_and_train_target_breast_risk_v0_1.yaml
+python -m aramina predict --config examples/prediction/configs/config_predict_cancer_example.yaml
 ```
 
 `preprocess` and `train` are development routes. Production-style H5 scoring
@@ -89,7 +89,7 @@ config/preprocessing/README.md                  preprocessing config
 config/training/README.md                       training config
 config/prediction/README.md                     prediction config
 config/preprocessing_and_training/README.md     combined route
-docs/modeling/aramis_t100_target_case_model_v0_1.md
+docs/modeling/aramina_t100_target_case_model_v0_1.md
                                                 model rationale and limits
 docs/modeling/prediction_pipeline_v0_1.md       prediction route
 contracts/                                      filled output-contract examples

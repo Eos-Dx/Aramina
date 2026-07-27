@@ -1,11 +1,11 @@
 {
-  "product": "Aramis",
+  "product": "Aramina",
   "cohort": "Human-1",
   "clinical_stage": "research draft",
   "summary": {
     "generated_at_utc": "2026-06-23T20:26:09+00:00",
-    "excel_metadata_json": "/Users/sad/dev/Aramis/docs/meta/human1_diagnoses_metadata.json",
-    "h5_container": "/Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/data/product-aramis-data/combined_archive.h5",
+    "excel_metadata_json": "/Users/sad/dev/Aramina/docs/meta/human1_diagnoses_metadata.json",
+    "h5_container": "/Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/data/product-aramina-data/combined_archive.h5",
     "excel_rows": 2086,
     "excel_external_id_keys": 2083,
     "excel_duplicate_external_id_keys": 3,

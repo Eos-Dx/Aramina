@@ -1,13 +1,13 @@
-# Aramis Human-1 Product Metadata
+# Aramina Human-1 Product Metadata
 
-This directory contains canonical JSON/CSV metadata for the Aramis Human-1
+This directory contains canonical JSON/CSV metadata for the Aramina Human-1
 research draft product workflow.
 
-These files are product metadata prepared for Aramis by Slava Shcherbakov
+These files are product metadata prepared for Aramina by Slava Shcherbakov
 (Viacheslav SHCHERBAKOV). Treat them as controlled product inputs, not as
 ad-hoc notebook outputs.
 
-Aramis is clinical decision support research draft work. These metadata do not
+Aramina is clinical decision support research draft work. These metadata do not
 make the model clinically validated, FDA-cleared, or suitable for autonomous
 diagnosis.
 
@@ -17,7 +17,7 @@ This folder contains reference metadata and audit artifacts. Runtime product
 preprocessing YAML files live in:
 
 ```text
-Aramis/config/preprocessing/
+Aramina/config/preprocessing/
 ```
 
 Current runnable preprocessing YAMLs:
@@ -30,8 +30,8 @@ config/preprocessing/config_preprocessing_prediction_patient_v0_1.yaml
 They compose smaller fragments:
 
 ```text
-shared/aramis_policy_v0_1.yaml      GFRM-only product policy
-shared/aramis_pipeline_v0_1.yaml    ordered transformer steps
+shared/aramina_policy_v0_1.yaml      GFRM-only product policy
+shared/aramina_pipeline_v0_1.yaml    ordered transformer steps
 exclusions/agbh_quality_exclusions_t100_v0_1.yaml
 schema/model_input_columns_v0_1.yaml
 schema/prediction_input_columns_v0_1.yaml
@@ -44,16 +44,16 @@ the product root YAML under `product_filter`.
 Short file map:
 
 ```text
-aramis_product_versioning.json
+aramina_product_versioning.json
   controlled Human-1 batch, K-alpha/K-beta, Nova range, and calibrant-thickness metadata
 
-aramis_preprocessing_v0_1_config.json
+aramina_preprocessing_v0_1_config.json
   machine-readable AgBH monochromaticity exclusion artifact consumed by preprocessing YAMLs
 
-aramis_agbh_kbeta_batch5_6_exclusion_justification_v0_1.py
+aramina_agbh_kbeta_batch5_6_exclusion_justification_v0_1.py
   marimo evidence notebook for AgBH K-beta shoulder review of batches 5 and 6
 
-aramis_agbh_kbeta_helpers.py
+aramina_agbh_kbeta_helpers.py
   helper module required by the AgBH K-beta evidence notebook
 
 human1_diagnoses_metadata.json
@@ -72,7 +72,7 @@ sample_thickness_h5_backfill_2026_07_01.json
   summary of missing sample thickness before/after H5 backfill and remaining blanks
 ```
 
-### `aramis_product_versioning.json`
+### `aramina_product_versioning.json`
 
 Purpose:
 
@@ -88,14 +88,14 @@ product filtering policy
 ```
 
 Use this file when deciding whether a measurement batch is product-usable for a
-K-alpha-only Aramis workflow.
+K-alpha-only Aramina workflow.
 
 ### `config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml`
 
 Purpose:
 
 ```text
-Aramis biopsy-patients model-input preprocessing config
+Aramina biopsy-patients model-input preprocessing config
 row unit: measurementId
 grouping unit: specimenId
 decision unit: patientId during model selection
@@ -116,7 +116,7 @@ never separated across patient-safe folds.
 Purpose:
 
 ```text
-Aramis prediction preprocessing config embedded in trained model joblibs
+Aramina prediction preprocessing config embedded in trained model joblibs
 incoming H5 must contain one patient
 no historical date/diagnosis/biopsy/AgBH cohort filters
 row unit: measurementId
@@ -127,7 +127,7 @@ SNR / normalization / profile-gate parameters
 ```
 
 Prediction config is normally not run directly. It is stored in trained model
-joblibs and used by `python -m aramis predict --config <predict.yaml>`.
+joblibs and used by `python -m aramina predict --config <predict.yaml>`.
 
 Reusable preprocessing YAML template/contract is owned by XRD-preprocessing:
 
@@ -135,7 +135,7 @@ Reusable preprocessing YAML template/contract is owned by XRD-preprocessing:
 XRD-preprocessing/src/xrd_preprocessing/configs/preprocessing_pipeline_config_template.yaml
 ```
 
-These files are the concrete Aramis product configs that follow that template.
+These files are the concrete Aramina product configs that follow that template.
 Each preprocessing YAML owns its own runtime paths:
 
 ```text
@@ -146,7 +146,7 @@ io.output_joblib_path
 The product command should receive only the YAML path:
 
 ```text
-python -m aramis preprocess --config config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
+python -m aramina preprocess --config config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
 ```
 
 Current XRD-preprocessing dependency marker:
@@ -159,18 +159,18 @@ release_tag: v0.1.7-beta
 Raw-data policy:
 
 ```text
-Aramis v0.1 product preprocessing uses only GFRM vendor bytes from H5 blobs.
+Aramina v0.1 product preprocessing uses only GFRM vendor bytes from H5 blobs.
 Allowed product source: gfrm.
 Allowed product H5 blob candidates: raw_file, artifacts/gfrm.
 NPY is allowed only in synthetic tests; TIFF is not used in this product version.
 ```
 
-### `aramis_preprocessing_v0_1_config.json`
+### `aramina_preprocessing_v0_1_config.json`
 
 Purpose:
 
 ```text
-Aramis AgBH monochromaticity product-selection audit artifact
+Aramina AgBH monochromaticity product-selection audit artifact
 rejected AgBH session IDs
 rejected AgBH dates for older-container fallback
 AgBH shoulder-metric threshold
@@ -183,23 +183,23 @@ selection_contract explaining how exclusions were produced and consumed
 Canonical location:
 
 ```text
-Aramis/docs/meta/aramis_preprocessing_v0_1_config.json
+Aramina/docs/meta/aramina_preprocessing_v0_1_config.json
 ```
 
-The runtime preprocessing configs are the Aramis product YAML files. Their
+The runtime preprocessing configs are the Aramina product YAML files. Their
 `filters.quality_exclusions` blocks hold the controlled exclusion lists. This
 JSON explains how those lists were produced.
 
 This config was generated from:
 
 ```text
-Clinical_trials/Product/Aramis/Aramis_Preprocessing_v0_1.py
+Clinical_trials/Product/Aramina/Aramina_Preprocessing_v0_1.py
 ```
 
 Initial exported artifact:
 
 ```text
-Clinical_trials/analysis/aramis_preprocessing_v0_1/aramis_preprocessing_v0_1_config.json
+Clinical_trials/analysis/aramina_preprocessing_v0_1/aramina_preprocessing_v0_1_config.json
 ```
 
 The JSON carries its own `purpose`, `provenance`, and `selection_contract`
@@ -209,17 +209,17 @@ session IDs, rejected-date fallback, and downstream consumers.
 Exclusion rationale:
 
 ```text
-Aramis/docs/agbh_quality_exclusions.md
+Aramina/docs/agbh_quality_exclusions.md
 ```
 
 Used by:
 
 ```text
-Aramis/config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
-Aramis/config/preprocessing/config_preprocessing_prediction_patient_v0_1.yaml
+Aramina/config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
+Aramina/config/preprocessing/config_preprocessing_prediction_patient_v0_1.yaml
 ```
 
-### `aramis_agbh_kbeta_batch5_6_exclusion_justification_v0_1.py`
+### `aramina_agbh_kbeta_batch5_6_exclusion_justification_v0_1.py`
 
 Purpose:
 
@@ -234,21 +234,21 @@ This notebook is a meta/provenance artifact, not a runtime preprocessing step.
 Runtime exclusions are still stored in the YAML files under:
 
 ```text
-Aramis/config/preprocessing/exclusions/agbh_quality_exclusions_t100_v0_1.yaml
+Aramina/config/preprocessing/exclusions/agbh_quality_exclusions_t100_v0_1.yaml
 ```
 
 Use this notebook when explaining why particular AgBH calibration sessions or
-fallback dates were excluded from Aramis preprocessing. If the exclusion list is
+fallback dates were excluded from Aramina preprocessing. If the exclusion list is
 changed after reviewing the notebook, update:
 
 ```text
 config/preprocessing/exclusions/agbh_quality_exclusions_t100_v0_1.yaml
 docs/agbh_quality_exclusions.md
-docs/meta/aramis_preprocessing_v0_1_config.json
+docs/meta/aramina_preprocessing_v0_1_config.json
 MLflow preprocessing artifacts for affected runs
 ```
 
-### `aramis_agbh_kbeta_helpers.py`
+### `aramina_agbh_kbeta_helpers.py`
 
 Purpose:
 
@@ -261,16 +261,16 @@ batch-level plots and exported audit tables
 ```
 
 This file is kept beside
-`aramis_agbh_kbeta_batch5_6_exclusion_justification_v0_1.py` so the marimo
+`aramina_agbh_kbeta_batch5_6_exclusion_justification_v0_1.py` so the marimo
 notebook can import it directly.
 
 Regeneration rule:
 
 ```text
-regenerate with Aramis_Preprocessing_v0_1.py or equivalent scripted export
+regenerate with Aramina_Preprocessing_v0_1.py or equivalent scripted export
 update the JSON provenance block
-rerun Aramis tests and marimo checks
-rebuild aramis_docker_training_bundle_0_2_8_beta.zip when full-H5
+rerun Aramina tests and marimo checks
+rebuild aramina_docker_training_bundle_0_2_8_beta.zip when full-H5
 reproducibility material changes
 ```
 

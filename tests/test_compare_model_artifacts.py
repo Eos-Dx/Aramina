@@ -35,9 +35,9 @@ def test_archived_created_by_identity_matches_current_model_author():
     module = _comparison_module()
 
     assert module._canonical_model_identity(
-        {"name": "aramis", "version": "0.2.7-beta", "created_by": "Sergey"}
+        {"name": "aramina", "version": "0.2.7-beta", "created_by": "Sergey"}
     ) == {
-        "name": "aramis",
+        "name": "aramina",
         "version": "0.2.7-beta",
         "model_author": "Sergey",
     }

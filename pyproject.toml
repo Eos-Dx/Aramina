@@ -3,9 +3,9 @@ requires = ["hatchling>=1.25"]
 build-backend = "hatchling.build"
 
 [project]
-name = "aramis"
+name = "aramina"
 version = "0.2.12b0"
-description = "Aramis breast-XRD clinical decision-support research draft."
+description = "Aramina breast-XRD clinical decision-support research draft."
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
 authors = [{ name = "EOS" }]
@@ -22,7 +22,7 @@ dependencies = [
 ]
 
 [project.scripts]
-aramis = "aramis.__main__:main"
+aramina = "aramina.__main__:main"
 
 [project.optional-dependencies]
 api = [
@@ -38,10 +38,10 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/aramis"]
+packages = ["src/aramina"]
 
 [tool.hatch.build.targets.wheel.force-include]
-"config/preprocessing" = "aramis/config/preprocessing"
+"config/preprocessing" = "aramina/config/preprocessing"
 
 [tool.hatch.metadata]
 allow-direct-references = true

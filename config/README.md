@@ -1,6 +1,6 @@
-# Aramis Configuration
+# Aramina Configuration
 
-This directory contains only input YAML files used by Aramis commands. Every
+This directory contains only input YAML files used by Aramina commands. Every
 runnable input file begins with `config_`. Product preprocessing YAMLs are
 assembled from readable fragments under `preprocessing/`.
 

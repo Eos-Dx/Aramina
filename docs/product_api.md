@@ -1,17 +1,17 @@
-# Aramis Product API v0.1
+# Aramina Product API v0.1
 
 Status: research draft. Decision support only; not autonomous diagnosis.
 
 ## Commands
 
 ```bash
-python -m aramis preprocess --config <preprocessing.yaml>
-python -m aramis train --config <training.yaml>
-python -m aramis preprocess-train --config <preprocessing-and-training.yaml>
-python -m aramis predict --config <prediction.yaml>
+python -m aramina preprocess --config <preprocessing.yaml>
+python -m aramina train --config <training.yaml>
+python -m aramina preprocess-train --config <preprocessing-and-training.yaml>
+python -m aramina predict --config <prediction.yaml>
 ```
 
-For a YAML under `Aramis/config`, operational paths resolve from the Aramis
+For a YAML under `Aramina/config`, operational paths resolve from the Aramina
 project root. External top-level YAML paths resolve from their YAML directory.
 Preprocessing `extends` paths resolve under the XRD-preprocessing config loader.
 Unknown fields in training, preprocessing-and-training, and prediction contracts
@@ -19,7 +19,7 @@ fail immediately.
 
 ## Preprocess
 
-Input: EOS H5 container and an Aramis preprocessing YAML.
+Input: EOS H5 container and an Aramina preprocessing YAML.
 
 ```text
 H5
@@ -30,7 +30,7 @@ H5
 ```
 
 The joblib contains the DataFrame, fully resolved effective YAML, input H5
-SHA256, Aramis version, and git SHA. Contract:
+SHA256, Aramina version, and git SHA. Contract:
 `docs/data_preprocessing.md` and
 `docs/contracts/preprocessing_config_v0_1.md`.
 
@@ -124,7 +124,7 @@ same frozen final-score target-case reference distribution. Report contracts:
 
 ## Stop Conditions
 
-Aramis must fail on:
+Aramina must fail on:
 
 ```text
 unknown YAML fields

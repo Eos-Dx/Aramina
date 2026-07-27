@@ -1,6 +1,6 @@
 # Prediction Config Contract v0.1
 
-Status: research draft. `python -m aramis predict --config <yaml>` accepts one
+Status: research draft. `python -m aramina predict --config <yaml>` accepts one
 strict request YAML. It cannot alter model architecture, threshold,
 preprocessing, report version, or feature schema; those are held by the selected
 `model.joblib`.
@@ -18,8 +18,8 @@ patient:
   target_side: left
 ```
 
-For a YAML stored below `<Aramis>/config/`, relative paths resolve from the
-Aramis project root. For an external top-level YAML, they resolve from that
+For a YAML stored below `<Aramina>/config/`, relative paths resolve from the
+Aramina project root. For an external top-level YAML, they resolve from that
 YAML's directory. Required values are non-empty strings. `target_side` is
 `left` or `right`. Exactly one input is
 required: `input_h5_path` for product prediction, or

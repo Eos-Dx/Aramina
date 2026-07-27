@@ -2,12 +2,12 @@
 
 Status: research draft.
 
-`python -m aramis train --config <yaml>` accepts a strict YAML contract. It selects one code-owned fixed product model and evaluation settings; it cannot alter the feature schema, regularization, label policy, target sensitivity, or prediction preprocessing.
+`python -m aramina train --config <yaml>` accepts a strict YAML contract. It selects one code-owned fixed product model and evaluation settings; it cannot alter the feature schema, regularization, label policy, target sensitivity, or prediction preprocessing.
 
 ```yaml
-contract: aramis_training_config_v0_3
+contract: aramina_training_config_v0_3
 model:
-  name: aramis_target_breast_risk
+  name: aramina_target_breast_risk
   version: 0.2.12-beta
   model_author: Sergey Denisov
   clinical_stage: research draft
@@ -16,7 +16,7 @@ run:
   evaluation: true
   train_on_all: true
 input:
-  dataframe_joblib_path: examples/outputs/model_input/aramis_biopsy_patients_model_input_v0_1.joblib
+  dataframe_joblib_path: examples/outputs/model_input/aramina_biopsy_patients_model_input_v0_1.joblib
 output:
   folder: examples/outputs/training
 evaluation:
@@ -26,8 +26,8 @@ evaluation:
   random_seed: 42
 ```
 
-For a YAML stored below `<Aramis>/config/`, relative paths resolve from the
-Aramis project root. For an external top-level YAML, relative paths resolve
+For a YAML stored below `<Aramina>/config/`, relative paths resolve from the
+Aramina project root. For an external top-level YAML, relative paths resolve
 from that YAML's own directory. This same rule is used by CLI, direct Python,
 and Docker. Unknown or missing fields fail immediately.
 
@@ -36,7 +36,7 @@ and Docker. Unknown or missing fields fail immediately.
 | `run.evaluation` | Write patient-safe evaluation artifacts. |
 | `run.train_on_all` | Fit one executable model on the complete accepted cohort and write `model.joblib`. |
 | `evaluation.*` | Evaluation protocol. The current product model accepts repeated stratified k-fold only. |
-| `model.name` | Fixed product model; use `python -m aramis train --list-models`. |
+| `model.name` | Fixed product model; use `python -m aramina train --list-models`. |
 
 At least one `run` flag must be `true`. Both may be `true`. Evaluation chooses a threshold independently in each training fold and scores only held-out patients. Train-on-all freezes its own threshold from complete-cohort scores at the fixed model target sensitivity. The latter is an in-sample operating point, not an independent validation claim.
 
@@ -52,7 +52,7 @@ artifact SHA256, but does not change `model.version`: the architecture and
 frozen recipe are unchanged. Changing preprocessing, label policy, feature
 schema, regularization, or threshold policy requires a new model version.
 
-Training requires an Aramis preprocessing artifact with the resolved preprocessing YAML and input-H5 SHA256. The final joblib stores executable estimators, frozen thresholds, score reference distributions for internal report quantiles, all resolved YAML snapshots, source-H5 checksum, code provenance, and runtime package versions. `model_description.yaml` and `evaluation.yaml` provide the human-readable records; detailed fold metrics and held-out predictions remain in `evaluation_metrics.csv` and `evaluation_predictions.csv`.
+Training requires an Aramina preprocessing artifact with the resolved preprocessing YAML and input-H5 SHA256. The final joblib stores executable estimators, frozen thresholds, score reference distributions for internal report quantiles, all resolved YAML snapshots, source-H5 checksum, code provenance, and runtime package versions. `model_description.yaml` and `evaluation.yaml` provide the human-readable records; detailed fold metrics and held-out predictions remain in `evaluation_metrics.csv` and `evaluation_predictions.csv`.
 
 ## Training Outputs
 

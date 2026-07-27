@@ -1,7 +1,7 @@
-# Aramis Prediction HTTP API Contract v0.1
+# Aramina Prediction HTTP API Contract v0.1
 
 Status: local research-draft decision-support API. It serves one frozen model
-artifact only: `aramis_target_breast_risk` version `0.2.12-beta`.
+artifact only: `aramina_target_breast_risk` version `0.2.12-beta`.
 
 ## Base URL
 
@@ -84,7 +84,7 @@ is evidence only and has no biopsy action.
 
 The service deliberately returns payloads in memory. It deletes the uploaded
 H5 and temporary prediction files after the response. The client is responsible
-for saving JSON/YAML/PDF outputs. Aramisvisor is one reference client that
+for saving JSON/YAML/PDF outputs. Araminavisor is one reference client that
 writes reports on its host volume and renders PDFs.
 
 ### Errors

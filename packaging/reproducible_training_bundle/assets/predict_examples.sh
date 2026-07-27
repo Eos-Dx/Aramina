@@ -89,7 +89,7 @@ case "${MODEL_PATH}" in
   "${OUTPUT_ROOT}"/*) ;;
   *) echo "Model must be inside bundle outputs/: ${MODEL_PATH}" >&2; exit 2 ;;
 esac
-CONTAINER_MODEL="/opt/Aramis/examples/outputs/${MODEL_PATH#"${OUTPUT_ROOT}"/}"
+CONTAINER_MODEL="/opt/Aramina/examples/outputs/${MODEL_PATH#"${OUTPUT_ROOT}"/}"
 
 if ! docker image inspect "${IMAGE_TAG}" >/dev/null 2>&1; then
   stage "Load validated Linux runtime image"
@@ -100,11 +100,11 @@ fi
 
 stage "Run three prediction fixtures"
 docker run --rm --platform "${IMAGE_PLATFORM}" \
-  --mount "type=bind,src=${CONFIG_DIR},dst=/opt/Aramis/config,readonly" \
-  --mount "type=bind,src=${EXAMPLE_H5_DIR},dst=/opt/Aramis/examples/prediction_h5,readonly" \
-  --mount "type=bind,src=${OUTPUT_DIR},dst=/opt/Aramis/examples/outputs" \
+  --mount "type=bind,src=${CONFIG_DIR},dst=/opt/Aramina/config,readonly" \
+  --mount "type=bind,src=${EXAMPLE_H5_DIR},dst=/opt/Aramina/examples/prediction_h5,readonly" \
+  --mount "type=bind,src=${OUTPUT_DIR},dst=/opt/Aramina/examples/outputs" \
   "${IMAGE_TAG}" \
-  bash /opt/aramis-bundle/run_prediction_examples_docker.sh --model "${CONTAINER_MODEL}"
+  bash /opt/aramina-bundle/run_prediction_examples_docker.sh --model "${CONTAINER_MODEL}"
 
 printf 'Reports: %s\n' "${OUTPUT_DIR}/prediction_examples"
 printf 'Log saved to: %s\n' "${LOG_PATH}"

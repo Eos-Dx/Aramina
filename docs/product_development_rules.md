@@ -1,8 +1,8 @@
-# Aramis Product Development Rules
+# Aramina Product Development Rules
 
 Status: research draft.
 
-These rules describe Aramis development controls. They are not a regulatory
+These rules describe Aramina development controls. They are not a regulatory
 clearance claim.
 
 ## Allowed Product Language
@@ -35,7 +35,7 @@ autonomous diagnosis
 ## Product Intent
 
 ```text
-product: Aramis
+product: Aramina
 target population: women with BI-RADS 3 / BI-RADS 4 suspicious findings
 clinical question: does the clinically suspicious breast likely need biopsy?
 clinical user: radiologist / qualified breast-imaging clinician
@@ -52,7 +52,7 @@ input H5 path and SHA256
 preprocessing YAML text and SHA256
 training YAML text and SHA256
 prediction preprocessing YAML text and SHA256
-Aramis version / git SHA
+Aramina version / git SHA
 XRD-preprocessing version / tag
 selected measurement rows
 dropped measurement rows and reasons when retained by the preprocessing artifact

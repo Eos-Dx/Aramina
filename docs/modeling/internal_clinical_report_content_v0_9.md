@@ -1,4 +1,4 @@
-# Aramis Internal Clinical Report Content v0.9
+# Aramina Internal Clinical Report Content v0.9
 
 Status: research-draft internal audit contract. It is not for autonomous diagnosis.
 
@@ -9,7 +9,7 @@ level and `biopsy_required`; contralateral evidence never creates a second
 biopsy action.
 
 ```yaml
-output_type: aramis_internal_clinical_report
+output_type: aramina_internal_clinical_report
 report_version: "0.9"
 reference_doc: ./docs/modeling/internal_clinical_report_content_v0_9.md
 report_id: GENERATED_UNIQUE_ID
@@ -18,7 +18,7 @@ analysis_author: REQUESTING_ANALYST
 prediction_comment: "optional free-text request comment"
 model:
   id: MODEL_ARTIFACT_ID
-  name: aramis_target_breast_risk
+  name: aramina_target_breast_risk
   version: MODEL_VERSION
   artifact_sha256: SHA256
 model_metrics:

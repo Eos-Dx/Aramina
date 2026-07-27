@@ -31,14 +31,14 @@ RUN python -m pip install --upgrade pip \
         pyopencl==2026.1.2 \
     && python -m pip install --no-deps /opt/XRD-preprocessing
 
-COPY Aramis /opt/Aramis
-COPY run_training_docker.sh /opt/aramis-bundle/run_training_docker.sh
-COPY run_prediction_examples_docker.sh /opt/aramis-bundle/run_prediction_examples_docker.sh
-COPY run_prediction_docker.sh /opt/aramis-bundle/run_prediction_docker.sh
+COPY Aramina /opt/Aramina
+COPY run_training_docker.sh /opt/aramina-bundle/run_training_docker.sh
+COPY run_prediction_examples_docker.sh /opt/aramina-bundle/run_prediction_examples_docker.sh
+COPY run_prediction_docker.sh /opt/aramina-bundle/run_prediction_docker.sh
 
-RUN python -m pip install --no-deps /opt/Aramis \
-    && chmod +x /opt/aramis-bundle/run_training_docker.sh \
-    && chmod +x /opt/aramis-bundle/run_prediction_examples_docker.sh \
-    && chmod +x /opt/aramis-bundle/run_prediction_docker.sh
+RUN python -m pip install --no-deps /opt/Aramina \
+    && chmod +x /opt/aramina-bundle/run_training_docker.sh \
+    && chmod +x /opt/aramina-bundle/run_prediction_examples_docker.sh \
+    && chmod +x /opt/aramina-bundle/run_prediction_docker.sh
 
-WORKDIR /opt/Aramis
+WORKDIR /opt/Aramina

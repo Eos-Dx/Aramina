@@ -27,5 +27,5 @@ current research-draft model or its released artifact.
   cases. Future validation should report unilateral and bilateral target-breast
   results separately while keeping both breasts in the same patient-safe fold.
 - Implement the API service as a versioned package with automated contract
-  tests; website and PDF clients must consume Aramis report contracts without
+  tests; website and PDF clients must consume Aramina report contracts without
   adding clinical logic.

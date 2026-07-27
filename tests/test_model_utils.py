@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from aramis.model_utils import compute_binary_thresholds, profile_matrix
+from aramina.model_utils import compute_binary_thresholds, profile_matrix
 
 
 def test_threshold_falls_back_to_youden_when_requested_sensitivity_is_unavailable():

@@ -1,7 +1,7 @@
 # Model Training Results Contract v0.1
 
 Status: research draft. This contract describes artifacts written by
-`python -m aramis train` and `python -m aramis preprocess-train` when
+`python -m aramina train` and `python -m aramina preprocess-train` when
 `run.train_on_all: true`.
 
 ## Output Set
@@ -24,10 +24,10 @@ decimal places; IDs, SHA256 values, labels, and paths remain strings.
 Required top-level sections:
 
 ```yaml
-kind: aramis_training_artifact
+kind: aramina_training_artifact
 version: "0.3"
 model_identity: {name, version, model_author, clinical_stage, intended_use}
-models: {aramis_target_breast_risk: <fitted LR1 and final sklearn estimators>}
+models: {aramina_target_breast_risk: <fitted LR1 and final sklearn estimators>}
 feature_schema: {final_model: ...}
 model_performance: ...
 final_fit_training_metrics: ...
@@ -44,7 +44,7 @@ fold count, repeat count, seed, target sensitivity, and ROC AUC, sensitivity,
 and specificity as fold mean and standard deviation.
 
 The final model entry also contains `tissue_risk_assessment`, a frozen
-`aramis_tra_v0_2` policy. It is derived automatically from the final threshold
+`aramina_tra_v0_2` policy. It is derived automatically from the final threshold
 and the patient-safe OOF predictions produced during this training run. It
 records the OOF calibration population, decision-stability counts, logit-margin
 boundaries, and threshold-dependent probability boundaries. TRA does not alter
@@ -85,11 +85,11 @@ performance on new patients.
 Internal human-readable projection of the final model. Required fields:
 
 ```yaml
-output_type: aramis_model_description
+output_type: aramina_model_description
 version: "0.1"
 model:
   id: <model name + version + first 12 SHA256 characters>
-  name: aramis_target_breast_risk
+  name: aramina_target_breast_risk
   version: <version>
   artifact_sha256: <full SHA256>
 model_summary:
@@ -99,7 +99,7 @@ model_summary:
     symmetry_behavior: neutralized_unless_2_valid_measurements_per_breast_and_finite_core4_features
   lr1_profile_model: <fitted pipeline summary>
   final_model: <fitted gated logistic-regression summary>
-  symmetry_feature_contract: aramis_sk_symmetry_v0_2
+  symmetry_feature_contract: aramina_sk_symmetry_v0_2
 model_joblib: model.joblib
 model_performance: <held-out validation record>
 final_fit_training_metrics: <in-sample final-fit record>
@@ -120,7 +120,7 @@ source-code provenance, and runtime versions remain in the executable
 Complete aggregated patient-safe validation footprint:
 
 ```yaml
-output_type: aramis_evaluation_artifact
+output_type: aramina_evaluation_artifact
 version: "0.1"
 created_at: <ISO-8601 timestamp with second precision>
 model: <same immutable identity as model_description.yaml>
@@ -167,7 +167,7 @@ identifiers.
 
 ## Promotion
 
-`python -m aramis promote --run-folder <completed-run-folder>` copies a reviewed
+`python -m aramina promote --run-folder <completed-run-folder>` copies a reviewed
 final-fit run to `models/<immutable_model_id>/`. Promotion does not retrain or
 modify the source run, refuses an existing destination, and requires the
 evaluation YAML plus its fold CSVs. It verifies that model name/version,

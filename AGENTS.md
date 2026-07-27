@@ -1,8 +1,8 @@
-# Codex Rules For Aramis Product Development
+# Codex Rules For Aramina Product Development
 
 These instructions control Codex behavior in this repository.
 
-Aramis and related EOS products are medical decision-support software.
+Aramina and related EOS products are medical decision-support software.
 
 ## Regulatory Posture
 
@@ -15,7 +15,7 @@ Aramis and related EOS products are medical decision-support software.
 
 ## Product Intent
 
-Aramis:
+Aramina:
 
 ```text
 Target population: women with BI-RADS 3 or BI-RADS 4 findings
@@ -32,7 +32,7 @@ Clinical user: radiologist / qualified breast-imaging clinician
 Output: MRI-continuation decision support
 ```
 
-Do not mix Aramis and Bremen target populations, endpoints, filters, or labels.
+Do not mix Aramina and Bremen target populations, endpoints, filters, or labels.
 
 ## Required Pipeline Discipline
 
@@ -134,7 +134,7 @@ threshold
 confidence intervals when available
 ```
 
-For Aramis, false negatives are safety-critical.
+For Aramina, false negatives are safety-critical.
 
 For Bremen, track both false negatives and MRI-workflow burden.
 
@@ -167,7 +167,7 @@ replacement for biopsy/MRI/radiologist
 
 - Prefer repo-local reusable modules over notebook-only logic.
 - Keep notebooks thin.
-- Put reusable training, MLflow, filtering, and evaluation code in `src/aramis`.
+- Put reusable training, MLflow, filtering, and evaluation code in `src/aramina`.
 - Add tests for every reusable function.
 - Run `ruff check .` and `pytest -q` after code edits.
 - For marimo notebooks, also run `python -m marimo check <notebook.py>`.

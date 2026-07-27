@@ -1,4 +1,4 @@
-# Aramis Prediction YAML
+# Aramina Prediction YAML
 
 Prediction starts one-patient research-draft decision support. The caller supplies only request identity, the one-patient H5, the frozen model artifact, the output folder, and the clinically indicated target side.
 
@@ -10,20 +10,20 @@ run:
   prediction_comment: "optional free-text comment"
 io:
   input_h5_path: examples/prediction_h5/cancer_one_patient.h5
-  input_model_joblib_path: models/aramis_target_breast_risk_<model_id>/model.joblib
+  input_model_joblib_path: models/aramina_target_breast_risk_<model_id>/model.joblib
   output_folder: examples/outputs/prediction
 patient:
   patient_id: PATIENT_ID_FROM_H5
   target_side: left
 ```
 
-Run from the Aramis project root:
+Run from the Aramina project root:
 
 ```bash
-python -m aramis predict --config examples/prediction/configs/config_predict_cancer_example.yaml
+python -m aramina predict --config examples/prediction/configs/config_predict_cancer_example.yaml
 ```
 
-For a YAML under `Aramis/config`, relative paths resolve from the Aramis root.
+For a YAML under `Aramina/config`, relative paths resolve from the Aramina root.
 For an external top-level YAML, they resolve from that YAML's directory.
 `analysis_author` is the person requesting the report. `prediction_comment` is
 optional free text and is copied to both reports. `patient_id` must exactly
@@ -34,7 +34,7 @@ are reported as `unknown` and do not stop prediction.
 
 The model joblib supplies everything else: model identity, preprocessing YAML, H5 schema/format contract, report versions, threshold, feature schema, and executable estimator. Predict YAML cannot override any of these fields.
 
-Aramis writes automatic names under `io.output_folder`:
+Aramina writes automatic names under `io.output_folder`:
 
 ```text
 <patient_id>_<model_id>_<report_id>_prediction_dataframe.joblib
