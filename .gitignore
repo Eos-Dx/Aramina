@@ -4,6 +4,7 @@
 .DS_Store
 __pycache__/
 *.pyc
+~$*.pptx
 .idea/
 analysis/
 data/
