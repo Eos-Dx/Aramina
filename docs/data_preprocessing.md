@@ -255,6 +255,13 @@ This test proves that the lineage implementation does not alter the frozen
 `0.2.12-beta` numeric output. Any intended numerical change requires a separate
 model-development decision, new evidence, and a new model artifact.
 
+`tests/test_golden_h5_cohort.py` extends the same protection to 10 real
+patients. It verifies retained-row counts, target measurement counts,
+profile-logit aggregation, symmetry-gate state, and final `p_cancer`. The cohort
+includes both bilateral prediction and a case where contralateral measurements
+are removed by QC. It is a software regression test, not an independent model
+performance estimate.
+
 ## Why Prediction Preprocessing Differs
 
 Training preprocessing builds historical model-development cohorts and may use:

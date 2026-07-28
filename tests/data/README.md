@@ -42,3 +42,8 @@ Nova_379: NORMAL / BENIGN
 Nova_383: CANCER / NORMAL
 Nova_384: BENIGN / CANCER
 ```
+
+Together with the five one-patient files listed in
+`golden_prediction_cohort_v0_1.yaml`, this archive forms a 10-patient frozen
+prediction regression cohort. The cohort covers both bilateral symmetry
+refinement and the neutral-symmetry route after contralateral QC loss.
