@@ -11,7 +11,7 @@ import pandas as pd
 import yaml
 
 from .pipelines import run_preprocessing_pipeline
-from .preprocessing_contract import validate_aramina_preprocessing_config
+from .preprocessing_lineage import validate_prediction_preprocessing_compatibility
 from .prediction_contract import (
     _config_path,
     _model_identity,
@@ -118,7 +118,7 @@ def _prediction_dataframe(
         return load_preprocessing_dataframe(dataframe_path)
 
     preprocessing_config = _prediction_preprocessing_config(model_artifact)
-    validate_aramina_preprocessing_config(preprocessing_config)
+    validate_prediction_preprocessing_compatibility(model_artifact, preprocessing_config)
     h5_path = _config_path(config, config_path, section="io", key="input_h5_path")
     _validate_h5_container_contract(
         model_artifact,
@@ -132,6 +132,9 @@ def _prediction_dataframe(
         h5_path,
         preprocessing_config,
         output_joblib_path=output_dataframe_path,
+        allow_legacy_product_config=(
+            model_artifact.get("prediction_preprocessing_lineage") is None
+        ),
     )
 
 

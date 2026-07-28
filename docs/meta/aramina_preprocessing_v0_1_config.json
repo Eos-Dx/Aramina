@@ -16,8 +16,8 @@
       "Aramina/examples/README.md"
     ],
     "used_by": [
-      "Aramina/config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml",
-      "Aramina/config/preprocessing/config_preprocessing_prediction_patient_v0_1.yaml"
+      "Aramina/config/preprocessing/config_preprocessing_biopsy_patients_v0_2.yaml",
+      "Aramina/config/preprocessing/config_preprocessing_prediction_patient_v0_2.yaml"
     ],
     "generation_summary": [
       "Load AgBH calibration H5/session data and associated PONI metadata.",

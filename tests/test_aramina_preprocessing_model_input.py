@@ -18,8 +18,8 @@ from .synthetic_aramina_h5 import (
 
 def test_biopsy_patients_model_input_preprocessing_writes_joblib(tmp_path: Path):
     h5_path = tmp_path / "known_synthetic_aramina.h5"
-    config_path = tmp_path / "aramina_biopsy_patients_model_input_v0_1.yaml"
-    joblib_path = tmp_path / "aramina_biopsy_patients_model_input_v0_1.joblib"
+    config_path = tmp_path / "aramina_biopsy_patients_model_input_v0_2.yaml"
+    joblib_path = tmp_path / "aramina_biopsy_patients_model_input_v0_2.joblib"
     config = load_synthetic_config("biopsy_patients")
     config["raw_data"]["h5_dataset_candidates"]["npy"] = ["processed/data"]
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")

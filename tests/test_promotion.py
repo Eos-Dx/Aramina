@@ -20,6 +20,8 @@ def _completed_run(root: Path) -> Path:
             "version": "0.2.7-beta",
         },
         "feature_schema": {"final_model": {"feature_columns": ["age"]}},
+        "historical_preprocessing_lineage": {"pipeline_fingerprint": "train"},
+        "prediction_preprocessing_lineage": {"pipeline_fingerprint": "predict"},
         "evaluation": {"requested": True},
     }
     joblib.dump(artifact, run / "model.joblib")
@@ -32,6 +34,10 @@ def _completed_run(root: Path) -> Path:
                     "name": "aramina_target_breast_risk",
                     "version": "0.2.7-beta",
                     "artifact_sha256": model_sha256,
+                },
+                "preprocessing_lineage": {
+                    "training": artifact["historical_preprocessing_lineage"],
+                    "prediction": artifact["prediction_preprocessing_lineage"],
                 },
                 "feature_schema": artifact["feature_schema"],
             }

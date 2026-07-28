@@ -53,7 +53,8 @@ preprocessing YAML text and SHA256
 training YAML text and SHA256
 prediction preprocessing YAML text and SHA256
 Aramina version / git SHA
-XRD-preprocessing version / tag
+XRD-preprocessing package version / immutable release tag / full git commit
+resolved XRD pipeline specification and SHA256 fingerprint
 selected measurement rows
 dropped measurement rows and reasons when retained by the preprocessing artifact
 feature schema
@@ -90,6 +91,11 @@ updated docs
 updated tests
 new model artifact or explicit statement that model artifact is unchanged
 ```
+
+New training uses preprocessing artifact `0.2`. Artifact `0.1` is read-only and
+may be used only by the explicitly supported frozen prediction model. It must
+not be silently upgraded because it lacks the resolved executable pipeline
+identity required to prove equivalence.
 
 ## Label Rules
 

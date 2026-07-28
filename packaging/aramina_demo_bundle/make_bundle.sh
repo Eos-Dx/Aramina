@@ -7,6 +7,8 @@ ARAMINAVISOR_ROOT="${ARAMINAVISOR_ROOT:-${ARAMINA_ROOT}/../Araminavisor-demo}"
 DIST_DIR="${DIST_DIR:-${ARAMINA_ROOT}/dist}"
 MODEL_ID="aramina_target_breast_risk_0_2_12-beta_9bb911189af6"
 MODEL_VERSION="0.2.12-beta"
+XRD_RELEASE_TAG="v0.1.8-beta"
+XRD_COMMIT="18ddac4be429e612ac82f8e81605d98399acee02"
 MODEL_TEST_DIR="${MODEL_TEST_DIR:-${ARAMINAVISOR_ROOT}/model_test/artifacts}"
 BUNDLE_NAME="aramina_demo_bundle_0_2_12_beta"
 WORK_DIR="${DIST_DIR}/${BUNDLE_NAME}"
@@ -113,7 +115,7 @@ python - \
   "${ARAMINA_ROOT}" \
   "${ARAMINAVISOR_ROOT}" \
   "${WORK_DIR}" \
-  "${MODEL_ID}" "${MODEL_VERSION}" <<'PY'
+  "${MODEL_ID}" "${MODEL_VERSION}" "${XRD_RELEASE_TAG}" "${XRD_COMMIT}" <<'PY'
 from hashlib import sha256
 from pathlib import Path
 import subprocess
@@ -125,6 +127,8 @@ demo_root = Path(sys.argv[3])
 bundle_root = Path(sys.argv[4])
 model_id = sys.argv[5]
 model_version = sys.argv[6]
+xrd_release_tag = sys.argv[7]
+xrd_commit = sys.argv[8]
 
 def digest(path: Path) -> str:
     value = sha256()
@@ -152,6 +156,8 @@ lines = [
     "model_version: " + model_version,
     "model_joblib_sha256: " + digest(model),
     "aramina_commit: " + git_sha(aramina_root),
+    "xrd_preprocessing_release_tag: " + xrd_release_tag,
+    "xrd_preprocessing_commit: " + xrd_commit,
     "araminavisor_commit: " + git_sha(demo_root),
     "model_test_artifact_sha256: " + digest(test_artifact),
     "images:",
