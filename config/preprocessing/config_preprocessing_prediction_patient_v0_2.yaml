@@ -3,17 +3,19 @@ extends:
 - ./config/preprocessing/shared/aramina_pipeline_v0_1.yaml
 - ./config/preprocessing/schema/prediction_input_columns_v0_1.yaml
 aramina_preprocessing:
+  contract: aramina_product_preprocessing_v0_2
   name: aramina_prediction_patient_model_input
-  version: 0.1
+  route: prediction
+  version: '0.2'
   clinical_stage: research draft
 provenance:
   status: research draft prediction preprocessing config
-  canonical_location: config/preprocessing/config_preprocessing_prediction_patient_v0_1.yaml
+  canonical_location: config/preprocessing/config_preprocessing_prediction_patient_v0_2.yaml
   product_filter_rule: one incoming patient H5; no historical date, diagnosis, biopsy, or AgBH exclusion filters
   clinical_safety_note: Decision-support preprocessing only; not autonomous diagnosis.
 io:
   input_h5_path: INPUT_H5_PATH_SET_BY_PREDICTION_CONFIG
-  output_joblib_path: examples/outputs/prediction/aramina_prediction_patient_model_input_v0_1.joblib
+  output_joblib_path: examples/outputs/prediction/aramina_prediction_patient_model_input_v0_2.joblib
 filters:
   date_filter:
     enabled: false

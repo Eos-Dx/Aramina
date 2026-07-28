@@ -9,8 +9,8 @@ The current product-clean preprocessing YAML produces the biopsy-patient
 model-input DataFrame:
 
 ```text
-config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
-examples/outputs/model_input/aramina_biopsy_patients_model_input_v0_1.joblib
+config/preprocessing/config_preprocessing_biopsy_patients_v0_2.yaml
+examples/outputs/model_input/aramina_biopsy_patients_model_input_v0_2.joblib
 ```
 
 The runnable training YAML is the current public training contract. The fixed
@@ -183,7 +183,7 @@ Other columns are metadata, provenance, or quality-control context.
 Current model-development default:
 
 ```text
-primary cohort: aramina_biopsy_patients_model_input_v0_1.joblib
+primary cohort: aramina_biopsy_patients_model_input_v0_2.joblib
 patients: 164
 specimens / breasts: 314
 measurement rows: 893

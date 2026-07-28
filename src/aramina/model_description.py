@@ -79,6 +79,14 @@ def _model_description(
         "model_performance": artifact["model_performance"],
         "final_fit_training_metrics": _jsonable(model["final_fit_training_metrics"]),
         "decision_thresholds": _jsonable(model.get("thresholds", {})),
+        "preprocessing_lineage": {
+            "training": _jsonable(
+                artifact.get("historical_preprocessing_lineage")
+            ),
+            "prediction": _jsonable(
+                artifact.get("prediction_preprocessing_lineage")
+            ),
+        },
         "feature_schema": _jsonable(artifact["feature_schema"]),
         "dataset_summary": _records(artifact["dataset_summary"]),
         "evaluation_artifacts": _evaluation_artifact_paths(model_path.parent),

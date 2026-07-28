@@ -1,4 +1,4 @@
-# Aramina Data Preprocessing Contract v0.1
+# Aramina Data Preprocessing Contract v0.2
 
 Status: research draft.
 
@@ -8,7 +8,7 @@ model-input DataFrames. Aramina owns product YAMLs and output schemas.
 construction.
 
 The fixed Aramina product-policy contract is
-`docs/contracts/preprocessing_config_v0_1.md`.
+`docs/contracts/preprocessing_config_v0_2.md`.
 
 ## Data Levels
 
@@ -33,14 +33,14 @@ in both train and test.
 ## Current Product Preprocessing Configs
 
 ```text
-config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
+config/preprocessing/config_preprocessing_biopsy_patients_v0_2.yaml
   primary model-development dataset
   keep patients with at least one biopsy-associated row
   keep contralateral rows for symmetry features
   map NORMAL to BENIGN
   apply T100 AgBH quality exclusions
 
-config/preprocessing/config_preprocessing_prediction_patient_v0_1.yaml
+config/preprocessing/config_preprocessing_prediction_patient_v0_2.yaml
   one incoming prediction patient
   no historical date, diagnosis, biopsy, or AgBH cohort filters
   stored inside trained model joblibs
@@ -221,13 +221,39 @@ mammography_suspicious_field
 kind / version / created_at
 dataframe
 preprocessing_config_yaml   # fully resolved effective YAML
+resolved_pipeline_spec
+pipeline_fingerprint
 metadata.input_h5_sha256
 metadata.aramina_version
 metadata.aramina_git_sha
+metadata.aramina_preprocessing_lineage
 ```
 
-This artifact is the input to training. The same kind of artifact is written
-during prediction preprocessing before scoring.
+New training requires artifact version `0.2`, the training product route, and
+exact agreement between the stored config, resolved pipeline, fingerprint, and
+installed XRD revision. The same artifact envelope is written during prediction
+preprocessing before scoring.
+
+Legacy artifact version `0.1` is prediction-compatible only with the frozen
+`0.2.12-beta` model. It cannot be used for new training and is never
+automatically migrated.
+
+## Golden Numeric Parity
+
+`tests/test_golden_h5_parity.py` protects the frozen one-patient path:
+
+```text
+H5 SHA256
+-> retained measurements and SNR
+-> 100-point q grid and normalized profiles
+-> LR1 measurement probabilities and logit aggregation
+-> Core4 symmetry features and gate
+-> final p_cancer
+```
+
+This test proves that the lineage implementation does not alter the frozen
+`0.2.12-beta` numeric output. Any intended numerical change requires a separate
+model-development decision, new evidence, and a new model artifact.
 
 ## Why Prediction Preprocessing Differs
 

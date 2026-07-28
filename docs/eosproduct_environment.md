@@ -41,7 +41,7 @@ Development / validation:
 Current Aramina product config references:
 
 ```text
-xrd_preprocessing.release_tag = v0.1.7-beta
+xrd_preprocessing.release_tag = v0.1.8-beta
 ```
 
 For local development, create or update the Conda environment, then install
@@ -53,10 +53,11 @@ conda env update -n eosproduct -f environment.yml
 python -m pip install -e ".[dev]"
 ```
 
-For reproducible package metadata, `pyproject.toml` points Aramina to:
+For reproducible package metadata, `pyproject.toml` points Aramina to the full
+immutable XRD commit represented by release tag `v0.1.8-beta`:
 
 ```text
-xrd-preprocessing @ git+https://github.com/Eos-Dx/XRD-preprocessing.git@v0.1.7-beta
+xrd-preprocessing @ git+https://github.com/Eos-Dx/XRD-preprocessing.git@18ddac4be429e612ac82f8e81605d98399acee02
 ```
 
 Validation commands:

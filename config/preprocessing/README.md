@@ -1,12 +1,12 @@
 # Aramina preprocessing YAML
 
-Formal product contract: `docs/contracts/preprocessing_config_v0_1.md`.
+Formal product contract: `docs/contracts/preprocessing_config_v0_2.md`.
 
 Current development configs:
 
 ```text
-config_preprocessing_biopsy_patients_v0_1.yaml
-config_preprocessing_prediction_patient_v0_1.yaml
+config_preprocessing_biopsy_patients_v0_2.yaml
+config_preprocessing_prediction_patient_v0_2.yaml
 ```
 
 The first config builds the T100 historical training cohort. It keeps patients
@@ -51,7 +51,7 @@ Run:
 
 ```bash
 python -m aramina preprocess \
-  --config config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
+  --config config/preprocessing/config_preprocessing_biopsy_patients_v0_2.yaml
 ```
 
 Before using the historical-training config, supply the approved full archive
@@ -64,11 +64,13 @@ Output joblib contains:
 
 ```text
 kind
-version
+version                     # 0.2 for new product artifacts
 created_at
 dataframe
 preprocessing_config_yaml   # fully resolved effective YAML
-metadata                    # input H5 SHA256, Aramina version, git SHA
+resolved_pipeline_spec      # ordered executable XRD semantics
+pipeline_fingerprint        # SHA-256 of resolved_pipeline_spec
+metadata                    # input H5 SHA256 and exact product/XRD lineage
 ```
 
 Contract details: `docs/data_preprocessing.md`.

@@ -32,7 +32,7 @@ H5
 The joblib contains the DataFrame, fully resolved effective YAML, input H5
 SHA256, Aramina version, and git SHA. Contract:
 `docs/data_preprocessing.md` and
-`docs/contracts/preprocessing_config_v0_1.md`.
+`docs/contracts/preprocessing_config_v0_2.md`.
 
 ## Train
 

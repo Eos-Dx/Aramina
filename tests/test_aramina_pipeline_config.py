@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import joblib
 from pathlib import Path
-import pandas as pd
+
 import pytest
 import yaml
 from xrd_preprocessing import (
@@ -18,6 +17,7 @@ from aramina.pipelines import (
     AraminaPreprocessingPipeline,
     _config_path,
     run_preprocessing_artifact_from_config,
+    run_preprocessing_pipeline,
 )
 from aramina.prediction_contract import _validate_prediction_config
 from aramina.preprocessing_contract import validate_aramina_preprocessing_config
@@ -30,8 +30,8 @@ from .synthetic_aramina_h5 import load_synthetic_config, write_known_synthetic_h
 def test_shipped_product_yaml_contracts_build_or_validate():
     root = Path(__file__).parents[1]
     expected_steps = {
-        "config_preprocessing_biopsy_patients_v0_1.yaml": 19,
-        "config_preprocessing_prediction_patient_v0_1.yaml": 16,
+        "config_preprocessing_biopsy_patients_v0_2.yaml": 19,
+        "config_preprocessing_prediction_patient_v0_2.yaml": 16,
     }
     for filename, count in expected_steps.items():
         config = load_preprocessing_config(root / "config" / "preprocessing" / filename)
@@ -84,7 +84,7 @@ def test_aramina_product_preprocessing_contract_rejects_policy_changes(
         Path(__file__).parents[1]
         / "config"
         / "preprocessing"
-        / "config_preprocessing_biopsy_patients_v0_1.yaml"
+        / "config_preprocessing_biopsy_patients_v0_2.yaml"
     )
     mutate(config)
 
@@ -163,7 +163,7 @@ def test_config_path_resolves_absolute_relative_and_missing(tmp_path):
         _config_path(config, config_path, "output_joblib_path")
 
 
-def test_preprocess_cli_reads_input_and_output_from_yaml(tmp_path):
+def test_preprocess_cli_requires_product_route_marker(tmp_path):
     h5_path = tmp_path / "known_synthetic_aramina.h5"
     output_path = tmp_path / "out" / "model_input.joblib"
     config_path = tmp_path / "preprocess.yaml"
@@ -176,24 +176,12 @@ def test_preprocess_cli_reads_input_and_output_from_yaml(tmp_path):
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
     write_known_synthetic_h5(h5_path)
 
-    exit_code = main(["preprocess", "--config", str(config_path)])
-
-    assert exit_code == 0
-    assert output_path.exists()
-    artifact = joblib.load(output_path)
-    df = load_preprocessing_dataframe(output_path)
-    assert isinstance(artifact, dict)
-    assert isinstance(artifact["dataframe"], pd.DataFrame)
-    resolved = yaml.safe_load(artifact["preprocessing_config_yaml"])
-    assert resolved["pipeline"]["steps"]
-    assert "extends" not in resolved
-    assert len(artifact["metadata"]["input_h5_sha256"]) == 64
-    assert artifact["metadata"]["aramina_version"]
-    assert artifact["metadata"]["aramina_git_sha"]
-    assert set(df["product_status_group"]) == {"BENIGN", "CANCER"}
+    with pytest.raises(ValueError, match="requires aramina_preprocessing"):
+        main(["preprocess", "--config", str(config_path)])
+    assert not output_path.exists()
 
 
-def test_preprocess_cli_can_write_minimal_output_columns(tmp_path):
+def test_generic_pipeline_helper_can_write_minimal_output_columns(tmp_path):
     h5_path = tmp_path / "known_synthetic_aramina.h5"
     output_path = tmp_path / "out" / "minimal.joblib"
     config_path = tmp_path / "preprocess_minimal.yaml"
@@ -215,15 +203,17 @@ def test_preprocess_cli_can_write_minimal_output_columns(tmp_path):
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
     write_known_synthetic_h5(h5_path)
 
-    exit_code = main(["preprocess", "--config", str(config_path)])
-
-    assert exit_code == 0
+    run_preprocessing_pipeline(
+        h5_path,
+        config_path,
+        output_joblib_path=output_path,
+    )
     df = load_preprocessing_dataframe(output_path)
     assert df.columns.tolist() == output_columns
     assert not df["radial_profile_data_raw"].equals(df["radial_profile_data"])
 
 
-def test_preprocessing_artifact_runner_uses_configured_h5_and_output(tmp_path):
+def test_preprocessing_artifact_runner_requires_product_route_marker(tmp_path):
     h5_path = tmp_path / "known_synthetic_aramina.h5"
     output_path = tmp_path / "out" / "artifact.joblib"
     config_path = tmp_path / "preprocess.yaml"
@@ -236,10 +226,9 @@ def test_preprocessing_artifact_runner_uses_configured_h5_and_output(tmp_path):
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
     write_known_synthetic_h5(h5_path)
 
-    artifact = run_preprocessing_artifact_from_config(config_path)
-
-    assert output_path.exists()
-    assert artifact["dataframe"].equals(load_preprocessing_dataframe(output_path))
+    with pytest.raises(ValueError, match="requires aramina_preprocessing"):
+        run_preprocessing_artifact_from_config(config_path)
+    assert not output_path.exists()
 
 
 def test_preprocess_train_contract_rejects_unknown_fields(tmp_path):

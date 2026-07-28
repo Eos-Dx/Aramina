@@ -4,16 +4,18 @@ extends:
 - ./config/preprocessing/shared/aramina_pipeline_v0_1.yaml
 - ./config/preprocessing/schema/model_input_columns_v0_1.yaml
 aramina_preprocessing:
+  contract: aramina_product_preprocessing_v0_2
   name: aramina_biopsy_patients_model_input
-  version: 0.1
+  route: training
+  version: '0.2'
   clinical_stage: research draft
 provenance:
   status: research draft biopsy-patients model-input preprocessing config
-  canonical_location: config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
+  canonical_location: config/preprocessing/config_preprocessing_biopsy_patients_v0_2.yaml
   product_filter_rule: keep patients with at least one biopsy row; include contralateral rows; NORMAL mapped to BENIGN; AgBH T100 monochromaticity exclusions
   quality_exclusion_reason_doc: ./docs/agbh_quality_exclusions.md
 io:
-  output_joblib_path: examples/outputs/model_input/aramina_biopsy_patients_model_input_v0_1.joblib
+  output_joblib_path: examples/outputs/model_input/aramina_biopsy_patients_model_input_v0_2.joblib
 experiment:
   monochromaticity_threshold_factor: 1.0
   monochromaticity_max_score: 0.0075

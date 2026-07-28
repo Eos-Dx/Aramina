@@ -23,8 +23,8 @@ Aramina/config/preprocessing/
 Current runnable preprocessing YAMLs:
 
 ```text
-config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
-config/preprocessing/config_preprocessing_prediction_patient_v0_1.yaml
+config/preprocessing/config_preprocessing_biopsy_patients_v0_2.yaml
+config/preprocessing/config_preprocessing_prediction_patient_v0_2.yaml
 ```
 
 They compose smaller fragments:
@@ -90,7 +90,7 @@ product filtering policy
 Use this file when deciding whether a measurement batch is product-usable for a
 K-alpha-only Aramina workflow.
 
-### `config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml`
+### `config/preprocessing/config_preprocessing_biopsy_patients_v0_2.yaml`
 
 Purpose:
 
@@ -111,7 +111,7 @@ both breast sides when available for symmetry/asymmetry feature generation. At
 training time, each biopsied breast becomes one target case; bilateral cases are
 never separated across patient-safe folds.
 
-### `config/preprocessing/config_preprocessing_prediction_patient_v0_1.yaml`
+### `config/preprocessing/config_preprocessing_prediction_patient_v0_2.yaml`
 
 Purpose:
 
@@ -146,14 +146,14 @@ io.output_joblib_path
 The product command should receive only the YAML path:
 
 ```text
-python -m aramina preprocess --config config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
+python -m aramina preprocess --config config/preprocessing/config_preprocessing_biopsy_patients_v0_2.yaml
 ```
 
 Current XRD-preprocessing dependency marker:
 
 ```text
-version: local
-release_tag: v0.1.7-beta
+version: 0.1.8b0
+release_tag: v0.1.8-beta
 ```
 
 Raw-data policy:
@@ -215,8 +215,8 @@ Aramina/docs/agbh_quality_exclusions.md
 Used by:
 
 ```text
-Aramina/config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
-Aramina/config/preprocessing/config_preprocessing_prediction_patient_v0_1.yaml
+Aramina/config/preprocessing/config_preprocessing_biopsy_patients_v0_2.yaml
+Aramina/config/preprocessing/config_preprocessing_prediction_patient_v0_2.yaml
 ```
 
 ### `aramina_agbh_kbeta_batch5_6_exclusion_justification_v0_1.py`

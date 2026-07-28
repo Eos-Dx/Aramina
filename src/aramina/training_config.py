@@ -34,7 +34,7 @@ PRODUCT_MODELS = {
             "lr2_logreg_c": 0.3,
         },
         "target_sensitivity": 0.95,
-        "prediction_preprocessing_config_path": "config/preprocessing/config_preprocessing_prediction_patient_v0_1.yaml",
+        "prediction_preprocessing_config_path": "config/preprocessing/config_preprocessing_prediction_patient_v0_2.yaml",
         "prediction_contract": {
             "container": {"schema_version": "0.3", "format": "xrd-session"},
             "reporting": {

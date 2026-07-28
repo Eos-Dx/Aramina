@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ARAMINA_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 XRD_ROOT="${XRD_ROOT:-${ARAMINA_ROOT}/../XRD-preprocessing}"
+EXPECTED_XRD_COMMIT="18ddac4be429e612ac82f8e81605d98399acee02"
 SOURCE_H5="${SOURCE_H5:-${ARAMINA_ROOT}/../eos_play/jupyter_notebooks/Clinical_trials/data/product-aramina-data/combined_archive.h5}"
 DIST_DIR="${DIST_DIR:-${ARAMINA_ROOT}/dist}"
 BUNDLE_NAME="aramina_docker_training_bundle_0_2_12_beta"
@@ -25,6 +26,14 @@ docker info >/dev/null || { echo "Docker Linux engine is not running." >&2; exit
 
 ARAMINA_COMMIT="$(git -C "${ARAMINA_ROOT}" rev-parse HEAD)"
 XRD_COMMIT="$(git -C "${XRD_ROOT}" rev-parse HEAD)"
+[[ "${XRD_COMMIT}" == "${EXPECTED_XRD_COMMIT}" ]] || {
+  echo "XRD-preprocessing must be checked out at ${EXPECTED_XRD_COMMIT}; got ${XRD_COMMIT}." >&2
+  exit 1
+}
+[[ -z "$(git -C "${XRD_ROOT}" status --porcelain)" ]] || {
+  echo "XRD-preprocessing checkout must be clean before bundle creation." >&2
+  exit 1
+}
 
 rm -rf "${WORK_DIR}" "${ARCHIVE_PATH}"
 mkdir -p \
@@ -46,9 +55,9 @@ cp "${ARAMINA_ROOT}/examples/prediction/configs/"config_predict_*_example.yaml \
   "${WORK_DIR}/examples/prediction/configs/"
 cp "${ARAMINA_ROOT}/examples/prediction_h5/"*_one_patient.h5 \
   "${WORK_DIR}/examples/prediction_h5/"
-cp "${ARAMINA_ROOT}/config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml" \
+cp "${ARAMINA_ROOT}/config/preprocessing/config_preprocessing_biopsy_patients_v0_2.yaml" \
   "${WORK_DIR}/config/preprocessing/"
-cp "${ARAMINA_ROOT}/config/preprocessing/config_preprocessing_prediction_patient_v0_1.yaml" \
+cp "${ARAMINA_ROOT}/config/preprocessing/config_preprocessing_prediction_patient_v0_2.yaml" \
   "${WORK_DIR}/config/preprocessing/"
 cp "${ARAMINA_ROOT}/config/preprocessing/exclusions/agbh_quality_exclusions_t100_v0_1.yaml" \
   "${WORK_DIR}/config/preprocessing/exclusions/"
@@ -96,9 +105,21 @@ cp "${SCRIPT_DIR}/assets/run_training_docker.sh" "${BUILD_CONTEXT}/run_training_
 cp "${SCRIPT_DIR}/assets/run_prediction_examples_docker.sh" "${BUILD_CONTEXT}/run_prediction_examples_docker.sh"
 cp "${SCRIPT_DIR}/assets/run_prediction_docker.sh" "${BUILD_CONTEXT}/run_prediction_docker.sh"
 
-docker buildx build --platform linux/amd64 --load --tag "${AMD64_IMAGE_TAG}" "${BUILD_CONTEXT}"
+docker buildx build \
+  --platform linux/amd64 \
+  --load \
+  --tag "${AMD64_IMAGE_TAG}" \
+  --build-arg "XRD_PREPROCESSING_GIT_COMMIT=${XRD_COMMIT}" \
+  --build-arg "XRD_PREPROCESSING_REQUESTED_REVISION=${XRD_COMMIT}" \
+  "${BUILD_CONTEXT}"
 docker save --output "${WORK_DIR}/${AMD64_IMAGE_ARCHIVE}" "${AMD64_IMAGE_TAG}"
-docker buildx build --platform linux/arm64 --load --tag "${ARM64_IMAGE_TAG}" "${BUILD_CONTEXT}"
+docker buildx build \
+  --platform linux/arm64 \
+  --load \
+  --tag "${ARM64_IMAGE_TAG}" \
+  --build-arg "XRD_PREPROCESSING_GIT_COMMIT=${XRD_COMMIT}" \
+  --build-arg "XRD_PREPROCESSING_REQUESTED_REVISION=${XRD_COMMIT}" \
+  "${BUILD_CONTEXT}"
 docker save --output "${WORK_DIR}/${ARM64_IMAGE_ARCHIVE}" "${ARM64_IMAGE_TAG}"
 
 python - "${WORK_DIR}/bundle_manifest.json" "${ARAMINA_COMMIT}" "${XRD_COMMIT}" "${SOURCE_H5}" "${WORK_DIR}/${AMD64_IMAGE_ARCHIVE}" "${WORK_DIR}/${ARM64_IMAGE_ARCHIVE}" <<'PY'
@@ -116,8 +137,9 @@ def digest(source):
     return result.hexdigest()
 
 payload = {
-    "contract": "aramina_docker_reproducible_training_bundle_v0_1",
+    "contract": "aramina_docker_reproducible_training_bundle_v0_2",
     "aramina_commit": aramina_commit,
+    "xrd_preprocessing_release_tag": "v0.1.8-beta",
     "xrd_preprocessing_commit": xrd_commit,
     "h5_sha256": digest(h5_path),
     "reference_model_id": "aramina_target_breast_risk_0_2_12-beta_9bb911189af6",

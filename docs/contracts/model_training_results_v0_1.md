@@ -34,7 +34,9 @@ final_fit_training_metrics: ...
 evaluation: ...
 training_config_yaml: <resolved training YAML>
 historical_preprocessing_yaml: <resolved historical preprocessing YAML>
+historical_preprocessing_lineage: <product route, resolved pipeline, fingerprint, exact XRD identity>
 prediction_preprocessing_yaml: <resolved operational preprocessing YAML>
+prediction_preprocessing_lineage: <product route, resolved pipeline, fingerprint, exact XRD identity>
 prediction_contract_yaml: <embedded prediction contract YAML>
 reproducibility: <H5 checksum, source-code provenance, runtime versions>
 ```
@@ -104,6 +106,9 @@ model_joblib: model.joblib
 model_performance: <held-out validation record>
 final_fit_training_metrics: <in-sample final-fit record>
 decision_thresholds: <Youden and target-sensitivity thresholds>
+preprocessing_lineage:
+  training: <historical preprocessing lineage>
+  prediction: <operational prediction preprocessing lineage>
 feature_schema: {final_model: <feature schema>}
 dataset_summary: <accepted-cohort counts>
 evaluation_artifacts: {summary, metrics, predictions}
@@ -173,3 +178,5 @@ modify the source run, refuses an existing destination, and requires the
 evaluation YAML plus its fold CSVs. It verifies that model name/version,
 artifact SHA256, feature schema, and evaluation model reference match the
 executable joblib before copying the complete portable model directory.
+Promotion also requires complete training and prediction preprocessing lineages
+and exact equality between `model.joblib` and `model_description.yaml`.

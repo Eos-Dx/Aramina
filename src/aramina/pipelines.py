@@ -20,7 +20,12 @@ from xrd_preprocessing import (
 )
 
 from .config_paths import resolve_config_path
-from .preprocessing_contract import validate_if_aramina_product_config
+from .preprocessing_contract import (
+    ARAMINA_PREPROCESSING_CONTRACT,
+    validate_aramina_preprocessing_config,
+    validate_if_aramina_product_config,
+)
+from .preprocessing_lineage import build_preprocessing_lineage
 
 
 logger = logging.getLogger(__name__)
@@ -34,9 +39,11 @@ class AraminaPreprocessingPipeline(TransformerMixin, BaseEstimator):
         *,
         config: dict[str, Any] | str | Path,
         verbose: bool = False,
+        allow_legacy_product_config: bool = False,
     ) -> None:
         self.config = config
         self.verbose = verbose
+        self.allow_legacy_product_config = allow_legacy_product_config
 
     def fit(self, X: str | Path, y: Any = None):
         _ = X
@@ -44,7 +51,10 @@ class AraminaPreprocessingPipeline(TransformerMixin, BaseEstimator):
         return self
 
     def transform(self, X: str | Path) -> pd.DataFrame:
-        config = _load_config(self.config)
+        config = _load_config(
+            self.config,
+            allow_legacy_product_config=self.allow_legacy_product_config,
+        )
         _require_output_columns(config)
         self.config_ = config
         self.pipeline_ = build_pipeline_from_config(config, verbose=self.verbose)
@@ -64,9 +74,14 @@ def run_preprocessing_pipeline(
     *,
     output_joblib_path: str | Path | None = None,
     verbose: bool = False,
+    allow_legacy_product_config: bool = False,
 ) -> pd.DataFrame:
     """Build the Aramina preprocessing DataFrame declared by YAML."""
-    pipeline = AraminaPreprocessingPipeline(config=config, verbose=verbose)
+    pipeline = AraminaPreprocessingPipeline(
+        config=config,
+        verbose=verbose,
+        allow_legacy_product_config=allow_legacy_product_config,
+    )
     df = pipeline.fit_transform(h5_path).copy(deep=True)
     _write_joblib_if_requested(
         df,
@@ -90,7 +105,7 @@ def run_preprocessing_artifact_from_config(
     """Run preprocessing and return the written artifact without reloading joblib."""
     config_path = Path(config_path)
     config = load_preprocessing_config(config_path)
-    validate_if_aramina_product_config(config)
+    validate_aramina_preprocessing_config(config)
     h5_path = _config_path(config, config_path, "input_h5_path")
     output_joblib_path = output_joblib_path or _config_path(
         config, config_path, "output_joblib_path"
@@ -118,7 +133,7 @@ def run_preprocessing_from_config(
     """Run Aramina preprocessing using only paths stored in YAML."""
     config_path = Path(config_path)
     config = load_preprocessing_config(config_path)
-    validate_if_aramina_product_config(config)
+    validate_aramina_preprocessing_config(config)
     h5_path = _config_path(config, config_path, "input_h5_path")
     output_joblib_path = _config_path(config, config_path, "output_joblib_path")
     return run_preprocessing_pipeline(
@@ -136,10 +151,17 @@ def _config_path(config: dict[str, Any], config_path: Path, key: str) -> Path:
     return resolve_config_path(value, config_path)
 
 
-def _load_config(config: dict[str, Any] | str | Path) -> dict[str, Any]:
+def _load_config(
+    config: dict[str, Any] | str | Path,
+    *,
+    allow_legacy_product_config: bool = False,
+) -> dict[str, Any]:
     if isinstance(config, str | Path):
         config = load_preprocessing_config(config)
-    validate_if_aramina_product_config(config)
+    validate_if_aramina_product_config(
+        config,
+        allow_legacy=allow_legacy_product_config,
+    )
     return config
 
 
@@ -159,15 +181,24 @@ def _write_joblib_if_requested(
         return None
     output_path = Path(output_joblib_path)
     config_text = yaml.safe_dump(effective_config, sort_keys=False)
+    metadata = {
+        "input_h5_sha256": _file_sha256(input_h5_path),
+        "aramina_version": _aramina_version(),
+        "aramina_git_sha": _aramina_git_sha(),
+    }
+    if (
+        effective_config.get("aramina_preprocessing", {}).get("contract")
+        == ARAMINA_PREPROCESSING_CONTRACT
+    ):
+        metadata["aramina_preprocessing_lineage"] = build_preprocessing_lineage(
+            effective_config
+        )
     return save_preprocessing_artifact(
         df,
         output_path,
         preprocessing_config_text=config_text,
-        metadata={
-            "input_h5_sha256": _file_sha256(input_h5_path),
-            "aramina_version": _aramina_version(),
-            "aramina_git_sha": _aramina_git_sha(),
-        },
+        preprocessing_config=effective_config,
+        metadata=metadata,
     )
 
 

@@ -8,7 +8,6 @@ import numpy as np
 import pandas as pd
 import pytest
 import yaml
-from xrd_preprocessing import save_preprocessing_artifact
 
 from aramina.prediction import (
     _metadata_value,
@@ -27,6 +26,7 @@ from aramina.training_config import PRODUCT_MODEL_NAME
 from aramina.tra_policy import TRA_POLICY_CONTRACT, derive_tra_policy
 
 from .synthetic_aramina_h5 import write_v0_3_one_patient_h5
+from .artifact_helpers import save_training_preprocessing_artifact
 
 
 PREDICTION_EXAMPLE_ROOT = Path(__file__).parents[1] / "examples" / "prediction" / "configs"
@@ -373,11 +373,10 @@ def trained_model(tmp_path_factory):
     root = tmp_path_factory.mktemp("prediction_model")
     dataframe_path = root / "training.joblib"
     config_path = root / "train.yaml"
-    save_preprocessing_artifact(
+    save_training_preprocessing_artifact(
         _patient_frame(),
         dataframe_path,
-        preprocessing_config_text="pipeline:\n  steps:\n  - name: test\n",
-        metadata={"input_h5_sha256": "test-h5"},
+        input_h5_sha256="test-h5",
     )
     config_path.write_text(
         yaml.safe_dump(_training_config(dataframe_path, root / "runs")),
@@ -644,11 +643,10 @@ def test_predict_without_contralateral_uses_unavailable_symmetry(
     frame = joblib.load(training_dataframe_path)["dataframe"]
     frame = frame[~((frame["patientId"] == "P00") & (frame["side"] == "Right"))].copy()
     dataframe_path = tmp_path / "unpaired.joblib"
-    save_preprocessing_artifact(
+    save_training_preprocessing_artifact(
         frame,
         dataframe_path,
-        preprocessing_config_text="pipeline:\n  steps:\n  - name: test\n",
-        metadata={"input_h5_sha256": "test-h5"},
+        input_h5_sha256="test-h5",
     )
     config_path = tmp_path / "predict.yaml"
     config_path.write_text(

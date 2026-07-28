@@ -14,7 +14,7 @@ run:
   evaluation: true
   train_on_all: true
 input:
-  dataframe_joblib_path: examples/outputs/model_input/aramina_biopsy_patients_model_input_v0_1.joblib
+  dataframe_joblib_path: examples/outputs/model_input/aramina_biopsy_patients_model_input_v0_2.joblib
 output:
   folder: examples/outputs/training
 evaluation:

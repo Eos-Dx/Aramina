@@ -9,6 +9,8 @@ ARCHIVE_PATH="${DIST_DIR}/${BUNDLE_NAME}.zip"
 WORK_DIR="${DIST_DIR}/${BUNDLE_NAME}"
 MODEL_ID="aramina_target_breast_risk_0_2_12-beta_9bb911189af6"
 MODEL_VERSION="0.2.12-beta"
+XRD_RELEASE_TAG="v0.1.8-beta"
+XRD_COMMIT="18ddac4be429e612ac82f8e81605d98399acee02"
 AMD64_IMAGE_TAG="eosdx/aramina-prediction-api:${MODEL_VERSION}-amd64"
 ARM64_IMAGE_TAG="eosdx/aramina-prediction-api:${MODEL_VERSION}-arm64"
 AMD64_IMAGE_ARCHIVE="aramina_prediction_api_linux_amd64_0_2_12_beta.tar"
@@ -77,13 +79,22 @@ python - \
   "${ARAMINA_ROOT}" \
   "${WORK_DIR}/${AMD64_IMAGE_ARCHIVE}" \
   "${WORK_DIR}/${ARM64_IMAGE_ARCHIVE}" \
-  "${MODEL_ID}" "${MODEL_VERSION}" <<'PY'
+  "${MODEL_ID}" "${MODEL_VERSION}" "${XRD_RELEASE_TAG}" "${XRD_COMMIT}" <<'PY'
 from hashlib import sha256
 from pathlib import Path
 import subprocess
 import sys
 
-target, root, amd64_archive, arm64_archive, model_id, model_version = sys.argv[1:]
+(
+    target,
+    root,
+    amd64_archive,
+    arm64_archive,
+    model_id,
+    model_version,
+    xrd_release_tag,
+    xrd_commit,
+) = sys.argv[1:]
 target, root, amd64_archive, arm64_archive = map(Path, (target, root, amd64_archive, arm64_archive))
 model = root / "models" / model_id / "model.joblib"
 service = root / "src/aramina/prediction_api.py"
@@ -103,11 +114,13 @@ commit = subprocess.check_output(
 target.write_text(
     "\n".join(
         [
-            "contract: aramina_prediction_api_bundle_v0_1",
+            "contract: aramina_prediction_api_bundle_v0_2",
             "model_name: aramina_target_breast_risk",
             "model_version: " + model_version,
             "api_contract: v0.1",
             "aramina_commit: " + commit,
+            "xrd_preprocessing_release_tag: " + xrd_release_tag,
+            "xrd_preprocessing_commit: " + xrd_commit,
             "model_joblib_sha256: " + digest(model),
             "model_service_app_sha256: " + digest(service),
             "model_service_dockerfile_sha256: " + digest(dockerfile),

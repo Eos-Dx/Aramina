@@ -70,7 +70,7 @@ copy under `data/`.
 ## Main Commands
 
 ```bash
-python -m aramina preprocess --config config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
+python -m aramina preprocess --config config/preprocessing/config_preprocessing_biopsy_patients_v0_2.yaml
 python -m aramina train --config config/training/config_training_target_breast_risk_v0_1.yaml
 python -m aramina preprocess-train --config config/preprocessing_and_training/config_preprocess_and_train_target_breast_risk_v0_1.yaml
 python -m aramina predict --config examples/prediction/configs/config_predict_cancer_example.yaml

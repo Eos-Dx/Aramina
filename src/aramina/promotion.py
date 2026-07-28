@@ -95,6 +95,16 @@ def _validate_source_run(source: Path) -> None:
         raise ValueError("model_description.yaml SHA256 does not match model.joblib.")
     if description.get("feature_schema") != artifact.get("feature_schema"):
         raise ValueError("model_description.yaml feature schema does not match model.joblib.")
+    expected_lineage = {
+        "training": artifact.get("historical_preprocessing_lineage"),
+        "prediction": artifact.get("prediction_preprocessing_lineage"),
+    }
+    if None in expected_lineage.values():
+        raise ValueError("model.joblib has incomplete preprocessing lineage.")
+    if description.get("preprocessing_lineage") != expected_lineage:
+        raise ValueError(
+            "model_description.yaml preprocessing lineage does not match model.joblib."
+        )
     evaluation = yaml.safe_load((source / "evaluation.yaml").read_text(encoding="utf-8"))
     if not isinstance(evaluation, dict) or evaluation.get("output_type") != "aramina_evaluation_artifact":
         raise ValueError("evaluation.yaml is not an Aramina evaluation artifact.")
