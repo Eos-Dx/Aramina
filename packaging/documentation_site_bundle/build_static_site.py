@@ -156,6 +156,29 @@ def write(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
+def documentation_index(root: Path, pages: list[Page], repository: str) -> str:
+    """Render direct links to every documentation page for one repository."""
+    groups: dict[str, list[Page]] = {}
+    for page in pages:
+        if page.repository != repository or page.source == root / "README.md":
+            continue
+        relative = page.source.relative_to(root)
+        group = str(relative.parent) if relative.parent != Path(".") else "project root"
+        groups.setdefault(group, []).append(page)
+
+    sections = ["<h2>Documentation index</h2>"]
+    for group in sorted(groups):
+        sections.append(f"<details open><summary>{html.escape(group)}</summary><ul>")
+        for page in sorted(groups[group], key=lambda item: item.source.name.lower()):
+            relative = page.source.relative_to(root).as_posix()
+            sections.append(
+                f'<li><a href="{relative_url(Path(repository.lower()) / "index.html", page.output)}">'
+                f"{html.escape(page.title)}</a> <span class=\"source-path\">{html.escape(relative)}</span></li>"
+            )
+        sections.append("</ul></details>")
+    return "\n".join(sections)
+
+
 def main() -> None:
     args = parse_args()
     output = args.output.resolve()
@@ -175,6 +198,10 @@ def main() -> None:
     for page in pages:
         content = page.source.read_text(encoding="utf-8")
         rendered = markdown_html(content, page, by_source)
+        if page.repository == "Aramina" and page.source == args.aramina_root / "README.md":
+            rendered += documentation_index(args.aramina_root, pages, "Aramina")
+        if page.repository == "XRD-preprocessing" and page.source == args.xrd_root / "README.md":
+            rendered += documentation_index(args.xrd_root, pages, "XRD-preprocessing")
         write(output / page.output, shell(page.title, rendered, page.output, source_path=str(page.source)))
         search_entries.append({"title": page.title, "url": page.output.as_posix(), "text": content[:1000]})
 
