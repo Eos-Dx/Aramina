@@ -1,11 +1,13 @@
 # pyFAI radial-resolution and pixel-splitting sweep
 
-Research-only comparison of the frozen Aramina model architecture under eight
+Research-only comparison of the frozen Aramina model architecture under ten
 azimuthal-integration settings:
 
 | Variant | `npt` | pyFAI method |
 |---|---:|---|
 | `npt100_bbox` | 100 | `bbox / csr / cython` |
+| `npt100_no` | 100 | `no / csr / cython` |
+| `npt100_full` | 100 | `full / csr / cython` |
 | `npt150_bbox` | 150 | `bbox / csr / cython` |
 | `npt200_bbox` | 200 | `bbox / csr / cython` |
 | `npt250_bbox` | 250 | `bbox / csr / cython` |
@@ -31,4 +33,3 @@ conda run -n eosproduct python \
 
 Generated large artifacts remain under `outputs/npt_method_sweep/`. Compact
 tables, plots, and the final interpretation are written beside this README.
-

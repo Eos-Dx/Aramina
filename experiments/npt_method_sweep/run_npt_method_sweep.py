@@ -49,6 +49,8 @@ DEFAULT_H5 = (
 IDENTITY_COLUMNS = ["patientId", "specimenId", "side", "position", "started_at"]
 VARIANTS = (
     ("npt100_bbox", 100, ("bbox", "csr", "cython")),
+    ("npt100_no", 100, ("no", "csr", "cython")),
+    ("npt100_full", 100, ("full", "csr", "cython")),
     ("npt150_bbox", 150, ("bbox", "csr", "cython")),
     ("npt200_bbox", 200, ("bbox", "csr", "cython")),
     ("npt250_bbox", 250, ("bbox", "csr", "cython")),

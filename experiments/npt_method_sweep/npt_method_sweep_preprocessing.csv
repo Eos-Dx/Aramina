@@ -1,5 +1,7 @@
 variant,npt,splitting,algorithm,implementation,q_step_nm_inv,retained_measurements,common_measurements,retained_patients,median_snr_db,profile_gate_pass_rate
 npt100_bbox,100,bbox,csr,cython,0.21000002741813617,893,803,164,31.407088519202677,1.0
+npt100_no,100,no,csr,cython,0.21000002741813617,891,803,164,31.144049201074967,1.0
+npt100_full,100,full,csr,cython,0.21000002741813617,893,803,164,31.33264512960399,1.0
 npt150_bbox,150,bbox,csr,cython,0.14000001827875863,886,803,164,29.836035973813214,1.0
 npt200_bbox,200,bbox,csr,cython,0.10500001370906809,883,803,164,28.746096505477382,1.0
 npt250_bbox,250,bbox,csr,cython,0.08400001096725518,877,803,163,27.98053532479557,1.0
