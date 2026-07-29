@@ -5,7 +5,7 @@ source_h5:
   sha256: d2d61e83850b282c3d2479ea436deed821c4488b96983252d294f3d56ee3f1f9
 controls:
   common_measurement_cohort: true
-  common_measurements: 803
+  common_measurements: 802
   evaluation: patient-safe repeated stratified 5-fold x20
   random_seed: 42
   q_range_nm_inv:
@@ -13,6 +13,166 @@ controls:
   - 23.0
   error_model: poisson
 controlled_common_cohort_results:
+- variant: npt50_bbox
+  npt: 50
+  splitting: bbox
+  algorithm: csr
+  implementation: cython
+  q_step_nm_inv: 0.42000005483627234
+  retained_measurements: 897
+  common_measurements: 802
+  retained_patients: 164
+  median_snr_db: 34.264203562315664
+  profile_gate_pass_rate: 1.0
+  target_cases: 164
+  kfold_roc_auc_mean: 0.6780446758247731
+  kfold_roc_auc_std: 0.0794956543215321
+  kfold_pr_auc_mean: 0.6223378114067416
+  kfold_pr_auc_std: 0.08844799797816869
+  kfold_sensitivity_mean: 0.8681868131868132
+  kfold_sensitivity_std: 0.10569511063876103
+  kfold_specificity_mean: 0.30761377373916077
+  kfold_specificity_std: 0.11834335277740009
+  kfold_brier_mean: 0.2336784599941073
+  kfold_log_loss_mean: 0.6740919639842692
+  train_all_threshold: 0.30842456784264055
+  train_all_roc_auc: 0.8130699088145897
+  train_all_pr_auc: 0.7240706965006644
+  train_all_sensitivity: 0.9571428571428572
+  train_all_specificity: 0.43617021276595747
+  train_all_balanced_accuracy: 0.6966565349544074
+  train_all_tp: 67
+  train_all_tn: 41
+  train_all_fp: 53
+  train_all_fn: 3
+- variant: npt60_bbox
+  npt: 60
+  splitting: bbox
+  algorithm: csr
+  implementation: cython
+  q_step_nm_inv: 0.3500000456968948
+  retained_measurements: 896
+  common_measurements: 802
+  retained_patients: 164
+  median_snr_db: 33.50780550675758
+  profile_gate_pass_rate: 1.0
+  target_cases: 164
+  kfold_roc_auc_mean: 0.6984731130451607
+  kfold_roc_auc_std: 0.07883949566186028
+  kfold_pr_auc_mean: 0.639045489580394
+  kfold_pr_auc_std: 0.0900733332403663
+  kfold_sensitivity_mean: 0.8684761904761905
+  kfold_sensitivity_std: 0.10116535507711927
+  kfold_specificity_mean: 0.35669734049919816
+  kfold_specificity_std: 0.1266737326150806
+  kfold_brier_mean: 0.22703375458693809
+  kfold_log_loss_mean: 0.6575181197153708
+  train_all_threshold: 0.2637729321820447
+  train_all_roc_auc: 0.8308510638297872
+  train_all_pr_auc: 0.7600934785575577
+  train_all_sensitivity: 0.9571428571428572
+  train_all_specificity: 0.425531914893617
+  train_all_balanced_accuracy: 0.6913373860182371
+  train_all_tp: 67
+  train_all_tn: 40
+  train_all_fp: 54
+  train_all_fn: 3
+- variant: npt70_bbox
+  npt: 70
+  splitting: bbox
+  algorithm: csr
+  implementation: cython
+  q_step_nm_inv: 0.3000000391687667
+  retained_measurements: 895
+  common_measurements: 802
+  retained_patients: 164
+  median_snr_db: 32.87091323864673
+  profile_gate_pass_rate: 1.0
+  target_cases: 164
+  kfold_roc_auc_mean: 0.686365797613365
+  kfold_roc_auc_std: 0.07617911947834528
+  kfold_pr_auc_mean: 0.6366193852378338
+  kfold_pr_auc_std: 0.08670245578017347
+  kfold_sensitivity_mean: 0.8512893772893773
+  kfold_sensitivity_std: 0.10167364606248855
+  kfold_specificity_mean: 0.3808840349536944
+  kfold_specificity_std: 0.1229447502561381
+  kfold_brier_mean: 0.2329968198566916
+  kfold_log_loss_mean: 0.6733031705659351
+  train_all_threshold: 0.2894799063876258
+  train_all_roc_auc: 0.8427051671732522
+  train_all_pr_auc: 0.789313446244099
+  train_all_sensitivity: 0.9571428571428572
+  train_all_specificity: 0.5212765957446809
+  train_all_balanced_accuracy: 0.739209726443769
+  train_all_tp: 67
+  train_all_tn: 49
+  train_all_fp: 45
+  train_all_fn: 3
+- variant: npt80_bbox
+  npt: 80
+  splitting: bbox
+  algorithm: csr
+  implementation: cython
+  q_step_nm_inv: 0.26250003427267066
+  retained_measurements: 896
+  common_measurements: 802
+  retained_patients: 164
+  median_snr_db: 32.307061977782375
+  profile_gate_pass_rate: 1.0
+  target_cases: 164
+  kfold_roc_auc_mean: 0.674612888265763
+  kfold_roc_auc_std: 0.08097416018676838
+  kfold_pr_auc_mean: 0.6340044713623003
+  kfold_pr_auc_std: 0.09045977054504288
+  kfold_sensitivity_mean: 0.8397912087912088
+  kfold_sensitivity_std: 0.112901375034335
+  kfold_specificity_mean: 0.3594606145488499
+  kfold_specificity_std: 0.11731656228053243
+  kfold_brier_mean: 0.23970247403266767
+  kfold_log_loss_mean: 0.6898280782146187
+  train_all_threshold: 0.28210558687020654
+  train_all_roc_auc: 0.8515197568389058
+  train_all_pr_auc: 0.813366997597275
+  train_all_sensitivity: 0.9571428571428572
+  train_all_specificity: 0.5319148936170213
+  train_all_balanced_accuracy: 0.7445288753799393
+  train_all_tp: 67
+  train_all_tn: 50
+  train_all_fp: 44
+  train_all_fn: 3
+- variant: npt90_bbox
+  npt: 90
+  splitting: bbox
+  algorithm: csr
+  implementation: cython
+  q_step_nm_inv: 0.23333336379792868
+  retained_measurements: 893
+  common_measurements: 802
+  retained_patients: 164
+  median_snr_db: 31.83825904869204
+  profile_gate_pass_rate: 1.0
+  target_cases: 164
+  kfold_roc_auc_mean: 0.6614277596017756
+  kfold_roc_auc_std: 0.07914083065221161
+  kfold_pr_auc_mean: 0.6133235235550284
+  kfold_pr_auc_std: 0.08605686585794867
+  kfold_sensitivity_mean: 0.8077692307692308
+  kfold_sensitivity_std: 0.11965281273896175
+  kfold_specificity_mean: 0.3947725083653876
+  kfold_specificity_std: 0.12017510159142106
+  kfold_brier_mean: 0.24709359897972516
+  kfold_log_loss_mean: 0.7141418607973875
+  train_all_threshold: 0.2965900638766624
+  train_all_roc_auc: 0.8623100303951368
+  train_all_pr_auc: 0.8179494444755792
+  train_all_sensitivity: 0.9571428571428572
+  train_all_specificity: 0.5106382978723404
+  train_all_balanced_accuracy: 0.7338905775075988
+  train_all_tp: 67
+  train_all_tn: 48
+  train_all_fp: 46
+  train_all_fn: 3
 - variant: npt100_bbox
   npt: 100
   splitting: bbox
@@ -20,7 +180,7 @@ controlled_common_cohort_results:
   implementation: cython
   q_step_nm_inv: 0.21000002741813617
   retained_measurements: 893
-  common_measurements: 803
+  common_measurements: 802
   retained_patients: 164
   median_snr_db: 31.407088519202677
   profile_gate_pass_rate: 1.0
@@ -52,7 +212,7 @@ controlled_common_cohort_results:
   implementation: cython
   q_step_nm_inv: 0.21000002741813617
   retained_measurements: 891
-  common_measurements: 803
+  common_measurements: 802
   retained_patients: 164
   median_snr_db: 31.144049201074967
   profile_gate_pass_rate: 1.0
@@ -84,7 +244,7 @@ controlled_common_cohort_results:
   implementation: cython
   q_step_nm_inv: 0.21000002741813617
   retained_measurements: 893
-  common_measurements: 803
+  common_measurements: 802
   retained_patients: 164
   median_snr_db: 31.33264512960399
   profile_gate_pass_rate: 1.0
@@ -116,7 +276,7 @@ controlled_common_cohort_results:
   implementation: cython
   q_step_nm_inv: 0.14000001827875863
   retained_measurements: 886
-  common_measurements: 803
+  common_measurements: 802
   retained_patients: 164
   median_snr_db: 29.836035973813214
   profile_gate_pass_rate: 1.0
@@ -148,7 +308,7 @@ controlled_common_cohort_results:
   implementation: cython
   q_step_nm_inv: 0.10500001370906809
   retained_measurements: 883
-  common_measurements: 803
+  common_measurements: 802
   retained_patients: 164
   median_snr_db: 28.746096505477382
   profile_gate_pass_rate: 1.0
@@ -180,7 +340,7 @@ controlled_common_cohort_results:
   implementation: cython
   q_step_nm_inv: 0.08400001096725518
   retained_measurements: 877
-  common_measurements: 803
+  common_measurements: 802
   retained_patients: 163
   median_snr_db: 27.98053532479557
   profile_gate_pass_rate: 1.0
@@ -212,7 +372,7 @@ controlled_common_cohort_results:
   implementation: cython
   q_step_nm_inv: 0.08203126071020961
   retained_measurements: 876
-  common_measurements: 803
+  common_measurements: 802
   retained_patients: 163
   median_snr_db: 27.899532207944077
   profile_gate_pass_rate: 1.0
@@ -244,7 +404,7 @@ controlled_common_cohort_results:
   implementation: cython
   q_step_nm_inv: 0.041015630355104804
   retained_measurements: 844
-  common_measurements: 803
+  common_measurements: 802
   retained_patients: 163
   median_snr_db: 25.979753485212044
   profile_gate_pass_rate: 1.0
@@ -276,7 +436,7 @@ controlled_common_cohort_results:
   implementation: cython
   q_step_nm_inv: 0.041015630355104804
   retained_measurements: 805
-  common_measurements: 803
+  common_measurements: 802
   retained_patients: 161
   median_snr_db: 24.566580103797065
   profile_gate_pass_rate: 1.0
@@ -308,7 +468,7 @@ controlled_common_cohort_results:
   implementation: cython
   q_step_nm_inv: 0.041015630355104804
   retained_measurements: 838
-  common_measurements: 803
+  common_measurements: 802
   retained_patients: 163
   median_snr_db: 25.647320718236323
   profile_gate_pass_rate: 1.0
@@ -334,6 +494,166 @@ controlled_common_cohort_results:
   train_all_fp: 0
   train_all_fn: 0
 end_to_end_full_cohort_results:
+- variant: npt50_bbox
+  npt: 50
+  splitting: bbox
+  algorithm: csr
+  implementation: cython
+  q_step_nm_inv: 0.42000005483627234
+  retained_measurements: 897
+  common_measurements: 802
+  retained_patients: 164
+  median_snr_db: 34.264203562315664
+  profile_gate_pass_rate: 1.0
+  target_cases: 175
+  kfold_roc_auc_mean: 0.6545525023687443
+  kfold_roc_auc_std: 0.07286858283841777
+  kfold_pr_auc_mean: 0.6006556471667586
+  kfold_pr_auc_std: 0.0801576838457757
+  kfold_sensitivity_mean: 0.8499166666666667
+  kfold_sensitivity_std: 0.10325262304981248
+  kfold_specificity_mean: 0.31376976153473657
+  kfold_specificity_std: 0.09868918518206084
+  kfold_brier_mean: 0.24156240782379754
+  kfold_log_loss_mean: 0.68868046134069
+  train_all_threshold: 0.31366968510548304
+  train_all_roc_auc: 0.7913343965975544
+  train_all_pr_auc: 0.7153152129646808
+  train_all_sensitivity: 0.9605263157894737
+  train_all_specificity: 0.3838383838383838
+  train_all_balanced_accuracy: 0.6721823498139288
+  train_all_tp: 73
+  train_all_tn: 38
+  train_all_fp: 61
+  train_all_fn: 3
+- variant: npt60_bbox
+  npt: 60
+  splitting: bbox
+  algorithm: csr
+  implementation: cython
+  q_step_nm_inv: 0.3500000456968948
+  retained_measurements: 896
+  common_measurements: 802
+  retained_patients: 164
+  median_snr_db: 33.50780550675758
+  profile_gate_pass_rate: 1.0
+  target_cases: 175
+  kfold_roc_auc_mean: 0.6466775653507364
+  kfold_roc_auc_std: 0.07471937664351185
+  kfold_pr_auc_mean: 0.6066749962052215
+  kfold_pr_auc_std: 0.08815783766327168
+  kfold_sensitivity_mean: 0.8439583333333331
+  kfold_sensitivity_std: 0.09525071995936715
+  kfold_specificity_mean: 0.29524739180742676
+  kfold_specificity_std: 0.09998465742828223
+  kfold_brier_mean: 0.24569204158906557
+  kfold_log_loss_mean: 0.69954269036372
+  train_all_threshold: 0.2732650591031889
+  train_all_roc_auc: 0.7945241892610313
+  train_all_pr_auc: 0.7456196974167592
+  train_all_sensitivity: 0.9605263157894737
+  train_all_specificity: 0.2727272727272727
+  train_all_balanced_accuracy: 0.6166267942583732
+  train_all_tp: 73
+  train_all_tn: 27
+  train_all_fp: 72
+  train_all_fn: 3
+- variant: npt70_bbox
+  npt: 70
+  splitting: bbox
+  algorithm: csr
+  implementation: cython
+  q_step_nm_inv: 0.3000000391687667
+  retained_measurements: 895
+  common_measurements: 802
+  retained_patients: 164
+  median_snr_db: 32.87091323864673
+  profile_gate_pass_rate: 1.0
+  target_cases: 175
+  kfold_roc_auc_mean: 0.6673674211778995
+  kfold_roc_auc_std: 0.07248014342094482
+  kfold_pr_auc_mean: 0.6263541261189498
+  kfold_pr_auc_std: 0.0852629387134773
+  kfold_sensitivity_mean: 0.8186249999999999
+  kfold_sensitivity_std: 0.10026952393701467
+  kfold_specificity_mean: 0.4000390573814992
+  kfold_specificity_std: 0.11624119055200847
+  kfold_brier_mean: 0.2416235466281791
+  kfold_log_loss_mean: 0.6886635448228511
+  train_all_threshold: 0.250873985500391
+  train_all_roc_auc: 0.8339978734715576
+  train_all_pr_auc: 0.7983475485132502
+  train_all_sensitivity: 0.9736842105263158
+  train_all_specificity: 0.3838383838383838
+  train_all_balanced_accuracy: 0.6787612971823498
+  train_all_tp: 74
+  train_all_tn: 38
+  train_all_fp: 61
+  train_all_fn: 2
+- variant: npt80_bbox
+  npt: 80
+  splitting: bbox
+  algorithm: csr
+  implementation: cython
+  q_step_nm_inv: 0.26250003427267066
+  retained_measurements: 896
+  common_measurements: 802
+  retained_patients: 164
+  median_snr_db: 32.307061977782375
+  profile_gate_pass_rate: 1.0
+  target_cases: 175
+  kfold_roc_auc_mean: 0.6587757436504408
+  kfold_roc_auc_std: 0.07146770639998913
+  kfold_pr_auc_mean: 0.6163532573576387
+  kfold_pr_auc_std: 0.08293922206694017
+  kfold_sensitivity_mean: 0.8183333333333332
+  kfold_sensitivity_std: 0.10191567865424613
+  kfold_specificity_mean: 0.3782075861202258
+  kfold_specificity_std: 0.11486086278835377
+  kfold_brier_mean: 0.24591071910433823
+  kfold_log_loss_mean: 0.7005011907227754
+  train_all_threshold: 0.23276833944215877
+  train_all_roc_auc: 0.8504784688995215
+  train_all_pr_auc: 0.8184742649156965
+  train_all_sensitivity: 0.9605263157894737
+  train_all_specificity: 0.37373737373737376
+  train_all_balanced_accuracy: 0.6671318447634237
+  train_all_tp: 73
+  train_all_tn: 37
+  train_all_fp: 62
+  train_all_fn: 3
+- variant: npt90_bbox
+  npt: 90
+  splitting: bbox
+  algorithm: csr
+  implementation: cython
+  q_step_nm_inv: 0.23333336379792868
+  retained_measurements: 893
+  common_measurements: 802
+  retained_patients: 164
+  median_snr_db: 31.83825904869204
+  profile_gate_pass_rate: 1.0
+  target_cases: 175
+  kfold_roc_auc_mean: 0.6357132404649214
+  kfold_roc_auc_std: 0.07450144164648283
+  kfold_pr_auc_mean: 0.5873581883364869
+  kfold_pr_auc_std: 0.08685388196278318
+  kfold_sensitivity_mean: 0.8031666666666666
+  kfold_sensitivity_std: 0.10749050345650699
+  kfold_specificity_mean: 0.379244526490993
+  kfold_specificity_std: 0.11187751228639657
+  kfold_brier_mean: 0.25814846060372676
+  kfold_log_loss_mean: 0.7376178226366652
+  train_all_threshold: 0.22573996464939824
+  train_all_roc_auc: 0.8482190324295587
+  train_all_pr_auc: 0.8153393898482038
+  train_all_sensitivity: 0.9736842105263158
+  train_all_specificity: 0.36363636363636365
+  train_all_balanced_accuracy: 0.6686602870813397
+  train_all_tp: 74
+  train_all_tn: 36
+  train_all_fp: 63
+  train_all_fn: 2
 - variant: npt100_bbox
   npt: 100
   splitting: bbox
@@ -341,7 +661,7 @@ end_to_end_full_cohort_results:
   implementation: cython
   q_step_nm_inv: 0.21000002741813617
   retained_measurements: 893
-  common_measurements: 803
+  common_measurements: 802
   retained_patients: 164
   median_snr_db: 31.407088519202677
   profile_gate_pass_rate: 1.0
@@ -373,7 +693,7 @@ end_to_end_full_cohort_results:
   implementation: cython
   q_step_nm_inv: 0.21000002741813617
   retained_measurements: 891
-  common_measurements: 803
+  common_measurements: 802
   retained_patients: 164
   median_snr_db: 31.144049201074967
   profile_gate_pass_rate: 1.0
@@ -405,7 +725,7 @@ end_to_end_full_cohort_results:
   implementation: cython
   q_step_nm_inv: 0.21000002741813617
   retained_measurements: 893
-  common_measurements: 803
+  common_measurements: 802
   retained_patients: 164
   median_snr_db: 31.33264512960399
   profile_gate_pass_rate: 1.0
@@ -437,7 +757,7 @@ end_to_end_full_cohort_results:
   implementation: cython
   q_step_nm_inv: 0.14000001827875863
   retained_measurements: 886
-  common_measurements: 803
+  common_measurements: 802
   retained_patients: 164
   median_snr_db: 29.836035973813214
   profile_gate_pass_rate: 1.0
@@ -469,7 +789,7 @@ end_to_end_full_cohort_results:
   implementation: cython
   q_step_nm_inv: 0.10500001370906809
   retained_measurements: 883
-  common_measurements: 803
+  common_measurements: 802
   retained_patients: 164
   median_snr_db: 28.746096505477382
   profile_gate_pass_rate: 1.0
@@ -501,7 +821,7 @@ end_to_end_full_cohort_results:
   implementation: cython
   q_step_nm_inv: 0.08400001096725518
   retained_measurements: 877
-  common_measurements: 803
+  common_measurements: 802
   retained_patients: 163
   median_snr_db: 27.98053532479557
   profile_gate_pass_rate: 1.0
@@ -533,7 +853,7 @@ end_to_end_full_cohort_results:
   implementation: cython
   q_step_nm_inv: 0.08203126071020961
   retained_measurements: 876
-  common_measurements: 803
+  common_measurements: 802
   retained_patients: 163
   median_snr_db: 27.899532207944077
   profile_gate_pass_rate: 1.0
@@ -565,7 +885,7 @@ end_to_end_full_cohort_results:
   implementation: cython
   q_step_nm_inv: 0.041015630355104804
   retained_measurements: 844
-  common_measurements: 803
+  common_measurements: 802
   retained_patients: 163
   median_snr_db: 25.979753485212044
   profile_gate_pass_rate: 1.0
@@ -597,7 +917,7 @@ end_to_end_full_cohort_results:
   implementation: cython
   q_step_nm_inv: 0.041015630355104804
   retained_measurements: 805
-  common_measurements: 803
+  common_measurements: 802
   retained_patients: 161
   median_snr_db: 24.566580103797065
   profile_gate_pass_rate: 1.0
@@ -629,7 +949,7 @@ end_to_end_full_cohort_results:
   implementation: cython
   q_step_nm_inv: 0.041015630355104804
   retained_measurements: 838
-  common_measurements: 803
+  common_measurements: 802
   retained_patients: 163
   median_snr_db: 25.647320718236323
   profile_gate_pass_rate: 1.0
@@ -655,6 +975,51 @@ end_to_end_full_cohort_results:
   train_all_fp: 0
   train_all_fn: 0
 paired_fold_deltas_vs_npt100_bbox:
+- variant: npt50_bbox
+  npt: 50
+  splitting: bbox
+  delta_roc_auc_mean: -0.0010965233621359344
+  delta_roc_auc_std: 0.04052419568973285
+  fraction_folds_with_higher_roc_auc: 0.48
+  delta_sensitivity_mean: 0.04199633699633699
+  delta_specificity_mean: -0.09205106125384764
+  delta_brier_mean: -0.0070463020466441885
+- variant: npt60_bbox
+  npt: 60
+  splitting: bbox
+  delta_roc_auc_mean: 0.01933191385825176
+  delta_roc_auc_std: 0.047573113688058964
+  fraction_folds_with_higher_roc_auc: 0.67
+  delta_sensitivity_mean: 0.04228571428571429
+  delta_specificity_mean: -0.042967494493810286
+  delta_brier_mean: -0.013691007453813386
+- variant: npt70_bbox
+  npt: 70
+  splitting: bbox
+  delta_roc_auc_mean: 0.0072245984264560055
+  delta_roc_auc_std: 0.04266697922750253
+  fraction_folds_with_higher_roc_auc: 0.61
+  delta_sensitivity_mean: 0.025098901098901095
+  delta_specificity_mean: -0.018780800039313972
+  delta_brier_mean: -0.007727942184059893
+- variant: npt80_bbox
+  npt: 80
+  splitting: bbox
+  delta_roc_auc_mean: -0.004528310921145945
+  delta_roc_auc_std: 0.03636173462880262
+  fraction_folds_with_higher_roc_auc: 0.45
+  delta_sensitivity_mean: 0.013600732600732609
+  delta_specificity_mean: -0.04020422044415853
+  delta_brier_mean: -0.0010222880080838143
+- variant: npt90_bbox
+  npt: 90
+  splitting: bbox
+  delta_roc_auc_mean: -0.01771343958513353
+  delta_roc_auc_std: 0.03530760321002315
+  fraction_folds_with_higher_roc_auc: 0.29
+  delta_sensitivity_mean: -0.018421245421245427
+  delta_specificity_mean: -0.004892326627620749
+  delta_brier_mean: 0.006368836938973623
 - variant: npt100_bbox
   npt: 100
   splitting: bbox
