@@ -2,6 +2,17 @@
 
 Status: research-draft decision-support prototype.
 
+## Fixed contents
+
+This is a fixed, reproducible bundle. It contains the full H5 archive, the
+frozen Docker runtime, the immutable reference model, and readable source
+snapshots under `source/Aramina/` and `source/XRD-preprocessing/`.
+
+`bundle_manifest.json` records the exact `main` commit and Git remote for each
+source snapshot, the H5 checksum, and the checksums of both Linux images. The
+bundle never runs `git pull` and never silently changes code. To inspect or
+clone the source from Git, use the recorded remote and commit from the manifest.
+
 ## Windows
 
 1. Extract the entire ZIP to a local drive with sufficient free space.
