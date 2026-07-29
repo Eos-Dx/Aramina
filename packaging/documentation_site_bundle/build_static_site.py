@@ -114,17 +114,27 @@ summary { cursor: pointer; font-weight: 700; } .footer { color: var(--muted); ma
 """.strip()
 
 
-def shell(title: str, body: str, current: Path, *, source_path: str | None = None) -> str:
+def shell(
+    title: str,
+    body: str,
+    current: Path,
+    *,
+    source_path: str | None = None,
+    navigation: str = "",
+) -> str:
     root = relative_url(current, Path("index.html"))
     css = relative_url(current, Path("assets") / "site.css")
+    aramina_docs = relative_url(current, Path("aramina") / "index.html")
+    xrd_docs = relative_url(current, Path("xrd-preprocessing") / "index.html")
     source_note = (
         f'<p class="source-path">Source: {html.escape(source_path)}</p>' if source_path else ""
     )
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{html.escape(title)} | Aramina Technical Documentation</title><link rel="stylesheet" href="{css}"></head>
-<body><header><a href="{root}">Aramina Technical Documentation</a><a href="{relative_url(current, Path('search.html'))}">Search</a>
-<small>Fixed offline snapshot</small></header><main><h1>{html.escape(title)}</h1>{source_note}{body}
+<body><header><a href="{root}">Aramina Technical Documentation</a><a href="{aramina_docs}">Aramina docs</a>
+<a href="{xrd_docs}">XRD-preprocessing docs</a><a href="{relative_url(current, Path('search.html'))}">Search</a>
+<small>Fixed offline snapshot</small></header><main><h1>{html.escape(title)}</h1>{source_note}{navigation}{body}
 <p class="footer">Research-draft decision-support documentation. Not for autonomous diagnosis.</p></main></body></html>"""
 
 
@@ -166,7 +176,11 @@ def documentation_index(root: Path, pages: list[Page], repository: str) -> str:
         group = str(relative.parent) if relative.parent != Path(".") else "project root"
         groups.setdefault(group, []).append(page)
 
-    sections = ["<h2>Documentation index</h2>"]
+    sections = [
+        "<h2>Documentation index</h2>",
+        "<p>Every Markdown document in this fixed repository snapshot is listed below. "
+        "Select any title to read it; use Search for full-text lookup across documents and Python source.</p>",
+    ]
     for group in sorted(groups):
         sections.append(f"<details open><summary>{html.escape(group)}</summary><ul>")
         for page in sorted(groups[group], key=lambda item: item.source.name.lower()):
@@ -177,6 +191,26 @@ def documentation_index(root: Path, pages: list[Page], repository: str) -> str:
             )
         sections.append("</ul></details>")
     return "\n".join(sections)
+
+
+def page_navigation(page: Page, pages: list[Page]) -> str:
+    """Provide direct previous/next navigation inside one repository's docs."""
+    repository_pages = sorted(
+        (item for item in pages if item.repository == page.repository),
+        key=lambda item: item.source.as_posix().lower(),
+    )
+    position = repository_pages.index(page)
+    links = [
+        f'<a href="{relative_url(page.output, Path(page.repository.lower()) / "index.html")}">'
+        "Documentation index</a>"
+    ]
+    if position:
+        previous = repository_pages[position - 1]
+        links.append(f'<a href="{relative_url(page.output, previous.output)}">Previous: {html.escape(previous.title)}</a>')
+    if position + 1 < len(repository_pages):
+        following = repository_pages[position + 1]
+        links.append(f'<a href="{relative_url(page.output, following.output)}">Next: {html.escape(following.title)}</a>')
+    return '<p class="meta">Browse: ' + " | ".join(links) + "</p>"
 
 
 def main() -> None:
@@ -202,7 +236,16 @@ def main() -> None:
             rendered += documentation_index(args.aramina_root, pages, "Aramina")
         if page.repository == "XRD-preprocessing" and page.source == args.xrd_root / "README.md":
             rendered += documentation_index(args.xrd_root, pages, "XRD-preprocessing")
-        write(output / page.output, shell(page.title, rendered, page.output, source_path=str(page.source)))
+        write(
+            output / page.output,
+            shell(
+                page.title,
+                rendered,
+                page.output,
+                source_path=str(page.source),
+                navigation=page_navigation(page, pages),
+            ),
+        )
         search_entries.append({"title": page.title, "url": page.output.as_posix(), "text": content[:1000]})
 
     source_entries: list[tuple[str, Path, Path]] = []
