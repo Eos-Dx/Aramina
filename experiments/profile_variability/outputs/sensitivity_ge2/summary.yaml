@@ -1,0 +1,18 @@
+primary_metric: mean_pairwise_mse_full
+min_measurements_per_breast: 2
+include_bilateral_biopsy: false
+cases: 130
+patients: 130
+cancer_cases: 60
+benign_cases: 70
+q_min_nm_inv: 2.105000013709068
+q_max_nm_inv: 22.89500272810459
+bootstrap_iterations: 10000
+random_state: 42
+analysis_status: research_descriptive_not_independent_validation
+input_provenance:
+  input_joblib: aramina_biopsy_patients_model_input_v0_1.joblib
+  input_joblib_sha256: 76251daa67e5fc349c7571ded2180fdfb199f401e1d04c498e0b66154b484161
+  input_h5_sha256: d2d61e83850b282c3d2479ea436deed821c4488b96983252d294f3d56ee3f1f9
+  aramina_git_sha: 9c4f38d836bee803dc543fa1a805e090c3c8b90a
+  preprocessing_config_yaml_sha256: d94f2da7763a66304bd16c9803db7bc1ccb3bb8c3dc506706b69d9c16d27f46c
