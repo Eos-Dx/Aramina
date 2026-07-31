@@ -99,7 +99,17 @@ def _(Path, widgets):
 
 
 @app.cell(hide_code=True)
-def _(config, profile_variability):
+def _(config, mo, profile_variability):
+    mo.stop(
+        not config["input_path"].is_file(),
+        mo.callout(
+            mo.md(
+                f"Prepared profile joblib was not found: `{config['input_path']}`. "
+                "Select an existing artifact or set `ARAMINA_PROFILE_JOBLIB`."
+            ),
+            kind="warn",
+        ),
+    )
     profile_frame = profile_variability.load_profile_dataframe(config["input_path"])
     variability_analysis = profile_variability.run_variability_analysis(
         profile_frame,

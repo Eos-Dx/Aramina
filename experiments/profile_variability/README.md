@@ -100,9 +100,14 @@ output folder.
 ## Run the marimo notebook
 
 ```bash
+export ARAMINA_PROFILE_JOBLIB=/path/to/aramina_biopsy_patients_model_input_v0_1.joblib
 PYTHONPATH=src python -m marimo edit \
   experiments/profile_variability/profile_variability_notebook.py
 ```
+
+The environment variable is optional when the artifact already exists at the
+default project-relative path shown above. The notebook reports a clear input
+warning rather than executing if the artifact is absent.
 
 Patient-level output is written to `per_case_variability_local.csv` and is
 gitignored. Aggregate summaries and figures contain no patient identifiers.
