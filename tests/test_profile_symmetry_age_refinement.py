@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+import sys
 
 import joblib
 import numpy as np
@@ -17,6 +18,7 @@ RUNNER_PATH = (
     / "experiments/profile_symmetry_age_refinement/run_experiment.py"
 )
 STAGED_MODEL_PATH = RUNNER_PATH.with_name("staged_model.py")
+REGULARIZATION_SEARCH_PATH = RUNNER_PATH.with_name("select_regularization.py")
 
 
 def _runner_module():
@@ -31,6 +33,20 @@ def _staged_model_module():
     spec = importlib.util.spec_from_file_location(
         "refinement_staged_model_test",
         STAGED_MODEL_PATH,
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _regularization_search_module():
+    experiment_dir = str(RUNNER_PATH.parent)
+    if experiment_dir not in sys.path:
+        sys.path.insert(0, experiment_dir)
+    spec = importlib.util.spec_from_file_location(
+        "refinement_regularization_search_test",
+        REGULARIZATION_SEARCH_PATH,
     )
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -310,3 +326,71 @@ def test_age_design_can_depend_on_incoming_profile_risk():
 
     np.testing.assert_allclose(design_a[:, :2], design_b[:, :2])
     assert not np.allclose(design_a[:, 2], design_b[:, 2])
+
+
+def test_staged_model_fits_with_no_available_optional_blocks():
+    module = _staged_model_module()
+    rows = pd.DataFrame(
+        {
+            "profile_p_cancer_logit_average": [0.15, 0.30, 0.70, 0.85],
+            "symmetry_available": [0, 0, 0, 0],
+            "age": [np.nan, np.nan, np.nan, np.nan],
+            "age_available": [0, 0, 0, 0],
+            "sk_wasserstein_distance_full_q2": [np.nan] * 4,
+            "sk_weightedrms1": [np.nan] * 4,
+            "sk_weightedrms2": [np.nan] * 4,
+            "sk_mean_peak_value_abs_delta": [np.nan] * 4,
+        }
+    )
+    model = module.StagedProfileSymmetryAgeClassifier().fit(
+        rows,
+        np.array([0, 0, 1, 1]),
+    )
+    stages = model.predict_stage_probabilities(rows)
+
+    np.testing.assert_allclose(
+        stages["after_symmetry_p_cancer"],
+        stages["profile_p_cancer"],
+        rtol=0.0,
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        stages["final_p_cancer"],
+        stages["profile_p_cancer"],
+        rtol=0.0,
+        atol=1e-12,
+    )
+    assert not model.symmetry_available_in_fit_
+    assert not model.age_available_in_fit_
+
+
+def test_regularization_selection_writes_frozen_train_all_description(tmp_path):
+    selection = _regularization_search_module()
+    bilateral = _synthetic_measurements()
+    bilateral["biopsy"] = True
+    payload = selection.run_regularization_selection(
+        bilateral,
+        tmp_path / "regularization",
+        candidate_c=(0.1, 0.3),
+        n_splits=2,
+        n_repeats=1,
+        random_state=9,
+    )
+
+    assert payload["selection_protocol"]["selection_metric"] == "mean_held_out_log_loss"
+    assert set(payload["selected_regularization"]) == {
+        "lr1_c",
+        "symmetry_c",
+        "age_c",
+    }
+    assert set(payload["selected_regularization"].values()).issubset({0.1, 0.3})
+    assert payload["train_all_metrics"]["evaluation_status"] == "in_sample_not_independent"
+    assert "decision_threshold" in payload["train_all_metrics"]
+    assert (tmp_path / "regularization" / "regularization_selection.yaml").exists()
+    assert (tmp_path / "regularization" / "selected_train_all_metrics.yaml").exists()
+    assert (
+        tmp_path
+        / "regularization"
+        / "selected_configuration"
+        / "summary.yaml"
+    ).exists()

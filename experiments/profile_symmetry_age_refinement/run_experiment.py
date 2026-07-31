@@ -37,6 +37,10 @@ DEFAULT_FOLDS = 5
 DEFAULT_REPEATS = 20
 DEFAULT_RANDOM_STATE = 42
 TARGET_SENSITIVITY = 0.95
+DEFAULT_LR1_C = 0.1
+DEFAULT_CURRENT_LR2_C = 0.3
+DEFAULT_SYMMETRY_C = 0.3
+DEFAULT_AGE_C = 0.3
 
 
 def parse_args() -> argparse.Namespace:
@@ -128,6 +132,7 @@ def _fit_feature_tables(
     test_df: pd.DataFrame,
     columns: dict[str, str],
     *,
+    lr1_c: float,
     random_state: int,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     return _fit_split_feature_tables(
@@ -142,7 +147,7 @@ def _fit_feature_tables(
         age_column=columns["age_column"],
         biopsy_column=columns["biopsy_column"],
         lr1_row_policy=columns["lr1_row_policy"],
-        lr1_logreg_c=0.1,
+        lr1_logreg_c=lr1_c,
         random_state=random_state,
     )
 
@@ -249,17 +254,23 @@ def _run_split(
     split_id: int,
     train_features: pd.DataFrame,
     test_features: pd.DataFrame,
+    current_lr2_c: float,
+    symmetry_c: float,
+    age_c: float,
     random_state: int,
     target_sensitivity: float,
 ) -> tuple[list[dict[str, Any]], list[pd.DataFrame]]:
     y_train = train_features["label"].to_numpy(dtype=int)
-    current = GatedSymmetryLogistic(logreg_c=0.3, random_state=random_state).fit(
+    current = GatedSymmetryLogistic(
+        logreg_c=current_lr2_c,
+        random_state=random_state,
+    ).fit(
         train_features, y_train
     )
     staged_class = _load_staged_classifier_class()
     staged = staged_class(
-        symmetry_c=0.3,
-        age_c=0.3,
+        symmetry_c=symmetry_c,
+        age_c=age_c,
         random_state=random_state,
     ).fit(train_features, y_train)
 
@@ -350,6 +361,10 @@ def _fit_train_all(
     df: pd.DataFrame,
     columns: dict[str, str],
     *,
+    lr1_c: float,
+    current_lr2_c: float,
+    symmetry_c: float,
+    age_c: float,
     random_state: int,
     target_sensitivity: float,
 ) -> pd.DataFrame:
@@ -364,17 +379,20 @@ def _fit_train_all(
         age_column=columns["age_column"],
         biopsy_column=columns["biopsy_column"],
         lr1_row_policy=columns["lr1_row_policy"],
-        lr1_logreg_c=0.1,
+        lr1_logreg_c=lr1_c,
         random_state=random_state,
     )
     y = features["label"].to_numpy(dtype=int)
-    current = GatedSymmetryLogistic(logreg_c=0.3, random_state=random_state).fit(
+    current = GatedSymmetryLogistic(
+        logreg_c=current_lr2_c,
+        random_state=random_state,
+    ).fit(
         features, y
     )
     staged_class = _load_staged_classifier_class()
     staged = staged_class(
-        symmetry_c=0.3,
-        age_c=0.3,
+        symmetry_c=symmetry_c,
+        age_c=age_c,
         random_state=random_state,
     ).fit(features, y)
     values: list[tuple[str, str, np.ndarray]] = [
@@ -413,6 +431,10 @@ def run_experiment(
     n_repeats: int = DEFAULT_REPEATS,
     random_state: int = DEFAULT_RANDOM_STATE,
     target_sensitivity: float = TARGET_SENSITIVITY,
+    lr1_c: float = DEFAULT_LR1_C,
+    current_lr2_c: float = DEFAULT_CURRENT_LR2_C,
+    symmetry_c: float = DEFAULT_SYMMETRY_C,
+    age_c: float = DEFAULT_AGE_C,
 ) -> dict[str, Any]:
     """Compare current and staged research models on identical patient splits."""
     output = Path(output_dir).expanduser().resolve()
@@ -444,12 +466,16 @@ def run_experiment(
             train_df,
             test_df,
             columns,
+            lr1_c=lr1_c,
             random_state=random_state + split_id,
         )
         metrics, predictions = _run_split(
             split_id=split_id,
             train_features=train_features,
             test_features=test_features,
+            current_lr2_c=current_lr2_c,
+            symmetry_c=symmetry_c,
+            age_c=age_c,
             random_state=random_state + split_id,
             target_sensitivity=target_sensitivity,
         )
@@ -462,6 +488,10 @@ def run_experiment(
     train_all = _fit_train_all(
         dataframe,
         columns,
+        lr1_c=lr1_c,
+        current_lr2_c=current_lr2_c,
+        symmetry_c=symmetry_c,
+        age_c=age_c,
         random_state=random_state,
         target_sensitivity=target_sensitivity,
     )
@@ -479,9 +509,10 @@ def run_experiment(
             "n_repeats": int(n_repeats),
             "random_state": int(random_state),
             "target_sensitivity": float(target_sensitivity),
-            "lr1_logreg_c": 0.1,
-            "symmetry_c": 0.3,
-            "age_c": 0.3,
+            "lr1_logreg_c": float(lr1_c),
+            "current_lr2_c": float(current_lr2_c),
+            "symmetry_c": float(symmetry_c),
+            "age_c": float(age_c),
             "threshold_selection": "train_fold_only",
         },
         "cohort": {

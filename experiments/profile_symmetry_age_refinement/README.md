@@ -87,6 +87,14 @@ python experiments/profile_symmetry_age_refinement/run_experiment.py \
   --output-dir outputs/profile_symmetry_age_refinement
 ```
 
+Select regularization before a train-all descriptive fit:
+
+```bash
+python experiments/profile_symmetry_age_refinement/select_regularization.py \
+  --input-joblib /path/to/preprocessing_artifact.joblib \
+  --output-dir outputs/profile_symmetry_age_refinement/regularization_selection
+```
+
 ## Outputs
 
 `summary.yaml` is the compact machine-readable record. CSV files support
@@ -137,3 +145,24 @@ not penalized. No hyperparameter is selected from held-out patients.
   the present outer-fold results must not be used to tune `C`.
 - Performance changes require confirmation on an independent cohort before any
   product-model or preprocessing change.
+
+## Sequential C Selection
+
+`select_regularization.py` is a separate model-selection run. It evaluates the
+grid `C={0.03, 0.1, 0.3, 1.0}` with the same patient-safe repeated 5-fold x20
+splits. Selection proceeds in architectural order:
+
+1. LR1 `C` from held-out profile probability metrics.
+2. Symmetry `C` with LR1 frozen at the selected value.
+3. Age `C` with LR1 and symmetry frozen at their selected values.
+
+The prespecified primary criterion is lower held-out log loss, followed by
+lower Brier score, higher ROC AUC, higher specificity at the training-fold
+target-sensitivity threshold, then smaller `C`. This favors calibrated
+probabilities for a model whose final decision threshold is frozen later.
+
+The selection folds cannot also be presented as independent validation of the
+selected tuple. The runner therefore writes their summary as
+`selected_configuration_reused_fold_summary`, explicitly marked as non-
+independent. The selected tuple is then fitted once on all accepted cases and
+described in `selected_train_all_metrics.yaml`.

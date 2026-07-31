@@ -14,8 +14,8 @@ diagnosis.
 - LR1, refinement blocks, and the target-sensitivity threshold are fitted from
   each training fold only.
 - Target threshold sensitivity: `0.95`.
-- Regularization: LR1 `C=0.1`; current LR2, staged symmetry, and staged age
-  corrections `C=0.3`.
+- Initial architecture comparison: LR1 `C=0.1`; current LR2, staged symmetry,
+  and staged age corrections `C=0.3`.
 
 ## Held-out results
 
@@ -68,3 +68,31 @@ model does not improve held-out specificity at the train-selected
 target-sensitivity threshold. Symmetry is not independently beneficial in the
 tested order. The divergence between held-out and train-all behavior remains a
 warning that 164 patients are insufficient for a reliable architecture change.
+
+## Sequential Regularization Selection
+
+A separate patient-safe repeated 5-fold x20 selection used
+`C={0.03, 0.1, 0.3, 1.0}`. Selection was sequential and probability-first:
+lower mean held-out log loss, then lower Brier score, higher ROC AUC, higher
+specificity at the train-fold target-sensitivity threshold, and smaller `C`.
+
+| Stage | Selected C | Mean held-out log loss | Mean ROC AUC | Mean sensitivity | Mean specificity |
+|---|---:|---:|---:|---:|---:|
+| LR1 profile | 0.10 | 0.686 | 0.603 | 0.821 | 0.326 |
+| Symmetry correction | 0.03 | 0.694 | 0.588 | 0.775 | 0.346 |
+| Age correction | 1.00 | 0.647 | 0.691 | 0.866 | 0.339 |
+
+The selected tuple is therefore `LR1 C=0.10`, `symmetry C=0.03`, and
+`age C=1.00`. The repeated-fold figures used to select it are not an
+independent estimate of its final performance.
+
+The selected train-all fit reaches sensitivity `0.961` (`73/76 CANCER`) at a
+threshold of `0.306`, but specificity is only `0.343` (`34/99 BENIGN`), with
+`65` false positives. It is therefore weaker at the intended operating point
+than both the initial staged fit (`0.414` specificity) and the current product
+joint LR2 (`0.495` specificity), each at the same train-all sensitivity.
+
+This selection run resolves the regularization question for the tested grid:
+the staged architecture is not being held back simply by its original fixed
+regularization. It remains research-only and should not replace the current
+product model.

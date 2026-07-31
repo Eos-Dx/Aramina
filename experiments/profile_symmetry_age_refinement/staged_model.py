@@ -114,6 +114,13 @@ class _OffsetLogisticCorrection:
             raise ValueError("Correction design does not match fitted coefficients.")
         return np.asarray(matrix @ self.coef_, dtype=float)
 
+    @classmethod
+    def identity(cls, *, c: float, n_features: int) -> "_OffsetLogisticCorrection":
+        """Return a fitted zero correction for a wholly unavailable block."""
+        correction = cls(c=c)
+        correction.coef_ = np.zeros(n_features, dtype=float)
+        return correction
+
 
 class StagedProfileSymmetryAgeClassifier(BaseEstimator):
     """Sequential logit refinements with exact identity for missing blocks.
@@ -152,21 +159,33 @@ class StagedProfileSymmetryAgeClassifier(BaseEstimator):
 
         profile_logit = self._profile_logit(x)
         symmetry_design = self._fit_symmetry_design(x)
-        self.symmetry_model_ = _OffsetLogisticCorrection(c=self.symmetry_c).fit(
-            symmetry_design,
-            labels,
-            offset=profile_logit,
-        )
+        if self.symmetry_available_in_fit_:
+            self.symmetry_model_ = _OffsetLogisticCorrection(c=self.symmetry_c).fit(
+                symmetry_design,
+                labels,
+                offset=profile_logit,
+            )
+        else:
+            self.symmetry_model_ = _OffsetLogisticCorrection.identity(
+                c=self.symmetry_c,
+                n_features=symmetry_design.shape[1],
+            )
         symmetry_logit = profile_logit + self.symmetry_model_.correction(
             symmetry_design
         )
 
         age_design = self._fit_age_design(x, symmetry_logit)
-        self.age_model_ = _OffsetLogisticCorrection(c=self.age_c).fit(
-            age_design,
-            labels,
-            offset=symmetry_logit,
-        )
+        if self.age_available_in_fit_:
+            self.age_model_ = _OffsetLogisticCorrection(c=self.age_c).fit(
+                age_design,
+                labels,
+                offset=symmetry_logit,
+            )
+        else:
+            self.age_model_ = _OffsetLogisticCorrection.identity(
+                c=self.age_c,
+                n_features=age_design.shape[1],
+            )
         self.symmetry_feature_names_ = [
             "symmetry_block_intercept",
             *(f"gated_{column}" for column in SK_CORE4_FEATURE_COLUMNS),
@@ -238,13 +257,18 @@ class StagedProfileSymmetryAgeClassifier(BaseEstimator):
             errors="coerce",
         )
         paired = symmetry.loc[available]
+        self.symmetry_available_in_fit_ = not paired.empty
         if paired.empty:
-            raise ValueError("At least one symmetry-available training row is required.")
-        self.symmetry_fill_values_ = paired.median().fillna(0.0)
-        filled = symmetry.fillna(self.symmetry_fill_values_)
-        self.symmetry_scaler_ = StandardScaler().fit(
-            filled.loc[available].to_numpy(dtype=float)
-        )
+            self.symmetry_fill_values_ = pd.Series(0.0, index=SK_CORE4_FEATURE_COLUMNS)
+            self.symmetry_scaler_ = StandardScaler().fit(
+                np.zeros((1, len(SK_CORE4_FEATURE_COLUMNS)), dtype=float)
+            )
+        else:
+            self.symmetry_fill_values_ = paired.median().fillna(0.0)
+            filled = symmetry.fillna(self.symmetry_fill_values_)
+            self.symmetry_scaler_ = StandardScaler().fit(
+                filled.loc[available].to_numpy(dtype=float)
+            )
         return self._symmetry_design(x)
 
     def _symmetry_design(self, x: pd.DataFrame) -> np.ndarray:
@@ -268,16 +292,22 @@ class StagedProfileSymmetryAgeClassifier(BaseEstimator):
         available = x["age_available"].astype(bool).to_numpy()
         age = pd.to_numeric(x["age"], errors="coerce")
         observed_age = age.loc[available]
+        self.age_available_in_fit_ = not observed_age.empty
         if observed_age.empty:
-            raise ValueError("At least one age-available training row is required.")
-        self.age_fill_value_ = float(observed_age.median())
-        filled_age = age.fillna(self.age_fill_value_).to_numpy(dtype=float)
-        self.age_scaler_ = StandardScaler().fit(filled_age[available, None])
-        incoming = np.asarray(incoming_logit, dtype=float)
-        self.incoming_logit_scaler_ = StandardScaler().fit(
-            incoming[available, None]
-        )
-        return self._age_design(x, incoming)
+            self.age_fill_value_ = 0.0
+            self.age_scaler_ = StandardScaler().fit(np.zeros((1, 1), dtype=float))
+            self.incoming_logit_scaler_ = StandardScaler().fit(
+                np.zeros((1, 1), dtype=float)
+            )
+        else:
+            self.age_fill_value_ = float(observed_age.median())
+            filled_age = age.fillna(self.age_fill_value_).to_numpy(dtype=float)
+            self.age_scaler_ = StandardScaler().fit(filled_age[available, None])
+            incoming = np.asarray(incoming_logit, dtype=float)
+            self.incoming_logit_scaler_ = StandardScaler().fit(
+                incoming[available, None]
+            )
+        return self._age_design(x, incoming_logit)
 
     def _age_design(
         self,
