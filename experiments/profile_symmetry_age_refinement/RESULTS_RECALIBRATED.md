@@ -48,19 +48,58 @@ measurements, while the meta-model is fitted on LR1-OOF rows and its threshold
 comes from full-chain OOF predictions. These rows are labelled
 `training_cohort_deployed_chain_not_independent`.
 
-## Results Status
+## Locked T100 Result
 
-No result is claimed for the current implementation until a new locked T100
-run writes `threshold_oof_predictions.csv` together with the other outputs.
-Earlier local tables predate the final output schema and the expanded C grid;
-they are provisional development notes, not a current result or product-model
-selection.
+The retained run used implementation commit `543a831`, T100 model input,
+patient-safe repeated 5-fold cross-validation repeated 10 times, random seed
+`42`, and the expanded grid
+`C={0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1.0, 3.0}`.
 
-The next retained run should write to
-`experiments/profile_symmetry_age_refinement/evidence/<run_id>/` and preserve
-the complete `summary.yaml`, fold manifest, metrics, paired deltas, and
-threshold-score evidence. Fold standard deviations remain descriptive
-variability, not confidence intervals.
+The cohort contained 893 measurements from 164 patients and 175 target-breast
+cases (`76 CANCER`, `99 BENIGN`). Values below are mean +/- descriptive
+standard deviation across the 50 outer folds.
+
+| Model | ROC AUC | Sensitivity | Specificity | Log loss |
+|---|---:|---:|---:|---:|
+| Exact current product procedure | 0.647 +/- 0.063 | 0.807 +/- 0.099 | 0.386 +/- 0.132 | 0.728 +/- 0.085 |
+| Current architecture retrained on OOF LR1 | 0.685 +/- 0.063 | 0.943 +/- 0.081 | 0.196 +/- 0.111 | 0.650 +/- 0.058 |
+| Recalibrated profile | 0.602 +/- 0.069 | 0.954 +/- 0.066 | 0.098 +/- 0.097 | 0.680 +/- 0.027 |
+| Recalibrated profile + age | **0.689 +/- 0.059** | 0.936 +/- 0.075 | 0.205 +/- 0.102 | **0.635 +/- 0.038** |
+| Recalibrated profile + symmetry | 0.585 +/- 0.069 | 0.944 +/- 0.077 | 0.107 +/- 0.095 | 0.692 +/- 0.056 |
+| Recalibrated profile + age + symmetry | 0.678 +/- 0.068 | 0.926 +/- 0.086 | 0.207 +/- 0.100 | 0.647 +/- 0.056 |
+
+Recalibration plus age improves held-out ranking and probability loss relative
+to the exact current procedure, but it changes the operating point toward more
+CANCER calls. Mean specificity falls from `0.386` to `0.205`. The empirical
+outer-train threshold target does not guarantee 0.95 sensitivity on unseen
+patients; held-out sensitivity is `0.936`.
+
+The SK Core4 block does not improve this architecture. Relative to profile +
+age, adding symmetry reduces ROC AUC from `0.689` to `0.678`, reduces
+sensitivity from `0.936` to `0.926`, and changes specificity only from `0.205`
+to `0.207`. Symmetry regularization selected the strongest tested shrinkage
+`C=0.001` in 37 of 51 full-model selections and 44 of 51 profile + symmetry
+selections, including the train-all selection.
+
+The exact current train-all description remains ROC AUC `0.865`, sensitivity
+`0.961` (`73/76`), and specificity `0.495` (`49/99`) at threshold `0.246659`.
+These are training-cohort values, not independent validation. The new stacked
+train-all rows use OOF-selected thresholds and a different deployed-chain
+training procedure, so their in-cohort values must not be compared as if they
+were the same fit.
+
+## Conclusion
+
+The experiment supports profile-logit recalibration as a technically coherent
+architecture and confirms that age carries reproducible incremental signal.
+It does not support replacing the current product model: specificity at the
+intended high-sensitivity operating point is lower, and the symmetry block adds
+no stable benefit. The remaining limitation is threshold transport on a small
+cohort, not absence of model flexibility.
+
+Retained aggregate evidence is in
+`evidence/t100_5x10_20260731/`. Patient-level predictions, threshold scores,
+and fold manifests were validated locally but are excluded from Git.
 
 ## Limitations
 
