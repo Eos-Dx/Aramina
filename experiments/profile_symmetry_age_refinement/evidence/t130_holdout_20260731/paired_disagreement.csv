@@ -1,0 +1,10 @@
+left_procedure,right_procedure,reference_group,cases,same_decision,different_decision,both_correct,left_only_correct,right_only_correct,both_incorrect
+frozen_current_product,recalibrated_joint_same_fitted_lr1,all,22,20,2,13,1,1,7
+frozen_current_product,recalibrated_joint_same_fitted_lr1,CANCER,11,10,1,8,0,1,2
+frozen_current_product,recalibrated_joint_same_fitted_lr1,BENIGN,11,10,1,5,1,0,5
+frozen_current_product,recalibrated_joint_lr1_oof,all,22,18,4,11,3,1,7
+frozen_current_product,recalibrated_joint_lr1_oof,CANCER,11,10,1,8,0,1,2
+frozen_current_product,recalibrated_joint_lr1_oof,BENIGN,11,8,3,3,3,0,5
+recalibrated_joint_same_fitted_lr1,recalibrated_joint_lr1_oof,all,22,20,2,12,2,0,8
+recalibrated_joint_same_fitted_lr1,recalibrated_joint_lr1_oof,CANCER,11,11,0,9,0,0,2
+recalibrated_joint_same_fitted_lr1,recalibrated_joint_lr1_oof,BENIGN,11,9,2,3,2,0,6

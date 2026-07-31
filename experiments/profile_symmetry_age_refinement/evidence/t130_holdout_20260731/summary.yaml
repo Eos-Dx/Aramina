@@ -1,0 +1,150 @@
+experiment: t130_paired_held_out_comparison_v0_1
+status: research_only_same_source_patient_disjoint_not_external_validation
+cohort:
+  target_cases: 22
+  patients: 17
+  cancer_cases: 11
+  benign_cases: 11
+  patients_with_two_target_cases: 5
+  case_step_percentage_points: 9.090909090909092
+provenance:
+  t100_input_joblib: /Users/sad/dev/Aramina/examples/outputs/model_input/aramina_biopsy_patients_model_input_v0_1.joblib
+  t100_input_joblib_sha256: 76251daa67e5fc349c7571ded2180fdfb199f401e1d04c498e0b66154b484161
+  t130_input_joblib: /Users/sad/dev/Araminavisor-demo/model_test/artifacts/aramina_mri_or_biopsy_held_out_t130.joblib
+  t130_input_joblib_sha256: 235167d64e8d0259a89f7b29eadea090ea91e07356d861b9c39fee9462650a1f
+  frozen_product_artifact: /Users/sad/dev/Aramina/models/aramina_target_breast_risk_0_2_12-beta_9bb911189af6/model.joblib
+  frozen_product_artifact_sha256: 9bb911189af6e1bd954d21765cbc97c4a57fcf7884657c4b22518f280103e11d
+  frozen_product_stored_t100_input_joblib_sha256: cc62ad05a646fc7ee0e75c0df2babf6f4d2be27694e244c641d932c1e2a60254
+  frozen_product_current_t100_input_sha_matches: false
+  t130_metadata:
+    cohort_rule: MRI OR biopsy; patient-disjoint from frozen model training IDs
+    source_h5_path: /Users/sad/dev/eos_play/jupyter_notebooks/Clinical_trials/data/product-aramis-data/combined_archive.h5
+    source_h5_sha256: d2d61e83850b282c3d2479ea436deed821c4488b96983252d294f3d56ee3f1f9
+    training_predictions_path: /Users/sad/dev/Aramina/models/aramina_target_breast_risk_0_2_12-beta_9bb911189af6/evaluation_predictions.csv
+    training_predictions_sha256: a954f31593f2e3364b8383a455cc96c6f32f584916c23c0b8a1f8328823b4a35
+    training_patient_count: 164
+    candidate_preprocessing_artifact: /Users/sad/dev/Araminavisor-demo/model_test/artifacts/aramina_mri_or_biopsy_held_out_t130_candidates.joblib
+    candidate_preprocessing_artifact_sha256: f24ad8b5bbde89ef8db13f6c166b85da174afa7b0fb2e978b42c9c197887793d
+    reference_label_source: H5 sample.specimen_status
+    reference_label_mapping:
+      BENIGN: BENIGN
+      NORMAL: BENIGN
+      CANCER: CANCER
+      ATYPICAL: CANCER
+      PRE_CANCEROUS: CANCER
+    limitations:
+    - Same-source held-out cohort; not independent external validation.
+    - MRI denotes that MRI was performed, not a machine-readable MRI outcome.
+    - Reference labels are historical H5 specimen statuses after T130 quality control.
+  t130_source_h5_sha256_verified: d2d61e83850b282c3d2479ea436deed821c4488b96983252d294f3d56ee3f1f9
+  locked_full_parameters:
+    age_c: 0.3
+    profile_c: 0.001
+    symmetry_c: 0.001
+  locked_oof_threshold: 0.1856386793068282
+  locked_oof_lr1_crossfit_random_state: 9000052
+  locked_regularization_selection_sha256: b78fb1593d00a6fe1972629e109743031f2106021233f53d94c00d8129dcfea4
+  locked_train_all_metrics_sha256: 054db85f8e23eb00fbd41de4a22c066553136abd55fcfb9ca2a57af8cf4987a1
+  frozen_and_rebuilt_lr1_equivalence:
+    frozen_product_joblib_hash: 3311b980e117dbbee008c1b83aeee5c0
+    rebuilt_joblib_hash: e4b1dcbebc4a049badd5ccb7c6fc7eaa
+    fitted_row_predictions_sha256: 1808368725dd3f43cdbb1442072ff45245ba1dbef60a7dd6b16e187e8338fda2
+  shared_test_feature_rows_identical: true
+  frozen_experimental_models:
+    same_fitted_lr1:
+      path: /Users/sad/dev/Aramina-experiment2/experiments/profile_symmetry_age_refinement/evidence/t130_holdout_20260731/models/recalibrated_same_fitted_lr1.joblib
+      sha256: e1d15ea950543fc928ce9317e90b4ab6be141f26c39068cf24d84fded786913e
+    lr1_oof:
+      path: /Users/sad/dev/Aramina-experiment2/experiments/profile_symmetry_age_refinement/evidence/t130_holdout_20260731/models/recalibrated_lr1_oof.joblib
+      sha256: 84886442108fce5eaeb8c00b0df684f27b1079e90a2bb775d1b014a45c41d7b0
+procedures:
+- procedure: frozen_current_product
+  test_target_cases: 22
+  test_patients: 17
+  test_cancer_cases: 11
+  test_benign_cases: 11
+  threshold: 0.24665932038818544
+  threshold_provenance: immutable_product_artifact_train_all_fitted_scores
+  roc_auc: 0.628099173553719
+  pr_auc: 0.5989333851562952
+  sensitivity: 0.7272727272727273
+  specificity: 0.5454545454545454
+  balanced_accuracy: 0.6363636363636364
+  ppv: 0.6153846153846154
+  npv: 0.6666666666666666
+  brier_score: 0.2778345701501806
+  log_loss: 0.9059254008528806
+  calibration_intercept: 0.15123561132412403
+  calibration_slope: 0.21026588800549104
+  true_positives: 8
+  true_negatives: 6
+  false_positives: 5
+  false_negatives: 3
+  sensitivity_wilson_95_low: 0.43435469882387084
+  sensitivity_wilson_95_high: 0.902539407099751
+  specificity_wilson_95_low: 0.280091537409322
+  specificity_wilson_95_high: 0.7872872837754024
+- procedure: recalibrated_joint_same_fitted_lr1
+  test_target_cases: 22
+  test_patients: 17
+  test_cancer_cases: 11
+  test_benign_cases: 11
+  threshold: 0.2574744474424295
+  threshold_provenance: same_fitted_t100_lr1_lr2_train_all_scores
+  roc_auc: 0.5950413223140496
+  pr_auc: 0.5930652680652679
+  sensitivity: 0.8181818181818182
+  specificity: 0.45454545454545453
+  balanced_accuracy: 0.6363636363636364
+  ppv: 0.6
+  npv: 0.7142857142857143
+  brier_score: 0.27042963132054576
+  log_loss: 0.7932244859030528
+  calibration_intercept: 0.16290847742043058
+  calibration_slope: 0.24599821361306934
+  true_positives: 9
+  true_negatives: 5
+  false_positives: 6
+  false_negatives: 2
+  sensitivity_wilson_95_low: 0.523019438039156
+  sensitivity_wilson_95_high: 0.9486323102539149
+  specificity_wilson_95_low: 0.21271271622459764
+  specificity_wilson_95_high: 0.719908462590678
+- procedure: recalibrated_joint_lr1_oof
+  test_target_cases: 22
+  test_patients: 17
+  test_cancer_cases: 11
+  test_benign_cases: 11
+  threshold: 0.1856386793068282
+  threshold_provenance: locked_t100_full_chain_lr1_oof_meta_oof_scores
+  roc_auc: 0.5950413223140496
+  pr_auc: 0.5930652680652679
+  sensitivity: 0.8181818181818182
+  specificity: 0.2727272727272727
+  balanced_accuracy: 0.5454545454545454
+  ppv: 0.5294117647058824
+  npv: 0.6
+  brier_score: 0.26793417660736424
+  log_loss: 0.7844037533730401
+  calibration_intercept: 0.16733892905856992
+  calibration_slope: 0.2654651351502107
+  true_positives: 9
+  true_negatives: 3
+  false_positives: 8
+  false_negatives: 2
+  sensitivity_wilson_95_low: 0.523019438039156
+  sensitivity_wilson_95_high: 0.9486323102539149
+  specificity_wilson_95_low: 0.09746059290024889
+  specificity_wilson_95_high: 0.5656453011761291
+outputs:
+  metrics: metrics.csv
+  paired_disagreement: paired_disagreement.csv
+  patient_level_predictions: paired_predictions_local.csv (local only; gitignored)
+limitations:
+- Same-source T130 quality-control subset; not independent external validation.
+- MRI-or-biopsy selection; MRI means MRI performed, not an MRI outcome.
+- Five patients contribute two correlated target-breast cases.
+- One case changes class-specific sensitivity or specificity by 9.09 percentage points.
+- Wilson intervals are descriptive case-level intervals and do not model within-patient
+  correlation.
+- The balanced 11/11 class composition is artificial; PR AUC, PPV, and NPV are subset-specific.

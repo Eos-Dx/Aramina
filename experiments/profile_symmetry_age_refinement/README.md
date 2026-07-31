@@ -214,6 +214,24 @@ the LR1 evidence after recalibration.
 See [`RESULTS_RECALIBRATED.md`](RESULTS_RECALIBRATED.md) for the results and
 limitations of the nested implementation.
 
+## T130 Same-source Held-out Check
+
+`t130_holdout_comparison.py` freezes the current product and both full
+recalibrated procedures from T100 before opening the T130 manifest. It then
+recreates one-patient H5 containers from the locked source archive, applies the
+frozen product prediction preprocessing, and scores the same 22 target-breast
+cases for every procedure. Patient-level predictions remain local.
+
+```bash
+PYTHONPATH=src python -m \
+  experiments.profile_symmetry_age_refinement.t130_holdout_comparison
+```
+
+Aggregate evidence and limitations are recorded under
+[`evidence/t130_holdout_20260731/`](evidence/t130_holdout_20260731/). This is a
+patient-disjoint but same-source T130 quality-control check, not independent
+external validation. Five of 17 patients contribute two target breasts.
+
 ## Staged Experiment Regularization
 
 This first architecture comparison deliberately freezes regularization rather
