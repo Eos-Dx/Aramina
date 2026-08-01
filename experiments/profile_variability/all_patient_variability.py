@@ -249,11 +249,19 @@ def save_all_patient_analysis(
     analysis: AllPatientVariabilityAnalysis,
     output_dir: str | Path,
 ) -> None:
-    """Write aggregate evidence and an untracked local patient-level table."""
+    """Write cohort-specific evidence and an untracked patient-level table."""
     output = Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)
     analysis.cases.to_csv(output / "per_patient_variability_local.csv", index=False)
-    analysis.summary.to_csv(output / "cohort_summary.csv", index=False)
+    biopsy_summary = analysis.summary.loc[
+        analysis.summary["cohort"].str.startswith("BIOPSY_")
+        | analysis.summary["cohort"].eq("BILATERAL_BIOPSY")
+    ]
+    no_biopsy_summary = analysis.summary.loc[
+        analysis.summary["cohort"].eq("NO_BIOPSY")
+    ]
+    biopsy_summary.to_csv(output / "biopsy_cohort_summary.csv", index=False)
+    no_biopsy_summary.to_csv(output / "no_biopsy_cohort_summary.csv", index=False)
     (output / "summary.yaml").write_text(
         yaml.safe_dump(analysis.metadata, sort_keys=False),
         encoding="utf-8",
@@ -265,13 +273,13 @@ def all_patient_variability_figure(
     *,
     metric: str = PRIMARY_METRIC,
 ) -> plt.Figure:
-    """Plot biopsy target/contralateral and no-biopsy left/right comparisons."""
+    """Plot independent biopsy and no-biopsy within-cohort analyses."""
     figure, axes = plt.subplots(2, 2, figsize=(13.0, 10.0), constrained_layout=True)
     _scatter_biopsy_cases(axes[0, 0], cases, metric=metric)
     _scatter_no_biopsy_cases(axes[0, 1], cases, metric=metric)
-    _plot_log_ratio_by_cohort(axes[1, 0], cases, metric=metric)
-    _plot_overall_variability_by_cohort(axes[1, 1], cases, metric=metric)
-    figure.suptitle("All-patient within-breast XRD profile variability")
+    _plot_biopsy_log_ratio(axes[1, 0], cases, metric=metric)
+    _plot_no_biopsy_log_ratio(axes[1, 1], cases, metric=metric)
+    figure.suptitle("Within-cohort XRD profile variability")
     return figure
 
 
@@ -398,10 +406,14 @@ def _scatter_no_biopsy_cases(
     axis.set_ylabel("Left within-breast variability")
 
 
-def _plot_log_ratio_by_cohort(
+def _plot_biopsy_log_ratio(
     axis: plt.Axes, cases: pd.DataFrame, *, metric: str
 ) -> None:
-    available = [cohort for cohort in COHORT_ORDER if cohort in set(cases["cohort"])]
+    available = [
+        cohort
+        for cohort in ("BIOPSY_BENIGN", "BIOPSY_CANCER", "BIOPSY_UNRESOLVED")
+        if cohort in set(cases["cohort"])
+    ]
     values = [
         cases.loc[cases["cohort"].eq(cohort), f"log_ratio_{metric}"].to_numpy()
         for cohort in available
@@ -412,33 +424,26 @@ def _plot_log_ratio_by_cohort(
         patch.set_facecolor(COHORT_COLORS[cohort])
         patch.set_alpha(0.55)
     axis.axhline(0.0, color="#555555", linestyle="--")
-    axis.set_title("Within-patient variability ratios")
-    axis.set_ylabel("log(numerator / denominator variability)")
+    axis.set_title("Biopsy cohort: target / contralateral ratios")
+    axis.set_ylabel("log(target / contralateral variability)")
     axis.tick_params(axis="x", rotation=20)
 
 
-def _plot_overall_variability_by_cohort(
+def _plot_no_biopsy_log_ratio(
     axis: plt.Axes,
     cases: pd.DataFrame,
     *,
     metric: str,
 ) -> None:
-    available = [cohort for cohort in COHORT_ORDER if cohort in set(cases["cohort"])]
-    values = [
-        cases.loc[
-            cases["cohort"].eq(cohort),
-            f"geometric_mean_{metric}",
-        ].to_numpy()
-        for cohort in available
-    ]
-    labels = [cohort.replace("BIOPSY_", "") for cohort in available]
-    box = axis.boxplot(values, tick_labels=labels, patch_artist=True)
-    for patch, cohort in zip(box["boxes"], available, strict=True):
-        patch.set_facecolor(COHORT_COLORS[cohort])
-        patch.set_alpha(0.55)
-    axis.set_title("Typical variability across both breasts")
-    axis.set_ylabel("Geometric mean within-breast variability")
-    axis.tick_params(axis="x", rotation=20)
+    values = cases.loc[
+        cases["cohort"].eq("NO_BIOPSY"),
+        f"log_ratio_{metric}",
+    ].to_numpy()
+    axis.hist(values, bins="auto", color=COHORT_COLORS["NO_BIOPSY"], alpha=0.72)
+    axis.axvline(0.0, color="#555555", linestyle="--")
+    axis.set_title("Non-biopsy cohort: left / right ratios")
+    axis.set_xlabel("log(left / right variability)")
+    axis.set_ylabel("Patients")
 
 
 def _identity_line(

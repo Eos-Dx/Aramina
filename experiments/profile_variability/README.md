@@ -130,7 +130,8 @@ The resulting patients are split after preprocessing:
   BENIGN nor CANCER; retained without relabelling.
 
 For `NO_BIOPSY`, left is merely the numerator of a fixed left/right ratio. It
-does not mean target and has no cancer label.
+does not mean target and has no cancer label. Biopsy and no-biopsy cohorts are
+reported as separate descriptive analyses; they are not compared to each other.
 
 Run the full preprocessing once:
 

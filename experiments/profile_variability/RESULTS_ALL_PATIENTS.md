@@ -23,15 +23,17 @@ validate an Aramina classifier.
 - `177` have both breasts and at least three unique positions per breast; only
   these patients support the paired comparison.
 
-## Cohorts
+## Cohort definitions
 
-| Cohort | Patients | Comparison |
-|---|---:|---|
-| Unilateral biopsy, BENIGN | 72 | target / contralateral |
-| Unilateral biopsy, CANCER | 62 | target / contralateral |
-| Biopsy label unresolved | 1 | target / contralateral; not relabelled |
-| No biopsy | 31 | left / right only |
-| Bilateral biopsy | 11 | left / right; separate descriptive cohort |
+Two independent analyses are reported. They are not compared to each other.
+
+- **Biopsy cohort:** unilateral-biopsy patients, assessed as target /
+  contralateral. It contains 72 BENIGN and 62 CANCER target breasts.
+- **No-biopsy cohort:** 31 patients with no biopsy on either breast, assessed as
+  left / right only.
+
+Eleven bilateral-biopsy patients and one patient with an unresolved biopsy
+label remain in the audit output but do not enter either primary cohort result.
 
 The no-biopsy patients have no clinical target breast. `Left/Right` is a fixed
 orientation solely for calculating a signed paired ratio; interchanging sides
@@ -44,21 +46,25 @@ already normalized profiles across the full common q-grid
 `2.105-22.895 nm^-1`. The patient-level comparison is the log ratio of the
 two breast variabilities. A ratio of one means equal variability.
 
-## Results
+## Biopsy cohort result
 
-| Cohort | Median paired ratio | Geometric mean ratio | Bootstrap 95% CI |
+| Target-breast class | Patients | Median paired ratio | Geometric mean ratio | Bootstrap 95% CI |
 |---|---:|---:|---:|
-| BENIGN target / contralateral | 0.811 | 0.808 | 0.622-1.053 |
-| CANCER target / contralateral | 0.965 | 1.015 | 0.788-1.303 |
-| No biopsy left / right | 1.002 | 1.033 | 0.725-1.448 |
-| Bilateral biopsy left / right | 1.067 | 0.944 | 0.605-1.424 |
+| BENIGN | 72 | 0.811 | 0.808 | 0.622-1.053 |
+| CANCER | 62 | 0.965 | 1.015 | 0.788-1.303 |
 
-The no-biopsy left/right result is centred near one and has a wide confidence
+The CANCER target/contralateral ratio is near one on average. The BENIGN
+estimate is lower, but its interval crosses one.
+
+## No-biopsy cohort result
+
+| Patients | Median left/right ratio | Geometric mean ratio | Bootstrap 95% CI |
+|---:|---:|---:|---:|
+| 31 | 1.002 | 1.033 | 0.725-1.448 |
+
+The no-biopsy left/right result is centred near one with a wide confidence
 interval. It shows no apparent systematic left/right variability difference in
-this small eligible non-biopsy cohort. The biopsy cohort remains compatible
-with the earlier conclusion: CANCER target/contralateral variability is near
-equal on average, while the BENIGN estimate is lower but its interval crosses
-one.
+this small eligible cohort. It is not a comparator for the biopsy result.
 
 ## Limitation
 

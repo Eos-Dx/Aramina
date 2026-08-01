@@ -28,7 +28,7 @@ def _(mo):
     mo.md("""
     # All-patient XRD profile variability
 
-    Research-only analysis of normalized XRD profiles. Historical AgBH/K-beta exclusion and biopsy-patient filtering are disabled during preprocessing. The analysis compares target/contralateral only for unilateral-biopsy patients and left/right for no-biopsy patients.
+    Research-only analysis of normalized XRD profiles. Historical AgBH/K-beta exclusion and biopsy-patient filtering are disabled during preprocessing. Biopsy and no-biopsy cohorts are analysed separately: target/contralateral for unilateral-biopsy patients and left/right for no-biopsy patients.
     """)
     return
 

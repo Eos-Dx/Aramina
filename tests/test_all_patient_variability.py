@@ -8,6 +8,7 @@ import pandas as pd
 from experiments.profile_variability.all_patient_variability import (
     build_all_patient_variability_table,
     run_all_patient_variability_analysis,
+    save_all_patient_analysis,
 )
 
 
@@ -162,3 +163,14 @@ def test_all_patient_analysis_records_inclusion_policy():
         "NO_BIOPSY",
         "BILATERAL_BIOPSY",
     }
+
+
+def test_all_patient_analysis_writes_separate_cohort_summaries(tmp_path):
+    analysis = run_all_patient_variability_analysis(
+        _all_patient_frame(),
+        bootstrap_iterations=200,
+    )
+    save_all_patient_analysis(analysis, tmp_path)
+    assert (tmp_path / "biopsy_cohort_summary.csv").is_file()
+    assert (tmp_path / "no_biopsy_cohort_summary.csv").is_file()
+    assert not (tmp_path / "cohort_summary.csv").exists()
