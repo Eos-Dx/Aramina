@@ -257,9 +257,7 @@ def save_all_patient_analysis(
         analysis.summary["cohort"].str.startswith("BIOPSY_")
         | analysis.summary["cohort"].eq("BILATERAL_BIOPSY")
     ]
-    no_biopsy_summary = analysis.summary.loc[
-        analysis.summary["cohort"].eq("NO_BIOPSY")
-    ]
+    no_biopsy_summary = analysis.summary.loc[analysis.summary["cohort"].eq("NO_BIOPSY")]
     biopsy_summary.to_csv(output / "biopsy_cohort_summary.csv", index=False)
     no_biopsy_summary.to_csv(output / "no_biopsy_cohort_summary.csv", index=False)
     (output / "summary.yaml").write_text(
@@ -274,11 +272,13 @@ def all_patient_variability_figure(
     metric: str = PRIMARY_METRIC,
 ) -> plt.Figure:
     """Plot independent biopsy and no-biopsy within-cohort analyses."""
-    figure, axes = plt.subplots(2, 2, figsize=(13.0, 10.0), constrained_layout=True)
-    _scatter_biopsy_cases(axes[0, 0], cases, metric=metric)
-    _scatter_no_biopsy_cases(axes[0, 1], cases, metric=metric)
-    _plot_biopsy_log_ratio(axes[1, 0], cases, metric=metric)
-    _plot_no_biopsy_log_ratio(axes[1, 1], cases, metric=metric)
+    figure = plt.figure(figsize=(13.0, 10.0), constrained_layout=True)
+    axes = figure.subplot_mosaic(
+        [["biopsy", "no_biopsy"], ["ratios", "ratios"]],
+    )
+    _scatter_biopsy_cases(axes["biopsy"], cases, metric=metric)
+    _scatter_no_biopsy_cases(axes["no_biopsy"], cases, metric=metric)
+    _plot_oriented_log_ratios(axes["ratios"], cases, metric=metric)
     figure.suptitle("Within-cohort XRD profile variability")
     return figure
 
@@ -406,44 +406,26 @@ def _scatter_no_biopsy_cases(
     axis.set_ylabel("Left within-breast variability")
 
 
-def _plot_biopsy_log_ratio(
+def _plot_oriented_log_ratios(
     axis: plt.Axes, cases: pd.DataFrame, *, metric: str
 ) -> None:
-    available = [
-        cohort
-        for cohort in ("BIOPSY_BENIGN", "BIOPSY_CANCER", "BIOPSY_UNRESOLVED")
-        if cohort in set(cases["cohort"])
-    ]
+    available = ["BIOPSY_BENIGN", "BIOPSY_CANCER", "NO_BIOPSY"]
     values = [
         cases.loc[cases["cohort"].eq(cohort), f"log_ratio_{metric}"].to_numpy()
         for cohort in available
     ]
-    labels = [cohort.replace("BIOPSY_", "") for cohort in available]
+    labels = [
+        "BENIGN\ntarget / contralateral",
+        "CANCER\ntarget / contralateral",
+        "NO BIOPSY\nleft / right",
+    ]
     box = axis.boxplot(values, tick_labels=labels, patch_artist=True)
     for patch, cohort in zip(box["boxes"], available, strict=True):
         patch.set_facecolor(COHORT_COLORS[cohort])
         patch.set_alpha(0.55)
     axis.axhline(0.0, color="#555555", linestyle="--")
-    axis.set_title("Biopsy cohort: target / contralateral ratios")
-    axis.set_ylabel("log(target / contralateral variability)")
-    axis.tick_params(axis="x", rotation=20)
-
-
-def _plot_no_biopsy_log_ratio(
-    axis: plt.Axes,
-    cases: pd.DataFrame,
-    *,
-    metric: str,
-) -> None:
-    values = cases.loc[
-        cases["cohort"].eq("NO_BIOPSY"),
-        f"log_ratio_{metric}",
-    ].to_numpy()
-    axis.hist(values, bins="auto", color=COHORT_COLORS["NO_BIOPSY"], alpha=0.72)
-    axis.axvline(0.0, color="#555555", linestyle="--")
-    axis.set_title("Non-biopsy cohort: left / right ratios")
-    axis.set_xlabel("log(left / right variability)")
-    axis.set_ylabel("Patients")
+    axis.set_title("Within-patient variability ratios")
+    axis.set_ylabel("log(oriented breast 1 / breast 2 variability)")
 
 
 def _identity_line(

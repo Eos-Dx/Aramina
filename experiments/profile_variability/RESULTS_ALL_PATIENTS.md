@@ -26,6 +26,8 @@ validate an Aramina classifier.
 ## Cohort definitions
 
 Two independent analyses are reported. They are not compared to each other.
+Their oriented log ratios are displayed on one shared axis for scale, without a
+formal between-cohort test.
 
 - **Biopsy cohort:** unilateral-biopsy patients, assessed as target /
   contralateral. It contains 72 BENIGN and 62 CANCER target breasts.

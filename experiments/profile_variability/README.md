@@ -132,6 +132,9 @@ The resulting patients are split after preprocessing:
 For `NO_BIOPSY`, left is merely the numerator of a fixed left/right ratio. It
 does not mean target and has no cancer label. Biopsy and no-biopsy cohorts are
 reported as separate descriptive analyses; they are not compared to each other.
+The same oriented log-ratio scale is used for both and may be displayed in one
+figure: target/contralateral for biopsy cases and left/right for no-biopsy
+cases.
 
 Run the full preprocessing once:
 
