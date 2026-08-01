@@ -1,0 +1,44 @@
+# Research-only input for the profile-variability experiment.
+# This route intentionally retains historical AgBH/K-beta sessions and does not
+# require biopsy metadata. It is not an Aramina product preprocessing config.
+extends:
+  - ../../config/preprocessing/shared/aramina_policy_v0_1.yaml
+  - ../../config/preprocessing/shared/aramina_pipeline_v0_1.yaml
+  - ../../config/preprocessing/schema/prediction_input_columns_v0_1.yaml
+
+experiment:
+  name: all_patient_profile_variability
+  purpose: research-only within-patient profile variability analysis
+  input_policy: include biopsy and non-biopsy patients; do not apply historical AgBH/K-beta exclusions
+  clinical_status: not a model-training or clinical-decision-support dataset
+
+io:
+  input_h5_path: INPUT_H5_PATH_SET_BY_EXPERIMENT_CLI
+  output_joblib_path: OUTPUT_JOBLIB_PATH_SET_BY_EXPERIMENT_CLI
+
+filters:
+  date_filter:
+    enabled: false
+  quality_exclusions:
+    enabled: false
+    primary_key:
+      excluded_values: []
+    fallback_date:
+      excluded_dates: []
+
+labels:
+  product_column_builder:
+    benign_values:
+      - BENIGN
+      - NORMAL
+    normal_values: []
+
+product_filter:
+  filter_by_specimen_status: false
+  specimen_status_keep: []
+  filter_by_product_status_group: false
+  product_status_group_keep: []
+  require_biopsy_rows: false
+  require_biopsy_patient: false
+  require_patient_pair: false
+  patient_pair_keep: []

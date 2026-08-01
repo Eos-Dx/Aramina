@@ -111,3 +111,48 @@ warning rather than executing if the artifact is absent.
 
 Patient-level output is written to `per_case_variability_local.csv` and is
 gitignored. Aggregate summaries and figures contain no patient identifiers.
+
+## All-patient analysis without historical K-beta exclusion
+
+`config_all_patients_no_kbeta.yaml` is a research-only preprocessing route. It
+retains historical AgBH/K-beta sessions and does not require biopsy metadata.
+It still applies the technical pipeline: detector geometry, thickness filters,
+faulty-pixel handling, azimuthal integration, SNR filtering, normalization and
+profile gating. It is not a product-model input or a clinical validation set.
+
+The resulting patients are split after preprocessing:
+
+- `BIOPSY_BENIGN` and `BIOPSY_CANCER`: unilateral-biopsy patients, compared as
+  target / contralateral;
+- `NO_BIOPSY`: no biopsy on either breast, compared only as left / right;
+- `BILATERAL_BIOPSY`: both breasts biopsied, retained separately;
+- `BIOPSY_UNRESOLVED`: a biopsy is present but the historical label is neither
+  BENIGN nor CANCER; retained without relabelling.
+
+For `NO_BIOPSY`, left is merely the numerator of a fixed left/right ratio. It
+does not mean target and has no cancer label.
+
+Run the full preprocessing once:
+
+```bash
+PYTHONPATH=src python -m \
+  experiments.profile_variability.run_all_patient_variability \
+  --input-h5 /path/to/combined_archive.h5 \
+  --preprocessing-config experiments/profile_variability/config_all_patients_no_kbeta.yaml \
+  --output-joblib experiments/profile_variability/local_data/aramina_all_patients_no_kbeta_profiles.joblib \
+  --output-dir experiments/profile_variability/outputs/all_patients_no_kbeta \
+  --min-measurements 3
+```
+
+Repeat only the descriptive analysis from the saved local artifact:
+
+```bash
+PYTHONPATH=src python -m \
+  experiments.profile_variability.run_all_patient_variability \
+  --input-joblib experiments/profile_variability/local_data/aramina_all_patients_no_kbeta_profiles.joblib \
+  --output-dir experiments/profile_variability/outputs/all_patients_no_kbeta \
+  --min-measurements 3
+```
+
+The all-patient notebook is `all_patient_variability_notebook.py`. It expects
+`ARAMINA_ALL_PATIENT_PROFILE_JOBLIB` or the local artifact path above.

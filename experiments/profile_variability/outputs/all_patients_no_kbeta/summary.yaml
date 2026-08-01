@@ -1,0 +1,17 @@
+primary_metric: mean_pairwise_mse_full
+min_measurements_per_breast: 3
+eligible_patients: 177
+post_technical_qc_patients: 226
+patients_with_left_and_right_breasts: 215
+patients_with_minimum_positions_per_breast: 177
+cohort_counts:
+  BILATERAL_BIOPSY: 11
+  BIOPSY_BENIGN: 72
+  BIOPSY_CANCER: 62
+  BIOPSY_UNRESOLVED: 1
+  NO_BIOPSY: 31
+q_min_nm_inv: 2.105000013709068
+q_max_nm_inv: 22.89500272810459
+kbeta_historical_exclusions_applied: false
+biopsy_patient_filter_applied: false
+analysis_status: research_descriptive_not_model_training_or_validation

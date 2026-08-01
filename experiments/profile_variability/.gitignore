@@ -1,2 +1,4 @@
 __marimo__/
+local_data/
 outputs/**/per_case_variability_local.csv
+outputs/**/per_patient_variability_local.csv
