@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "aramina"
-version = "0.2.12b0"
+version = "0.2.13b0"
 description = "Aramina breast-XRD clinical decision-support research draft."
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
@@ -18,7 +18,7 @@ dependencies = [
   "h5py>=3.10",
   "pyarrow>=17",
   "pyyaml>=6.0",
-  "xrd-preprocessing @ git+https://github.com/Eos-Dx/XRD-preprocessing.git@c221a6e",
+  "xrd-preprocessing @ git+https://github.com/Eos-Dx/XRD-preprocessing.git@88dcaa277c5a0d4be2ab637bc5827a14bd106bea",
 ]
 
 [project.scripts]
