@@ -1,0 +1,79 @@
+contract: aramina_fpca256_profile_encoder_experiment_v0_1
+clinical_stage: research_only
+
+lineage:
+  aramina_base_main_git_sha: 394a34640441d33ebb994cd93107ac4447707461
+  source_h5_sha256: d2d61e83850b282c3d2479ea436deed821c4488b96983252d294f3d56ee3f1f9
+  base_preprocessing_config_sha256: 2913d1dfada1596bc12afec69ddb69c217af577f4cae10243931760900d01d3b
+  integration_method: [bbox, csr, cython]
+  pyfai_version: 2026.5.0
+  integration_method_source: pyfai_integrate1d_default
+
+cohorts:
+  common:
+    enabled: true
+    npt100_artifact:
+      path: /Users/sad/dev/Aramina-npt-experiment/outputs/npt_method_sweep/npt100_bbox/preprocessing_common.joblib
+      sha256: 1e33f4a5447993c40d4496dedc955a884cf8738447bb39d2b11eae0163bd4eff
+      pipeline_fingerprint: fc0a58dd54a85348985b8e16201a65b9152baed22e3a6be65ecaeaffaf47d95d
+      input_h5_sha256: d2d61e83850b282c3d2479ea436deed821c4488b96983252d294f3d56ee3f1f9
+      integration_variant: npt100_bbox
+      integration_npt: 100
+      integration_method: [bbox, csr, cython]
+    npt256_artifact:
+      path: /Users/sad/dev/Aramina-npt-experiment/outputs/npt_method_sweep/npt256_bbox/preprocessing_common.joblib
+      sha256: 195d3150dedc3847ca967abbbd37d49b89a4dd68a0aab13b3e9c2f20f5e739ae
+      pipeline_fingerprint: 9436335af89fc7c9457ca614e5e4f17797de23c7cf14d771f4b20e253728968e
+      input_h5_sha256: d2d61e83850b282c3d2479ea436deed821c4488b96983252d294f3d56ee3f1f9
+      integration_variant: npt256_bbox
+      integration_npt: 256
+      integration_method: [bbox, csr, cython]
+    expected_rows: 803
+    expected_patients: 161
+    expected_target_cases: 164
+  full_npt256:
+    enabled: true
+    npt256_artifact:
+      path: /Users/sad/dev/Aramina-npt-experiment/outputs/npt_method_sweep/npt256_bbox/preprocessing_full.joblib
+      sha256: 2eb7b46c6f42d284d996bd1d9b6d0a3d8df3ed372fb7fe0b9346bcbd87479504
+      pipeline_fingerprint: 9436335af89fc7c9457ca614e5e4f17797de23c7cf14d771f4b20e253728968e
+      input_h5_sha256: d2d61e83850b282c3d2479ea436deed821c4488b96983252d294f3d56ee3f1f9
+      integration_variant: npt256_bbox
+      integration_npt: 256
+      integration_method: [bbox, csr, cython]
+    expected_rows: 876
+    expected_patients: 163
+    expected_target_cases: 171
+
+preprocessing:
+  base_config_path: ../../config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
+  generated_npt256_artifact_path: ./outputs/generated/preprocessing_full_npt256.joblib
+  integration_npt: 256
+
+model:
+  profile_column: radial_profile_data
+  label_column: product_status_group
+  group_column: patientId
+  specimen_column: specimenId
+  side_column: side
+  q_column: q_range
+  age_column: age
+  biopsy_column: biopsy
+  lr1_row_policy: biopsy_only
+  lr1_logreg_c: 0.1
+  lr2_logreg_c: 0.3
+  class_weight: balanced
+  profile_aggregation: logit_average
+  lr2_architecture: age_plus_gated_sk_core4
+  raw_baselines: [100, 256]
+  fpca_components: [4, 5, 6, 7]
+
+evaluation:
+  method: repeated_stratified_kfold
+  folds: 5
+  repeats: 20
+  random_seed: 42
+  target_sensitivity: 0.95
+
+output:
+  folder: ./outputs
