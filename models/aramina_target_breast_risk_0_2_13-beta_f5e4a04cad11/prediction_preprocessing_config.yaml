@@ -1,0 +1,366 @@
+xrd_preprocessing:
+  version: local
+  release_tag: v0.1.9-beta
+io:
+  input_h5_path: INPUT_H5_PATH_SET_BY_PREDICTION_CONFIG
+  output_joblib_path: examples/outputs/prediction/aramina_prediction_patient_model_input_v0_1.joblib
+raw_data:
+  source: gfrm
+  location: h5_blob
+  allowed_sources:
+  - gfrm
+  h5_dataset_candidates:
+    gfrm:
+    - raw_file
+    - artifacts/gfrm
+filters:
+  date_filter:
+    enabled: false
+    column: started_at
+    op: date>=
+    value: 2026-01-01
+  measurement_positions:
+  - P1
+  - P2
+  - P3
+  required_q_max_nm_inv: 23.0
+  require_sample_thickness_mm: true
+  require_calibrant_thickness_mm: true
+  calibrant_thickness_range_mm:
+  - 2.0
+  - 40.0
+  thickness:
+    sample:
+      column: sample_thickness_mm
+      require: true
+      min_mm: 0.0
+    calibrant:
+      column: calibrant_thickness_mm
+      require: true
+      min_mm: 2.0
+      max_mm: 40.0
+  quality_exclusions:
+    enabled: false
+    primary_key:
+      excluded_values: []
+    fallback_date:
+      excluded_dates: []
+labels:
+  product_column_builder:
+    cancer_values:
+    - CANCER
+    - ATYPICAL
+    - PRE_CANCEROUS
+    benign_values:
+    - BENIGN
+    normal_values:
+    - NORMAL
+  grouping:
+    BENIGN: BENIGN
+    CANCER: CANCER
+    ATYPICAL: CANCER
+    PRE_CANCEROUS: CANCER
+    NORMAL: NORMAL
+    NA: exclude
+integration:
+  npt: 100
+  q_range_nm_inv:
+  - 2.0
+  - 23.0
+  error_model: poisson
+  thickness_correction:
+    enabled: true
+    sample_thickness_column: sample_thickness_mm
+    calibrant_thickness_column: calibrant_thickness_mm
+    require_sample_thickness: true
+    require_calibrant_thickness: true
+    calibrant_thickness_range_mm:
+    - 2.0
+    - 40.0
+snr:
+  method: poisson
+  min_snr_db: 18.0
+normalization:
+  mode: value
+  statistic: median
+  q_range_nm_inv:
+  - 6.7
+  - 7.1
+  save_initial_data: false
+profile_gate:
+  q_nm_inv: 14.0
+  min_value: 2.0
+product_filter:
+  filter_by_specimen_status: false
+  specimen_status_keep: []
+  filter_by_product_status_group: false
+  product_status_group_keep: []
+  require_biopsy_rows: false
+  require_biopsy_patient: false
+  require_patient_pair: false
+  patient_pair_keep: []
+  min_measurements_per_specimen_after_snr: 1
+  min_specimens_per_patient_after_snr: 1
+pipeline:
+  steps:
+  - name: poni_geometry
+    transformer: H5PoniGeometryCalculatorTransformer
+    params: {}
+  - name: select_h5_sessions
+    transformer: H5SessionSelectorTransformer
+    params:
+      session_category: SAMPLE
+      filters:
+      - enabled:
+          $ref: filters.date_filter.enabled
+        column:
+          $ref: filters.date_filter.column
+        op:
+          $ref: filters.date_filter.op
+        value:
+          $ref: filters.date_filter.value
+      - column: linked_agbh_session_uid
+        enabled:
+          $ref: filters.quality_exclusions.enabled
+        op: not in
+        values:
+          $ref: filters.quality_exclusions.primary_key.excluded_values
+        fallback:
+          column: started_at
+          op: date not in
+          values:
+            $ref: filters.quality_exclusions.fallback_date.excluded_dates
+      - enabled:
+          $ref: product_filter.require_biopsy_rows
+        column: biopsy
+        op: ==
+        value: true
+      - enabled:
+          $ref: product_filter.filter_by_specimen_status
+        column: specimen_status
+        op: in
+        values:
+          $ref: product_filter.specimen_status_keep
+      - column: calibrant_thickness_mm
+        op: notna
+      - column: calibrant_thickness_mm
+        op: '>='
+        value:
+          $ref: filters.calibrant_thickness_range_mm.0
+      - column: calibrant_thickness_mm
+        op: <=
+        value:
+          $ref: filters.calibrant_thickness_range_mm.1
+      - column: poni_q_max_nm_inv
+        op: '>='
+        value:
+          $ref: filters.required_q_max_nm_inv
+  - name: h5_to_df
+    transformer: H5ToDataFrameTransformer
+    params:
+      data_preference:
+        $ref: raw_data.source
+      drop_missing_sample_thickness:
+        $ref: filters.require_sample_thickness_mm
+      session_category: SAMPLE
+      set_category: SAMPLE
+      measurement_filters:
+      - column: position
+        op: in
+        values:
+          $ref: filters.measurement_positions
+  - name: product_columns
+    transformer: ProductColumnBuilder
+    params:
+      cancer_values:
+        $ref: labels.product_column_builder.cancer_values
+      benign_values:
+        $ref: labels.product_column_builder.benign_values
+      normal_values:
+        $ref: labels.product_column_builder.normal_values
+  - name: position_filter
+    transformer: ColumnValueFilter
+    params:
+      column: position
+      op: in
+      values:
+        $ref: filters.measurement_positions
+  - name: sample_thickness_filter
+    transformer: ColumnValueFilter
+    params:
+      column:
+        $ref: filters.thickness.sample.column
+      op: '>'
+      value:
+        $ref: filters.thickness.sample.min_mm
+  - name: calibrant_thickness_filter
+    transformer: ColumnValueFilter
+    params:
+      column:
+        $ref: filters.thickness.calibrant.column
+      op: between
+      lower:
+        $ref: filters.thickness.calibrant.min_mm
+      upper:
+        $ref: filters.thickness.calibrant.max_mm
+  - name: biopsy_filter
+    transformer: ColumnValueFilter
+    enabled:
+      $ref: product_filter.require_biopsy_rows
+    params:
+      column: biopsy
+      op: ==
+      value: true
+  - name: patient_biopsy_filter
+    transformer: GroupValueFilter
+    enabled:
+      $ref: product_filter.require_biopsy_patient
+    params:
+      group_column: patientId
+      column: biopsy
+      op: ==
+      value: true
+  - name: specimen_status_filter
+    transformer: ColumnValueFilter
+    enabled:
+      $ref: product_filter.filter_by_specimen_status
+    params:
+      column: specimen_status
+      op: in
+      values:
+        $ref: product_filter.specimen_status_keep
+  - name: product_status_filter
+    transformer: ProductStatusGroupFilter
+    enabled:
+      $ref: product_filter.filter_by_product_status_group
+    params:
+      allowed:
+        $ref: product_filter.product_status_group_keep
+  - name: paired_patient_filter
+    transformer: PairedGroupFilter
+    enabled:
+      $ref: product_filter.require_patient_pair
+    params:
+      allowed_pairs:
+        $ref: product_filter.patient_pair_keep
+  - name: faulty_pixels
+    transformer: FaultyPixelDetector
+    params:
+      bright_pixel_min_value: 500.0
+      exclude_beam_center_radius: 0.04
+  - name: interpolation_q_range
+    transformer: ConstantQRangeTransformer
+    params:
+      q_min:
+        $ref: integration.q_range_nm_inv.0
+      q_max:
+        $ref: integration.q_range_nm_inv.1
+  - name: azimuthal_integration
+    transformer: AzimuthalIntegration
+    params:
+      npt:
+        $ref: integration.npt
+      calibration_mode: poni
+      mask_column: faulty_pixel_mask
+      error_model:
+        $ref: integration.error_model
+      thickness_adjustment:
+        $ref: integration.thickness_correction.enabled
+      require_thickness_adjustment:
+        $ref: integration.thickness_correction.enabled
+      sample_thickness_column:
+        $ref: integration.thickness_correction.sample_thickness_column
+      thickness_reference_column:
+        $ref: integration.thickness_correction.calibrant_thickness_column
+  - name: snr
+    transformer: SNRTransformer
+    params:
+      snr_method:
+        $ref: snr.method
+  - name: snr_filter
+    transformer: SNRFilter
+    params:
+      min_snr_db:
+        $ref: snr.min_snr_db
+  - name: specimen_validity
+    transformer: PatientSpecimenValidityFilter
+    params:
+      min_measurements_per_specimen:
+        $ref: product_filter.min_measurements_per_specimen_after_snr
+      min_specimens_per_patient:
+        $ref: product_filter.min_specimens_per_patient_after_snr
+  - name: normalization
+    transformer: QRangeValueNormalizer
+    params:
+      q_min:
+        $ref: normalization.q_range_nm_inv.0
+      q_max:
+        $ref: normalization.q_range_nm_inv.1
+      statistic:
+        $ref: normalization.statistic
+      save_initial_data:
+        $ref: normalization.save_initial_data
+  - name: profile_gate
+    transformer: RadialProfileValueFilter
+    params:
+      q_value_nm_inv:
+        $ref: profile_gate.q_nm_inv
+      threshold:
+        $ref: profile_gate.min_value
+      op: '>'
+  - name: keep_columns
+    transformer: KeepColumnsTransformer
+    params:
+      columns:
+        $ref: metadata.output_columns
+      errors:
+        $ref: metadata.keep_columns_errors
+metadata:
+  keep_columns_errors: ignore
+  output_columns:
+  - patientId
+  - session_uid
+  - session_id
+  - specimenId
+  - side
+  - target_side
+  - target_breast
+  - mammography_suspicious_field
+  - mammography_conclusion
+  - scan_date_time
+  - operator_id
+  - hardware_version
+  - eoscan_version
+  - experimental_protocol_version
+  - product_protocol_version
+  - position
+  - started_at
+  - measurementDate
+  - specimen_status
+  - product_status_group
+  - product_diagnosis
+  - patient_product_diagnosis
+  - age
+  - biopsy
+  - sample_thickness_mm
+  - calibrant_thickness_mm
+  - poni_q_max_nm_inv
+  - measurement_data_source
+  - q_range
+  - radial_profile_data
+  - snr_db
+  - specimen_measurement_count
+  - radial_profile_value_at_q
+  - radial_profile_nearest_q_nm_inv
+  - radial_profile_q_delta_nm_inv
+  - radial_profile_value_pass
+aramina_preprocessing:
+  name: aramina_prediction_patient_model_input
+  version: 0.1
+  clinical_stage: research draft
+provenance:
+  status: research draft prediction preprocessing config
+  canonical_location: config/preprocessing/config_preprocessing_prediction_patient_v0_1.yaml
+  product_filter_rule: one incoming patient H5; no historical date, diagnosis, biopsy,
+    or AgBH exclusion filters
+  clinical_safety_note: Decision-support preprocessing only; not autonomous diagnosis.

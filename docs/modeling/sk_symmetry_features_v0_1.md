@@ -20,9 +20,10 @@ target_breast_model_input_columns()
 
 New training writes `aramina_sk_symmetry_v0_2`. It uses the q ranges and
 neutral-gating rule defined in this document. The frozen
-`aramina_target_breast_risk_0_2_12-beta_9bb911189af6` artifact carries this
-contract. Historical feature contracts remain on the experimental branch and
-must not be presented as current-product results.
+`aramina_target_breast_risk_0_2_12-beta_9bb911189af6` product artifact and the
+separate `aramina_target_breast_risk_0_2_13-beta_f5e4a04cad11` candidate carry
+this contract. Historical feature contracts remain on the experimental branch
+and must not be presented as current-product results.
 
 ## Input
 

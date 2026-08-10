@@ -18,7 +18,8 @@ one-patient EOS H5 v0.3
 
 ```text
 model: aramina_target_breast_risk
-version: 0.2.12-beta
+frozen product model: 0.2.12-beta
+retrained candidate: 0.2.13-beta
 cohort: T100 biopsy-patient target-breast cases
 evaluation: repeated patient-safe stratified 5-fold x20
 regularization: profile C=0.1; final model C=0.3
@@ -26,7 +27,9 @@ regularization: profile C=0.1; final model C=0.3
 
 The released artifact is under [`models/`](models/README.md). Architecture,
 cohort, metrics, threshold, and limitations are recorded in the
-[current model record](docs/modeling/aramina_t100_target_case_model_v0_1.md).
+[current product-model record](docs/modeling/aramina_t100_target_case_model_v0_1.md).
+The separately retrained XRD `v0.1.9-beta` candidate is recorded in
+[`docs/modeling/aramina_t100_target_case_model_v0_2.md`](docs/modeling/aramina_t100_target_case_model_v0_2.md).
 
 ## Install
 
