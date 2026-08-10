@@ -14,6 +14,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from aramina.patient_features import lr1_training_rows
 from aramina.training_evaluation import _evaluate_m2q_model
 from experiments.fpca256_profile_encoder.config import validate_experiment_config
+from experiments.fpca256_profile_encoder.component_interpretation import (
+    align_coefficient_to_reference,
+    component_landmarks,
+)
 from experiments.fpca256_profile_encoder.model import (
     FoldLocalProfileEncoder,
     ProfileSpec,
@@ -198,6 +202,25 @@ def test_config_locks_product_model_controls() -> None:
     changed["model"]["lr1_logreg_c"] = 1.0
     with pytest.raises(ValueError, match="Controlled model field"):
         validate_experiment_config(changed)
+
+
+def test_component_landmarks_use_one_standard_deviation_change() -> None:
+    landmarks = component_landmarks(
+        np.array([6.0, 7.0, 8.0]),
+        np.array([-1.0, 0.0, 1.0]),
+        explained_variance=4.0,
+    )
+    assert landmarks["one_sd_min_q_nm_inv"] == 6.0
+    assert landmarks["one_sd_max_q_nm_inv"] == 8.0
+    assert landmarks["one_sd_peak_to_peak"] == 4.0
+
+
+def test_component_coefficient_alignment_preserves_prediction_direction() -> None:
+    aligned, similarity = align_coefficient_to_reference(
+        np.array([1.0, 0.0]), np.array([-1.0, 0.0]), coefficient=-0.4
+    )
+    assert aligned == pytest.approx(0.4)
+    assert similarity == pytest.approx(1.0)
 
 
 def test_input_artifact_hash_mismatch_is_rejected(tmp_path: Path) -> None:

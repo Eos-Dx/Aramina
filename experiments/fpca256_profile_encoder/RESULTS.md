@@ -94,6 +94,19 @@ variance therefore converges much earlier than class separation.
 
 ![Common-cohort FPCA 10-30 sweep](results/components_10_to_30/common/fpca_component_convergence.png)
 
+## FPCA30 component interpretation
+
+The FPCA30 basis was separately examined using the `100` patient-safe outer
+folds. PC1, PC2, PC4, PC6, and PC7 combine measurable LR1 contribution with
+stable fold-local bases (mean sign-invariant cosine similarity above `0.95`).
+PC10, PC26, and PC29 can receive train-on-all LR1 coefficients despite unstable
+fold-local bases; they should not be interpreted as robust profile structures.
+
+![Selected FPCA30 component perturbations](results/components_10_to_30/common/component_interpretation/fpca30_active_components.png)
+
+The full ranking, stability measurements, and q-space landmarks are in
+[`component_interpretation/`](results/components_10_to_30/common/component_interpretation/).
+
 ## Variance representation
 
 Four components explain 94.2% of train-on-all profile variance in the common

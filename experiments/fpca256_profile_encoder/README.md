@@ -151,6 +151,27 @@ Each cohort directory contains:
 - `fpca_component_convergence.png`
 - `effective_experiment_config.yaml`
 
+The FPCA30 follow-up additionally contains a descriptive component analysis in
+`results/components_10_to_30/common/component_interpretation/`:
+
+- `fpca30_component_activity.csv`
+- `fpca30_fold_component_stability.csv`
+- `fpca30_active_components.png`
+- `fpca30_component_interpretation.md`
+
+Recreate this footprint after the FPCA30 sweep with:
+
+```bash
+python -m experiments.fpca256_profile_encoder.component_interpretation \
+  --config experiments/fpca256_profile_encoder/config_fpca256_profile_encoder_v0_1.yaml \
+  --result-folder experiments/fpca256_profile_encoder/results/components_10_to_30/common \
+  --output-folder experiments/fpca256_profile_encoder/results/components_10_to_30/common/component_interpretation
+```
+
+Component activity is assessed from the LR1 coefficient per standardized
+component score, while basis stability is checked across the 100 patient-safe
+outer folds. Neither value establishes a biological interpretation.
+
 `fold_manifest.csv` records every train/test target-case assignment. Bilateral
 target cases remain in the same patient-safe set. Paired deltas compare each
 FPCA encoder with the applicable raw baseline on the same folds. Their 2.5% and
