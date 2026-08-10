@@ -4,12 +4,11 @@ This directory contains only input YAML files used by Aramina commands. Every
 runnable input file begins with `config_`. Product preprocessing YAMLs are
 assembled from readable fragments under `preprocessing/`.
 
-```text
-prediction/                    one-patient prediction request template
-preprocessing/                 product preprocessing inputs and fragments
-preprocessing_and_training/    combined preprocess-and-train input
-training/                      training input
-```
+- [Prediction](prediction/README.md)
+- [Preprocessing](preprocessing/README.md)
+- [Preprocessing and training](preprocessing_and_training/README.md)
+- [Training](training/README.md)
 
-Runnable examples live under `examples/`. Filled output-contract examples live
-under `contracts/`. Canonical field definitions live under `docs/contracts/`.
+Runnable examples live under [`examples/`](../examples/README.md). Filled
+output examples live under [`contracts/`](../contracts/README.md). Canonical
+field definitions live under [`docs/contracts/`](../docs/README.md#contracts).

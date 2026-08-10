@@ -41,29 +41,29 @@ from .training_artifacts import (
     _write_evaluation_outputs,
 )
 from .training_evaluation import (
-    _evaluate_m2q_model,
+    _evaluate_target_breast_model,
 )
 from .training_evaluation import _patient_split_pairs  # noqa: F401
 from .training_model import (
-    _fit_m2q_model,
+    _fit_target_breast_model,
     _profile_logistic,
 )
 from .model_description import (
     _decision_threshold_record,
-    _file_sha256,
     _model_artifact_id,
     _model_description,
     _model_reference,
     _write_model_input_snapshots,
     _write_yaml,
 )
+from .runtime_identity import file_sha256, safe_stem
 
 PATIENT_BOOTSTRAP_SAMPLES = 2_000
 logger = logging.getLogger(__name__)
 
 
 class PatientModelInputBuilder(BaseEstimator):
-    """Build target-breast cases used by the fixed Aramina M2Q model.
+    """Build target-breast cases used by the fixed Aramina model.
 
     The input is a preprocessed measurement-level DataFrame. The builder first
     selects LR1 training rows according to the product policy, trains the profile
@@ -150,11 +150,11 @@ class PatientModelInputBuilder(BaseEstimator):
         return self.fit(x, y).transform(x)
 
 
-class M2QModelTrainer(BaseEstimator):
-    """Train the fixed M2Q target-breast decision-support model.
+class TargetBreastModelTrainer(BaseEstimator):
+    """Train the fixed target-breast decision-support model.
 
     The trainer consumes the target-case feature table from
-    `PatientModelInputBuilder` and its retained LR1 measurement rows. M2Q uses
+    `PatientModelInputBuilder` and its retained LR1 measurement rows. It uses
     one final LogisticRegression. It receives SK terms only as
     a gated optional refinement: all SK terms are zero when contralateral data
     is unavailable. Reliability remains a report field, not a model feature.
@@ -181,10 +181,10 @@ class M2QModelTrainer(BaseEstimator):
         self,
         feature_table: pd.DataFrame,
         lr1_rows: pd.DataFrame,
-    ) -> "M2QModelTrainer":
-        """Fit the final M2Q model and store it in `models_`."""
+    ) -> "TargetBreastModelTrainer":
+        """Fit the final model and store it in `models_`."""
         self.models_ = {
-            PRODUCT_MODEL_NAME: _fit_m2q_model(
+            PRODUCT_MODEL_NAME: _fit_target_breast_model(
                 feature_table,
                 lr1_rows,
                 profile_column=self.profile_column,
@@ -198,8 +198,8 @@ class M2QModelTrainer(BaseEstimator):
         return self
 
 
-class M2QModelEvaluator(BaseEstimator):
-    """Evaluate M2Q with patient-safe repeated stratified K-fold.
+class TargetBreastModelEvaluator(BaseEstimator):
+    """Evaluate the model with patient-safe repeated stratified K-fold.
 
     All splits operate at patient level, so measurements from one patient cannot
     appear in both train and test.
@@ -238,9 +238,9 @@ class M2QModelEvaluator(BaseEstimator):
         self.random_state = random_state
         self.target_sensitivity = target_sensitivity
 
-    def fit(self, x: pd.DataFrame, y: Any = None) -> "M2QModelEvaluator":
-        """Store M2Q fold metrics and held-out predictions."""
-        self.split_metrics_, self.split_predictions_ = _evaluate_m2q_model(
+    def fit(self, x: pd.DataFrame, y: Any = None) -> "TargetBreastModelEvaluator":
+        """Store fold metrics and held-out predictions."""
+        self.split_metrics_, self.split_predictions_ = _evaluate_target_breast_model(
             x,
             config=self.config,
             profile_column=self.profile_column,
@@ -265,7 +265,7 @@ class AraminaPatientTrainingPipeline(BaseEstimator):
 
     This estimator is the product-level training unit. It receives a
     measurement-level preprocessing DataFrame, builds target-breast features,
-    evaluates fixed M2Q, and exposes the final traceable model artifact.
+    evaluates the fixed model, and exposes the final traceable artifact.
     """
 
     def __init__(
@@ -319,7 +319,7 @@ class AraminaPatientTrainingPipeline(BaseEstimator):
         )
         self.feature_table_ = self.input_builder_.fit_transform(x)
         if bool(self.config.get("run", {}).get("evaluation", False)):
-            self.evaluator_ = M2QModelEvaluator(
+            self.evaluator_ = TargetBreastModelEvaluator(
                 config=self.config,
                 profile_column=profile_column,
                 label_column=label_column,
@@ -341,7 +341,7 @@ class AraminaPatientTrainingPipeline(BaseEstimator):
             self.evaluator_ = None
             split_metrics = pd.DataFrame()
             split_predictions = pd.DataFrame()
-        self.model_trainer_ = M2QModelTrainer(
+        self.model_trainer_ = TargetBreastModelTrainer(
             profile_column=profile_column,
             label_column=label_column,
             lr1_logreg_c=lr1_logreg_c,
@@ -459,7 +459,7 @@ def run_training_from_config(
             config["evaluation"]["n_repeats"],
             config["evaluation"]["random_state"],
         )
-    artifact = train_m2q_model_artifact(
+    artifact = train_target_breast_model_artifact(
         df,
         config=config,
         config_text=config_text,
@@ -490,7 +490,7 @@ def run_training_from_config(
     model_path = run_folder / "model.joblib"
     joblib.dump(model_artifact, model_path)
     _write_model_input_snapshots(model_artifact, run_folder)
-    model_sha = _file_sha256(model_path)
+    model_sha = file_sha256(model_path)
     model_id = _model_artifact_id(model_identity, model_sha)
     if public_config["run"]["evaluation"]:
         _write_evaluation_outputs(
@@ -518,7 +518,7 @@ def run_training_from_config(
     return model_artifact
 
 
-def train_m2q_model_artifact(
+def train_target_breast_model_artifact(
     df: pd.DataFrame,
     *,
     config: dict[str, Any],
@@ -528,7 +528,7 @@ def train_m2q_model_artifact(
     prediction_preprocessing: dict[str, Any] | None = None,
     preprocess_train_config_yaml: str | None = None,
 ) -> dict[str, Any]:
-    """Train one traceable M2Q target-breast model artifact."""
+    """Train one traceable target-breast model artifact."""
     pipeline = build_patient_training_pipeline(
         config=config,
         config_text=config_text,
@@ -607,13 +607,7 @@ def _public_config_path(
 
 def _new_training_run_folder(output_root: Path, model: dict[str, Any]) -> Path:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    stem = _safe_artifact_stem(f"{model['name']}_{model['version']}")
+    stem = safe_stem(f"{model['name']}_{model['version']}")
     folder = output_root / f"{stem}_{stamp}_{uuid4().hex[:8]}"
     folder.mkdir(parents=True, exist_ok=False)
     return folder
-
-
-def _safe_artifact_stem(value: str) -> str:
-    return "".join(
-        char if char.isalnum() or char in {"-", "_"} else "_" for char in value
-    ).strip("_")

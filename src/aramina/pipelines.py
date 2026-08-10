@@ -4,9 +4,6 @@ from __future__ import annotations
 
 import gc
 import logging
-import subprocess
-from hashlib import sha256
-from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +18,7 @@ from xrd_preprocessing import (
 
 from .config_paths import resolve_config_path
 from .preprocessing_contract import validate_if_aramina_product_config
+from .runtime_identity import aramina_git_sha, aramina_version, file_sha256
 
 
 logger = logging.getLogger(__name__)
@@ -164,33 +162,8 @@ def _write_joblib_if_requested(
         output_path,
         preprocessing_config_text=config_text,
         metadata={
-            "input_h5_sha256": _file_sha256(input_h5_path),
-            "aramina_version": _aramina_version(),
-            "aramina_git_sha": _aramina_git_sha(),
+            "input_h5_sha256": file_sha256(input_h5_path),
+            "aramina_version": aramina_version(),
+            "aramina_git_sha": aramina_git_sha(),
         },
     )
-
-
-def _file_sha256(path: str | Path) -> str:
-    digest = sha256()
-    with Path(path).open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def _aramina_version() -> str:
-    try:
-        return version("aramina")
-    except PackageNotFoundError:
-        return "unknown"
-
-
-def _aramina_git_sha() -> str:
-    repo_root = Path(__file__).resolve().parents[2]
-    if not (repo_root / ".git").exists():
-        return "unavailable"
-    return subprocess.check_output(
-        ["git", "-C", str(repo_root), "rev-parse", "HEAD"],
-        text=True,
-    ).strip()

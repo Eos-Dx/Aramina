@@ -9,7 +9,8 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 
-from .prediction_contract import _file_sha256, _json_safe, _prediction_contract
+from .prediction_contract import _json_safe, _prediction_contract
+from .runtime_identity import file_sha256
 
 
 def _prediction_reports(
@@ -60,7 +61,7 @@ def _prediction_reports(
         reference_doc=reporting["internal_report"].get("reference_doc"),
         target_prediction=target_prediction,
         contralateral_prediction=contralateral_prediction,
-        model_artifact_sha256=_file_sha256(model_path),
+        model_artifact_sha256=file_sha256(model_path),
         model_metrics=_final_model_metrics(model_artifact),
     )
     return _json_safe({"external_report": external, "internal_report": internal})

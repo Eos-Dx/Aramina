@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from hashlib import sha256
 from math import isfinite
 from pathlib import Path
 from typing import Any
@@ -14,6 +13,7 @@ import h5py
 import yaml
 
 from .config_paths import config_reference_root, resolve_config_path
+from .runtime_identity import file_sha256, safe_stem
 
 def _model_info(model_artifact: dict[str, Any], model_name: str) -> dict[str, Any]:
     if model_artifact.get("kind") != "aramina_training_artifact":
@@ -43,8 +43,8 @@ def _model_identity(
             "Prediction model artifact must contain exactly one selected model; "
             f"available={model_names}"
         )
-    artifact_sha = _file_sha256(model_path)
-    model_id = _safe_stem(
+    artifact_sha = file_sha256(model_path)
+    model_id = safe_stem(
         f"{artifact_model_name}_{artifact_model_version}_{artifact_sha[:12]}"
     )
     return model_id, model_names[0], str(artifact_model_version)
@@ -74,7 +74,10 @@ def _prediction_output_paths(
     folder = _config_path(config, config_path, section="io", key="output_folder")
     report_id = datetime.now(ZoneInfo("Europe/Paris")).strftime("%Y%m%dT%H%M%S")
     report_id = f"{report_id}_{uuid4().hex[:8]}"
-    stem = _safe_stem(f"{config['patient']['patient_id']}_{model_id}_{report_id}")
+    stem = safe_stem(
+        f"{config['patient']['patient_id']}_{model_id}_{report_id}",
+        fallback="aramina_prediction",
+    )
     return {
         "folder": folder,
         "report_id": report_id,
@@ -82,16 +85,6 @@ def _prediction_output_paths(
         "external_yaml": folder / f"{stem}_external_report.yaml",
         "internal_yaml": folder / f"{stem}_internal_report.yaml",
     }
-
-
-def _safe_stem(value: str) -> str:
-    out = []
-    for char in value.strip():
-        if char.isalnum() or char in {"-", "_"}:
-            out.append(char)
-        else:
-            out.append("_")
-    return "".join(out).strip("_") or "aramina_prediction"
 
 
 def _validate_prediction_config(config: dict[str, Any], config_path: Path) -> None:
@@ -317,23 +310,9 @@ def _config_root(config_path: Path) -> Path:
     return config_reference_root(config_path)
 
 
-def _file_sha256(path: str | Path) -> str:
-    digest = sha256()
-    with Path(path).open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
 def _write_text(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
-
-
-def _json_dumps(value: dict[str, Any]) -> str:
-    import json
-
-    return json.dumps(value, indent=2, sort_keys=False) + "\n"
 
 
 def _json_safe(value: Any) -> Any:

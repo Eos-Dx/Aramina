@@ -89,7 +89,12 @@ def _write_training_input(path: Path) -> None:
     save_preprocessing_artifact(
         _patient_training_frame(),
         path,
-        preprocessing_config_text="pipeline:\n  steps:\n  - name: test\n",
+        preprocessing_config_text=(
+            "pipeline:\n"
+            "  steps:\n"
+            "  - name: test\n"
+            "    transformer: H5ToDataFrameTransformer\n"
+        ),
         metadata={"input_h5_sha256": "abc"},
     )
 

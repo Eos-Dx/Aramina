@@ -33,8 +33,8 @@ missing H5 structure, empty required values, or a missing model-held contract
 stop the request before scoring.
 
 The generated output folder receives one preprocessed DataFrame artifact and
-both YAML/JSON external and internal reports. Full report fields are defined in
-`config/prediction/README.md` and
+YAML external and internal reports. JSON files are not written. Full report
+fields are defined in `config/prediction/README.md` and
 `docs/modeling/internal_clinical_report_content_v0_9.md`.
 
 The frozen model additionally defines the TRA score contract for internal audit.

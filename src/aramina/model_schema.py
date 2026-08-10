@@ -6,10 +6,10 @@ from typing import Any
 
 import pandas as pd
 
-from .m2q_model import SK_CORE4_FEATURE_COLUMNS
+from .target_breast_model import SK_CORE4_FEATURE_COLUMNS
 
 
-def m2q_model_input_columns() -> list[str]:
+def target_breast_model_input_columns() -> list[str]:
     """Return fixed final-model input columns in report order."""
     return [
         "profile_p_cancer_logit_average",
@@ -20,11 +20,11 @@ def m2q_model_input_columns() -> list[str]:
     ]
 
 
-def m2q_feature_schema() -> dict[str, Any]:
+def target_breast_feature_schema() -> dict[str, Any]:
     """Return the serialised feature contract carried by the model artifact."""
     return {
         "final_model": {
-            "feature_columns": m2q_model_input_columns(),
+            "feature_columns": target_breast_model_input_columns(),
             "learned_feature_columns": [
                 "profile_p_cancer_logit_average",
                 "age",
@@ -48,7 +48,7 @@ def m2q_feature_schema() -> dict[str, Any]:
     }
 
 
-def m2q_warnings(feature_table: pd.DataFrame) -> list[str]:
+def target_breast_warnings(feature_table: pd.DataFrame) -> list[str]:
     """Create research-draft and measurement-sufficiency warnings."""
     warnings = [
         "Research-draft decision support only; requires radiologist review.",

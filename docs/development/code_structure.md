@@ -15,12 +15,14 @@ model, preprocessing, labels, threshold, or validation protocol.
 | `workflows.py` | Run the combined `preprocess-train` workflow. |
 | `patient_features.py` | Build historical target cases, LR1 evidence, age and reliability fields. |
 | `symmetry_features.py` | Calculate target-versus-contralateral SK symmetry features. |
-| `m2q_model.py` | Define LR1 and the gated final logistic estimator. |
+| `target_breast_model.py` | Define the profile and gated final estimators. |
+| `m2q_model.py` | Compatibility imports for released joblib artifacts only. |
 | `training_model.py` | Fit LR1 and the final model on accepted target cases. |
 | `training_evaluation.py` | Patient-safe repeated stratified folds and evaluation metrics. |
 | `model_metrics.py` | Calculate shared discrimination, threshold, calibration, and confusion metrics. |
 | `training_artifacts.py` | Build training lineage, reproducibility, evaluation and final-model payloads. |
 | `model_description.py` | Write model descriptions, YAML and immutable artifact identifiers. |
+| `runtime_identity.py` | Shared SHA256, file-stem, package-version and Git identity helpers. |
 | `training.py` | Public training API and sklearn-compatible orchestration only. |
 | `prediction_contract.py` | Validate prediction YAML, H5 v0.3 and output paths. |
 | `prediction_scoring.py` | Score target and contralateral breasts using the frozen artifact. |
@@ -48,8 +50,9 @@ not write model artifacts.
 - Preserve public APIs: `run_preprocessing_from_config`,
   `run_training_from_config`, `run_preprocess_train_from_config`, and
   `run_prediction_from_config`.
-- Preserve the import path of any custom class stored in a released joblib.
-  `GatedSymmetryLogistic` remains in `aramina.m2q_model` for this reason.
+- Preserve import compatibility for custom classes stored in released joblibs.
+  `aramina.m2q_model` remains a compatibility module; new code uses
+  `aramina.target_breast_model`.
 - Structural changes must not silently alter product behaviour.
 
 ## Required Verification

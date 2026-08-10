@@ -1,48 +1,34 @@
 # Aramina
 
-Status: research-draft breast-XRD decision-support prototype.
+Research-draft breast-XRD decision support. Aramina scores one clinically
+selected target breast as `BENIGN` or `CANCER` and reports whether biopsy is
+required under the frozen model threshold. It is not an autonomous diagnosis.
 
-Aramina accepts one EOS H5 `0.3` container for one patient, preprocesses its
-left/right XRD measurements, and returns a target-breast BENIGN/CANCER
-decision-support class with reliability metadata. It is for review by a
-qualified breast-imaging clinician; it is not autonomous diagnosis or a
-replacement for biopsy or radiologist review.
-
-## Product Route
+## Current Product
 
 ```text
-one-patient H5
--> model-held prediction preprocessing
--> normalized radial_profile_data
--> LR1 target-breast profile score
--> LR2: profile + age + optional gated SK symmetry refinement
--> p_cancer, threshold-derived high/low target-class risk level, biopsy_required, reliability
+one-patient EOS H5 v0.3
+-> frozen prediction preprocessing
+-> normalized 100-point XRD profiles
+-> profile LogisticRegression
+-> target-breast profile score
+-> final LogisticRegression with age and optional gated symmetry
+-> p_cancer, risk level, biopsy_required, reliability
 ```
-
-Current product definition:
 
 ```text
 model: aramina_target_breast_risk
-training cohort: T100 biopsy-patient target-breast cases
-regularization: LR1 L2 C=0.1; LR2 L2 C=0.3
-default evaluation: repeated patient-safe stratified 5-fold x20
-deployment threshold: train-all score at target sensitivity >=0.95
+version: 0.2.12-beta
+cohort: T100 biopsy-patient target-breast cases
+evaluation: repeated patient-safe stratified 5-fold x20
+regularization: profile C=0.1; final model C=0.3
 ```
 
-## Installation
+The released artifact is under [`models/`](models/README.md). Architecture,
+cohort, metrics, threshold, and limitations are recorded in the
+[current model record](docs/modeling/aramina_t100_target_case_model_v0_1.md).
 
-Two supported routes:
-
-```text
-Git clone + Conda: development, inspection, direct local runs.
-Docker bundle: reproducible full-H5 training and demonstration.
-```
-
-The immutable-model HTTP API is supplied by the separate Prediction API
-Bundle. It uses the `api` dependency extra and is intended for local
-demonstrations or a separately secured integration service.
-
-For a clone and Conda environment:
+## Install
 
 ```bash
 git clone https://github.com/Eos-Dx/Aramina.git
@@ -58,16 +44,10 @@ cd Aramina
 install.bat
 ```
 
-Detailed instructions: [INSTALL.md](INSTALL.md).
+See [INSTALL.md](INSTALL.md) for Conda, Docker, examples, and full-training
+requirements.
 
-Local `preprocess`, `train`, and `preprocess-train` require the full historical
-H5 archive, which is intentionally not stored in Git. Place the approved
-archive at `data/combined_archive.h5` under the Aramina project root before
-running those commands. The one-patient prediction examples are self-contained
-and do not require this archive. The Docker bundle includes its own verified
-copy under `data/`.
-
-## Main Commands
+## Commands
 
 ```bash
 python -m aramina preprocess --config config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
@@ -76,30 +56,23 @@ python -m aramina preprocess-train --config config/preprocessing_and_training/co
 python -m aramina predict --config examples/prediction/configs/config_predict_cancer_example.yaml
 ```
 
-`preprocess` and `train` are development routes. Production-style H5 scoring
-uses `predict`. The packaged model holds preprocessing, threshold, feature
-schema, and report contract.
+The full historical archive is required only for preprocessing and training.
+Prediction examples use the tracked one-patient H5 fixtures.
 
-## Documentation
+## Repository Map
 
-```text
-INSTALL.md                                      clone/Conda route
-docs/product_api.md                             H5 input and report API
-config/preprocessing/README.md                  preprocessing config
-config/training/README.md                       training config
-config/prediction/README.md                     prediction config
-config/preprocessing_and_training/README.md     combined route
-docs/modeling/aramina_t100_target_case_model_v0_1.md
-                                                model rationale and limits
-docs/modeling/prediction_pipeline_v0_1.md       prediction route
-contracts/                                      filled output-contract examples
-docs/contracts/                                 canonical YAML and artifact contracts
-docs/meta/README.md                             decision evidence
-DATA_RELEASE.md                                 controlled-data and fixture policy
-docs/future_development_steps.md                deferred product work
-```
+| Path | Content |
+|---|---|
+| [`src/aramina/`](src/aramina/) | Product code. |
+| [`config/`](config/README.md) | Runnable input YAML. |
+| [`contracts/`](contracts/README.md) | Filled output examples. |
+| [`docs/`](docs/README.md) | Canonical technical documentation. |
+| [`examples/`](examples/README.md) | Runnable prediction examples. |
+| [`models/`](models/README.md) | Frozen model artifact and training outputs. |
+| [`packaging/`](packaging/) | Docker and offline bundles. |
+| [`tests/`](tests/data/README.md) | Contract, unit, integration, and H5 tests. |
 
-## Verification
+## Verify
 
 ```bash
 conda run --no-capture-output -n eosproduct ruff check .

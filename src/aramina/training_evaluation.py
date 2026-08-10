@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import RepeatedStratifiedKFold
 
-from .m2q_model import (
+from .target_breast_model import (
     GatedSymmetryLogistic,
     build_profile_logistic as _profile_logistic,
 )
@@ -97,7 +97,7 @@ def _fit_split_feature_tables(
     return train_features, test_features
 
 
-def _evaluate_m2q_model(
+def _evaluate_target_breast_model(
     df: pd.DataFrame,
     *,
     config: dict[str, Any],

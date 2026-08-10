@@ -28,7 +28,7 @@ def test_nested_float_round_off_is_reproducible():
 def test_non_numeric_metadata_still_requires_exact_match():
     module = _comparison_module()
 
-    assert not module._values_match({"recipe": "M2Q"}, {"recipe": "M1Q"})
+    assert not module._values_match({"model": "candidate-a"}, {"model": "candidate-b"})
 
 
 def test_archived_created_by_identity_matches_current_model_author():

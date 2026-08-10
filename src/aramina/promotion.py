@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from hashlib import sha256
 from pathlib import Path
 from shutil import copy2
 from typing import Any
 
 import joblib
 import yaml
+
+from .runtime_identity import file_sha256, safe_stem
 
 
 REQUIRED_FILES = (
@@ -42,8 +43,8 @@ def promote_model_run(
     if not name or version in {None, ""}:
         raise ValueError("Training artifact model_identity requires name and version.")
 
-    model_sha256 = _file_sha256(model_path)
-    model_id = _safe_stem(f"{name}_{version}_{model_sha256[:12]}")
+    model_sha256 = file_sha256(model_path)
+    model_id = safe_stem(f"{name}_{version}_{model_sha256[:12]}")
     destination_root = (
         Path(models_root).expanduser().resolve()
         if models_root is not None
@@ -90,7 +91,7 @@ def _validate_source_run(source: Path) -> None:
         "version": identity.get("version"),
     }:
         raise ValueError("model_description.yaml identity does not match model.joblib.")
-    model_sha256 = _file_sha256(source / "model.joblib")
+    model_sha256 = file_sha256(source / "model.joblib")
     if description_model.get("artifact_sha256") != model_sha256:
         raise ValueError("model_description.yaml SHA256 does not match model.joblib.")
     if description.get("feature_schema") != artifact.get("feature_schema"):
@@ -111,17 +112,3 @@ def _validate_source_run(source: Path) -> None:
         raise ValueError("evaluation.yaml model reference does not match model.joblib.")
     if not artifact.get("evaluation", {}).get("requested"):
         raise ValueError("Training artifact is not promotable without requested evaluation.")
-
-
-def _file_sha256(path: Path) -> str:
-    digest = sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def _safe_stem(value: str) -> str:
-    return "".join(
-        char if char.isalnum() or char in {"-", "_"} else "_" for char in value
-    ).strip("_")

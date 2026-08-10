@@ -28,6 +28,7 @@ from .prediction_scoring import (
     _normalize_side,
     _model_class_definition,
     _prediction_columns,
+    _prediction_target_side,
     _side_prediction,
     _unavailable_side_prediction,
 )
@@ -145,16 +146,6 @@ def _prediction_preprocessing_config(model_artifact: dict[str, Any]) -> dict[str
     if not isinstance(config, dict):
         raise ValueError("Model prediction_preprocessing_yaml is not a YAML mapping.")
     return deepcopy(config)
-
-
-def _prediction_target_side(config: dict[str, Any], patient_id: str) -> str:
-    target_side = config.get("patient", {}).get("target_side")
-    if target_side not in {None, ""}:
-        return str(target_side)
-    raise ValueError(
-        "Prediction target side is missing: set patient.target_side in predict YAML. "
-        f"Target side is not inferred from H5 metadata for patient {patient_id!r}."
-    )
 
 
 def _write_reports(output_paths: dict[str, Path], reports: dict[str, Any]) -> None:

@@ -2,8 +2,8 @@
 
 Status: research draft.
 
-Current product examples are one-patient H5 prediction fixtures and packaged
-Current product-model artifacts:
+Current examples are one-patient H5 prediction fixtures and the frozen product
+model:
 
 ```text
 prediction_h5/
@@ -28,5 +28,5 @@ Build and train in one combined run:
 python -m aramina preprocess-train --config config/preprocessing_and_training/config_preprocess_and_train_target_breast_risk_v0_1.yaml
 ```
 
-Historical Marimo notebooks, all-patient cohorts, and threshold-grid outputs
-are retained in `experiment/aramina-model-selection-v0.1`.
+Historical notebooks, alternative cohorts, and threshold-grid outputs remain on
+experiment branches.

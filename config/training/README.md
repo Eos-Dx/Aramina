@@ -1,6 +1,8 @@
-# Aramina Training YAML
+# Training YAML
 
-Public contract: `aramina_training_config_v0_3`.
+Training selects one code-owned product architecture. YAML controls run identity,
+input/output paths, and evaluation repetition; it cannot change features,
+regularization, labels, target sensitivity, or prediction preprocessing.
 
 ```yaml
 contract: aramina_training_config_v0_3
@@ -14,7 +16,7 @@ run:
   evaluation: true
   train_on_all: true
 input:
-  dataframe_joblib_path: examples/outputs/model_input/aramina_biopsy_patients_model_input_v0_1.joblib
+  dataframe_joblib_path: examples/outputs/model_input/dataframe.joblib
 output:
   folder: examples/outputs/training
 evaluation:
@@ -24,21 +26,15 @@ evaluation:
   random_seed: 42
 ```
 
-For a YAML under `Aramina/config`, relative paths resolve from the Aramina root.
-For an external top-level YAML, they resolve from that YAML's directory. At
-least one `run` flag must be true. `evaluation` writes patient-safe evaluation
-artifacts. `train_on_all` writes a frozen executable model; it can be run with
-or without an evaluation artifact. The caller may set run flags, model identity,
-input/output paths, and supported evaluation folds, repeats, and seed. The
-selected model name fixes architecture, feature schema, LR1/LR2 regularization,
-label policy, prediction preprocessing, and target sensitivity. `model_author`
-identifies the author of the approved model recipe; `run_author` in the combined
-preprocess-train YAML identifies the person executing a particular run.
-
 ```bash
 python -m aramina train --list-models
 python -m aramina train --describe-model aramina_target_breast_risk
-python -m aramina train --config config/training/config_training_target_breast_risk_v0_1.yaml
+python -m aramina train \
+  --config config/training/config_training_target_breast_risk_v0_1.yaml
 ```
 
-Full contract: `docs/contracts/training_config_v0_1.md`.
+`run.evaluation` writes patient-safe held-out metrics. `run.train_on_all` writes
+the executable model and its own frozen threshold. At least one flag must be
+true.
+
+Canonical contract: [Training config](../../docs/contracts/training_config_v0_1.md).

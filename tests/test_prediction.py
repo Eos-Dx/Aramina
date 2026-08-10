@@ -4,7 +4,6 @@ from pathlib import Path
 
 import h5py
 import joblib
-import numpy as np
 import pandas as pd
 import pytest
 import yaml
@@ -22,10 +21,12 @@ from aramina.patient_features import (
 )
 from aramina.prediction_contract import _config_path
 from aramina.prediction_scoring import _tissue_risk_assessment
-from aramina.training import run_training_from_config
+from aramina.target_breast_model import GatedSymmetryLogistic
 from aramina.training_config import PRODUCT_MODEL_NAME
 from aramina.tra_policy import TRA_POLICY_CONTRACT, derive_tra_policy
 
+from .prediction_fixtures import prediction_config as _prediction_config
+from .prediction_fixtures import train_model
 from .synthetic_aramina_h5 import write_v0_3_one_patient_h5
 
 
@@ -74,6 +75,7 @@ def test_frozen_product_artifact_keeps_binary_class_definition():
         "reference_class": "BENIGN",
         "target_class": "CANCER",
     }
+    assert isinstance(model_info["final_model"], GatedSymmetryLogistic)
 
 
 @pytest.mark.parametrize(
@@ -294,97 +296,9 @@ def test_tra_policy_is_derived_from_patient_safe_oof_predictions():
     ]
 
 
-def _patient_frame() -> pd.DataFrame:
-    rows = []
-    q = np.linspace(2.0, 23.0, 100)
-    for patient_idx in range(18):
-        cancer = patient_idx % 3 == 0
-        patient_label = "CANCER" if cancer else "BENIGN"
-        for side in ("Left", "Right"):
-            specimen_id = f"P{patient_idx:02d}_{side}"
-            specimen_label = patient_label if side == "Left" else "BENIGN"
-            for measurement_idx in range(3):
-                shift = 0.8 if specimen_label == "CANCER" else -0.4
-                rows.append(
-                    {
-                        "patientId": f"P{patient_idx:02d}",
-                        "specimenId": specimen_id,
-                        "measurementId": f"{specimen_id}_M{measurement_idx}",
-                        "side": side,
-                        "product_status_group": specimen_label,
-                        "radial_profile_data": shift
-                        + np.sin(q / 3.0)
-                        + measurement_idx * 0.01,
-                        "q_range": q,
-                        "age": 45 + patient_idx,
-                        "biopsy": side == "Left",
-                    }
-                )
-    return pd.DataFrame(rows)
-
-
-def _training_config(input_path: Path, output_folder: Path) -> dict:
-    return {
-        "contract": "aramina_training_config_v0_3",
-        "model": {
-            "name": PRODUCT_MODEL_NAME,
-            "version": "0.1-beta",
-            "model_author": "test",
-            "clinical_stage": "research draft",
-            "intended_use": "Synthetic decision-support test.",
-        },
-        "run": {"evaluation": True, "train_on_all": True},
-        "input": {"dataframe_joblib_path": str(input_path)},
-        "output": {"folder": str(output_folder)},
-        "evaluation": {
-            "method": "repeated_stratified_kfold",
-            "folds": 5,
-            "repeats": 20,
-            "random_seed": 42,
-        },
-    }
-
-
-def _prediction_config(
-    dataframe_path: Path,
-    model_path: Path,
-    output_folder: Path,
-    *,
-    patient_id: str = "P00",
-    target_side: str = "Left",
-) -> dict:
-    return {
-        "run": {
-            "analysis_author": "Test Author",
-            "prediction_comment": "synthetic test",
-            "synthetic_test_mode": True,
-        },
-        "io": {
-            "input_dataframe_joblib_path": str(dataframe_path),
-            "input_model_joblib_path": str(model_path),
-            "output_folder": str(output_folder),
-        },
-        "patient": {"patient_id": patient_id, "target_side": target_side},
-    }
-
-
 @pytest.fixture(scope="module")
 def trained_model(tmp_path_factory):
-    root = tmp_path_factory.mktemp("prediction_model")
-    dataframe_path = root / "training.joblib"
-    config_path = root / "train.yaml"
-    save_preprocessing_artifact(
-        _patient_frame(),
-        dataframe_path,
-        preprocessing_config_text="pipeline:\n  steps:\n  - name: test\n",
-        metadata={"input_h5_sha256": "test-h5"},
-    )
-    config_path.write_text(
-        yaml.safe_dump(_training_config(dataframe_path, root / "runs")),
-        encoding="utf-8",
-    )
-    result = run_training_from_config(config_path)
-    return Path(result["model_path"]), dataframe_path
+    return train_model(tmp_path_factory)
 
 
 def test_prediction_contract_rejects_unknown_nested_fields(tmp_path: Path):
@@ -647,7 +561,12 @@ def test_predict_without_contralateral_uses_unavailable_symmetry(
     save_preprocessing_artifact(
         frame,
         dataframe_path,
-        preprocessing_config_text="pipeline:\n  steps:\n  - name: test\n",
+        preprocessing_config_text=(
+            "pipeline:\n"
+            "  steps:\n"
+            "  - name: test\n"
+            "    transformer: H5ToDataFrameTransformer\n"
+        ),
         metadata={"input_h5_sha256": "test-h5"},
     )
     config_path = tmp_path / "predict.yaml"

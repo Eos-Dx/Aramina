@@ -1,12 +1,13 @@
 # Prediction Output Examples
 
 Canonical prediction request contract:
-`docs/contracts/prediction_config_v0_1.md`.
+[prediction_config_v0_1.md](../../docs/contracts/prediction_config_v0_1.md).
 
 Canonical report semantics:
-`docs/modeling/prediction_pipeline_v0_1.md` and
-`docs/modeling/internal_clinical_report_content_v0_9.md`.
+[prediction_pipeline_v0_1.md](../../docs/modeling/prediction_pipeline_v0_1.md)
+and
+[internal_clinical_report_content_v0_9.md](../../docs/modeling/internal_clinical_report_content_v0_9.md).
 
-`examples/` contains filled YAML outputs for one synthetic research case. The
-prediction command writes matching JSON reports for machine integration; YAML is
-the human-readable reference format in this repository.
+[`examples/`](examples/) contains filled YAML outputs for one synthetic research
+case. Prediction writes YAML external and internal reports. JSON files are not
+written.

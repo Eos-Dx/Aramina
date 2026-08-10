@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from scipy.signal import savgol_filter
 
-from .m2q_model import SK_CORE4_FEATURE_COLUMNS
+from .target_breast_model import SK_CORE4_FEATURE_COLUMNS
 
 
 SK_SYMMETRY_COLUMNS = (

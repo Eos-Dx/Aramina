@@ -1,4 +1,4 @@
-"""Fit LR1 and final M2Q estimators from patient feature tables."""
+"""Fit profile and final target-breast estimators."""
 
 from __future__ import annotations
 
@@ -7,13 +7,13 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from .m2q_model import (
+from .target_breast_model import (
     GatedSymmetryLogistic,
     build_profile_logistic as _profile_logistic,
 )
 from .model_utils import compute_binary_thresholds, profile_matrix
 from .model_metrics import final_fit_training_metrics as _final_fit_training_metrics
-from .model_schema import m2q_model_input_columns
+from .model_schema import target_breast_model_input_columns
 from .symmetry_features import SK_FEATURE_CONTRACT_V0_2
 from .patient_features import (
     lr1_training_rows as _lr1_training_rows,
@@ -73,7 +73,7 @@ def _fit_patient_model_input(
     return feature_table, lr1_rows
 
 
-def _fit_m2q_model(
+def _fit_target_breast_model(
     feature_table: pd.DataFrame,
     lr1_rows: pd.DataFrame,
     *,
@@ -84,7 +84,7 @@ def _fit_m2q_model(
     random_state: int,
     target_sensitivity: float,
 ) -> dict[str, Any]:
-    """Fit the fixed two-layer M2Q model on all accepted target cases."""
+    """Fit the fixed two-stage model on all accepted target cases."""
     lr1_model = _profile_logistic(logreg_c=lr1_logreg_c, random_state=random_state)
     lr1_model.fit(
         profile_matrix(lr1_rows, profile_column), _row_labels(lr1_rows, label_column)
@@ -109,7 +109,7 @@ def _fit_m2q_model(
         "name": "Aramina T100 profile, optional SK symmetry refinement, and age",
         "lr1_model": lr1_model,
         "final_model": final_model,
-        "feature_columns": m2q_model_input_columns(),
+        "feature_columns": target_breast_model_input_columns(),
         "symmetry_policy": (
             "single_model_gated_optional_refinement_requires_2_valid_measurements_"
             "per_breast_and_finite_core4"

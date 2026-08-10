@@ -13,17 +13,15 @@ from typing import Any
 import pandas as pd
 import yaml
 
-from .model_schema import m2q_feature_schema, m2q_warnings
+from .model_schema import target_breast_feature_schema, target_breast_warnings
 from .model_description import (
-    _aramina_git_sha,
-    _aramina_version,
     _evaluation_artifact_paths,
-    _file_sha256,
     _jsonable,
     _model_reference,
     _records,
     _write_yaml,
 )
+from .runtime_identity import aramina_git_sha, aramina_version, file_sha256
 from .training_config import PRODUCT_MODEL_NAME
 from .training_evaluation import (
     _patient_dataset_summary,
@@ -91,8 +89,8 @@ def _patient_training_artifact(
         },
         "models": models,
         "model_descriptions": model_descriptions,
-        "feature_schema": m2q_feature_schema(),
-        "warnings": m2q_warnings(feature_table),
+        "feature_schema": target_breast_feature_schema(),
+        "warnings": target_breast_warnings(feature_table),
         "training_config_yaml": config_text,
         "prediction_contract_yaml": yaml.safe_dump(
             config["prediction_contract"], sort_keys=False
@@ -101,14 +99,14 @@ def _patient_training_artifact(
             preprocessing_artifact,
             prediction_preprocessing,
         ),
-        "input_dataframe_joblib_sha256": _file_sha256(input_dataframe_joblib_path),
+        "input_dataframe_joblib_sha256": file_sha256(input_dataframe_joblib_path),
         "dataset_summary": dataset_summary,
         "metric_summary": metric_summary,
         "split_metrics": split_metrics,
         "split_predictions": split_predictions,
         "metadata": {
-            "aramina_version": _aramina_version(),
-            "aramina_git_sha": _aramina_git_sha(),
+            "aramina_version": aramina_version(),
+            "aramina_git_sha": aramina_git_sha(),
         },
         "reproducibility": _reproducibility_manifest(
             preprocessing_artifact=preprocessing_artifact,
@@ -200,8 +198,8 @@ def _reproducibility_manifest(
         },
         "source_code": {
             "aramina": {
-                "version": _aramina_version(),
-                "git_sha": _aramina_git_sha(),
+                "version": aramina_version(),
+                "git_sha": aramina_git_sha(),
             },
             "xrd_preprocessing": _distribution_provenance("xrd-preprocessing"),
         },

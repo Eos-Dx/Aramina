@@ -13,7 +13,7 @@ SK_SYMMETRY_COLUMNS
 target_contralateral_symmetry_features()
 
 src/aramina/model_schema.py
-m2q_model_input_columns()
+target_breast_model_input_columns()
 ```
 
 ## Feature Contract Versioning

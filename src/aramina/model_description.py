@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-import subprocess
-import tomllib
-from hashlib import sha256
-from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
@@ -17,17 +13,12 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-from .m2q_model import GatedSymmetryLogistic, SK_CORE4_FEATURE_COLUMNS
-
-
-def _safe_artifact_stem(value: str) -> str:
-    return "".join(
-        char if char.isalnum() or char in {"-", "_"} else "_" for char in value
-    ).strip("_")
+from .runtime_identity import safe_stem
+from .target_breast_model import GatedSymmetryLogistic, SK_CORE4_FEATURE_COLUMNS
 
 
 def _model_artifact_id(model: dict[str, Any], model_sha: str) -> str:
-    return _safe_artifact_stem(f"{model['name']}_{model['version']}_{model_sha[:12]}")
+    return safe_stem(f"{model['name']}_{model['version']}_{model_sha[:12]}")
 
 
 def _model_reference(
@@ -244,34 +235,3 @@ def _jsonable(value: Any) -> Any:
     if isinstance(value, np.ndarray):
         return value.tolist()
     return value
-
-
-def _file_sha256(path: str | Path) -> str:
-    digest = sha256()
-    with Path(path).open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def _aramina_version() -> str:
-    repo_root = Path(__file__).resolve().parents[2]
-    pyproject_path = repo_root / "pyproject.toml"
-    if pyproject_path.exists():
-        with pyproject_path.open("rb") as handle:
-            pyproject = tomllib.load(handle)
-        return str(pyproject.get("project", {}).get("version", "unknown"))
-    try:
-        return version("aramina")
-    except PackageNotFoundError:
-        return "unknown"
-
-
-def _aramina_git_sha() -> str:
-    repo_root = Path(__file__).resolve().parents[2]
-    if not (repo_root / ".git").exists():
-        return "unavailable"
-    return subprocess.check_output(
-        ["git", "-C", str(repo_root), "rev-parse", "HEAD"],
-        text=True,
-    ).strip()
