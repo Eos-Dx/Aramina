@@ -21,3 +21,8 @@ tests/test_demo_*.py
 config/preprocessing/aramina_mri_or_biopsy_held_out_test_t130_v0_1.yaml
 config/preprocessing/exclusions/agbh_quality_exclusions_t130_v0_1.yaml
 config/preprocessing/outputs/model_test_output_v0_1.yaml
+experiments/fpca256_profile_encoder/results/components_10_to_30/*/effective_experiment_config.yaml
+experiments/fpca256_profile_encoder/results/components_10_to_30/*/fold_predictions.csv
+experiments/fpca256_profile_encoder/results/components_10_to_30/*/pca_fold_basis.joblib
+experiments/fpca256_profile_encoder/results/components_10_to_30/*/repeat_averaged_cross_fitted_predictions.csv
+experiments/fpca256_profile_encoder/results/components_10_to_30/*/train_all_artifact.joblib

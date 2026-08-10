@@ -65,6 +65,35 @@ selecting one component count.
 
 ![Full-cohort FPCA convergence](results/full_npt256/fpca_component_convergence.png)
 
+## Component sweep 10-30
+
+This follow-up keeps the same artifacts, patient-safe 5-fold x20 splits, LR1
+and LR2 regularization, and threshold policy. Only the number of fold-local
+FPCA components changes. Outputs are kept separately under
+[`results/components_10_to_30/`](results/components_10_to_30/).
+
+| Encoder | Common cohort ROC AUC | Sensitivity | Specificity | Train-all specificity |
+|---|---:|---:|---:|---:|
+| FPCA256, 10 | 0.670 +/- 0.082 | 0.891 | 0.277 | 0.340 |
+| FPCA256, 15 | 0.665 +/- 0.082 | 0.887 | 0.306 | 0.351 |
+| FPCA256, 20 | 0.654 +/- 0.085 | 0.862 | 0.343 | 0.415 |
+| FPCA256, 25 | 0.646 +/- 0.085 | 0.838 | 0.370 | 0.479 |
+| FPCA256, 30 | 0.656 +/- 0.085 | 0.832 | 0.404 | 0.606 |
+
+On the matched common cohort, 30 components recover specificity comparable to
+raw100 (`0.404` versus `0.400`) but do not recover its ROC AUC (`0.656` versus
+`0.679`). The train-on-all specificity increase with component count is not
+independent evidence: raw256 still reaches `0.915` in-sample specificity while
+its held-out sensitivity is only `0.585`.
+
+The full npt256 cohort shows the same pattern: FPCA10 to FPCA30 increases
+held-out specificity from `0.283` to `0.312`, while ROC remains `0.648-0.660`.
+Ten, 15, 20, 25, and 30 components explain respectively `95.6%`, `96.0%`,
+`96.3%`, `96.6%`, and `96.8%` of train-all profile variance. Reconstruction
+variance therefore converges much earlier than class separation.
+
+![Common-cohort FPCA 10-30 sweep](results/components_10_to_30/common/fpca_component_convergence.png)
+
 ## Variance representation
 
 Four components explain 94.2% of train-on-all profile variance in the common
@@ -76,9 +105,10 @@ decision support.
 ## Conclusion
 
 FPCA256 provides a compact and reproducible LR1 representation, but does not
-improve patient-safe ROC over raw100 on the matched common cohort. Component
-counts 4-7 are a ROC plateau with a sensitivity/specificity tradeoff. No model
-selection or product promotion is supported by this experiment.
+improve patient-safe ROC over raw100 on the matched common cohort. Across 4-30
+components, adding components trades sensitivity for specificity; it does not
+produce a superior patient-safe operating point. No model selection or product
+promotion is supported by this experiment.
 
 The frozen readable footprint, including fold metrics, patient-safe manifests,
 paired deltas, PCA variance, basis loadings, and plots, is available in

@@ -98,7 +98,7 @@ def _config() -> dict:
             "profile_aggregation": "logit_average",
             "lr2_architecture": "age_plus_gated_sk_core4",
             "raw_baselines": [100, 256],
-            "fpca_components": [4, 5, 6, 7],
+            "fpca_components": [10, 15, 20, 25, 30],
         },
         "evaluation": {
             "method": "repeated_stratified_kfold",
@@ -109,6 +109,13 @@ def _config() -> dict:
         },
         "output": {"folder": "outputs"},
     }
+
+
+def _small_run_config() -> dict:
+    """Use a rank-compatible FPCA sweep for the 20-case synthetic fixture."""
+    config = _config()
+    config["model"]["fpca_components"] = [4, 5, 6, 7]
+    return config
 
 
 def _artifact_pin(path: str, *, npt: int, variant: str) -> dict:
@@ -314,7 +321,7 @@ def test_fpca_fits_only_supplied_training_patients() -> None:
 
 
 def test_common_cohort_rejects_measurement_mismatch() -> None:
-    config = _config()
+    config = _small_run_config()
     frame100 = _frame(npt=100)
     frame256 = _frame(npt=256)
     frame256.loc[0, "position"] = "DIFFERENT"
@@ -329,7 +336,7 @@ def test_common_cohort_rejects_measurement_mismatch() -> None:
 def test_raw_paths_match_current_product_evaluator_exactly(
     frozen_common_frames: dict[int, pd.DataFrame],
 ) -> None:
-    config = _config()
+    config = _small_run_config()
     result = run_cohort_experiment(
         frozen_common_frames,
         config=config,
@@ -393,7 +400,7 @@ def test_raw_paths_match_current_product_evaluator_exactly(
 
 
 def test_fold_manifest_is_complete_and_bilateral_patient_safe() -> None:
-    config = _config()
+    config = _small_run_config()
     frame = _frame()
     bilateral = frame["patientId"].eq("P000") & frame["side"].eq("Right")
     frame.loc[bilateral, "biopsy"] = True
@@ -419,7 +426,7 @@ def test_fold_manifest_is_complete_and_bilateral_patient_safe() -> None:
 def test_small_end_to_end_full_npt256_run(tmp_path: Path) -> None:
     result = run_cohort_experiment(
         {256: _frame()},
-        config=_config(),
+        config=_small_run_config(),
         cohort_name="full_npt256",
         output_folder=tmp_path,
     )

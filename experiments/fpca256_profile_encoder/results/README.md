@@ -9,6 +9,8 @@ dataframe and metric parity with the pinned artifacts.
 
 - `common/`: matched npt100/npt256 cohort used for direct comparisons.
 - `full_npt256/`: complete accepted npt256 cohort.
+- `components_10_to_30/`: follow-up FPCA10, 15, 20, 25, and 30 sweep on the
+  same two cohorts; readable summary outputs only.
 - `aggregate_summary.csv`: fold mean/SD, repeat-averaged cross-fitted, and train-on-all metrics.
 - `fold_metrics.csv`: metrics and threshold for every outer test fold.
 - `fold_manifest.csv`: patient-safe train/test assignment for every split.

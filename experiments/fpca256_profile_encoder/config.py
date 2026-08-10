@@ -9,7 +9,7 @@ import yaml
 
 
 CONTRACT = "aramina_fpca256_profile_encoder_experiment_v0_1"
-REQUIRED_COMPONENTS = [4, 5, 6, 7]
+REQUIRED_COMPONENTS = [10, 15, 20, 25, 30]
 EXPECTED_INTEGRATION_METHOD = ["bbox", "csr", "cython"]
 EXPECTED_PYFAI_VERSION = "2026.5.0"
 EXPECTED_INTEGRATION_METHOD_SOURCE = "pyfai_integrate1d_default"
