@@ -39,3 +39,5 @@ the executable model and its own frozen threshold. At least one flag must be
 true.
 
 Canonical contract: [Training config](../../docs/contracts/training_config_v0_1.md).
+Component-count rationale:
+[FPCA30 decision](../../docs/modeling/fpca30_component_selection_v0_1.md).
