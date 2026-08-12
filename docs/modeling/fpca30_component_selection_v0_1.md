@@ -2,20 +2,35 @@
 
 Status: research-draft model-selection record.
 
-Decision: retain the first 30 fold-local FPCA components for the `0.3.1-beta`
-LR1 profile encoder. This is a controlled dimensionality-reduction choice, not
-evidence that 30 biological tissue modes exist.
+Decision: use the first 30 fold-local FPCA components as the initial empirical
+basis for the `0.3.1-beta` LR1 profile encoder. This is a controlled test of a
+basis-coefficient architecture, not evidence that 30 biological tissue modes
+exist and not a claim that FPCA is the final basis.
 
 ## Question
 
-The preceding model used 100 radial-profile bins directly in LR1. Increasing
-azimuthal integration to 256 bins increases q sampling density but gives LR1 256
-correlated predictors for a small cohort. The experiment therefore asked:
+The preceding model used radial-profile bins directly in LR1. Point-wise models
+are problematic for this cohort: adjacent q bins are correlated, the number of
+candidate coefficients is large relative to the number of patients, and an
+individual point coefficient has limited physical meaning. Increasing
+azimuthal integration to 256 bins makes this limitation more visible by giving
+LR1 256 correlated predictors.
+
+The experiment therefore asked two linked questions:
 
 ```text
-Can 256-bin profiles be compressed while preserving the patient-safe
-sensitivity/specificity operating point of the raw100 model?
+Can LR1 operate on coefficients of a profile basis rather than individual q
+points?
+
+How many coefficients are required for this first empirical basis to preserve
+the patient-safe sensitivity/specificity operating point of raw100?
 ```
+
+FPCA was selected as a provisional data-driven basis because no validated
+physical basis is currently available. The architectural objective is to make
+the basis replaceable: a future fixed basis may generate different coefficients
+without changing target-breast aggregation, age/symmetry refinement, or report
+generation.
 
 The component count was not selected to maximize train-on-all performance or
 explained variance. Both criteria can favor a model that reconstructs profiles
@@ -119,6 +134,12 @@ reduction, while reproducing the raw100 sensitivity/specificity pair. It was
 selected for this operating-point match, not because it maximized ROC AUC.
 FPCA10 had higher ROC AUC but failed the operating-point criterion.
 
+The number 30 is therefore specific to this provisional FPCA basis and current
+cohort. It is not a general requirement for a future physical basis. A more
+informative constrained basis may require fewer coefficients because each basis
+vector would encode a predefined profile contribution rather than variance
+specific to this dataset.
+
 ## Full-Cohort Confirmation
 
 The current 256-bin product preprocessing produced 876 measurements, 163
@@ -163,8 +184,10 @@ is transferable.
 
 ## Decision And Limitations
 
-FPCA30 was selected because it was the tested compressed representation that
-most closely reproduced the raw100 thresholded behavior on the matched cohort.
+FPCA30 was selected because it was the tested empirical basis representation
+that most closely reproduced the raw100 thresholded behavior on the matched
+cohort. Its purpose is to establish and test the coefficient-based architecture
+before replacing FPCA with a more interpretable fixed basis.
 The decision is bounded by five limitations:
 
 1. Component counts were tested on one small retrospective cohort.

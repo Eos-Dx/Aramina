@@ -6,8 +6,9 @@ Read in this order:
 
 1. [Current FPCA30 model](aramina_fpca30_target_case_model_v0_3.md): source
    architecture, cohort, fixed regularization, evaluation, and limitations.
-2. [FPCA30 component decision](fpca30_component_selection_v0_1.md): why 30
-   rather than 10 components were retained.
+2. [FPCA30 basis decision](fpca30_component_selection_v0_1.md): why the model
+   moved from point-wise predictors to a provisional basis and why 30 rather
+   than 10 coefficients were retained for this basis.
 3. [Preserved 0.2.12 baseline](aramina_t100_target_case_model_v0_1.md).
 4. [Preserved 0.2.13 retraining](aramina_t100_target_case_model_v0_2.md).
 5. [Current DataFrame](current_model_dataframe_v0_1.md): measurement, breast,

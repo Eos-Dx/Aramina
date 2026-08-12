@@ -10,10 +10,24 @@ remain unchanged under `models/`.
 
 ## Purpose
 
-The change tests whether the first model stage can retain useful profile
-information while reducing 256 integrated q bins to 30 orthogonal components.
-It is dimensionality reduction, not a new clinical endpoint. The cohort, labels,
-LR2 architecture, Core4 symmetry gate, regularization, and threshold policy are
+The primary change is not the numerical reduction from 256 profile bins to 30
+values. It is the replacement of a point-wise profile representation with a
+basis-coefficient representation. Adjacent q bins are strongly correlated, and
+their individual LR1 coefficients are difficult to interpret or estimate
+reliably from a small cohort. A basis represents each complete profile by the
+amplitudes of reproducible profile patterns instead of treating every sampled q
+point as an independent predictor.
+
+FPCA is the first empirical trial basis. It tests whether the model architecture
+can operate on basis coefficients before a validated physical or chemical basis
+is available. FPCA components are data-derived and are not assigned to specific
+tissue constituents. A future fixed basis can replace FPCA while preserving the
+same downstream structure: basis coefficients, LR1, target-breast aggregation,
+and LR2 refinement.
+
+Dimensionality reduction is therefore a consequence of the representation
+change, not its sole purpose. The clinical endpoint, cohort, labels, LR2
+architecture, Core4 symmetry gate, regularization, and threshold policy remain
 unchanged.
 
 The component-count decision, including the 10-30 sweep and late-component
@@ -46,6 +60,45 @@ describes profile reconstruction, not BENIGN/CANCER separation. Thirty
 components were selected because they best preserved the preceding raw100
 sensitivity/specificity operating point in the controlled component sweep, not
 because `96.816%` is a predefined variance threshold.
+
+## Basis Interpretation
+
+The current coefficients answer: how strongly is each empirical profile pattern
+present in this measurement? They are more structured than 256 point-wise LR1
+weights, but they are not yet mechanistic variables. PCA component signs are
+arbitrary, and components with similar variance can rotate between fitted
+cohorts. Interpretation must therefore use fold stability, reconstructed
+q-space perturbations, and the effective LR1 direction rather than an isolated
+coefficient sign.
+
+The intended next development step is to replace this empirical basis with a
+fixed independently defined basis, for example validated scattering components
+or another constrained decomposition. That transition should keep the
+prediction architecture unchanged and compare:
+
+```text
+profile reconstruction error
+basis stability between cohorts
+patient-safe discrimination and calibration
+coefficient interpretability
+out-of-distribution residuals
+```
+
+Any replacement basis must preserve an explicit encoder contract:
+
+```text
+input: normalized profile on the frozen q grid
+output: ordered finite basis coefficients
+stored provenance: basis name, version, source cohort or reference data
+stored transform: mean profile, basis vectors, coefficient scaling
+quality output: reconstruction residual or unexplained-profile fraction
+leakage rule: basis fitted inside train folds, or frozen before evaluation from
+              data independent of the evaluated clinical cohort
+```
+
+This contract separates representation learning from clinical classification.
+It allows a later mechanistic basis to be compared with FPCA under the same LR1,
+aggregation, LR2, threshold, and patient-safe evaluation rules.
 
 ## Data And Evaluation
 
