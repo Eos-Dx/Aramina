@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-from sklearn.base import BaseEstimator
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
@@ -17,11 +18,59 @@ SK_CORE4_FEATURE_COLUMNS = (
     "sk_mean_peak_value_abs_delta",
 )
 
+PROFILE_INTEGRATION_NPT = 256
+PROFILE_FPCA_COMPONENTS = 30
+
+
+class ProfileFeatureCountValidator(BaseEstimator, TransformerMixin):
+    """Require the fixed number of q bins owned by the product model."""
+
+    def __init__(self, *, expected_features: int = PROFILE_INTEGRATION_NPT) -> None:
+        self.expected_features = expected_features
+
+    def fit(
+        self,
+        matrix: np.ndarray,
+        y: np.ndarray | None = None,
+    ) -> "ProfileFeatureCountValidator":
+        """Validate training profiles and record the fixed feature count."""
+        values = self._validated(matrix)
+        self.n_features_in_ = int(values.shape[1])
+        return self
+
+    def transform(self, matrix: np.ndarray) -> np.ndarray:
+        """Validate prediction profiles without changing their values."""
+        return self._validated(matrix)
+
+    def _validated(self, matrix: np.ndarray) -> np.ndarray:
+        values = np.asarray(matrix, dtype=float)
+        if values.ndim != 2:
+            raise ValueError("Profile matrix must be two-dimensional.")
+        if values.shape[1] != int(self.expected_features):
+            raise ValueError(
+                f"Aramina FPCA30 requires {self.expected_features}-bin profiles; "
+                f"received {values.shape[1]}."
+            )
+        return values
+
 
 def build_profile_logistic(*, logreg_c: float, random_state: int) -> Pipeline:
-    """Build the standard-scaled LR1 radial-profile classifier."""
+    """Build the fixed 256-bin FPCA30 LR1 profile classifier."""
     return Pipeline(
         [
+            (
+                "profile_shape",
+                ProfileFeatureCountValidator(
+                    expected_features=PROFILE_INTEGRATION_NPT,
+                ),
+            ),
+            (
+                "fpca",
+                PCA(
+                    n_components=PROFILE_FPCA_COMPONENTS,
+                    svd_solver="full",
+                ),
+            ),
             ("scaler", StandardScaler()),
             (
                 "logreg",

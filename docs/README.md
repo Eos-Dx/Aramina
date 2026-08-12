@@ -7,7 +7,8 @@ canonical owner; other documents link to it instead of repeating it.
 
 | Question | Canonical document |
 |---|---|
-| What model is frozen? | [Current product model](modeling/aramina_t100_target_case_model_v0_1.md) |
+| What architecture does current source train? | [Current FPCA30 model](modeling/aramina_fpca30_target_case_model_v0_3.md) |
+| What executable model artifacts are preserved? | [Model artifacts](../models/README.md) |
 | What was retrained with XRD v0.1.9-beta? | [Candidate record](modeling/aramina_t100_target_case_model_v0_2.md) |
 | What data enter training? | [Current model DataFrame](modeling/current_model_dataframe_v0_1.md) |
 | How are profiles preprocessed? | [Data preprocessing](data_preprocessing.md) |

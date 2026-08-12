@@ -13,9 +13,9 @@ config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
 examples/outputs/model_input/aramina_biopsy_patients_model_input_v0_1.joblib
 ```
 
-The runnable training YAML is the current public training contract. The fixed
-architecture, regularization, threshold policy, and evaluation record remain
-defined by `aramina_t100_target_case_model_v0_1.md`.
+The runnable training YAML is the current public training contract. The current
+architecture, regularization, threshold policy, and evaluation record are
+defined by `aramina_fpca30_target_case_model_v0_3.md`.
 
 Current counts:
 

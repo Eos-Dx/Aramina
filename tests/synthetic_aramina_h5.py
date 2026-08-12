@@ -8,7 +8,7 @@ import numpy as np
 from xrd_preprocessing import load_preprocessing_config
 
 
-EXPECTED_PROFILE_LENGTH = 100
+EXPECTED_PROFILE_LENGTH = 256
 SYNTHETIC_PONI = """# Synthetic PONI for Aramina tests
 poni_version: 2.1
 Detector: Detector

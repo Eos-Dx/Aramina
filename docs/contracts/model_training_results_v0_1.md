@@ -94,10 +94,15 @@ model:
   artifact_sha256: <full SHA256>
 model_summary:
   architecture:
-    stage_1: target_xrd_profile_logistic_regression
+    stage_1: target_xrd_profile_fpca30_logistic_regression
     stage_2: age_and_optional_symmetry_refinement
     symmetry_behavior: neutralized_unless_2_valid_measurements_per_breast_and_finite_core4_features
   lr1_profile_model: <fitted pipeline summary>
+  profile_encoder:
+    type: discrete_fpca
+    input_q_bins: 256
+    components: 30
+    fit_scope: fold_local_during_evaluation_train_all_for_final_fit
   final_model: <fitted gated logistic-regression summary>
   symmetry_feature_contract: aramina_sk_symmetry_v0_2
 model_joblib: model.joblib

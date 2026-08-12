@@ -36,6 +36,8 @@ def test_shipped_product_yaml_contracts_build_or_validate():
     for filename, count in expected_steps.items():
         config = load_preprocessing_config(root / "config" / "preprocessing" / filename)
         assert len(build_pipeline_steps_from_config(config)) == count
+        assert config["aramina_preprocessing"]["version"] == 0.2
+        assert config["integration"]["npt"] == 256
         validate_aramina_preprocessing_config(config)
 
     load_training_config(

@@ -24,7 +24,7 @@ positions: P1, P2, P3
 PONI q coverage: >=23 nm^-1
 sample thickness: >0 mm
 calibrant thickness: 2-40 mm
-integration: 100 points, 2-23 nm^-1, Poisson error model
+integration: 256 points, 2-23 nm^-1, Poisson error model
 SNR: Poisson, >=18 dB
 normalization: median over 6.7-7.1 nm^-1
 ```

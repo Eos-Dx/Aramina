@@ -20,6 +20,9 @@ PRODUCT_MODELS = {
         },
         "model": {
             "type": "m2q_gated_target_case",
+            "profile_encoder": "fpca30",
+            "profile_integration_npt": 256,
+            "profile_components": 30,
             "profile_column": "radial_profile_data",
             "label_column": "product_status_group",
             "group_column": "patientId",

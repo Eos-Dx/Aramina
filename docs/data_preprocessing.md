@@ -1,4 +1,4 @@
-# Aramina Data Preprocessing Contract v0.1
+# Aramina Data Preprocessing Contract
 
 Status: research draft.
 
@@ -148,7 +148,7 @@ one-patient prediction does not require the historical archive.
 
 ```text
 raw source: gfrm
-npt: 100
+npt: 256
 integration q range: 2..23 nm^-1
 required PONI q max: 23 nm^-1
 error model: poisson
@@ -161,7 +161,8 @@ normalization: median value in q=6.7..7.1 nm^-1
 profile gate: radial profile value near q=14 nm^-1 > 2.0
 ```
 
-T100 is the current development compromise for AgBH monochromaticity filtering.
+`npt=256` is the current radial-profile resolution. T100 is a separate cohort
+quality policy: the current development compromise for AgBH monochromaticity filtering.
 It keeps more data than T70 and excludes more questionable calibration days
 than T130.
 

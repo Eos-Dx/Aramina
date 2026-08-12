@@ -9,6 +9,8 @@ import pandas as pd
 
 from .target_breast_model import (
     GatedSymmetryLogistic,
+    PROFILE_FPCA_COMPONENTS,
+    PROFILE_INTEGRATION_NPT,
     build_profile_logistic as _profile_logistic,
 )
 from .model_utils import compute_binary_thresholds, profile_matrix
@@ -106,7 +108,13 @@ def _fit_target_breast_model(
         score="final_prediction.p_cancer",
     )
     return {
-        "name": "Aramina T100 profile, optional SK symmetry refinement, and age",
+        "name": "Aramina 256-bin FPCA30 profile, optional SK symmetry refinement, and age",
+        "profile_encoder": {
+            "type": "discrete_fpca",
+            "input_q_bins": PROFILE_INTEGRATION_NPT,
+            "components": PROFILE_FPCA_COMPONENTS,
+            "fit_scope": "fold_local_during_evaluation_train_all_for_final_fit",
+        },
         "lr1_model": lr1_model,
         "final_model": final_model,
         "feature_columns": target_breast_model_input_columns(),

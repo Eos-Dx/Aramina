@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "aramina"
-version = "0.2.13b0"
+version = "0.3.1b0"
 description = "Aramina breast-XRD clinical decision-support research draft."
 readme = "README.md"
 requires-python = ">=3.13,<3.14"

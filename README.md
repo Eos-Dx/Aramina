@@ -9,8 +9,8 @@ required under the frozen model threshold. It is not an autonomous diagnosis.
 ```text
 one-patient EOS H5 v0.3
 -> frozen prediction preprocessing
--> normalized 100-point XRD profiles
--> profile LogisticRegression
+-> normalized 256-bin XRD profiles
+-> fold-local FPCA30 and profile LogisticRegression
 -> target-breast profile score
 -> final LogisticRegression with age and optional gated symmetry
 -> p_cancer, risk level, biopsy_required, reliability
@@ -18,18 +18,18 @@ one-patient EOS H5 v0.3
 
 ```text
 model: aramina_target_breast_risk
-frozen product model: 0.2.12-beta
-retrained candidate: 0.2.13-beta
+source model definition: 0.3.1-beta
+preserved executable artifacts: 0.2.12-beta and 0.2.13-beta
 cohort: T100 biopsy-patient target-breast cases
 evaluation: repeated patient-safe stratified 5-fold x20
 regularization: profile C=0.1; final model C=0.3
 ```
 
-The released artifact is under [`models/`](models/README.md). Architecture,
-cohort, metrics, threshold, and limitations are recorded in the
-[current product-model record](docs/modeling/aramina_t100_target_case_model_v0_1.md).
-The separately retrained XRD `v0.1.9-beta` candidate is recorded in
-[`docs/modeling/aramina_t100_target_case_model_v0_2.md`](docs/modeling/aramina_t100_target_case_model_v0_2.md).
+The current source architecture is recorded in the
+[`0.3.1-beta` model record](docs/modeling/aramina_fpca30_target_case_model_v0_3.md).
+Preserved executable `0.2.x` artifacts and their historical records remain
+under [`models/`](models/README.md). No `0.3.1-beta` joblib is tracked in Git;
+it is reproducibly created by the preprocessing-and-training command.
 
 ## Install
 

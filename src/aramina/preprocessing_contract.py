@@ -5,7 +5,11 @@ from __future__ import annotations
 from typing import Any
 
 
-ARAMINA_PREPROCESSING_CONTRACT = "aramina_product_preprocessing_v0_1"
+ARAMINA_PREPROCESSING_CONTRACT = "aramina_product_preprocessing_v0_2"
+_INTEGRATION_NPT_BY_VERSION = {
+    "0.1": 100,
+    "0.2": 256,
+}
 _ROUTES = {
     "aramina_biopsy_patients_model_input": "training",
     "aramina_prediction_patient_model_input": "prediction",
@@ -53,11 +57,19 @@ def validate_aramina_preprocessing_config(config: dict[str, Any]) -> None:
     name = _nonempty_string(product, "name", "aramina_preprocessing")
     if name not in _ROUTES:
         raise ValueError(f"Unknown Aramina preprocessing route: {name!r}")
-    _nonempty_scalar(product, "version", "aramina_preprocessing")
+    version = str(_nonempty_scalar(product, "version", "aramina_preprocessing"))
+    if version not in _INTEGRATION_NPT_BY_VERSION:
+        raise ValueError(
+            "Unsupported Aramina preprocessing version: "
+            f"{version!r}; expected one of {sorted(_INTEGRATION_NPT_BY_VERSION)}."
+        )
     _nonempty_string(product, "clinical_stage", "aramina_preprocessing")
     _nonempty_string(config.get("io"), "input_h5_path", "io")
     _nonempty_string(config.get("io"), "output_joblib_path", "io")
-    _require_common_policy(config)
+    _require_common_policy(
+        config,
+        expected_npt=_INTEGRATION_NPT_BY_VERSION[version],
+    )
     _require_pipeline_order(config)
     _require_output_columns(config, route=_ROUTES[name])
     if _ROUTES[name] == "training":
@@ -72,7 +84,7 @@ def validate_if_aramina_product_config(config: dict[str, Any]) -> None:
         validate_aramina_preprocessing_config(config)
 
 
-def _require_common_policy(config: dict[str, Any]) -> None:
+def _require_common_policy(config: dict[str, Any], *, expected_npt: int) -> None:
     raw_data = _mapping(config, "raw_data")
     if raw_data.get("source") != "gfrm" or raw_data.get("allowed_sources") != ["gfrm"]:
         raise ValueError("Aramina preprocessing requires GFRM as the only raw-data source.")
@@ -85,7 +97,7 @@ def _require_common_policy(config: dict[str, Any]) -> None:
     _equal(filters.get("calibrant_thickness_range_mm"), [2.0, 40.0], "calibrant thickness range")
 
     integration = _mapping(config, "integration")
-    _equal(integration.get("npt"), 100, "integration npt")
+    _equal(integration.get("npt"), expected_npt, "integration npt")
     _equal(integration.get("q_range_nm_inv"), [2.0, 23.0], "integration q range")
     _equal(integration.get("error_model"), "poisson", "integration error model")
 

@@ -56,7 +56,7 @@ labels:
     NORMAL: NORMAL
     NA: exclude
 integration:
-  npt: 100
+  npt: 256
   q_range_nm_inv:
   - 2.0
   - 23.0

@@ -8,7 +8,7 @@ Status: research draft.
 contract: aramina_training_config_v0_3
 model:
   name: aramina_target_breast_risk
-  version: 0.2.13-beta
+  version: 0.3.1-beta
   model_author: Sergey Denisov
   clinical_stage: research draft
   intended_use: Breast cancer decision support; requires radiologist review.
@@ -59,10 +59,16 @@ Training requires an Aramina preprocessing artifact with the resolved preprocess
 All generated YAML numbers are rounded to five decimal places. Full SHA256 values
 remain strings and are not rounded.
 
+The code-owned `0.3.1-beta` architecture integrates 256 q bins and fits
+FPCA30 inside each evaluation train fold before LR1. Final train-on-all fits
+FPCA30 on all accepted LR1 measurements and stores the fitted transform inside
+`model.joblib`. LR2, Core4 symmetry gating, regularization, and threshold policy
+are unchanged from `0.2.13-beta`.
+
 `model_description.yaml` is the internal human-readable description of the
 final model. Its `model` block contains the immutable model ID, name, version,
 and joblib SHA256. `model_summary.architecture` describes the two stages:
-target-profile logistic regression followed by age and optional symmetry
+256-bin FPCA30 target-profile logistic regression followed by age and optional symmetry
 refinement. Logistic-regression class labels are written as `BENIGN` and
 `CANCER`. `final_fit_training_metrics` reports one ROC AUC, sensitivity,
 specificity, and supporting metrics for the frozen model fitted on all accepted

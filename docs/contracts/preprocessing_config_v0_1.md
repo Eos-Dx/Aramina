@@ -1,4 +1,4 @@
-# Aramina Preprocessing Config Contract v0.1
+# Aramina Preprocessing Config Contract
 
 Status: research draft. Aramina preprocessing YAML is a product policy layered
 on the general `xrd-preprocessing` YAML grammar. XRD-preprocessing builds the
@@ -30,7 +30,7 @@ measurement positions: P1, P2, P3
 PONI q max: >=23 nm^-1
 sample thickness: required
 calibrant thickness: 2..40 mm
-integration: 100 q points, q=2..23 nm^-1, Poisson errors
+current v0.2 integration: 256 q points, q=2..23 nm^-1, Poisson errors
 SNR: Poisson, >=18 dB
 normalisation: median value at q=6.7..7.1 nm^-1
 profile gate: q=14 nm^-1, value >2.0
@@ -50,6 +50,11 @@ keeps model labels `BENIGN` and `CANCER`.
 Prediction route disables date, historical AgBH, diagnosis, biopsy, and pairing
 cohort filters. It applies only technical quality controls; target side comes
 from the prediction request YAML.
+
+The current `aramina_product_preprocessing_v0_2` contract requires 256 bins.
+Embedded v0.1 YAML from preserved `0.2.x` joblibs remains readable with its
+original 100-bin policy; this compatibility does not permit a current v0.2
+training config to use 100 bins.
 
 The current implementation is
 `src/aramina/preprocessing_contract.py`. Product runs reject a resolved YAML

@@ -8,13 +8,18 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import yaml
+from sklearn.decomposition import PCA
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 from .runtime_identity import safe_stem
-from .target_breast_model import GatedSymmetryLogistic, SK_CORE4_FEATURE_COLUMNS
+from .target_breast_model import (
+    GatedSymmetryLogistic,
+    ProfileFeatureCountValidator,
+    SK_CORE4_FEATURE_COLUMNS,
+)
 
 
 def _model_artifact_id(model: dict[str, Any], model_sha: str) -> str:
@@ -114,11 +119,12 @@ def _round_yaml_values(value: Any) -> Any:
 def _model_summary(model_info: dict[str, Any]) -> dict[str, Any]:
     summary = {
         "architecture": {
-            "stage_1": "target_xrd_profile_logistic_regression",
+            "stage_1": "target_xrd_profile_fpca30_logistic_regression",
             "stage_2": "age_and_optional_symmetry_refinement",
             "symmetry_behavior": "neutralized_unless_2_valid_measurements_per_breast_and_finite_core4_features",
         },
         "lr1_profile_model": _pipeline_summary(model_info.get("lr1_model")),
+        "profile_encoder": _jsonable(model_info.get("profile_encoder", {})),
         "thresholds": _jsonable(model_info.get("thresholds", {})),
     }
     if "routes" not in model_info:
@@ -175,7 +181,20 @@ def _pipeline_summary(
     summary: dict[str, Any] = {"type": type(model).__name__, "steps": {}}
     for step_name, step in model.named_steps.items():
         step_summary: dict[str, Any] = {"type": type(step).__name__}
-        if isinstance(step, SimpleImputer):
+        if isinstance(step, ProfileFeatureCountValidator):
+            step_summary["expected_features"] = int(step.expected_features)
+        elif isinstance(step, PCA):
+            step_summary.update(
+                {
+                    "n_components": int(step.n_components_),
+                    "svd_solver": step.svd_solver,
+                    "input_feature_count": int(step.n_features_in_),
+                    "explained_variance_ratio_sum": float(
+                        np.sum(step.explained_variance_ratio_)
+                    ),
+                }
+            )
+        elif isinstance(step, SimpleImputer):
             step_summary["strategy"] = step.strategy
         elif isinstance(step, StandardScaler):
             step_summary["feature_count"] = int(step.n_features_in_)

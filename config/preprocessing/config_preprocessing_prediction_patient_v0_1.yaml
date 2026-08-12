@@ -4,7 +4,7 @@ extends:
 - ./config/preprocessing/schema/prediction_input_columns_v0_1.yaml
 aramina_preprocessing:
   name: aramina_prediction_patient_model_input
-  version: 0.1
+  version: 0.2
   clinical_stage: research draft
 provenance:
   status: research draft prediction preprocessing config

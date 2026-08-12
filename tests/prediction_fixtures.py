@@ -13,7 +13,7 @@ from aramina.training_config import PRODUCT_MODEL_NAME
 
 def patient_frame() -> pd.DataFrame:
     rows = []
-    q = np.linspace(2.0, 23.0, 100)
+    q = np.linspace(2.0, 23.0, 256)
     for patient_idx in range(18):
         cancer = patient_idx % 3 == 0
         patient_label = "CANCER" if cancer else "BENIGN"

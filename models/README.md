@@ -42,3 +42,8 @@ prediction examples and packaged runtime components.
 Both artifacts carry `aramina_sk_symmetry_v0_2`, the threshold-centred
 `aramina_tra_v0_2` policy, and generated evaluation records. Other historical
 candidates belong on experiment branches.
+
+Current source version `0.3.1-beta` uses 256-bin integration and fold-local
+FPCA30. Its generated joblib is intentionally not tracked; architecture,
+verification metrics, and reproduction command are recorded in
+[`docs/modeling/aramina_fpca30_target_case_model_v0_3.md`](../docs/modeling/aramina_fpca30_target_case_model_v0_3.md).
