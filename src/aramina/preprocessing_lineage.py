@@ -130,7 +130,7 @@ def xrd_runtime_identity() -> dict[str, str]:
     result = {"version": _installed_version("xrd-preprocessing")}
     requested = os.environ.get("XRD_PREPROCESSING_REQUESTED_REVISION")
     commit = os.environ.get("XRD_PREPROCESSING_GIT_COMMIT")
-    source_url: str | None = None
+    direct_url: dict[str, Any] = {}
     try:
         payload = distribution("xrd-preprocessing").read_text("direct_url.json")
     except PackageNotFoundError:
@@ -145,7 +145,12 @@ def xrd_runtime_identity() -> dict[str, str]:
         if commit is None and source_url:
             commit = _git_commit_from_file_url(source_url)
             requested = requested or commit
-    source_root = _git_root_from_package_source()
+    source_root = None
+    dir_info = direct_url.get("dir_info")
+    if isinstance(dir_info, dict) and dir_info.get("editable") is True:
+        source_root = _xrd_source_root_from_file_url(direct_url.get("url"))
+    elif not payload:
+        source_root = _xrd_source_root_from_package_source()
     if source_root is not None:
         _require_clean_git_source(source_root)
         commit = _git_commit(source_root)
@@ -185,32 +190,45 @@ def _git_commit_from_file_url(url: str) -> str | None:
     parsed = urlparse(url)
     if parsed.scheme != "file":
         return None
-    return _git_commit(Path(unquote(parsed.path)))
+    root = _xrd_source_root_from_path(Path(unquote(parsed.path)))
+    return _git_commit(root) if root is not None else None
 
 
-def _git_root_from_package_source() -> Path | None:
+def _xrd_source_root_from_file_url(url: Any) -> Path | None:
+    if not isinstance(url, str):
+        return None
+    parsed = urlparse(url)
+    if parsed.scheme != "file":
+        return None
+    return _xrd_source_root_from_path(Path(unquote(parsed.path)))
+
+
+def _xrd_source_root_from_package_source() -> Path | None:
     try:
         import xrd_preprocessing
     except ImportError:
         return None
-    path = Path(xrd_preprocessing.__file__).resolve()
-    for candidate in (path, *path.parents):
-        if (candidate / ".git").exists():
+    return _xrd_source_root_from_path(Path(xrd_preprocessing.__file__).resolve())
+
+
+def _xrd_source_root_from_path(path: Path) -> Path | None:
+    start = path if path.is_dir() else path.parent
+    for candidate in (start, *start.parents):
+        if not (candidate / ".git").exists():
+            continue
+        if _package_name_from_source(candidate) == "xrd-preprocessing":
             return candidate
     return None
 
 
-def _git_commit(path: Path) -> str | None:
-    for candidate in (path, *path.parents):
-        if (candidate / ".git").exists():
-            try:
-                return subprocess.check_output(
-                    ["git", "-C", str(candidate), "rev-parse", "HEAD"],
-                    text=True,
-                ).strip()
-            except (OSError, subprocess.CalledProcessError):
-                return None
-    return None
+def _git_commit(root: Path) -> str | None:
+    try:
+        return subprocess.check_output(
+            ["git", "-C", str(root), "rev-parse", "HEAD"],
+            text=True,
+        ).strip()
+    except (OSError, subprocess.CalledProcessError):
+        return None
 
 
 def _require_clean_git_source(root: Path) -> None:
@@ -231,19 +249,35 @@ def _require_clean_git_source(root: Path) -> None:
 
 
 def _package_version_from_source(root: Path) -> str:
+    payload = _package_metadata_from_source(root)
+    value = payload.get("version")
+    if not isinstance(value, str) or not value:
+        raise ValueError(
+            f"Invalid XRD-preprocessing package version in {root / 'pyproject.toml'}."
+        )
+    return value
+
+
+def _package_name_from_source(root: Path) -> str | None:
+    try:
+        value = _package_metadata_from_source(root).get("name")
+    except ValueError:
+        return None
+    return value.lower() if isinstance(value, str) else None
+
+
+def _package_metadata_from_source(root: Path) -> dict[str, Any]:
     pyproject = root / "pyproject.toml"
     try:
         payload = tomllib.loads(pyproject.read_text(encoding="utf-8"))
-        value = payload["project"]["version"]
+        project = payload["project"]
     except (OSError, KeyError, TypeError, tomllib.TOMLDecodeError) as exc:
-        raise ValueError(
-            f"Cannot read XRD-preprocessing package version from {pyproject}."
-        ) from exc
-    if not isinstance(value, str) or not value:
-        raise ValueError(
-            f"Invalid XRD-preprocessing package version in {pyproject}."
-        )
-    return value
+        if pyproject.exists():
+            raise ValueError(
+                f"Cannot read package metadata from {pyproject}."
+            ) from exc
+        return {}
+    return project if isinstance(project, dict) else {}
 
 
 def _installed_version(distribution_name: str) -> str:

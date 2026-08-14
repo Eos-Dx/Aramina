@@ -22,8 +22,8 @@ in this folder.
 ## Runtime Owners
 
 ```text
-config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
-config/preprocessing/config_preprocessing_prediction_patient_v0_1.yaml
+config/preprocessing/config_preprocessing_biopsy_patients_v0_2.yaml
+config/preprocessing/config_preprocessing_prediction_patient_v0_2.yaml
 config/preprocessing/exclusions/agbh_quality_exclusions_t100_v0_1.yaml
 config/preprocessing/shared/aramina_policy_v0_1.yaml
 config/preprocessing/shared/aramina_pipeline_v0_1.yaml

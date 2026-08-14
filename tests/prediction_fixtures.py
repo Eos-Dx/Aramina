@@ -5,10 +5,11 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import yaml
-from xrd_preprocessing import save_preprocessing_artifact
 
 from aramina.training import run_training_from_config
 from aramina.training_config import PRODUCT_MODEL_NAME
+
+from .artifact_helpers import save_training_preprocessing_artifact
 
 
 def patient_frame() -> pd.DataFrame:
@@ -89,16 +90,10 @@ def train_model(tmp_path_factory) -> tuple[Path, Path]:
     root = tmp_path_factory.mktemp("prediction_model")
     dataframe_path = root / "training.joblib"
     config_path = root / "train.yaml"
-    save_preprocessing_artifact(
+    save_training_preprocessing_artifact(
         patient_frame(),
         dataframe_path,
-        preprocessing_config_text=(
-            "pipeline:\n"
-            "  steps:\n"
-            "  - name: test\n"
-            "    transformer: H5ToDataFrameTransformer\n"
-        ),
-        metadata={"input_h5_sha256": "test-h5"},
+        input_h5_sha256="test-h5",
     )
     config_path.write_text(
         yaml.safe_dump(training_config(dataframe_path, root / "runs")),

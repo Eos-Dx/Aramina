@@ -34,7 +34,7 @@ RUN python -m pip install --upgrade pip \
         uvicorn==0.51.0 \
         python-multipart==0.0.32 \
     && python -m pip install --no-deps \
-        "git+https://github.com/Eos-Dx/XRD-preprocessing.git@18ddac4be429e612ac82f8e81605d98399acee02" \
+        "git+https://github.com/Eos-Dx/XRD-preprocessing.git@88dcaa277c5a0d4be2ab637bc5827a14bd106bea" \
     && python -m pip install --no-deps /opt/Aramina
 
 CMD ["uvicorn", "aramina.prediction_api:app", "--host", "0.0.0.0", "--port", "8000"]

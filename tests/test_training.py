@@ -7,7 +7,6 @@ import numpy as np
 import pandas as pd
 import pytest
 import yaml
-from xrd_preprocessing import save_preprocessing_artifact
 
 from aramina.__main__ import main
 from aramina.training import (
@@ -25,6 +24,8 @@ from aramina.symmetry_features import (
     SK_SYMMETRY_COLUMNS,
     target_contralateral_symmetry_features,
 )
+
+from .artifact_helpers import save_training_preprocessing_artifact
 
 
 def _patient_training_frame() -> pd.DataFrame:
@@ -95,16 +96,10 @@ def _training_config(
 
 
 def _write_training_input(path: Path) -> None:
-    save_preprocessing_artifact(
+    save_training_preprocessing_artifact(
         _patient_training_frame(),
         path,
-        preprocessing_config_text=(
-            "pipeline:\n"
-            "  steps:\n"
-            "  - name: test\n"
-            "    transformer: H5ToDataFrameTransformer\n"
-        ),
-        metadata={"input_h5_sha256": "abc"},
+        input_h5_sha256="abc",
     )
 
 
@@ -116,13 +111,13 @@ def test_model_owned_preprocessing_path_uses_training_config_project_root(tmp_pa
         / "Aramina"
         / "config"
         / "preprocessing"
-        / "config_preprocessing_prediction_patient_v0_1.yaml"
+        / "config_preprocessing_prediction_patient_v0_2.yaml"
     )
     expected.parent.mkdir()
     expected.touch()
 
     resolved = _project_owned_path(
-        "config/preprocessing/config_preprocessing_prediction_patient_v0_1.yaml",
+        "config/preprocessing/config_preprocessing_prediction_patient_v0_2.yaml",
         config_path,
     )
 
@@ -249,6 +244,7 @@ def test_evaluation_mode_writes_patient_safe_footprint_only(tmp_path: Path):
     assert len(artifact["split_metrics"]) == 100
     assert set(artifact["split_metrics"]["evaluation_mode"]) == {"stratified_kfold"}
     summary = artifact["metric_summary"].iloc[0]
+    assert summary["interval_scope"] == "repeated_oof_aggregate_descriptive"
     assert np.isfinite(summary["roc_auc_ci_low"])
     assert np.isfinite(summary["specificity_ci_high"])
     assert (run_folder / "evaluation_metrics.csv").exists()
@@ -339,7 +335,7 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
     assert reproducibility["contract"] == "aramina_reproducibility_v0_1"
     assert reproducibility["reproduction_mode"] == "preprocessed_artifact_train"
     assert reproducibility["source_h5"]["sha256"] == "abc"
-    assert reproducibility["source_h5"]["filename"] == "unknown"
+    assert reproducibility["source_h5"]["filename"] == "combined_archive.h5"
     assert reproducibility["configs"]["training_yaml"] == artifact["training_config_yaml"]
     assert reproducibility["checksums"]["training_yaml_sha256"]
     assert "training_config" not in artifact
@@ -434,9 +430,10 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
         "model_summary",
         "model_joblib",
         "model_performance",
-        "final_fit_training_metrics",
-        "decision_thresholds",
-        "feature_schema",
+            "final_fit_training_metrics",
+            "decision_thresholds",
+            "preprocessing_lineage",
+            "feature_schema",
         "dataset_summary",
         "evaluation_artifacts",
         "clinical_stage",

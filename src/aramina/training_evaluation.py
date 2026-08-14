@@ -444,6 +444,7 @@ def _patient_bootstrap_intervals(
                     sampled[name].append(value)
         row: dict[str, Any] = {
             "model_name": model_name,
+            "interval_scope": "repeated_oof_aggregate_descriptive",
             "pooled_patients": int(cases["patientId"].nunique()),
             "pooled_target_cases": int(len(cases)),
         }

@@ -4,8 +4,8 @@ Two fixed product routes are tracked:
 
 | Config | Purpose |
 |---|---|
-| `config_preprocessing_biopsy_patients_v0_1.yaml` | Build historical training input. |
-| `config_preprocessing_prediction_patient_v0_1.yaml` | Prepare one incoming patient. |
+| `config_preprocessing_biopsy_patients_v0_2.yaml` | Build historical training input. |
+| `config_preprocessing_prediction_patient_v0_2.yaml` | Prepare one incoming patient. |
 
 Both use readable `extends` fragments. XRD-preprocessing resolves them into one
 effective mapping before execution.
@@ -31,7 +31,7 @@ normalization: median over 6.7-7.1 nm^-1
 
 ```bash
 python -m aramina preprocess \
-  --config config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
+  --config config/preprocessing/config_preprocessing_biopsy_patients_v0_2.yaml
 ```
 
 The historical route expects `data/combined_archive.h5`. Prediction replaces
@@ -39,5 +39,5 @@ that path with the request H5 and applies no historical cohort filters.
 
 Canonical contracts:
 
-- [Preprocessing config](../../docs/contracts/preprocessing_config_v0_1.md)
+- [Preprocessing config](../../docs/contracts/preprocessing_config_v0_2.md)
 - [Data and artifact route](../../docs/data_preprocessing.md)

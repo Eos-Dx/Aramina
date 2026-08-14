@@ -6,6 +6,7 @@ from typing import Any
 
 
 ARAMINA_PREPROCESSING_CONTRACT = "aramina_product_preprocessing_v0_2"
+LEGACY_ARAMINA_PREPROCESSING_CONTRACT = "aramina_product_preprocessing_v0_1"
 _INTEGRATION_NPT_BY_VERSION = {
     "0.1": 100,
     "0.2": 256,
@@ -49,7 +50,11 @@ _COMMON_OUTPUT_COLUMNS = {
 }
 
 
-def validate_aramina_preprocessing_config(config: dict[str, Any]) -> None:
+def validate_aramina_preprocessing_config(
+    config: dict[str, Any],
+    *,
+    allow_legacy: bool = False,
+) -> None:
     """Reject a resolved product YAML that changes the fixed Aramina data route."""
     product = config.get("aramina_preprocessing")
     if not isinstance(product, dict):
@@ -63,6 +68,19 @@ def validate_aramina_preprocessing_config(config: dict[str, Any]) -> None:
             "Unsupported Aramina preprocessing version: "
             f"{version!r}; expected one of {sorted(_INTEGRATION_NPT_BY_VERSION)}."
         )
+    route = _ROUTES[name]
+    contract = product.get("contract")
+    if version == "0.2":
+        _equal(contract, ARAMINA_PREPROCESSING_CONTRACT, "preprocessing contract")
+        _equal(product.get("route"), route, "preprocessing product route")
+    elif not (
+        allow_legacy
+        and contract in {None, LEGACY_ARAMINA_PREPROCESSING_CONTRACT}
+    ):
+        raise ValueError(
+            "Legacy Aramina preprocessing config is read-only and requires "
+            "allow_legacy=True."
+        )
     _nonempty_string(product, "clinical_stage", "aramina_preprocessing")
     _nonempty_string(config.get("io"), "input_h5_path", "io")
     _nonempty_string(config.get("io"), "output_joblib_path", "io")
@@ -71,17 +89,21 @@ def validate_aramina_preprocessing_config(config: dict[str, Any]) -> None:
         expected_npt=_INTEGRATION_NPT_BY_VERSION[version],
     )
     _require_pipeline_order(config)
-    _require_output_columns(config, route=_ROUTES[name])
-    if _ROUTES[name] == "training":
+    _require_output_columns(config, route=route)
+    if route == "training":
         _require_training_route(config)
     else:
         _require_prediction_route(config)
 
 
-def validate_if_aramina_product_config(config: dict[str, Any]) -> None:
+def validate_if_aramina_product_config(
+    config: dict[str, Any],
+    *,
+    allow_legacy: bool = False,
+) -> None:
     """Validate product YAMLs while preserving generic XRD pipeline use in tests."""
     if "aramina_preprocessing" in config:
-        validate_aramina_preprocessing_config(config)
+        validate_aramina_preprocessing_config(config, allow_legacy=allow_legacy)
 
 
 def _require_common_policy(config: dict[str, Any], *, expected_npt: int) -> None:

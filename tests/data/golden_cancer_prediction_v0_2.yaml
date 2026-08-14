@@ -1,0 +1,45 @@
+contract: aramina_golden_h5_parity_v0_2
+h5_sha256: f09d6f5745afc3285a818e28b53261f84a8ece8d27926c1c439bf436bf6878b7
+patient_id: Nova_214
+target_side: left
+q_grid:
+  length: 100
+  first: 2.105000013709068
+  last: 22.89500272810459
+retained_rows:
+- side: right
+  position: P1
+  snr_db: 21.623372260053145
+  profile_sum: 149.9982861261752
+- side: right
+  position: P2
+  snr_db: 21.569531465489877
+  profile_sum: 158.03370850027207
+- side: right
+  position: P3
+  snr_db: 24.02041916739559
+  profile_sum: 163.34109728009665
+- side: left
+  position: P1
+  snr_db: 28.391804491817787
+  profile_sum: 169.34878806484198
+- side: left
+  position: P2
+  snr_db: 23.75344955147861
+  profile_sum: 154.53412433527564
+- side: left
+  position: P3
+  snr_db: 21.742949531856862
+  profile_sum: 162.68421426438408
+target_measurement_p_cancer:
+- 0.8420572832328578
+- 0.6353203021838859
+- 0.3995781421298433
+profile_p_cancer_logit_average: 0.6472943869271648
+core4:
+  sk_wasserstein_distance_full_q2: 0.224530356040818
+  sk_weightedrms1: 0.043679136518346616
+  sk_weightedrms2: 0.15017883108069027
+  sk_mean_peak_value_abs_delta: 0.01820335420700392
+symmetry_available: 1
+final_p_cancer: 0.8693870739736462

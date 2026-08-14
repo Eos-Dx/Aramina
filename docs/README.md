@@ -22,7 +22,7 @@ canonical owner; other documents link to it instead of repeating it.
 
 | Input or output | Contract |
 |---|---|
-| Preprocessing YAML | [Preprocessing config](contracts/preprocessing_config_v0_1.md) |
+| Preprocessing YAML | [Preprocessing config](contracts/preprocessing_config_v0_2.md) |
 | Training YAML | [Training config](contracts/training_config_v0_1.md) |
 | Combined preprocessing and training YAML | [Preprocess-train config](contracts/preprocess_train_config_v0_1.md) |
 | Prediction YAML | [Prediction config](contracts/prediction_config_v0_1.md) |

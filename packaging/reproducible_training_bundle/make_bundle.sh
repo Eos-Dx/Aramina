@@ -70,9 +70,9 @@ cp "${ARAMINA_ROOT}/examples/prediction/configs/"config_predict_*_example.yaml \
   "${WORK_DIR}/examples/prediction/configs/"
 cp "${ARAMINA_ROOT}/examples/prediction_h5/"*_one_patient.h5 \
   "${WORK_DIR}/examples/prediction_h5/"
-cp "${ARAMINA_ROOT}/config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml" \
+cp "${ARAMINA_ROOT}/config/preprocessing/config_preprocessing_biopsy_patients_v0_2.yaml" \
   "${WORK_DIR}/config/preprocessing/"
-cp "${ARAMINA_ROOT}/config/preprocessing/config_preprocessing_prediction_patient_v0_1.yaml" \
+cp "${ARAMINA_ROOT}/config/preprocessing/config_preprocessing_prediction_patient_v0_2.yaml" \
   "${WORK_DIR}/config/preprocessing/"
 cp "${ARAMINA_ROOT}/config/preprocessing/exclusions/agbh_quality_exclusions_t100_v0_1.yaml" \
   "${WORK_DIR}/config/preprocessing/exclusions/"

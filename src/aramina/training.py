@@ -57,6 +57,7 @@ from .model_description import (
     _write_yaml,
 )
 from .runtime_identity import file_sha256, safe_stem
+from .preprocessing_lineage import require_training_preprocessing_artifact
 
 PATIENT_BOOTSTRAP_SAMPLES = 2_000
 logger = logging.getLogger(__name__)
@@ -555,13 +556,10 @@ def _load_training_dataframe(path: Path) -> tuple[pd.DataFrame, dict[str, Any]]:
 
 
 def _require_preprocessing_lineage(artifact: dict[str, Any] | None) -> None:
-    """Require the resolved preprocessing YAML and input H5 checksum."""
-    if not isinstance(artifact, dict):
-        raise ValueError("Training requires a preprocessing artifact with provenance.")
-    if not isinstance(artifact.get("preprocessing_config_yaml"), str):
-        raise ValueError("Training artifact is missing preprocessing_config_yaml.")
-    metadata = artifact.get("metadata")
-    if not isinstance(metadata, dict) or not metadata.get("input_h5_sha256"):
+    """Require the resolved product preprocessing identity and source checksum."""
+    require_training_preprocessing_artifact(artifact)
+    metadata = artifact["metadata"]
+    if not metadata.get("input_h5_sha256"):
         raise ValueError("Training artifact is missing metadata.input_h5_sha256.")
 
 

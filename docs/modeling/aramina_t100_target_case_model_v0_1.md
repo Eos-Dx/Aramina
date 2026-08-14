@@ -121,13 +121,18 @@ using the fixed 100 patient-safe folds. The target threshold was derived on the
 training patients in each fold and then applied once to that fold's held-out
 patients.
 
-| metric | mean across 100 folds | pooled held-out cases (95% bootstrap CI) |
+| metric | mean across 100 folds | repeated-OOF aggregate (95% patient-bootstrap interval) |
 |---|---:|---:|
 | ROC AUC | 0.645 +/- 0.069 | 0.656 (0.574 to 0.731) |
 | sensitivity | 0.818 +/- 0.099 | 0.829 (0.741 to 0.910) |
 | specificity | 0.376 +/- 0.133 | 0.323 (0.228 to 0.420) |
 
 These are research-draft evaluation results, not a clinical performance claim.
+The bootstrap interval is descriptive: each target case is represented by its
+mean score and mean fold-specific threshold across repeated held-out appearances.
+It is not a confidence interval for one fixed model on an independent cohort.
+Independent validation must report class-specific intervals from one untouched
+patient cohort.
 Historical candidate artifacts are retained in the experimental branch rather
 than as compatibility artifacts in `main`.
 

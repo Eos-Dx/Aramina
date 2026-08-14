@@ -10,7 +10,6 @@ import yaml
 from aramina.pipelines import run_preprocessing_pipeline
 from aramina.prediction_scoring import _prediction_columns, _side_prediction
 from aramina.training_config import PRODUCT_MODEL_NAME
-from demo.platform.archive import build_demo_manifest, extract_one_patient_h5
 
 
 ROOT = Path(__file__).parents[1]
@@ -23,7 +22,7 @@ MODEL_PATH = (
 )
 
 
-def test_frozen_model_ten_patient_golden_cohort(tmp_path: Path):
+def test_frozen_model_ten_patient_golden_cohort():
     """Protect prediction parity across bilateral and neutral-symmetry routes."""
     expected = yaml.safe_load(MANIFEST_PATH.read_text(encoding="utf-8"))
     cases = expected["cases"]
@@ -42,20 +41,24 @@ def test_frozen_model_ten_patient_golden_cohort(tmp_path: Path):
     archive_path = (
         ROOT / expected["sources"]["five_patient_archive"]["path"]
     ).resolve()
-    archive_manifest = build_demo_manifest(archive_path).set_index("patient_id")
+    archive_dataframe = run_preprocessing_pipeline(
+        archive_path,
+        preprocessing_config,
+        allow_legacy_product_config=True,
+    )
 
     for case in cases:
-        h5_path = _case_h5_path(
-            case,
-            archive_path=archive_path,
-            archive_manifest=archive_manifest,
-            output_dir=tmp_path,
-        )
-        dataframe = run_preprocessing_pipeline(
-            h5_path,
-            preprocessing_config,
-            allow_legacy_product_config=True,
-        )
+        source_path = case.get("source_path")
+        if source_path:
+            dataframe = run_preprocessing_pipeline(
+                (ROOT / source_path).resolve(),
+                preprocessing_config,
+                allow_legacy_product_config=True,
+            )
+        else:
+            dataframe = archive_dataframe.loc[
+                archive_dataframe["patientId"].eq(case["patient_id"])
+            ].copy()
         prediction = _side_prediction(
             dataframe,
             model_info,
@@ -81,29 +84,6 @@ def test_frozen_model_ten_patient_golden_cohort(tmp_path: Path):
             case["p_cancer"],
             abs=1e-10,
         )
-
-
-def _case_h5_path(
-    case: dict,
-    *,
-    archive_path: Path,
-    archive_manifest,
-    output_dir: Path,
-) -> Path:
-    source_path = case.get("source_path")
-    if source_path:
-        return (ROOT / source_path).resolve()
-    patient_id = case["patient_id"]
-    output_path = output_dir / f"{patient_id}_{case['target_side']}.h5"
-    record = archive_manifest.loc[patient_id].to_dict()
-    record["patient_id"] = patient_id
-    return extract_one_patient_h5(
-        archive_path,
-        record,
-        target_side=case["target_side"],
-        output_path=output_path,
-    )
-
 
 def _validate_source_hashes(sources: dict) -> None:
     for relative_path, expected_hash in sources["examples"]["sha256"].items():

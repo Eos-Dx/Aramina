@@ -30,11 +30,11 @@ PREDICTION_CONFIG = (
     / "config_preprocessing_prediction_patient_v0_2.yaml"
 )
 XRD_IDENTITY = {
-    "version": "0.1.8b0",
+    "version": "0.1.9b0",
     "requested_revision": "a" * 40,
     "git_commit": "a" * 40,
 }
-XRD_COMMIT = "18ddac4be429e612ac82f8e81605d98399acee02"
+XRD_COMMIT = "88dcaa277c5a0d4be2ab637bc5827a14bd106bea"
 
 
 @pytest.fixture(autouse=True)
@@ -95,6 +95,30 @@ def test_product_lineage_rejects_declared_xrd_version_mismatch(monkeypatch):
 
     with pytest.raises(ValueError, match="package version differs"):
         preprocessing_lineage.build_preprocessing_lineage(config)
+
+
+def test_package_source_lookup_ignores_unrelated_parent_git_repository(tmp_path):
+    unrelated_root = tmp_path / "homebrew"
+    package_file = unrelated_root / "site-packages" / "xrd_preprocessing" / "__init__.py"
+    package_file.parent.mkdir(parents=True)
+    package_file.write_text("", encoding="utf-8")
+    (unrelated_root / ".git").mkdir()
+
+    assert preprocessing_lineage._xrd_source_root_from_path(package_file) is None
+
+
+def test_package_source_lookup_requires_xrd_project_identity(tmp_path):
+    source_root = tmp_path / "XRD-preprocessing"
+    package_file = source_root / "src" / "xrd_preprocessing" / "__init__.py"
+    package_file.parent.mkdir(parents=True)
+    package_file.write_text("", encoding="utf-8")
+    (source_root / ".git").mkdir()
+    (source_root / "pyproject.toml").write_text(
+        '[project]\nname = "xrd-preprocessing"\nversion = "0.1.9b0"\n',
+        encoding="utf-8",
+    )
+
+    assert preprocessing_lineage._xrd_source_root_from_path(package_file) == source_root
 
 
 def test_repository_and_prediction_image_pin_same_full_xrd_commit():

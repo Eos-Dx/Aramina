@@ -7,7 +7,6 @@ import joblib
 import pandas as pd
 import pytest
 import yaml
-from xrd_preprocessing import save_preprocessing_artifact
 
 from aramina.prediction import (
     _metadata_value,
@@ -28,6 +27,7 @@ from aramina.tra_policy import TRA_POLICY_CONTRACT, derive_tra_policy
 from .prediction_fixtures import prediction_config as _prediction_config
 from .prediction_fixtures import train_model
 from .synthetic_aramina_h5 import write_v0_3_one_patient_h5
+from .artifact_helpers import save_training_preprocessing_artifact
 
 
 PREDICTION_EXAMPLE_ROOT = Path(__file__).parents[1] / "examples" / "prediction" / "configs"
@@ -558,16 +558,10 @@ def test_predict_without_contralateral_uses_unavailable_symmetry(
     frame = joblib.load(training_dataframe_path)["dataframe"]
     frame = frame[~((frame["patientId"] == "P00") & (frame["side"] == "Right"))].copy()
     dataframe_path = tmp_path / "unpaired.joblib"
-    save_preprocessing_artifact(
+    save_training_preprocessing_artifact(
         frame,
         dataframe_path,
-        preprocessing_config_text=(
-            "pipeline:\n"
-            "  steps:\n"
-            "  - name: test\n"
-            "    transformer: H5ToDataFrameTransformer\n"
-        ),
-        metadata={"input_h5_sha256": "test-h5"},
+        input_h5_sha256="test-h5",
     )
     config_path = tmp_path / "predict.yaml"
     config_path.write_text(

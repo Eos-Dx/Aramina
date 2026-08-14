@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import json
 import platform
 from datetime import datetime, timezone
 from hashlib import sha256
-from importlib.metadata import PackageNotFoundError, distribution, version
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +13,7 @@ import pandas as pd
 import yaml
 
 from .model_schema import target_breast_feature_schema, target_breast_warnings
+from .preprocessing_lineage import build_preprocessing_lineage
 from .model_description import (
     _evaluation_artifact_paths,
     _jsonable,
@@ -128,6 +128,7 @@ def _prediction_preprocessing_payload(
     return {
         "path": str(config_path),
         "yaml": yaml.safe_dump(config, sort_keys=False),
+        "lineage": build_preprocessing_lineage(config),
     }
 
 
@@ -152,11 +153,16 @@ def _preprocessing_lineage_fields(
     fields = {
         "historical_preprocessing_yaml": training_config_yaml,
         "preprocessing_metadata": preprocessing_artifact.get("metadata", {}),
+        "historical_preprocessing_lineage": preprocessing_artifact.get(
+            "metadata", {}
+        ).get("aramina_preprocessing_lineage"),
     }
     if prediction_preprocessing is None:
         fields["prediction_preprocessing_yaml"] = None
+        fields["prediction_preprocessing_lineage"] = None
         return fields
     fields["prediction_preprocessing_yaml"] = prediction_preprocessing["yaml"]
+    fields["prediction_preprocessing_lineage"] = prediction_preprocessing["lineage"]
     return fields
 
 
@@ -177,6 +183,7 @@ def _reproducibility_manifest(
         else None
     )
     source_metadata = dict(preprocessing_artifact.get("metadata", {}))
+    preprocessing_lineage = source_metadata["aramina_preprocessing_lineage"]
     historical_preprocessing = yaml.safe_load(historical_preprocessing_yaml)
     source_path = historical_preprocessing.get("io", {}).get("input_h5_path")
     configs = {
@@ -201,7 +208,9 @@ def _reproducibility_manifest(
                 "version": aramina_version(),
                 "git_sha": aramina_git_sha(),
             },
-            "xrd_preprocessing": _distribution_provenance("xrd-preprocessing"),
+            "xrd_preprocessing": dict(
+                preprocessing_lineage["xrd_preprocessing"]
+            ),
         },
         "runtime": {
             "python": platform.python_version(),
@@ -230,24 +239,6 @@ def _reproducibility_manifest(
     }
 
 
-def _distribution_provenance(distribution_name: str) -> dict[str, Any]:
-    """Return installed package identity and pip's VCS provenance when present."""
-    result: dict[str, Any] = {"version": _installed_version(distribution_name)}
-    try:
-        payload = distribution(distribution_name).read_text("direct_url.json")
-    except PackageNotFoundError:
-        return result
-    if payload is None:
-        return result
-    direct_url = json.loads(payload)
-    result["url"] = direct_url.get("url")
-    vcs_info = direct_url.get("vcs_info")
-    if isinstance(vcs_info, dict):
-        result["requested_revision"] = vcs_info.get("requested_revision")
-        result["git_commit"] = vcs_info.get("commit_id")
-    return result
-
-
 def _installed_version(distribution_name: str) -> str:
     try:
         return version(distribution_name)
@@ -274,6 +265,9 @@ def _evaluation_artifact(
         "target_sensitivity": target_sensitivity,
         "training_config_yaml": training_config_yaml,
         "historical_preprocessing_yaml": artifact.get("historical_preprocessing_yaml"),
+        "historical_preprocessing_lineage": artifact.get(
+            "historical_preprocessing_lineage"
+        ),
         "dataset_summary": artifact["dataset_summary"],
         "metric_summary": artifact["metric_summary"],
         "split_metrics": artifact["split_metrics"],
@@ -341,7 +335,13 @@ def _final_model_artifact(
         "dataset_summary": artifact["dataset_summary"],
         "training_config_yaml": training_config_yaml,
         "historical_preprocessing_yaml": artifact.get("historical_preprocessing_yaml"),
+        "historical_preprocessing_lineage": artifact.get(
+            "historical_preprocessing_lineage"
+        ),
         "prediction_preprocessing_yaml": artifact["prediction_preprocessing_yaml"],
+        "prediction_preprocessing_lineage": artifact.get(
+            "prediction_preprocessing_lineage"
+        ),
         "prediction_contract_yaml": artifact["prediction_contract_yaml"],
         "model_definition_yaml": yaml.safe_dump(model_definition, sort_keys=False),
         "model_performance": _frozen_model_performance(
