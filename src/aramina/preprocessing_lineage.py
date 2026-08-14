@@ -51,6 +51,16 @@ def build_preprocessing_lineage(config: dict[str, Any]) -> dict[str, Any]:
             f"declared product version: {runtime['version']!r} != "
             f"{declared_version!r}."
         )
+    declared_commit = _nonempty_string(
+        xrd_policy,
+        "git_commit",
+        "xrd_preprocessing",
+    )
+    if runtime["git_commit"] != declared_commit:
+        raise ValueError(
+            "Aramina preprocessing XRD git commit differs from the declared "
+            f"product commit: {runtime['git_commit']!r} != {declared_commit!r}."
+        )
     product = _mapping(config, "aramina_preprocessing")
     return {
         "contract": ARAMINA_PREPROCESSING_LINEAGE_CONTRACT,
@@ -145,12 +155,10 @@ def xrd_runtime_identity() -> dict[str, str]:
         if commit is None and source_url:
             commit = _git_commit_from_file_url(source_url)
             requested = requested or commit
-    source_root = None
+    source_root = _xrd_source_root_from_package_source()
     dir_info = direct_url.get("dir_info")
     if isinstance(dir_info, dict) and dir_info.get("editable") is True:
         source_root = _xrd_source_root_from_file_url(direct_url.get("url"))
-    elif not payload:
-        source_root = _xrd_source_root_from_package_source()
     if source_root is not None:
         _require_clean_git_source(source_root)
         commit = _git_commit(source_root)

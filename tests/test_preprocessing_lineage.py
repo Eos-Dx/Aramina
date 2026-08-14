@@ -29,12 +29,12 @@ PREDICTION_CONFIG = (
     / "preprocessing"
     / "config_preprocessing_prediction_patient_v0_2.yaml"
 )
+XRD_COMMIT = "88dcaa277c5a0d4be2ab637bc5827a14bd106bea"
 XRD_IDENTITY = {
     "version": "0.1.9b0",
-    "requested_revision": "a" * 40,
-    "git_commit": "a" * 40,
+    "requested_revision": XRD_COMMIT,
+    "git_commit": XRD_COMMIT,
 }
-XRD_COMMIT = "88dcaa277c5a0d4be2ab637bc5827a14bd106bea"
 
 
 @pytest.fixture(autouse=True)
@@ -94,6 +94,14 @@ def test_product_lineage_rejects_declared_xrd_version_mismatch(monkeypatch):
     )
 
     with pytest.raises(ValueError, match="package version differs"):
+        preprocessing_lineage.build_preprocessing_lineage(config)
+
+
+def test_product_lineage_rejects_declared_xrd_commit_mismatch():
+    config = _config(TRAINING_CONFIG)
+    config["xrd_preprocessing"]["git_commit"] = "b" * 40
+
+    with pytest.raises(ValueError, match="git commit differs"):
         preprocessing_lineage.build_preprocessing_lineage(config)
 
 

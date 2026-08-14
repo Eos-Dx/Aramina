@@ -41,6 +41,7 @@ def test_source_package_model_and_xrd_release_identity_are_consistent():
     assert policy["xrd_preprocessing"] == {
         "version": XRD_VERSION,
         "release_tag": XRD_RELEASE_TAG,
+        "git_commit": XRD_COMMIT,
     }
 
     training_config = _yaml(

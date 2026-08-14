@@ -82,7 +82,9 @@ metadata.aramina_preprocessing_lineage
 
 The lineage records the Aramina route, XRD release tag, XRD package version,
 requested revision, full 40-character XRD commit, resolved pipeline semantics,
-and SHA-256 pipeline fingerprint. New training accepts only artifact `0.2` with
+and SHA-256 pipeline fingerprint. The resolved product policy declares the same
+full XRD commit and runtime validation requires an exact match. New training
+accepts only artifact `0.2` with
 the training route and exact runtime identity. Prediction by a newly trained
 model requires the prediction route and exact model-held lineage.
 

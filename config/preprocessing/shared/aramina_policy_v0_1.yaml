@@ -1,6 +1,7 @@
 xrd_preprocessing:
   version: 0.1.9b0
   release_tag: v0.1.9-beta
+  git_commit: 88dcaa277c5a0d4be2ab637bc5827a14bd106bea
 io:
   input_h5_path: ./data/combined_archive.h5
 raw_data:
