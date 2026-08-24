@@ -11,6 +11,7 @@ from aramina import mlflow_artifacts
 from aramina.mlflow_artifacts import (
     MLFLOW_REQUIRED_ARTIFACTS,
     _dataset_fingerprint,
+    _measurement_manifests,
     write_mlflow_product_artifacts,
 )
 from aramina.pipelines import run_preprocessing_pipeline
@@ -41,7 +42,9 @@ def test_product_mlflow_artifact_set_is_complete_and_patient_safe(
         output_joblib_path=dataframe_joblib,
     )
     preprocessing_artifact = joblib.load(dataframe_joblib)
-    resolved_config = yaml.safe_load(preprocessing_artifact["preprocessing_config_yaml"])
+    resolved_config = yaml.safe_load(
+        preprocessing_artifact["preprocessing_config_yaml"]
+    )
     resolved_config["aramina_preprocessing"] = {
         "name": "aramina_biopsy_patients_model_input",
         "version": "0.2",
@@ -73,6 +76,9 @@ def test_product_mlflow_artifact_set_is_complete_and_patient_safe(
     (training_folder / "model.joblib").write_bytes(b"test-model")
     predictions = _evaluation_predictions(dataframe)
     predictions.to_csv(training_folder / "evaluation_predictions.csv", index=False)
+    _evaluation_splits(dataframe).to_csv(
+        training_folder / "evaluation_splits.csv", index=False
+    )
     (training_folder / "evaluation.yaml").write_text(
         yaml.safe_dump(
             {
@@ -103,36 +109,85 @@ def test_product_mlflow_artifact_set_is_complete_and_patient_safe(
     assert len(selected) == len(dataframe)
     assert selected["measurement_id"].str.fullmatch(r"[0-9a-f]{64}").all()
     assert not dropped.empty
-    assert set(dropped["drop_reason"]) == {
-        "not_selected_by_resolved_product_pipeline"
-    }
+    assert set(dropped["drop_reason"]) == {"not_selected_by_resolved_product_pipeline"}
     assert not (
         split.groupby(["split_id", "patient_id"])["partition"].nunique() > 1
     ).any()
     assert set(split["partition"]) == {"train", "test"}
     assert result["tags"]["product"] == "aramina"
-    assert result["tags"]["input_h5_checksum"] == preprocessing_artifact[
-        "metadata"
-    ]["input_h5_sha256"]
+    assert (
+        result["tags"]["input_h5_checksum"]
+        == preprocessing_artifact["metadata"]["input_h5_sha256"]
+    )
     assert len(result["manifest"]["dataset_fingerprint"]) == 64
     feature_schema = json.loads(
         (root / "feature_schema.json").read_text(encoding="utf-8")
     )
-    assert _dataset_fingerprint(
-        dataframe=dataframe.sample(frac=1.0, random_state=3),
-        selected_measurements=selected.sample(frac=1.0, random_state=4),
-        feature_schema=feature_schema,
-    ) == result["manifest"]["dataset_fingerprint"]
+    assert (
+        _dataset_fingerprint(
+            dataframe=dataframe.sample(frac=1.0, random_state=3),
+            selected_measurements=selected.sample(frac=1.0, random_state=4),
+            feature_schema=feature_schema,
+        )
+        == result["manifest"]["dataset_fingerprint"]
+    )
     assert result["metrics"]["held_out.roc_auc.mean"] == 0.7
     assert result["metrics"]["final_fit.sensitivity"] == 0.96
     manifest = json.loads((root / "mlflow_manifest.json").read_text(encoding="utf-8"))
     assert manifest["contract"] == "aramina_mlflow_product_run_v0_1"
 
 
+def test_measurement_manifest_preserves_duplicate_clinical_keys(
+    tmp_path: Path,
+    monkeypatch,
+):
+    selected_rows = pd.DataFrame(
+        [
+            {
+                "patientId": "P01",
+                "specimenId": "P01_LEFT_P1",
+                "side": "LEFT",
+                "position": "P1",
+                "started_at": "2026-01-02T03:04:05",
+                "biopsy": True,
+                "product_status_group": "CANCER",
+            },
+            {
+                "patientId": "P01",
+                "specimenId": "P01_LEFT_P1",
+                "side": "LEFT",
+                "position": "P1",
+                "started_at": "2026-01-02T03:04:05",
+                "biopsy": True,
+                "product_status_group": "CANCER",
+            },
+        ]
+    )
+    candidates = selected_rows.copy()
+    candidates["session_uid"] = ["session-1", "session-1"]
+    candidates["set_path"] = ["/sample/set_001", "/sample/set_002"]
+    monkeypatch.setattr(
+        mlflow_artifacts,
+        "list_h5_measurement_sets",
+        lambda *_args, **_kwargs: candidates,
+    )
+
+    selected, dropped = _measurement_manifests(
+        dataframe=selected_rows,
+        preprocessing_config={"io": {"input_h5_path": str(tmp_path / "input.h5")}},
+        preprocessing_config_path=tmp_path / "preprocessing.yaml",
+    )
+
+    assert selected["measurement_id"].nunique() == 2
+    assert set(selected["set_path"]) == {"/sample/set_001", "/sample/set_002"}
+    assert dropped.empty
+
+
 def _evaluation_predictions(dataframe: pd.DataFrame) -> pd.DataFrame:
     patients = sorted(dataframe["patientId"].astype(str).unique())
     rows = []
-    for split_id, patient_id in enumerate(patients[:2]):
+    for patient_index, patient_id in enumerate(patients):
+        split_id = patient_index % 2
         rows.append(
             {
                 "target_case_id": f"{patient_id}::LEFT",
@@ -150,6 +205,23 @@ def _evaluation_predictions(dataframe: pd.DataFrame) -> pd.DataFrame:
             }
         )
     return pd.DataFrame(rows)
+
+
+def _evaluation_splits(dataframe: pd.DataFrame) -> pd.DataFrame:
+    patients = sorted(dataframe["patientId"].astype(str).unique())
+    return pd.DataFrame(
+        [
+            {
+                "split_id": split_id,
+                "repeat_id": 0,
+                "fold_id": split_id,
+                "patientId": patient_id,
+                "partition": ("test" if patient_index % 2 == split_id else "train"),
+            }
+            for split_id in range(2)
+            for patient_index, patient_id in enumerate(patients)
+        ]
+    )
 
 
 def _training_artifact(
@@ -200,8 +272,8 @@ def _training_artifact(
         "evaluation": {
             "protocol": {
                 "method": "repeated_stratified_kfold",
-                "folds": 5,
-                "repeats": 20,
+                "folds": 2,
+                "repeats": 1,
                 "random_seed": 42,
             }
         },

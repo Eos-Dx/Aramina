@@ -98,7 +98,7 @@ to its existing contracts.
 |---|---|
 | `preprocessing_config.json` | Fully resolved preprocessing configuration. |
 | `product_filter_rules.json` | Applied product inclusion/exclusion rules. |
-| `selected_measurement_ids.csv` | Accepted measurement IDs, patient IDs, and target-side linkage. |
+| `selected_measurement_ids.csv` | Accepted measurements with unique SHA256 IDs derived from H5 `session_uid + set_path`, patient IDs, and target-side linkage. |
 | `dropped_measurements.csv` | Excluded measurements and recorded exclusion reason. |
 | `preprocessed_dataset.parquet` | Accepted measurement-level product dataset. |
 | `feature_schema.json` | Frozen LR1/LR2 input feature schema. |
@@ -112,6 +112,11 @@ The implementation must additionally retain the normal portable run outputs,
 including `model_description.yaml`, `evaluation.yaml`, `evaluation_metrics.csv`,
 `evaluation_predictions.csv`, and `evaluation_splits.csv`. MLflow artifact names above are fixed so one
 run can be checked programmatically without interpreting run-folder layout.
+
+Selected and dropped manifests must form a complete, non-overlapping,
+one-to-one partition of the candidate H5 measurement sets. Source Git SHAs are
+validated before preprocessing; archived Docker sources receive both SHAs at
+image build time.
 
 ## Local UI
 

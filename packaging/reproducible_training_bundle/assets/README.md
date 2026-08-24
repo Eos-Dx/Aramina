@@ -12,6 +12,8 @@ snapshots under `source/Aramina/` and `source/XRD-preprocessing/`.
 source snapshot, the H5 checksum, and the checksums of both Linux images. The
 bundle never runs `git pull` and never silently changes code. To inspect or
 clone the source from Git, use the recorded remote and commit from the manifest.
+Both source commits are also embedded in each image. Tracked training stops
+before preprocessing when either source commit is unavailable.
 
 ## Windows
 

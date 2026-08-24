@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import json
+import os
+import re
 import subprocess
 import tomllib
 from hashlib import sha256
-from importlib.metadata import PackageNotFoundError, version
+from importlib.metadata import PackageNotFoundError, distribution, version
 from pathlib import Path
 
 
@@ -41,13 +44,47 @@ def aramina_version() -> str:
 
 def aramina_git_sha() -> str:
     """Return source-tree commit or ``unavailable`` outside a Git checkout."""
+    embedded = os.environ.get("ARAMINA_GIT_SHA")
+    if embedded:
+        return _validated_git_sha(embedded, "ARAMINA_GIT_SHA")
     repo_root = _repo_root()
     if not (repo_root / ".git").exists():
         return "unavailable"
-    return subprocess.check_output(
-        ["git", "-C", str(repo_root), "rev-parse", "HEAD"],
-        text=True,
-    ).strip()
+    return _validated_git_sha(
+        subprocess.check_output(
+            ["git", "-C", str(repo_root), "rev-parse", "HEAD"],
+            text=True,
+        ).strip(),
+        "Aramina checkout",
+    )
+
+
+def xrd_preprocessing_git_sha() -> str:
+    """Return the installed XRD-preprocessing source commit."""
+    embedded = os.environ.get("XRD_PREPROCESSING_GIT_SHA")
+    if embedded:
+        return _validated_git_sha(embedded, "XRD_PREPROCESSING_GIT_SHA")
+    try:
+        payload = distribution("xrd-preprocessing").read_text("direct_url.json")
+    except PackageNotFoundError:
+        return "unavailable"
+    if payload is None:
+        return "unavailable"
+    direct_url = json.loads(payload)
+    vcs_info = direct_url.get("vcs_info")
+    if not isinstance(vcs_info, dict) or not vcs_info.get("commit_id"):
+        return "unavailable"
+    return _validated_git_sha(
+        str(vcs_info["commit_id"]),
+        "xrd-preprocessing direct_url.json",
+    )
+
+
+def _validated_git_sha(value: str, where: str) -> str:
+    normalized = value.strip().lower()
+    if not re.fullmatch(r"[0-9a-f]{40}", normalized):
+        raise ValueError(f"{where} must provide a full 40-character Git SHA.")
+    return normalized
 
 
 def _repo_root() -> Path:

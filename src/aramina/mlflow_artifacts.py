@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import defaultdict, deque
 from datetime import date, datetime
 from hashlib import sha256
 import json
@@ -79,7 +80,7 @@ def write_mlflow_product_artifacts(
     )
     _write_split_manifest(
         training_folder=training_folder,
-        dataframe=dataframe,
+        evaluation_protocol=training_artifact.get("evaluation", {}).get("protocol", {}),
         path=root / "train_test_split.csv",
     )
     _copy_required(training_folder / "model.joblib", root / "model.joblib")
@@ -186,7 +187,9 @@ def _measurement_manifests(
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     missing = [column for column in _IDENTITY_COLUMNS if column not in dataframe]
     if missing:
-        raise KeyError(f"Preprocessed data lacks measurement identity columns: {missing}")
+        raise KeyError(
+            f"Preprocessed data lacks measurement identity columns: {missing}"
+        )
     input_h5 = resolve_config_path(
         preprocessing_config.get("io", {}).get("input_h5_path"),
         preprocessing_config_path,
@@ -200,34 +203,53 @@ def _measurement_manifests(
         column for column in _IDENTITY_COLUMNS if column not in candidates
     ]
     if candidate_missing:
-        raise KeyError(f"H5 audit lacks measurement identity columns: {candidate_missing}")
+        raise KeyError(
+            f"H5 audit lacks measurement identity columns: {candidate_missing}"
+        )
 
-    candidate_records = _identity_records(candidates)
+    candidate_records = _identity_records(candidates, canonical_h5_identity=True)
     selected_records = _identity_records(dataframe)
-    candidate_by_key = {
-        record["identity_key"]: record for record in candidate_records
-    }
-    selected_keys = {record["identity_key"] for record in selected_records}
+    candidate_ids = [record["measurement_id"] for record in candidate_records]
+    if len(candidate_ids) != len(set(candidate_ids)):
+        raise RuntimeError(
+            "H5 audit contains duplicate session_uid/set_path identities."
+        )
+    candidate_by_key: dict[str, deque[dict[str, Any]]] = defaultdict(deque)
+    for record in sorted(
+        candidate_records,
+        key=lambda item: (
+            item["identity_key"],
+            item["session_uid"],
+            item["set_path"],
+        ),
+    ):
+        candidate_by_key[record["identity_key"]].append(record)
     selected = []
     for record in selected_records:
-        candidate = candidate_by_key.get(record["identity_key"], {})
+        matches = candidate_by_key.get(record["identity_key"])
+        if not matches:
+            raise RuntimeError(
+                "Preprocessed row cannot be matched one-to-one to an H5 measurement: "
+                f"{record['identity_key']}"
+            )
+        candidate = matches.popleft()
         selected.append(
             {
-                "measurement_id": candidate.get(
-                    "measurement_id", record["measurement_id"]
-                ),
+                "measurement_id": candidate["measurement_id"],
                 **{key: record[key] for key in _manifest_identity_names()},
-                "session_uid": candidate.get("session_uid", "unavailable"),
-                "set_path": candidate.get("set_path", "unavailable"),
+                "session_uid": candidate["session_uid"],
+                "set_path": candidate["set_path"],
                 "biopsy": record.get("biopsy", "unknown"),
-                "product_status_group": record.get(
-                    "product_status_group", "unknown"
-                ),
-                "target_case_eligible": record.get(
-                    "target_case_eligible", False
-                ),
+                "product_status_group": record.get("product_status_group", "unknown"),
+                "target_case_eligible": record.get("target_case_eligible", False),
             }
         )
+    selected_ids = [record["measurement_id"] for record in selected]
+    if len(selected_ids) != len(set(selected_ids)):
+        raise RuntimeError("Selected H5 measurement IDs are not unique.")
+    remaining_candidates = [
+        record for matches in candidate_by_key.values() for record in matches
+    ]
     dropped = [
         {
             "measurement_id": record["measurement_id"],
@@ -239,13 +261,21 @@ def _measurement_manifests(
             "drop_stage": "product_preprocessing",
             "drop_reason": "not_selected_by_resolved_product_pipeline",
         }
-        for record in candidate_records
-        if record["identity_key"] not in selected_keys
+        for record in remaining_candidates
     ]
+    dropped_ids = {record["measurement_id"] for record in dropped}
+    if set(selected_ids).intersection(dropped_ids):
+        raise RuntimeError("Selected and dropped H5 measurement IDs overlap.")
+    if len(selected) + len(dropped) != len(candidate_records):
+        raise RuntimeError("H5 measurement audit is incomplete.")
     return pd.DataFrame(selected), pd.DataFrame(dropped)
 
 
-def _identity_records(dataframe: pd.DataFrame) -> list[dict[str, str]]:
+def _identity_records(
+    dataframe: pd.DataFrame,
+    *,
+    canonical_h5_identity: bool = False,
+) -> list[dict[str, Any]]:
     records = []
     for row in dataframe.to_dict(orient="records"):
         values = {
@@ -256,13 +286,32 @@ def _identity_records(dataframe: pd.DataFrame) -> list[dict[str, str]]:
             "started_at": _timestamp_value(row.get("started_at")),
         }
         identity_key = "|".join(values.values())
+        session_uid = _identity_value(row.get("session_uid"))
+        set_path = _identity_value(row.get("set_path"))
+        if canonical_h5_identity:
+            unavailable = [
+                name
+                for name, value in (
+                    ("session_uid", session_uid),
+                    ("set_path", set_path),
+                )
+                if value == "unknown"
+            ]
+            if unavailable:
+                raise RuntimeError(
+                    "H5 audit lacks canonical measurement identity values: "
+                    f"{unavailable}"
+                )
+            measurement_key = f"{session_uid}|{set_path}"
+        else:
+            measurement_key = identity_key
         records.append(
             {
                 **values,
                 "identity_key": identity_key,
-                "measurement_id": sha256(identity_key.encode("utf-8")).hexdigest(),
-                "session_uid": _identity_value(row.get("session_uid")),
-                "set_path": _identity_value(row.get("set_path")),
+                "measurement_id": sha256(measurement_key.encode("utf-8")).hexdigest(),
+                "session_uid": session_uid,
+                "set_path": set_path,
                 "biopsy": _boolean_text(row.get("biopsy")),
                 "product_status_group": _identity_value(
                     row.get("product_status_group")
@@ -295,11 +344,9 @@ def _boolean_text(value: Any) -> str:
 
 
 def _target_case_eligible(row: dict[str, Any]) -> bool:
-    return (
-        _boolean_text(row.get("biopsy")) == "true"
-        and _identity_value(row.get("product_status_group")).upper()
-        in {"BENIGN", "CANCER"}
-    )
+    return _boolean_text(row.get("biopsy")) == "true" and _identity_value(
+        row.get("product_status_group")
+    ).upper() in {"BENIGN", "CANCER"}
 
 
 def _feature_schema(
@@ -338,36 +385,83 @@ def _label_mapping(
 def _write_split_manifest(
     *,
     training_folder: Path,
-    dataframe: pd.DataFrame,
+    evaluation_protocol: dict[str, Any],
     path: Path,
 ) -> None:
-    predictions = pd.read_csv(training_folder / "evaluation_predictions.csv")
-    required = {"split_id", "patientId", "evaluation_mode"}
-    missing = sorted(required.difference(predictions.columns))
-    if missing:
-        raise KeyError(f"Evaluation predictions lack split columns: {missing}")
-    patients = sorted(dataframe["patientId"].astype(str).unique())
-    rows = []
-    for split_id, split in predictions.groupby("split_id", sort=True):
-        test_patients = set(split["patientId"].astype(str))
-        if not test_patients.issubset(patients):
-            raise RuntimeError("Evaluation split contains an unknown patient.")
-        mode = str(split["evaluation_mode"].iloc[0])
-        rows.extend(
-            {
-                "split_id": int(split_id),
-                "evaluation_mode": mode,
-                "patient_id": patient_id,
-                "partition": "test" if patient_id in test_patients else "train",
-            }
-            for patient_id in patients
+    source = training_folder / "evaluation_splits.csv"
+    if not source.is_file():
+        raise FileNotFoundError(
+            f"Actual evaluation split assignments are missing: {source}"
         )
-    manifest = pd.DataFrame(rows)
-    overlap = (
-        manifest.groupby(["split_id", "patient_id"])["partition"].nunique() > 1
-    ).any()
-    if overlap:
-        raise RuntimeError("Patient leakage detected in MLflow split manifest.")
+    assignments = pd.read_csv(source)
+    required = {"split_id", "repeat_id", "fold_id", "patientId", "partition"}
+    missing = sorted(required.difference(assignments.columns))
+    if missing:
+        raise KeyError(f"Evaluation splits lack assignment columns: {missing}")
+    predictions = pd.read_csv(training_folder / "evaluation_predictions.csv")
+    prediction_required = {"split_id", "patientId", "evaluation_mode"}
+    prediction_missing = sorted(prediction_required.difference(predictions.columns))
+    if prediction_missing:
+        raise KeyError(
+            f"Evaluation predictions lack split columns: {prediction_missing}"
+        )
+    folds = int(evaluation_protocol.get("folds", 0))
+    repeats = int(evaluation_protocol.get("repeats", 0))
+    expected_split_ids = set(range(folds * repeats))
+    actual_split_ids = set(assignments["split_id"].astype(int))
+    if not expected_split_ids or actual_split_ids != expected_split_ids:
+        raise RuntimeError(
+            "Evaluation split manifest does not match the frozen protocol: "
+            f"expected={len(expected_split_ids)}, actual={len(actual_split_ids)}"
+        )
+    if assignments.duplicated(["split_id", "patientId"]).any():
+        raise RuntimeError("Patient leakage detected in evaluation split assignments.")
+    patients = set(assignments["patientId"].astype(str))
+    for split_id, split in assignments.groupby("split_id", sort=True):
+        if set(split["patientId"].astype(str)) != patients:
+            raise RuntimeError(
+                f"Evaluation split {split_id} does not cover the complete patient cohort."
+            )
+        if set(split["partition"].astype(str)) != {"train", "test"}:
+            raise RuntimeError(
+                f"Evaluation split {split_id} lacks a train or test partition."
+            )
+    held_out = assignments.loc[assignments["partition"] == "test"]
+    held_out_counts = held_out["patientId"].astype(str).value_counts()
+    if set(held_out_counts.index) != patients or not (held_out_counts == repeats).all():
+        raise RuntimeError(
+            "Each patient must be held out exactly once in every evaluation repeat."
+        )
+    assignment_test = set(
+        zip(
+            held_out["split_id"].astype(int),
+            held_out["patientId"].astype(str),
+            strict=True,
+        )
+    )
+    prediction_test = set(
+        zip(
+            predictions["split_id"].astype(int),
+            predictions["patientId"].astype(str),
+            strict=True,
+        )
+    )
+    if assignment_test != prediction_test:
+        raise RuntimeError(
+            "Evaluation predictions do not match recorded held-out patients."
+        )
+    manifest = assignments.rename(columns={"patientId": "patient_id"}).copy()
+    manifest["evaluation_mode"] = str(evaluation_protocol.get("method", "unknown"))
+    manifest = manifest[
+        [
+            "split_id",
+            "repeat_id",
+            "fold_id",
+            "evaluation_mode",
+            "patient_id",
+            "partition",
+        ]
+    ].sort_values(["split_id", "partition", "patient_id"], kind="stable")
     manifest.to_csv(path, index=False)
 
 
@@ -454,9 +548,7 @@ def _mlflow_params(
         "integration.error_model": str(integration.get("error_model", "unknown")),
         "snr.method": str(snr.get("method", "unknown")),
         "snr.min_db": float(snr.get("min_snr_db", float("nan"))),
-        "normalization.q_range": json.dumps(
-            normalization.get("q_range_nm_inv", [])
-        ),
+        "normalization.q_range": json.dumps(normalization.get("q_range_nm_inv", [])),
         "evaluation.method": str(evaluation.get("method", "unknown")),
         "evaluation.folds": int(evaluation.get("folds", 0)),
         "evaluation.repeats": int(evaluation.get("repeats", 0)),
@@ -507,20 +599,25 @@ def _dataset_fingerprint(
     """Hash accepted values, identities, and schema independent of file encoding."""
     digest = sha256()
     digest.update(
-        json.dumps(feature_schema, sort_keys=True, default=_json_default).encode("utf-8")
+        json.dumps(feature_schema, sort_keys=True, default=_json_default).encode(
+            "utf-8"
+        )
     )
     selected_ids = sorted(selected_measurements["measurement_id"].astype(str))
     for measurement_id in selected_ids:
         _update_hash(digest, measurement_id)
-    sort_columns = [column for column in _IDENTITY_COLUMNS if column in dataframe]
-    ordered = dataframe.sort_values(sort_columns, kind="stable")
-    for column in ordered.columns:
+    for column in dataframe.columns:
         digest.update(column.encode("utf-8"))
-        digest.update(str(ordered[column].dtype).encode("utf-8"))
-    for row in ordered.to_dict(orient="records"):
-        for column in ordered.columns:
-            digest.update(column.encode("utf-8"))
-            _update_hash(digest, row[column])
+        digest.update(str(dataframe[column].dtype).encode("utf-8"))
+    row_digests = []
+    for row in dataframe.to_dict(orient="records"):
+        row_digest = sha256()
+        for column in dataframe.columns:
+            row_digest.update(column.encode("utf-8"))
+            _update_hash(row_digest, row[column])
+        row_digests.append(row_digest.digest())
+    for row_digest in sorted(row_digests):
+        digest.update(row_digest)
     return digest.hexdigest()
 
 
