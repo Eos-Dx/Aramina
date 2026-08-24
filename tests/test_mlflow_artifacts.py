@@ -133,6 +133,10 @@ def test_product_mlflow_artifact_set_is_complete_and_patient_safe(
     )
     assert result["metrics"]["held_out.roc_auc.mean"] == 0.7
     assert result["metrics"]["final_fit.sensitivity"] == 0.96
+    assert result["params"]["profile_encoder.type"] == "discrete_fpca"
+    assert result["params"]["profile_encoder.input_q_bins"] == 256
+    assert result["params"]["profile_encoder.components"] == 30
+    assert result["params"]["profile_encoder.output_dimensions"] == 30
     manifest = json.loads((root / "mlflow_manifest.json").read_text(encoding="utf-8"))
     assert manifest["contract"] == "aramina_mlflow_product_run_v0_1"
 
@@ -243,6 +247,7 @@ def _training_artifact(
                     "type": "discrete_fpca",
                     "input_q_bins": 256,
                     "components": 30,
+                    "output_dimensions": 30,
                 },
                 "thresholds": {"threshold_target": 0.25},
             }

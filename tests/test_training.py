@@ -402,6 +402,7 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
         "type": "discrete_fpca",
         "input_q_bins": 256,
         "components": 30,
+        "output_dimensions": 30,
         "fit_scope": "fold_local_during_evaluation_train_all_for_final_fit",
     }
     assert (

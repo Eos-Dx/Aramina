@@ -113,6 +113,7 @@ def _fit_target_breast_model(
             "type": "discrete_fpca",
             "input_q_bins": PROFILE_INTEGRATION_NPT,
             "components": PROFILE_FPCA_COMPONENTS,
+            "output_dimensions": PROFILE_FPCA_COMPONENTS,
             "fit_scope": "fold_local_during_evaluation_train_all_for_final_fit",
         },
         "lr1_model": lr1_model,

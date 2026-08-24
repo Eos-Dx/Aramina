@@ -108,6 +108,7 @@ model_summary:
     type: discrete_fpca
     input_q_bins: 256
     components: 30
+    output_dimensions: 30
     fit_scope: fold_local_during_evaluation_train_all_for_final_fit
   final_model: <fitted gated logistic-regression summary>
   symmetry_feature_contract: aramina_sk_symmetry_v0_2

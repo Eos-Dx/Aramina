@@ -67,7 +67,7 @@ run covering preprocessing, patient-safe evaluation, and final train-on-all.
 Inspect local runs with:
 
 ```bash
-mlflow ui --backend-store-uri sqlite:///examples/outputs/mlflow/aramina.db --port 5000
+mlflow ui --backend-store-uri sqlite:///examples/outputs/mlflow/aramina_fpca.db --port 5000
 ```
 
 ## Repository Map
