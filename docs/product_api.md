@@ -46,8 +46,24 @@ validation. See [training config](contracts/training_config_v0_1.md) and
 ## Preprocess-Train
 
 Preprocessing runs once. Its artifact is written, while the same DataFrame is
-passed directly to training. See
+passed directly to patient-safe evaluation and final training. The v0.2 product
+contract requires a local or configured MLflow mapping. One tracked run covers
+the complete H5-to-model lineage, not a standalone classifier fit. See
 [preprocess-train config](contracts/preprocess_train_config_v0_1.md).
+
+The canonical configuration writes local MLflow tracking data to
+`examples/outputs/mlflow` under `aramina_product_fpca30`. After a completed
+implementation-backed v0.2 run, inspect it with:
+
+```bash
+mlflow ui --backend-store-uri examples/outputs/mlflow --port 5000
+```
+
+`python -m aramina train` remains a developer command for an existing
+preprocessing artifact. It is not a compliant full product MLflow run and must
+not be represented as one. MLflow captures reproducibility metadata and model
+outputs; it does not create an independent-validation, clinical-performance, or
+regulatory claim.
 
 ## Predict
 

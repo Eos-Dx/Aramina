@@ -22,7 +22,7 @@ canonical owner; other documents link to it instead of repeating it.
 |---|---|
 | Preprocessing YAML | [Preprocessing config](contracts/preprocessing_config_v0_1.md) |
 | Training YAML | [Training config](contracts/training_config_v0_1.md) |
-| Combined preprocessing and training YAML | [Preprocess-train config](contracts/preprocess_train_config_v0_1.md) |
+| Combined preprocessing and training YAML and MLflow product-run contract | [Preprocess-train config v0.2 proposal](contracts/preprocess_train_config_v0_1.md) |
 | Prediction YAML | [Prediction config](contracts/prediction_config_v0_1.md) |
 | Training outputs | [Model training results](contracts/model_training_results_v0_1.md) |
 | Internal prediction report | [Internal report](modeling/internal_clinical_report_content_v0_9.md) |
@@ -53,6 +53,9 @@ documentation source.
 - `docs/contracts/` defines fields and validation rules.
 - `contracts/` contains filled examples only.
 - `models/<model_id>/` records one immutable training result.
+- One compliant product MLflow run covers preprocessing, patient-safe evaluation,
+  and final train-on-all fit. The v0.2 tracking implementation is pending; its
+  contract and canonical local configuration are documented before code changes.
 - `docs/modeling/` explains architecture, evidence, and limitations.
 - `docs/meta/` preserves controlled metadata and decision evidence.
 - Historical experiments stay on experiment branches.
