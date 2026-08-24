@@ -20,6 +20,11 @@ from aramina.training import (
 )
 from aramina.training_config import load_training_config
 from aramina.training_config import PRODUCT_MODEL_NAME
+from aramina.training_evaluation import (
+    _split_assignment_frame,
+    _validate_patient_split_assignments,
+)
+from aramina.target_breast_model import build_profile_logistic
 from aramina.symmetry_features import (
     SK_SYMMETRY_COLUMNS,
     target_contralateral_symmetry_features,
@@ -28,7 +33,7 @@ from aramina.symmetry_features import (
 
 def _patient_training_frame() -> pd.DataFrame:
     rows = []
-    q = np.linspace(2.0, 23.0, 30)
+    q = np.linspace(2.0, 23.0, 256)
     for patient_idx in range(30):
         cancer = patient_idx % 3 == 0
         patient_label = "CANCER" if cancer else "BENIGN"
@@ -53,6 +58,14 @@ def _patient_training_frame() -> pd.DataFrame:
                     }
                 )
     return pd.DataFrame(rows)
+
+
+def test_fpca30_profile_model_requires_256_bins():
+    model = build_profile_logistic(logreg_c=0.1, random_state=42)
+    labels = np.array([0, 1] * 20)
+
+    with pytest.raises(ValueError, match="requires 256-bin profiles"):
+        model.fit(np.zeros((40, 100)), labels)
 
 
 def _training_config(
@@ -244,6 +257,29 @@ def test_evaluation_mode_writes_patient_safe_footprint_only(tmp_path: Path):
     assert np.isfinite(summary["specificity_ci_high"])
     assert (run_folder / "evaluation_metrics.csv").exists()
     assert (run_folder / "evaluation_predictions.csv").exists()
+    assert (run_folder / "evaluation_splits.csv").exists()
+    assignments = artifact["split_assignments"]
+    assert list(assignments.columns) == [
+        "split_id",
+        "repeat_id",
+        "fold_id",
+        "patientId",
+        "partition",
+    ]
+    assert len(assignments) == 100 * 30
+    assert assignments.groupby(["split_id", "patientId"]).size().eq(1).all()
+    assert assignments.groupby("split_id")["patientId"].nunique().eq(30).all()
+    assert (
+        assignments.query("partition == 'test'")["patientId"]
+        .value_counts()
+        .eq(20)
+        .all()
+    )
+    pd.testing.assert_frame_equal(
+        pd.read_csv(run_folder / "evaluation_splits.csv"),
+        assignments.reset_index(drop=True),
+        check_dtype=False,
+    )
     assert not (run_folder / "evaluation.joblib").exists()
     assert not (run_folder / "evaluation.json").exists()
     assert (run_folder / "evaluation.yaml").exists()
@@ -336,6 +372,13 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
     assert "training_config" not in artifact
     assert "training_config_sha256" not in artifact
     assert "split_predictions" not in artifact
+    assert "split_assignments" not in artifact
+    assert artifact["evaluation"]["artifacts"] == {
+        "summary": "evaluation.yaml",
+        "metrics": "evaluation_metrics.csv",
+        "predictions": "evaluation_predictions.csv",
+        "splits": "evaluation_splits.csv",
+    }
     assert description["model"]["id"] == result["model_id"]
     assert description["model"]["artifact_sha256"]
     assert description["model_performance"]["evaluation_method"] == (
@@ -355,10 +398,28 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
     assert "selected_model" not in description
     assert set(description["feature_schema"]) == {"final_model"}
     assert description["model_summary"]["architecture"] == {
-        "stage_1": "target_xrd_profile_logistic_regression",
+        "stage_1": "target_xrd_profile_fpca30_logistic_regression",
         "stage_2": "age_and_optional_symmetry_refinement",
         "symmetry_behavior": "neutralized_unless_2_valid_measurements_per_breast_and_finite_core4_features",
     }
+    assert description["model_summary"]["profile_encoder"] == {
+        "type": "discrete_fpca",
+        "input_q_bins": 256,
+        "components": 30,
+        "fit_scope": "fold_local_during_evaluation_train_all_for_final_fit",
+    }
+    assert (
+        description["model_summary"]["lr1_profile_model"]["steps"]["fpca"][
+            "n_components"
+        ]
+        == 30
+    )
+    assert (
+        description["model_summary"]["lr1_profile_model"]["steps"][
+            "profile_shape"
+        ]["expected_features"]
+        == 256
+    )
     assert (
         description["model_summary"]["lr1_profile_model"]["steps"]["logreg"][
             "classes"
@@ -394,6 +455,7 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
     assert evaluation["files"] == {
         "metrics": "evaluation_metrics.csv",
         "predictions": "evaluation_predictions.csv",
+        "splits": "evaluation_splits.csv",
     }
     assert not _has_unrounded_float(evaluation)
     assert not _has_unrounded_float(description)
@@ -486,6 +548,45 @@ def test_bilateral_biopsy_creates_two_target_cases_in_one_patient_safe_split():
         train_patients = set(feature_table.iloc[train_index]["patientId"])
         test_patients = set(feature_table.iloc[test_index]["patientId"])
         assert ("P00" in train_patients) != ("P00" in test_patients)
+
+
+def test_split_assignment_frame_rejects_patient_overlap():
+    with pytest.raises(RuntimeError, match="Patient leakage"):
+        _split_assignment_frame(
+            split_id=0,
+            n_splits=5,
+            train_patients={"P00", "P01"},
+            test_patients={"P01", "P02"},
+        )
+
+
+def test_split_assignment_validation_rejects_invalid_held_out_frequency():
+    assignments = pd.concat(
+        [
+            _split_assignment_frame(
+                split_id=0,
+                n_splits=2,
+                train_patients={"P01"},
+                test_patients={"P00"},
+            ),
+            _split_assignment_frame(
+                split_id=1,
+                n_splits=2,
+                train_patients={"P00"},
+                test_patients={"P01"},
+            ),
+        ],
+        ignore_index=True,
+    )
+    assignments.loc[assignments["split_id"] == 1, "partition"] = ["test", "train"]
+
+    with pytest.raises(RuntimeError, match="held out exactly once per repeat"):
+        _validate_patient_split_assignments(
+            assignments,
+            expected_patients={"P00", "P01"},
+            n_splits=2,
+            n_repeats=1,
+        )
 
 
 def test_logit_average_probability_preserves_consistent_evidence():
@@ -620,4 +721,5 @@ def test_training_output_contract_examples_are_complete():
     assert evaluation["files"] == {
         "metrics": "evaluation_metrics.csv",
         "predictions": "evaluation_predictions.csv",
+        "splits": "evaluation_splits.csv",
     }

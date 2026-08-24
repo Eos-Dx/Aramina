@@ -139,7 +139,9 @@ resolved training YAML, historical preprocessing YAML, prediction
 preprocessing YAML, prediction contract, H5 lineage, and a concise frozen
 `model_performance` record. The generated `model_description.yaml` provides
 the human-readable copy. Full fold metrics and held-out predictions remain in
-the `evaluation_metrics.csv` and `evaluation_predictions.csv` files.
+the `evaluation_metrics.csv`, `evaluation_predictions.csv`, and
+`evaluation_splits.csv` files. The split file records the actual patient-level
+train/test membership used by every repeated K-fold split.
 
 Train-all is useful for inspecting fitted-artifact separation and threshold
 behavior. It must not replace patient-safe evaluation.

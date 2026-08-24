@@ -12,11 +12,13 @@ model_description.yaml
 evaluation.yaml                         # when run.evaluation: true
 evaluation_metrics.csv                  # when run.evaluation: true
 evaluation_predictions.csv              # when run.evaluation: true
+evaluation_splits.csv                   # when run.evaluation: true
 ```
 
 `model.joblib` is executable. YAML files are human-readable internal records.
-CSV is used only for row-oriented data: one row per evaluation fold and one
-row per held-out target-breast prediction. YAML numbers are rounded to five
+CSV is used only for row-oriented data: one row per evaluation fold, one row
+per held-out target-breast prediction, and one patient-partition row per split.
+YAML numbers are rounded to five
 decimal places; IDs, SHA256 values, labels, and paths remain strings.
 
 ## model.joblib
@@ -42,6 +44,10 @@ reproducibility: <H5 checksum, source-code provenance, runtime versions>
 `model_performance` is the held-out validation record: patient-safe method,
 fold count, repeat count, seed, target sensitivity, and ROC AUC, sensitivity,
 and specificity as fold mean and standard deviation.
+
+When evaluation is requested, `evaluation.artifacts` references
+`evaluation.yaml`, `evaluation_metrics.csv`, `evaluation_predictions.csv`, and
+`evaluation_splits.csv` as sibling files.
 
 The final model entry also contains `tissue_risk_assessment`, a frozen
 `aramina_tra_v0_2` policy. It is derived automatically from the final threshold
@@ -139,6 +145,7 @@ metric_summary:
 files:
   metrics: evaluation_metrics.csv
   predictions: evaluation_predictions.csv
+  splits: evaluation_splits.csv
 ```
 
 `evidence_status: patient_safe_validation` means all target cases from one
@@ -160,6 +167,12 @@ and train-fold thresholds.
 `evaluation_predictions.csv`: one row per held-out target-breast case per fold,
 including target-case ID, patient ID, true label, predicted probability,
 threshold, predicted class, and fold ID.
+
+`evaluation_splits.csv`: actual patient-level partitions used by the evaluator.
+Each row contains split, repeat, fold, patient ID, and `train` or `test`.
+Every evaluated patient occurs exactly once per split and exactly once in the
+held-out partition per repeat. Generation fails on overlap, missing patients,
+an unexpected split count, or invalid held-out frequency.
 
 Artifact-file references are sibling relative names. The full model directory
 is therefore portable as one unit; model ID and SHA256 remain immutable

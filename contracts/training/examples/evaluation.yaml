@@ -51,3 +51,4 @@ metric_summary:
 files:
   metrics: evaluation_metrics.csv
   predictions: evaluation_predictions.csv
+  splits: evaluation_splits.csv
