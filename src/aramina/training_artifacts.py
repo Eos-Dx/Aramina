@@ -218,6 +218,8 @@ def _reproducibility_manifest(
                     "pyFAI",
                     "fabio",
                     "PyYAML",
+                    "pyarrow",
+                    "mlflow",
                 )
             },
         },

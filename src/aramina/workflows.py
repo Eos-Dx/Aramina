@@ -12,11 +12,17 @@ from uuid import uuid4
 import yaml
 
 from .config_paths import resolve_config_path
+from .mlflow_artifacts import (
+    MLFLOW_REQUIRED_ARTIFACTS,
+    write_mlflow_product_artifacts,
+)
+from .mlflow_tracking import MlflowRun
 from .pipelines import run_preprocessing_artifact_from_config
 from .training import run_training_from_config
+from .training_config import load_training_config
 
 
-PREPROCESS_TRAIN_CONTRACT = "aramina_preprocessing_and_training_config_v0_1"
+PREPROCESS_TRAIN_CONTRACT = "aramina_preprocessing_and_training_config_v0_2"
 logger = logging.getLogger(__name__)
 
 
@@ -32,39 +38,75 @@ def run_preprocess_train_from_config(
         config["preprocessing_config_path"], config_path
     )
     training_config_path = _project_path(config["training_config_path"], config_path)
+    tracking_config = config["mlflow"]
+    _require_complete_product_run(training_config_path, tracking_config)
     run_folder = _preprocess_train_run_folder(config, config_path)
     dataframe_path = run_folder / "preprocessing" / "dataframe.joblib"
     dataframe_path.parent.mkdir(parents=True)
 
-    logger.info("Preprocessing-and-training config: %s", config_path)
-    logger.info("Preprocessing-and-training output: %s", run_folder)
-    logger.info("Stage 1/2: preprocessing")
-    preprocessing_kwargs = {"verbose": True} if verbose else {}
-    preprocessing_artifact = run_preprocessing_artifact_from_config(
-        preprocessing_config_path,
-        output_joblib_path=dataframe_path,
-        **preprocessing_kwargs,
+    tracking_uri = _tracking_uri(tracking_config["tracking_uri"], config_path)
+    tracker = MlflowRun(
+        enabled=tracking_config["enabled"],
+        tracking_uri=tracking_uri,
+        experiment_name=tracking_config["experiment_name"],
+        run_name=run_folder.name,
+        params={
+            "workflow": {
+                "name": config["preprocessing_and_training"]["name"],
+                "run_author": config["preprocessing_and_training"]["run_author"],
+            }
+        },
+        tags={
+            "product": "aramina",
+            "data_contract": PREPROCESS_TRAIN_CONTRACT,
+        },
     )
-    cohort_summary = _write_preprocessing_summary(
-        preprocessing_artifact,
-        dataframe_path.parent / "cohort_summary.json",
-    )
-    logger.info(
-        "Preprocessing cohort: rows=%d patients=%d labels=%s biopsy_labels=%s",
-        cohort_summary["rows"],
-        cohort_summary["patients"],
-        cohort_summary["product_status_group_counts"],
-        cohort_summary["biopsy_product_status_group_counts"],
-    )
-    logger.info("Stage 2/2: training")
-    training_artifact = run_training_from_config(
-        training_config_path,
-        dataframe=preprocessing_artifact["dataframe"],
-        preprocessing_artifact=preprocessing_artifact,
-        dataframe_joblib_path=dataframe_path,
-        output_folder=run_folder / "training",
-        preprocess_train_config_yaml=config_path.read_text(encoding="utf-8"),
-    )
+    mlflow_bundle = None
+    with tracker:
+        logger.info("Preprocessing-and-training config: %s", config_path)
+        logger.info("Preprocessing-and-training output: %s", run_folder)
+        logger.info("Stage 1/2: preprocessing")
+        preprocessing_kwargs = {"verbose": True} if verbose else {}
+        preprocessing_artifact = run_preprocessing_artifact_from_config(
+            preprocessing_config_path,
+            output_joblib_path=dataframe_path,
+            **preprocessing_kwargs,
+        )
+        cohort_summary = _write_preprocessing_summary(
+            preprocessing_artifact,
+            dataframe_path.parent / "cohort_summary.json",
+        )
+        logger.info(
+            "Preprocessing cohort: rows=%d patients=%d labels=%s biopsy_labels=%s",
+            cohort_summary["rows"],
+            cohort_summary["patients"],
+            cohort_summary["product_status_group_counts"],
+            cohort_summary["biopsy_product_status_group_counts"],
+        )
+        logger.info("Stage 2/2: training")
+        training_artifact = run_training_from_config(
+            training_config_path,
+            dataframe=preprocessing_artifact["dataframe"],
+            preprocessing_artifact=preprocessing_artifact,
+            dataframe_joblib_path=dataframe_path,
+            output_folder=run_folder / "training",
+            preprocess_train_config_yaml=config_path.read_text(encoding="utf-8"),
+        )
+        if tracker.enabled:
+            mlflow_bundle = write_mlflow_product_artifacts(
+                run_folder=run_folder,
+                preprocessing_artifact=preprocessing_artifact,
+                training_artifact=training_artifact,
+                preprocessing_config_path=preprocessing_config_path,
+                preprocess_train_contract=PREPROCESS_TRAIN_CONTRACT,
+            )
+            tracker.set_tags(mlflow_bundle["tags"])
+            tracker.log_params(mlflow_bundle["params"])
+            tracker.log_metrics(mlflow_bundle["metrics"])
+            tracker.log_artifact_directory(
+                mlflow_bundle["artifact_directory"],
+                required_files=MLFLOW_REQUIRED_ARTIFACTS,
+            )
     logger.info("Preprocess-train complete: %s", run_folder)
     return {
         "preprocess_train_config_path": config_path,
@@ -74,6 +116,18 @@ def run_preprocess_train_from_config(
         "preprocessing_dataframe": preprocessing_artifact["dataframe"],
         "preprocessing_artifact": preprocessing_artifact,
         "training_artifact": training_artifact,
+        "mlflow": {
+            "enabled": tracker.enabled,
+            "tracking_uri": tracking_uri,
+            "experiment_name": tracking_config["experiment_name"],
+            "run_id": tracker.run_id,
+            "status": tracker.status,
+            "artifact_directory": (
+                str(mlflow_bundle["artifact_directory"])
+                if mlflow_bundle is not None
+                else None
+            ),
+        },
     }
 
 
@@ -86,6 +140,7 @@ def _load_preprocess_train_config(config_path: Path) -> dict[str, Any]:
         "preprocessing_and_training",
         "preprocessing_config_path",
         "training_config_path",
+        "mlflow",
     }
     missing = sorted(required.difference(config))
     if missing:
@@ -113,7 +168,48 @@ def _load_preprocess_train_config(config_path: Path) -> dict[str, Any]:
         config["preprocessing_config_path"], "preprocessing_config_path"
     )
     _require_nonempty_string(config["training_config_path"], "training_config_path")
+    _validate_mlflow_config(config["mlflow"])
     return config
+
+
+def _validate_mlflow_config(value: Any) -> None:
+    if not isinstance(value, dict):
+        raise TypeError("mlflow must be a mapping.")
+    fields = {"enabled", "tracking_uri", "experiment_name"}
+    missing = sorted(fields.difference(value))
+    if missing:
+        raise ValueError(f"Missing mlflow fields: {missing}")
+    unknown = sorted(set(value).difference(fields))
+    if unknown:
+        raise ValueError(f"Unknown mlflow fields: {unknown}")
+    if not isinstance(value["enabled"], bool):
+        raise TypeError("mlflow.enabled must be boolean.")
+    _require_nonempty_string(value["tracking_uri"], "mlflow.tracking_uri")
+    _require_nonempty_string(value["experiment_name"], "mlflow.experiment_name")
+
+
+def _require_complete_product_run(
+    training_config_path: Path,
+    tracking_config: dict[str, Any],
+) -> None:
+    if not tracking_config["enabled"]:
+        return
+    training_config, _ = load_training_config(training_config_path)
+    if not training_config["run"]["evaluation"] or not training_config["run"][
+        "train_on_all"
+    ]:
+        raise ValueError(
+            "Enabled product MLflow tracking requires evaluation=true and "
+            "train_on_all=true."
+        )
+
+
+def _tracking_uri(value: str, config_path: Path) -> str:
+    if "://" in value or value.startswith("databricks"):
+        return value
+    path = _project_path(value, config_path)
+    path.mkdir(parents=True, exist_ok=True)
+    return path.as_uri()
 
 
 def _project_path(value: Any, config_path: Path) -> Path:

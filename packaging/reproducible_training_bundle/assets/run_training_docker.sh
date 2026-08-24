@@ -38,12 +38,14 @@ stage() {
 stage "Verify installed packages"
 python - <<'PY'
 import aramina
+import mlflow
 import pyFAI
 import xrd_preprocessing
 
 print(f"aramina={aramina.__file__}")
 print(f"xrd_preprocessing={xrd_preprocessing.__file__}")
 print(f"pyfai={pyFAI.version}")
+print(f"mlflow={mlflow.__version__}")
 PY
 
 stage "Run preprocessing and training"

@@ -4,11 +4,9 @@ Status: research draft. `python -m aramina preprocess-train --config <yaml>`
 runs product preprocessing once, stores its artifact, and passes the same
 in-memory DataFrame directly to evaluation and final training.
 
-This file keeps its historical `v0_1` filename until the Python implementation
-lands. The contract declared inside YAML is v0.2. The v0.2 YAML must fail
-closed on a v0.1 implementation. MLflow dependency, validation, and artifact
-writing must be introduced in one source-code change before this configuration
-is executed.
+This file keeps its historical `v0_1` filename, while the contract declared
+inside YAML is v0.2. The implementation rejects v0.1 input and fails closed
+when MLflow initialization, lineage generation, or artifact logging fails.
 
 ```yaml
 contract: aramina_preprocessing_and_training_config_v0_2
@@ -84,7 +82,7 @@ artifacts. Missing values stop the run.
 | `pipeline_version` | Resolved product preprocessing pipeline version. |
 | `preprocessing_git_sha` | Git SHA of the XRD-preprocessing implementation used. |
 | `model_git_sha` | Git SHA of the Aramina implementation used. |
-| `dataset_fingerprint` | SHA256 of the accepted product dataset manifest and schema. |
+| `dataset_fingerprint` | Platform-independent SHA256 of accepted values, measurement identities, and feature schema. |
 
 The implementation may add non-clinical search tags, but it must not overwrite
 or omit these values.

@@ -29,6 +29,7 @@ RUN python -m pip install --upgrade pip \
         pyFAI==2026.5.0 \
         fabio==2025.10.0 \
         pyopencl==2026.1.2 \
+        mlflow==3.14.0 \
     && python -m pip install --no-deps /opt/XRD-preprocessing
 
 COPY Aramina /opt/Aramina

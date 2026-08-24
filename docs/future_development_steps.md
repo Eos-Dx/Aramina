@@ -8,13 +8,13 @@ current research-draft model or its released artifact.
 - Add strict semantic freeze validation for the complete preprocessing pipeline.
 - Add immutable model compatibility checks for feature schema, prediction
   contract, and XRD-preprocessing release identity.
-- Add a machine-readable row-level measurement audit manifest.
+- Extend the tracked row-level measurement audit from product-pipeline exclusion
+  to exact stage-specific drop reasons.
 - Make one release tag cover code, configs, documentation, model artifact, and
   reproducibility bundle; require a matching artifact source commit.
 
 ## Evidence And Operations
 
-- Add MLflow tracking for one complete dataset-build and training/evaluation run.
 - Revisit no-OOF LR1-to-LR2 training on a larger cohort or in an independent
   validation design.
 - Revisit a separately labelled contralateral-breast training cohort only when

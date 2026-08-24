@@ -22,7 +22,7 @@ dependencies:
   - ruff>=0.8
   - pip
   - pip:
-      - mlflow>=2.20
+      - mlflow>=3.14,<4
       - fastjsonschema
       - opencv-python-headless
       - scikit-image
