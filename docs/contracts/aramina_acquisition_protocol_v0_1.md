@@ -25,7 +25,8 @@ breast width, and measured thickness.
 
 The acquisition system records a machine-guided central point in instrument
 coordinates for each breast. The middle plane is defined by the stored breast
-profile and the instrument coordinate system. Each breast has exactly three
+profile and instrument coordinates and is referenced to the breast-profile
+plane perpendicular to the nipple axis. Each breast has exactly three
 standardized points at normalized width positions `0.5 - alpha`, `0.5`, and
 `0.5 + alpha`, where `alpha` is recorded in the protocol record. In physical
 coordinates, offsets are `center +/- alpha * measured breast width`. The
@@ -58,7 +59,8 @@ Every standardized and lesion-local point has both:
 - Attenuation coefficient in `cm^-1`, uncertainty, method, and source.
 
 Preferred sample/breast thickness is `<=50.0 mm`. The record stores an explicit
-measured value. A value above the preferred limit is not silently discarded: it
+maximum measured thickness across acquired points, while each breast profile
+retains its own thickness. A value above the preferred limit is not silently discarded: it
 requires qualified review, a deviation record, and a reason before the record
 can be accepted for research analysis.
 

@@ -48,6 +48,18 @@ def test_versioned_acquisition_example_loads_and_schema_documents_variants():
             "operator_fixed_distance_allowed",
         ),
         (
+            lambda config: config["record"]["geometry"]["middle_plane"].update(
+                orientation_reference="operator_selected_axis"
+            ),
+            "orientation_reference",
+        ),
+        (
+            lambda config: config["record"]["geometry"]["central_point"][
+                "point_ids"
+            ].update(target="WRONG-CENTRAL-ID"),
+            "central_point.point_ids.target",
+        ),
+        (
             lambda config: config["record"]["geometry"].update(point_count_variant=7),
             "one of 6, 9, or 12",
         ),

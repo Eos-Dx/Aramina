@@ -50,8 +50,10 @@ def validate_acquisition_protocol(config: Any) -> None:
     for key in ("record_id", "patient_id"):
         _nonempty_string(record, key, f"record.{key}")
     breast_widths = _validate_breast_profile(record["breast_profile"])
-    variant, alpha = _validate_geometry(record["geometry"])
-    point_ids = _validate_points(record["points"], variant, alpha, breast_widths)
+    variant, alpha, central_point_ids = _validate_geometry(record["geometry"])
+    point_ids = _validate_points(
+        record["points"], variant, alpha, breast_widths, central_point_ids
+    )
     _validate_thickness(record["thickness"])
     _validate_dose(record["dose"], point_ids)
     _validate_traceability(record["traceability"])
@@ -87,7 +89,7 @@ def _validate_breast_profile(value: Any) -> dict[str, float]:
     return widths
 
 
-def _validate_geometry(value: Any) -> tuple[int, float]:
+def _validate_geometry(value: Any) -> tuple[int, float, dict[str, str]]:
     geometry = value
     _exact_keys(
         geometry,
@@ -117,6 +119,7 @@ def _validate_geometry(value: Any) -> tuple[int, float]:
         middle_plane,
         {
             "definition",
+            "orientation_reference",
             "spacing_rule",
             "width_field",
             "operator_fixed_distance_allowed",
@@ -124,6 +127,11 @@ def _validate_geometry(value: Any) -> tuple[int, float]:
             "alpha_validation_status",
         },
         "record.geometry.middle_plane",
+    )
+    _equal(
+        middle_plane["orientation_reference"],
+        "breast_profile_plane_perpendicular_to_nipple_axis",
+        "record.geometry.middle_plane.orientation_reference",
     )
     _equal(
         middle_plane["spacing_rule"],
@@ -157,11 +165,15 @@ def _validate_geometry(value: Any) -> tuple[int, float]:
         raise ValueError(
             "record.geometry.point_count_variant must be one of 6, 9, or 12."
         )
-    return variant, float(alpha)
+    return variant, float(alpha), dict(point_ids)
 
 
 def _validate_points(
-    value: Any, variant: int, alpha: float, breast_widths: dict[str, float]
+    value: Any,
+    variant: int,
+    alpha: float,
+    breast_widths: dict[str, float],
+    central_point_ids: dict[str, str],
 ) -> set[str]:
     points = value
     _exact_keys(
@@ -186,6 +198,11 @@ def _validate_points(
             if point["role"] == "central":
                 central_count += 1
                 _equal(point["normalized_width_fraction"], 0.5, f"{point_id}.fraction")
+                _equal(
+                    point_id,
+                    central_point_ids[side],
+                    f"record.geometry.central_point.point_ids.{side}",
+                )
             if not isclose(
                 point["normalized_width_fraction"], expected_fraction, rel_tol=0, abs_tol=1e-9
             ):

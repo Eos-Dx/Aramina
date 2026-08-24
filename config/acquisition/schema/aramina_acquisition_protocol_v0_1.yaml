@@ -42,6 +42,7 @@ record:
       point_ids: {target: target_central_point_id, contralateral: contralateral_central_point_id}
     middle_plane:
       definition: reproducible_middle_plane_across_breast
+      orientation_reference: breast_profile_plane_perpendicular_to_nipple_axis
       spacing_rule: normalized_breast_width
       width_field: breast_profile.width_mm
       operator_fixed_distance_allowed: false
