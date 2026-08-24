@@ -21,6 +21,8 @@ model, preprocessing, labels, threshold, or validation protocol.
 | `training_evaluation.py` | Patient-safe repeated stratified folds and evaluation metrics. |
 | `model_metrics.py` | Calculate shared discrimination, threshold, calibration, and confusion metrics. |
 | `training_artifacts.py` | Build training lineage, reproducibility, evaluation and final-model payloads. |
+| `mlflow_artifacts.py` | Build required product dataset, split, metric, prediction and model tracking files. |
+| `mlflow_tracking.py` | Manage one bounded fail-closed MLflow run without changing model behavior. |
 | `model_description.py` | Write model descriptions, YAML and immutable artifact identifiers. |
 | `runtime_identity.py` | Shared SHA256, file-stem, package-version and Git identity helpers. |
 | `training.py` | Public training API and sklearn-compatible orchestration only. |

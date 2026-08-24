@@ -31,13 +31,12 @@ writes a local MLflow store below `examples/outputs/mlflow` and uses the
 product dataset build, patient-safe evaluation, and final train-on-all fit. It
 does not create an independent-validation or clinical-performance claim.
 
-The current checked-in Python implementation still accepts v0.1 only. This
-v0.2 configuration is the approved implementation target and will fail closed
-until MLflow support and strict v0.2 validation are added together. Do not use
-`python -m aramina train` as a tracked product run: standalone training lacks
-the complete H5-to-model lineage.
+The checked-in Python implementation accepts this strict v0.2 contract and
+fails closed when tracking or required lineage artifacts are incomplete. Do not
+use `python -m aramina train` as a tracked product run: standalone training
+lacks the complete H5-to-model lineage.
 
-After the implementation is installed, inspect local runs with:
+Inspect completed local runs with:
 
 ```bash
 mlflow ui --backend-store-uri examples/outputs/mlflow --port 5000

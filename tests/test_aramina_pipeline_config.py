@@ -249,7 +249,7 @@ def test_preprocess_train_contract_rejects_unknown_fields(tmp_path):
     config_path.write_text(
         yaml.safe_dump(
             {
-                "contract": "aramina_preprocessing_and_training_config_v0_1",
+                "contract": "aramina_preprocessing_and_training_config_v0_2",
                 "preprocessing_and_training": {
                     "name": "test",
                     "run_author": "tester",
@@ -258,6 +258,11 @@ def test_preprocess_train_contract_rejects_unknown_fields(tmp_path):
                 },
                 "preprocessing_config_path": "preprocess.yaml",
                 "training_config_path": "train.yaml",
+                "mlflow": {
+                    "enabled": False,
+                    "tracking_uri": "outputs/mlflow",
+                    "experiment_name": "test",
+                },
             }
         ),
         encoding="utf-8",

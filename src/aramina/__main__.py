@@ -139,6 +139,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"preprocess_columns={len(preprocessing_df.columns)}")
         print(f"training_artifact_kind={training_artifact['kind']}")
         print(f"run_folder={result['run_folder']}")
+        if result["mlflow"]["enabled"]:
+            print(f"mlflow_run_id={result['mlflow']['run_id']}")
+            print(f"mlflow_status={result['mlflow']['status']}")
+            print(f"mlflow_tracking_uri={result['mlflow']['tracking_uri']}")
         print(f"config={args.config}")
         return 0
     if args.command == "predict":

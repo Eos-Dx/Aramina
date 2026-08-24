@@ -62,6 +62,14 @@ python -m aramina predict --config examples/prediction/configs/config_predict_ca
 The full historical archive is required only for preprocessing and training.
 Prediction examples use the tracked one-patient H5 fixtures.
 
+The canonical `preprocess-train` config creates one fail-closed MLflow product
+run covering preprocessing, patient-safe evaluation, and final train-on-all.
+Inspect local runs with:
+
+```bash
+mlflow ui --backend-store-uri examples/outputs/mlflow --port 5000
+```
+
 ## Repository Map
 
 | Path | Content |

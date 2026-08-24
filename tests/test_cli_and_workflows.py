@@ -6,9 +6,11 @@ from pathlib import Path
 import pandas as pd
 import pytest
 import yaml
+from mlflow import MlflowClient
 
 from aramina import __main__ as cli
 from aramina import workflows
+from aramina.mlflow_artifacts import MLFLOW_REQUIRED_ARTIFACTS
 from aramina.training_config import (
     PRODUCT_MODEL_NAME,
     PRODUCT_EVALUATION,
@@ -37,6 +39,7 @@ def test_cli_commands_delegate_to_product_entrypoints(monkeypatch, capsys, tmp_p
             "preprocessing_dataframe": frame,
             "training_artifact": {"kind": "aramina_training_artifact"},
             "run_folder": str(tmp_path / "workflow"),
+            "mlflow": {"enabled": False},
         },
     )
     monkeypatch.setattr(
@@ -113,6 +116,11 @@ def test_workflow_passes_preprocessing_dataframe_directly_to_training(
                 },
                 "preprocessing_config_path": str(tmp_path / "preprocess.yaml"),
                 "training_config_path": str(tmp_path / "train.yaml"),
+                "mlflow": {
+                    "enabled": False,
+                    "tracking_uri": str(tmp_path / "mlruns"),
+                    "experiment_name": "test",
+                },
             }
         ),
         encoding="utf-8",
@@ -171,6 +179,11 @@ def test_workflow_resolves_root_relative_paths_from_external_config_tree(
                 },
                 "preprocessing_config_path": "./config/preprocessing/preprocess.yaml",
                 "training_config_path": "./config/training/train.yaml",
+                "mlflow": {
+                    "enabled": False,
+                    "tracking_uri": "./examples/outputs/mlflow",
+                    "experiment_name": "test",
+                },
             }
         ),
         encoding="utf-8",
@@ -195,6 +208,90 @@ def test_workflow_resolves_root_relative_paths_from_external_config_tree(
     assert received["preprocess"] == project_root / "config/preprocessing/preprocess.yaml"
     assert received["training"] == project_root / "config/training/train.yaml"
     assert result["run_folder"].is_relative_to(project_root / "examples/outputs")
+
+
+def test_workflow_logs_one_complete_mlflow_run(monkeypatch, tmp_path: Path):
+    config_path = tmp_path / "preprocess_train.yaml"
+    config_path.write_text(
+        yaml.safe_dump(
+            {
+                "contract": workflows.PREPROCESS_TRAIN_CONTRACT,
+                "preprocessing_and_training": {
+                    "name": "product",
+                    "run_author": "test",
+                    "output_folder": str(tmp_path / "runs"),
+                },
+                "preprocessing_config_path": str(tmp_path / "preprocess.yaml"),
+                "training_config_path": str(tmp_path / "train.yaml"),
+                "mlflow": {
+                    "enabled": True,
+                    "tracking_uri": str(tmp_path / "mlruns"),
+                    "experiment_name": "aramina-product-test",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    frame = pd.DataFrame(
+        {
+            "patientId": ["P01", "P02"],
+            "product_status_group": ["BENIGN", "CANCER"],
+            "biopsy": [True, True],
+        }
+    )
+    preprocessing_artifact = {
+        "dataframe": frame,
+        "preprocessing_config_yaml": "pipeline: {}\n",
+        "metadata": {"input_h5_sha256": "a" * 64},
+    }
+    monkeypatch.setattr(
+        workflows,
+        "load_training_config",
+        lambda _path: (
+            {"run": {"evaluation": True, "train_on_all": True}},
+            "",
+        ),
+    )
+    monkeypatch.setattr(
+        workflows,
+        "run_preprocessing_artifact_from_config",
+        lambda *_args, **_kwargs: preprocessing_artifact,
+    )
+    monkeypatch.setattr(
+        workflows,
+        "run_training_from_config",
+        lambda *_args, **_kwargs: {
+            "kind": "aramina_training_artifact",
+            "run_folder": str(tmp_path / "training"),
+        },
+    )
+    artifact_directory = tmp_path / "tracked-artifacts"
+    artifact_directory.mkdir()
+    for filename in MLFLOW_REQUIRED_ARTIFACTS:
+        (artifact_directory / filename).write_bytes(b"artifact")
+    monkeypatch.setattr(
+        workflows,
+        "write_mlflow_product_artifacts",
+        lambda **_kwargs: {
+            "artifact_directory": artifact_directory,
+            "tags": {"product": "aramina", "dataset_fingerprint": "b" * 64},
+            "params": {"profile_encoder.components": 30},
+            "metrics": {"held_out.roc_auc.mean": 0.7},
+        },
+    )
+
+    result = workflows.run_preprocess_train_from_config(config_path)
+
+    assert result["mlflow"]["status"] == "FINISHED"
+    client = MlflowClient(tracking_uri=result["mlflow"]["tracking_uri"])
+    run = client.get_run(result["mlflow"]["run_id"])
+    assert run.info.status == "FINISHED"
+    assert run.data.tags["product"] == "aramina"
+    assert run.data.params["profile_encoder.components"] == "30"
+    assert run.data.metrics["held_out.roc_auc.mean"] == pytest.approx(0.7)
+    assert {item.path for item in client.list_artifacts(run.info.run_id)}.issuperset(
+        MLFLOW_REQUIRED_ARTIFACTS
+    )
 
 
 @pytest.mark.parametrize(
@@ -238,6 +335,11 @@ def test_workflow_contract_rejects_invalid_string_values(
         },
         "preprocessing_config_path": "config/preprocessing/input.yaml",
         "training_config_path": "config/training/train.yaml",
+        "mlflow": {
+            "enabled": False,
+            "tracking_uri": "outputs/mlflow",
+            "experiment_name": "test",
+        },
     }
     target = (
         payload["preprocessing_and_training"]
