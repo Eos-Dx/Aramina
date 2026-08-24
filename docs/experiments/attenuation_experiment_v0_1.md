@@ -9,7 +9,8 @@ use, output, or clinical contract. It is not for autonomous diagnosis.
 
 ## Raw Archive Audit
 
-Audited source: `data/product-aramis-data/combined_archive.h5`.
+Audited repository input: `data/combined_archive.h5`. The audit records the
+resolved path and input identity in its output artifacts.
 
 | Raw field or set | Observed archive state | Treatment |
 |---|---|---|

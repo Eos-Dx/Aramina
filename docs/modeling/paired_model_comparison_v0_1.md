@@ -8,8 +8,8 @@ diagnosis or independent clinical validation.
 
 ```bash
 PYTHONPATH=src python -m aramina.paired_evaluation \
-  --raw100-input /Users/sad/dev/Aramina/examples/outputs/model_input/aramina_biopsy_patients_model_input_v0_1.joblib \
-  --fpca256-input /Users/sad/dev/Aramina_MCR/experiments/fpca256_profile_encoder/outputs/generated/preprocessing_full_npt256.joblib \
+  --raw100-input examples/outputs/model_input/aramina_biopsy_patients_model_input_v0_1.joblib \
+  --fpca256-input /path/to/preprocessing_full_npt256.joblib \
   --output-dir outputs/paired_model_comparison
 ```
 
@@ -44,6 +44,34 @@ raw100-based `experiment2` run and transfers it to FPCA30 without retuning.
 Values were recorded at commit `543a8319108aebee420b39fbcda888234b8045a6`:
 `profile_c=0.001`, `age_c=0.3`, and `symmetry_c=0.001`. No regularization is
 selected from outer test cases.
+
+## Controlled Result
+
+The controlled `5-fold x20` run used 874 measurements shared by both
+preprocessing artifacts, 161 patients, and 171 target-breast cases (74 CANCER,
+97 BENIGN). The two source artifacts carry the same H5 SHA256. Values below are
+held-out outer-fold means and population standard deviations.
+
+| Complete procedure | ROC AUC | Sensitivity | Specificity | Brier score | Log loss |
+|---|---:|---:|---:|---:|---:|
+| raw100 + product LR2 | 0.632 +/- 0.089 | 0.799 +/- 0.122 | 0.382 +/- 0.140 | 0.265 | 0.765 |
+| FPCA30 + product LR2 | 0.648 +/- 0.089 | 0.859 +/- 0.101 | 0.314 +/- 0.129 | 0.246 | 0.697 |
+| FPCA30 + additive recalibration | 0.670 +/- 0.080 | 0.956 +/- 0.061 | 0.135 +/- 0.102 | 0.230 | 0.655 |
+
+Paired repeat-averaged target-case effects use a patient-cluster bootstrap:
+
+| Controlled change | Delta ROC AUC (95% interval) | Delta sensitivity (95% interval) | Delta specificity (95% interval) |
+|---|---:|---:|---:|
+| FPCA30 - raw100 | +0.016 (-0.039 to +0.068) | +0.068 (-0.013 to +0.149) | -0.072 (-0.151 to 0.000) |
+| additive - FPCA30 product | +0.013 (-0.020 to +0.050) | +0.068 (+0.014 to +0.127) | -0.134 (-0.216 to -0.061) |
+
+FPCA30 reduces LR1 predictors from 100 raw bins to 30 basis coefficients. It
+does not show a meaningful ROC loss on this cohort, but it also does not
+preserve sensitivity and specificity simultaneously: sensitivity increases
+while specificity decreases. The additive procedure moves the operating point
+further toward sensitivity and reaches a mean sensitivity near 0.95, but the
+specificity loss is too large for product replacement. Neither change is
+promoted by this experiment.
 
 ## Outputs
 

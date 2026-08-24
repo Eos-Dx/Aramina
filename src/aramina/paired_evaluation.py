@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from importlib.metadata import version as distribution_version
+import logging
 from pathlib import Path
 import subprocess
 from typing import Any
@@ -26,8 +27,6 @@ from .paired_contract import (
     ADDITIVE_SOURCE_COMMIT,
     ADDITIVE_SOURCE_RECORD,
     CONTRACT,
-    DEFAULT_FPCA256_INPUT,
-    DEFAULT_RAW100_INPUT,
     FPCA30_MODEL,
     PAIRED_COMPARISONS,
     RAW100_MODEL,
@@ -47,6 +46,9 @@ from .paired_models import (
 )
 from .patient_features import TARGET_CASE_ID
 from .training_evaluation import _summarize_patient_model_metrics
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 def run_paired_evaluation(
@@ -81,6 +83,13 @@ def run_paired_evaluation(
         random_state=random_state,
         description="outer",
     )
+    LOGGER.info(
+        "Paired cohort: %d measurements, %d patients, %d target cases, %d outer splits",
+        len(raw_common),
+        raw_context["patientId"].nunique(),
+        len(case_manifest),
+        len(split_pairs),
+    )
     outer_manifest = outer_fold_manifest(
         raw_context,
         split_pairs,
@@ -96,6 +105,7 @@ def run_paired_evaluation(
     fpca_spec = ProfileSpec(FPCA30_MODEL, 256, "fpca", 30)
 
     for split_id, (train_index, test_index) in enumerate(split_pairs):
+        LOGGER.info("Outer split %d/%d", split_id + 1, len(split_pairs))
         train_ids = patient_ids(raw_context, train_index)
         test_ids = patient_ids(raw_context, test_index)
         if train_ids.intersection(test_ids):
@@ -358,8 +368,8 @@ def _git_output(repository: Path, *args: str) -> str:
 def main(argv: list[str] | None = None) -> int:
     """Run paired comparison from two preprocessing artifacts."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--raw100-input", type=Path, default=DEFAULT_RAW100_INPUT)
-    parser.add_argument("--fpca256-input", type=Path, default=DEFAULT_FPCA256_INPUT)
+    parser.add_argument("--raw100-input", type=Path, required=True)
+    parser.add_argument("--fpca256-input", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--folds", type=int, default=5)
     parser.add_argument("--repeats", type=int, default=20)
@@ -368,6 +378,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--random-state", type=int, default=42)
     parser.add_argument("--bootstrap-samples", type=int, default=2_000)
     args = parser.parse_args(argv)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
     result = run_from_artifacts(
         args.raw100_input,
         args.fpca256_input,

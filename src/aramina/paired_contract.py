@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
-
 CONTRACT = "aramina_paired_model_comparison_v0_1"
 RAW100_MODEL = "raw100_product"
 FPCA30_MODEL = "fpca30_product"
@@ -49,14 +46,6 @@ PROFILE_SCORE_COLUMNS = (
     "profile_p_cancer_probability_mean",
     "profile_p_cancer_logit_average",
     "profile_p_cancer_n_measurements",
-)
-DEFAULT_RAW100_INPUT = Path(
-    "/Users/sad/dev/Aramina/examples/outputs/model_input/"
-    "aramina_biopsy_patients_model_input_v0_1.joblib"
-)
-DEFAULT_FPCA256_INPUT = Path(
-    "/Users/sad/dev/Aramina_MCR/experiments/fpca256_profile_encoder/"
-    "outputs/generated/preprocessing_full_npt256.joblib"
 )
 ADDITIVE_REGULARIZATION = {
     "profile_c": 0.001,

@@ -45,6 +45,8 @@ documentation source.
 ## Evidence And Development
 
 - [AgBH exclusion rationale](agbh_quality_exclusions.md)
+- [Paired raw100, FPCA30, and additive comparison](modeling/paired_model_comparison_v0_1.md)
+- [Attenuation and optical-density experiment](experiments/attenuation_experiment_v0_1.md)
 - [Controlled Human-1 metadata](meta/README.md)
 - [Code structure](development/code_structure.md)
 - [Future development](future_development_steps.md)
