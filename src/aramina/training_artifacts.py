@@ -21,7 +21,12 @@ from .model_description import (
     _records,
     _write_yaml,
 )
-from .runtime_identity import aramina_git_sha, aramina_version, file_sha256
+from .runtime_identity import (
+    aramina_git_sha,
+    aramina_version,
+    file_sha256,
+    xrd_preprocessing_git_sha,
+)
 from .training_config import PRODUCT_MODEL_NAME
 from .training_evaluation import (
     _patient_dataset_summary,
@@ -46,6 +51,7 @@ def _patient_training_artifact(
     lr1_rows: pd.DataFrame,
     split_metrics: pd.DataFrame,
     split_predictions: pd.DataFrame,
+    split_assignments: pd.DataFrame,
     preprocess_train_config_yaml: str | None,
 ) -> dict[str, Any]:
     """Build the traceable joblib payload for target-breast model training."""
@@ -104,6 +110,7 @@ def _patient_training_artifact(
         "metric_summary": metric_summary,
         "split_metrics": split_metrics,
         "split_predictions": split_predictions,
+        "split_assignments": split_assignments,
         "metadata": {
             "aramina_version": aramina_version(),
             "aramina_git_sha": aramina_git_sha(),
@@ -235,6 +242,10 @@ def _reproducibility_manifest(
 def _distribution_provenance(distribution_name: str) -> dict[str, Any]:
     """Return installed package identity and pip's VCS provenance when present."""
     result: dict[str, Any] = {"version": _installed_version(distribution_name)}
+    if distribution_name == "xrd-preprocessing":
+        git_sha = xrd_preprocessing_git_sha()
+        if git_sha != "unavailable":
+            result["git_commit"] = git_sha
     try:
         payload = distribution(distribution_name).read_text("direct_url.json")
     except PackageNotFoundError:
@@ -246,7 +257,7 @@ def _distribution_provenance(distribution_name: str) -> dict[str, Any]:
     vcs_info = direct_url.get("vcs_info")
     if isinstance(vcs_info, dict):
         result["requested_revision"] = vcs_info.get("requested_revision")
-        result["git_commit"] = vcs_info.get("commit_id")
+        result.setdefault("git_commit", vcs_info.get("commit_id"))
     return result
 
 
@@ -280,6 +291,7 @@ def _evaluation_artifact(
         "metric_summary": artifact["metric_summary"],
         "split_metrics": artifact["split_metrics"],
         "split_predictions": artifact["split_predictions"],
+        "split_assignments": artifact["split_assignments"],
         "metadata": artifact["metadata"],
     }
 
@@ -294,6 +306,9 @@ def _write_evaluation_outputs(
     artifact["split_metrics"].to_csv(folder / "evaluation_metrics.csv", index=False)
     artifact["split_predictions"].to_csv(
         folder / "evaluation_predictions.csv", index=False
+    )
+    artifact["split_assignments"].to_csv(
+        folder / "evaluation_splits.csv", index=False
     )
     _write_yaml(
         folder / "evaluation.yaml",
@@ -310,7 +325,10 @@ def _write_evaluation_outputs(
             "decision_threshold": decision_threshold,
             "dataset_summary": _records(artifact["dataset_summary"]),
             "metric_summary": _records(artifact["metric_summary"]),
-            "files": _evaluation_artifact_paths(folder, include_summary=False),
+            "files": {
+                **_evaluation_artifact_paths(folder, include_summary=False),
+                "splits": "evaluation_splits.csv",
+            },
         },
     )
 
@@ -364,6 +382,7 @@ def _final_model_artifact(
                     "summary": "evaluation.yaml",
                     "metrics": "evaluation_metrics.csv",
                     "predictions": "evaluation_predictions.csv",
+                    "splits": "evaluation_splits.csv",
                 }
                 if public_config["run"]["evaluation"]
                 else {}

@@ -52,7 +52,7 @@ artifact SHA256, but does not change `model.version`: the architecture and
 frozen recipe are unchanged. Changing preprocessing, label policy, feature
 schema, regularization, or threshold policy requires a new model version.
 
-Training requires an Aramina preprocessing artifact with the resolved preprocessing YAML and input-H5 SHA256. The final joblib stores executable estimators, frozen thresholds, score reference distributions for internal report quantiles, all resolved YAML snapshots, source-H5 checksum, code provenance, and runtime package versions. `model_description.yaml` and `evaluation.yaml` provide the human-readable records; detailed fold metrics and held-out predictions remain in `evaluation_metrics.csv` and `evaluation_predictions.csv`.
+Training requires an Aramina preprocessing artifact with the resolved preprocessing YAML and input-H5 SHA256. The final joblib stores executable estimators, frozen thresholds, score reference distributions for internal report quantiles, all resolved YAML snapshots, source-H5 checksum, code provenance, and runtime package versions. `model_description.yaml` and `evaluation.yaml` provide the human-readable records; detailed fold metrics, held-out predictions, and actual patient partitions remain in `evaluation_metrics.csv`, `evaluation_predictions.csv`, and `evaluation_splits.csv`.
 
 ## Training Outputs
 
@@ -90,5 +90,6 @@ threshold, Brier score and log loss for probability quality, calibration
 intercept and slope, confidence intervals from patient-level bootstrap
 resampling, and the mean confusion matrix across folds. `evaluation_metrics.csv`
 contains one row per fold; `evaluation_predictions.csv` contains held-out
-patient-case predictions. Generated file references are sibling relative names,
+patient-case predictions; `evaluation_splits.csv` contains the actual train/test
+patient partition used in every split. Generated file references are sibling relative names,
 so the full model directory can be moved without rewriting its description.

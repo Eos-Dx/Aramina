@@ -240,7 +240,11 @@ class TargetBreastModelEvaluator(BaseEstimator):
 
     def fit(self, x: pd.DataFrame, y: Any = None) -> "TargetBreastModelEvaluator":
         """Store fold metrics and held-out predictions."""
-        self.split_metrics_, self.split_predictions_ = _evaluate_target_breast_model(
+        (
+            self.split_metrics_,
+            self.split_predictions_,
+            self.split_assignments_,
+        ) = _evaluate_target_breast_model(
             x,
             config=self.config,
             profile_column=self.profile_column,
@@ -337,10 +341,12 @@ class AraminaPatientTrainingPipeline(BaseEstimator):
             ).fit(x)
             split_metrics = self.evaluator_.split_metrics_
             split_predictions = self.evaluator_.split_predictions_
+            split_assignments = self.evaluator_.split_assignments_
         else:
             self.evaluator_ = None
             split_metrics = pd.DataFrame()
             split_predictions = pd.DataFrame()
+            split_assignments = pd.DataFrame()
         self.model_trainer_ = TargetBreastModelTrainer(
             profile_column=profile_column,
             label_column=label_column,
@@ -364,6 +370,7 @@ class AraminaPatientTrainingPipeline(BaseEstimator):
             lr1_rows=self.input_builder_.lr1_rows_,
             split_metrics=split_metrics,
             split_predictions=split_predictions,
+            split_assignments=split_assignments,
             preprocess_train_config_yaml=self.preprocess_train_config_yaml,
         )
         return self

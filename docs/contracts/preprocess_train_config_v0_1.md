@@ -110,7 +110,7 @@ to its existing contracts.
 
 The implementation must additionally retain the normal portable run outputs,
 including `model_description.yaml`, `evaluation.yaml`, `evaluation_metrics.csv`,
-and `evaluation_predictions.csv`. MLflow artifact names above are fixed so one
+`evaluation_predictions.csv`, and `evaluation_splits.csv`. MLflow artifact names above are fixed so one
 run can be checked programmatically without interpreting run-folder layout.
 
 ## Local UI

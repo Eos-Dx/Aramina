@@ -114,7 +114,7 @@ def _evaluate_target_breast_model(
     lr2_logreg_c: float,
     random_state: int,
     target_sensitivity: float,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     evaluation_config = config.get("evaluation", {})
     mode = _evaluation_mode(evaluation_config)
     n_splits = int(evaluation_config["n_splits"])
@@ -139,6 +139,8 @@ def _evaluate_target_breast_model(
     )
     metrics = []
     predictions = []
+    split_assignments = []
+    expected_patients = set(base_features["patientId"].astype(str))
     y_patients = base_features["label"].to_numpy(dtype=int)
     split_pairs = _patient_split_pairs(
         mode=mode,
@@ -151,6 +153,14 @@ def _evaluate_target_breast_model(
     for split_id, (train_idx, test_idx) in enumerate(split_pairs):
         train_patients = set(base_features.iloc[train_idx]["patientId"].astype(str))
         test_patients = set(base_features.iloc[test_idx]["patientId"].astype(str))
+        split_assignments.append(
+            _split_assignment_frame(
+                split_id=split_id,
+                n_splits=n_splits,
+                train_patients=train_patients,
+                test_patients=test_patients,
+            )
+        )
         train_df = df[df[group_column].astype(str).isin(train_patients)].copy()
         test_df = df[df[group_column].astype(str).isin(test_patients)].copy()
         if set(train_df[group_column].astype(str)).intersection(
@@ -215,7 +225,111 @@ def _evaluate_target_breast_model(
             )
         )
     prediction_frame = pd.concat(predictions, ignore_index=True)
-    return pd.DataFrame(metrics), prediction_frame
+    assignment_frame = pd.concat(split_assignments, ignore_index=True)
+    _validate_patient_split_assignments(
+        assignment_frame,
+        expected_patients=expected_patients,
+        n_splits=n_splits,
+        n_repeats=n_repeats,
+    )
+    return pd.DataFrame(metrics), prediction_frame, assignment_frame
+
+
+def _split_assignment_frame(
+    *,
+    split_id: int,
+    n_splits: int,
+    train_patients: set[str],
+    test_patients: set[str],
+) -> pd.DataFrame:
+    overlap = train_patients.intersection(test_patients)
+    if overlap:
+        raise RuntimeError(
+            "Patient leakage detected in split assignments: "
+            f"split_id={split_id}, patients={sorted(overlap)}."
+        )
+    rows = [
+        {
+            "split_id": int(split_id),
+            "repeat_id": int(split_id // n_splits),
+            "fold_id": int(split_id % n_splits),
+            "patientId": patient_id,
+            "partition": partition,
+        }
+        for partition, patients in (
+            ("train", train_patients),
+            ("test", test_patients),
+        )
+        for patient_id in sorted(patients)
+    ]
+    return pd.DataFrame.from_records(rows)
+
+
+def _validate_patient_split_assignments(
+    assignments: pd.DataFrame,
+    *,
+    expected_patients: set[str],
+    n_splits: int,
+    n_repeats: int,
+) -> None:
+    required_columns = {
+        "split_id",
+        "repeat_id",
+        "fold_id",
+        "patientId",
+        "partition",
+    }
+    missing_columns = sorted(required_columns.difference(assignments.columns))
+    if missing_columns:
+        raise RuntimeError(
+            f"Split assignments are missing columns: {missing_columns}."
+        )
+
+    expected_split_ids = set(range(n_splits * n_repeats))
+    actual_split_ids = set(assignments["split_id"].astype(int))
+    if actual_split_ids != expected_split_ids:
+        raise RuntimeError(
+            "Unexpected patient-safe split count: "
+            f"expected={len(expected_split_ids)}, actual={len(actual_split_ids)}."
+        )
+
+    duplicate_rows = assignments.duplicated(["split_id", "patientId"], keep=False)
+    if duplicate_rows.any():
+        duplicates = assignments.loc[
+            duplicate_rows, ["split_id", "patientId", "partition"]
+        ].to_dict(orient="records")
+        raise RuntimeError(
+            "A patient has more than one partition in a split: "
+            f"{duplicates[:10]}."
+        )
+
+    for split_id, split in assignments.groupby("split_id", sort=True):
+        split_patients = set(split["patientId"].astype(str))
+        if split_patients != expected_patients:
+            missing = sorted(expected_patients.difference(split_patients))
+            unexpected = sorted(split_patients.difference(expected_patients))
+            raise RuntimeError(
+                "Split does not contain every expected patient exactly once: "
+                f"split_id={split_id}, missing={missing}, unexpected={unexpected}."
+            )
+        if set(split["partition"].astype(str)) != {"train", "test"}:
+            raise RuntimeError(
+                "Split must contain train and test partitions: "
+                f"split_id={split_id}."
+            )
+
+    held_out_counts = (
+        assignments.loc[assignments["partition"] == "test", "patientId"]
+        .astype(str)
+        .value_counts()
+        .reindex(sorted(expected_patients), fill_value=0)
+    )
+    invalid_counts = held_out_counts[held_out_counts != n_repeats]
+    if not invalid_counts.empty:
+        raise RuntimeError(
+            "Each patient must be held out exactly once per repeat: "
+            f"expected={n_repeats}, actual={invalid_counts.to_dict()}."
+        )
 
 
 def _evaluation_mode(evaluation_config: dict[str, Any]) -> str:
