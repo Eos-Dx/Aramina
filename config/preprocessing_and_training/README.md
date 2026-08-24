@@ -13,7 +13,7 @@ preprocessing_config_path: config/preprocessing/config_preprocessing_biopsy_pati
 training_config_path: config/training/config_training_target_breast_risk_v0_1.yaml
 mlflow:
   enabled: true
-  tracking_uri: examples/outputs/mlflow
+  tracking_uri: sqlite:///examples/outputs/mlflow/aramina.db
   experiment_name: aramina_product_fpca30
 ```
 
@@ -26,7 +26,7 @@ The run folder contains the preprocessing artifact, cohort summary, requested
 evaluation files, and the final model when `run.train_on_all` is true.
 
 `mlflow` is mandatory in the v0.2 product contract. The canonical configuration
-writes a local MLflow store below `examples/outputs/mlflow` and uses the
+writes a local SQLite MLflow database at `examples/outputs/mlflow/aramina.db` and uses the
 `aramina_product_fpca30` experiment. One MLflow run represents one complete
 product dataset build, patient-safe evaluation, and final train-on-all fit. It
 does not create an independent-validation or clinical-performance claim.
@@ -39,7 +39,7 @@ lacks the complete H5-to-model lineage.
 Inspect completed local runs with:
 
 ```bash
-mlflow ui --backend-store-uri examples/outputs/mlflow --port 5000
+mlflow ui --backend-store-uri sqlite:///examples/outputs/mlflow/aramina.db --port 5000
 ```
 
 Open `http://127.0.0.1:5000` in a browser.

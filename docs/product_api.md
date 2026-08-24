@@ -52,11 +52,11 @@ the complete H5-to-model lineage, not a standalone classifier fit. See
 [preprocess-train config](contracts/preprocess_train_config_v0_1.md).
 
 The canonical configuration writes local MLflow tracking data to
-`examples/outputs/mlflow` under `aramina_product_fpca30`. After a completed v0.2
+`examples/outputs/mlflow/aramina.db` under `aramina_product_fpca30`. After a completed v0.2
 run, inspect it with:
 
 ```bash
-mlflow ui --backend-store-uri examples/outputs/mlflow --port 5000
+mlflow ui --backend-store-uri sqlite:///examples/outputs/mlflow/aramina.db --port 5000
 ```
 
 `python -m aramina train` remains a developer command for an existing

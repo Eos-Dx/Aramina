@@ -205,11 +205,23 @@ def _require_complete_product_run(
 
 
 def _tracking_uri(value: str, config_path: Path) -> str:
+    if value.startswith("sqlite:///"):
+        return _sqlite_tracking_uri(value, config_path)
     if "://" in value or value.startswith("databricks"):
         return value
     path = _project_path(value, config_path)
     path.mkdir(parents=True, exist_ok=True)
     return path.as_uri()
+
+
+def _sqlite_tracking_uri(value: str, config_path: Path) -> str:
+    """Resolve a relative SQLite database path from the configuration root."""
+    database_path = value.removeprefix("sqlite:///")
+    if database_path == ":memory:" or value.startswith("sqlite:////"):
+        return value
+    path = _project_path(database_path, config_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return f"sqlite:///{path}"
 
 
 def _project_path(value: Any, config_path: Path) -> Path:

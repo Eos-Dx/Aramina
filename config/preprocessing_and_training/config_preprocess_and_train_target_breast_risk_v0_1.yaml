@@ -7,5 +7,5 @@ preprocessing_config_path: config/preprocessing/config_preprocessing_biopsy_pati
 training_config_path: config/training/config_training_target_breast_risk_v0_1.yaml
 mlflow:
   enabled: true
-  tracking_uri: examples/outputs/mlflow
+  tracking_uri: sqlite:///examples/outputs/mlflow/aramina.db
   experiment_name: aramina_product_fpca30

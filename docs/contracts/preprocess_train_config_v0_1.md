@@ -18,7 +18,7 @@ preprocessing_config_path: config/preprocessing/config_preprocessing_biopsy_pati
 training_config_path: config/training/config_training_target_breast_risk_v0_1.yaml
 mlflow:
   enabled: true
-  tracking_uri: examples/outputs/mlflow
+  tracking_uri: sqlite:///examples/outputs/mlflow/aramina.db
   experiment_name: aramina_product_fpca30
 ```
 
@@ -32,14 +32,15 @@ execution. `preprocessing_and_training` accepts only `name`, `run_author`, and
 | Field | Type and rule |
 |---|---|
 | `mlflow.enabled` | Boolean. `true` is required for a compliant full product run. |
-| `mlflow.tracking_uri` | Non-empty relative path or MLflow URI. The canonical local store is `examples/outputs/mlflow`. |
+| `mlflow.tracking_uri` | Non-empty MLflow URI. The canonical local store is `sqlite:///examples/outputs/mlflow/aramina.db`. |
 | `mlflow.experiment_name` | Non-empty MLflow experiment name. The canonical product experiment is `aramina_product_fpca30`. |
 
 All paths and nested string values are non-empty. For a YAML under
 `Aramina/config`, relative paths resolve from the Aramina project root. For an
 external top-level YAML, they resolve from its own directory, not from the
-working directory. A local `tracking_uri` resolves by the same rule and is
-converted to a local MLflow file store by the implementation.
+working directory. A canonical relative SQLite database path resolves by the
+same rule: `sqlite:///examples/outputs/mlflow/aramina.db` becomes an absolute
+SQLite URI. Absolute SQLite and remote MLflow URIs remain unchanged.
 
 ## Full Product Run
 
@@ -117,7 +118,7 @@ run can be checked programmatically without interpreting run-folder layout.
 After an implementation-backed v0.2 run completes:
 
 ```bash
-mlflow ui --backend-store-uri examples/outputs/mlflow --port 5000
+mlflow ui --backend-store-uri sqlite:///examples/outputs/mlflow/aramina.db --port 5000
 ```
 
 Open `http://127.0.0.1:5000`, select `aramina_product_fpca30`, and inspect the
