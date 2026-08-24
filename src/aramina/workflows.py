@@ -293,6 +293,7 @@ def _write_preprocessing_summary(
         "product_status_group_counts": labels,
         "biopsy_product_status_group_counts": biopsy_labels,
         "input_h5_sha256": metadata.get("input_h5_sha256"),
+        "data_version": metadata.get("data_version"),
     }
     path.write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
     return summary

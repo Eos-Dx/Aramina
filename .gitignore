@@ -7,7 +7,10 @@ __pycache__/
 ~$*.pptx
 .idea/
 analysis/
-data/
+data/*
+!data/.gitignore
+!data/*.dvc
+!data/README.md
 dist/
 examples/outputs/
 mlruns/

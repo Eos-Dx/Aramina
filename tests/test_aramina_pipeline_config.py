@@ -74,6 +74,10 @@ def test_shipped_product_yaml_contracts_build_or_validate():
             lambda config: config["metadata"].update(output_columns=[]),
             "output columns are missing",
         ),
+        (
+            lambda config: config.pop("data_version"),
+            "requires mapping data_version",
+        ),
     ],
 )
 def test_aramina_product_preprocessing_contract_rejects_policy_changes(

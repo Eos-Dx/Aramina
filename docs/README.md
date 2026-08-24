@@ -11,6 +11,7 @@ canonical owner; other documents link to it instead of repeating it.
 | What was retrained with XRD v0.1.9-beta? | [Candidate record](modeling/aramina_t100_target_case_model_v0_2.md) |
 | What data enter training? | [Current model DataFrame](modeling/current_model_dataframe_v0_1.md) |
 | How are profiles preprocessed? | [Data preprocessing](data_preprocessing.md) |
+| How is the source H5 versioned? | [Data versioning](data_versioning.md) |
 | How is one patient scored? | [Prediction pipeline](modeling/prediction_pipeline_v0_1.md) |
 | What do symmetry fields mean? | [Symmetry features](modeling/sk_symmetry_features_v0_1.md) |
 | How is TRA derived? | [TRA decision record](modeling/tra_decision_record_v0_2.md) |

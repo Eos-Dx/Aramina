@@ -18,11 +18,13 @@ import yaml
 from xrd_preprocessing import list_h5_measurement_sets
 
 from .config_paths import resolve_config_path
+from .mlflow_data_lineage import mlflow_data_tags, mlflow_data_version
 
-
-ARTIFACT_CONTRACT = "aramina_mlflow_product_run_v0_1"
+ARTIFACT_CONTRACT = "aramina_mlflow_product_run_v0_2"
 INTENDED_USE_ID = "aramina_target_breast_biopsy_decision_support_v0_1"
 MLFLOW_REQUIRED_ARTIFACTS = (
+    "data_version.json",
+    "dvc_data_pointer.dvc",
     "preprocessing_config.json",
     "product_filter_rules.json",
     "selected_measurement_ids.csv",
@@ -59,6 +61,15 @@ def write_mlflow_product_artifacts(
     preprocessing_config = _preprocessing_config(preprocessing_artifact)
     training_folder = Path(str(training_artifact["run_folder"]))
 
+    data_version = mlflow_data_version(preprocessing_artifact, training_artifact)
+    _write_json(root / "data_version.json", data_version)
+    _copy_required(
+        resolve_config_path(
+            data_version["pointer_path"],
+            Path(preprocessing_config_path),
+        ),
+        root / "dvc_data_pointer.dvc",
+    )
     _write_json(root / "preprocessing_config.json", preprocessing_config)
     _write_json(
         root / "product_filter_rules.json",
@@ -148,6 +159,7 @@ def _product_filter_rules(config: dict[str, Any]) -> dict[str, Any]:
     return {
         "contract": "aramina_product_filter_rules_v0_1",
         "aramina_preprocessing": config.get("aramina_preprocessing", {}),
+        "data_version": config.get("data_version", {}),
         "raw_data": config.get("raw_data", {}),
         "filters": config.get("filters", {}),
         "product_filter": config.get("product_filter", {}),
@@ -493,15 +505,13 @@ def _mlflow_tags(
     source_code = reproducibility.get("source_code", {})
     xrd = source_code.get("xrd_preprocessing", {})
     model_identity = training_artifact.get("model_identity", {})
-    source_h5 = reproducibility.get("source_h5", {})
     preprocessing = preprocessing_config.get("aramina_preprocessing", {})
     return {
         "product": "aramina",
         "intended_use_id": INTENDED_USE_ID,
         "clinical_stage": str(model_identity.get("clinical_stage", "research draft")),
         "data_contract": preprocess_train_contract,
-        "input_h5_id": str(source_h5.get("filename", "unknown")),
-        "input_h5_checksum": str(source_h5.get("sha256", "unavailable")),
+        **mlflow_data_tags(reproducibility),
         "pipeline_version": str(preprocessing.get("version", "unknown")),
         "preprocessing_git_sha": str(
             xrd.get("git_commit") or xrd.get("requested_revision") or "unavailable"

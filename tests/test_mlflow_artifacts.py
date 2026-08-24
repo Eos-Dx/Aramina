@@ -50,6 +50,47 @@ def test_product_mlflow_artifact_set_is_complete_and_patient_safe(
         "version": "0.2",
         "clinical_stage": "research draft",
     }
+    data_version = {
+        "contract": "aramina_dvc_input_v0_1",
+        "system": "dvc",
+        "dataset_id": "synthetic_h5",
+        "dvc_version": "3.67.1",
+        "pointer_path": "data/input.h5.dvc",
+        "output_path": "input.h5",
+        "hash_algorithm": "md5",
+        "hash": "c" * 32,
+        "size_bytes": h5_path.stat().st_size,
+        "input_h5_sha256": preprocessing_artifact["metadata"]["input_h5_sha256"],
+    }
+    resolved_config["data_version"] = {
+        key: data_version[key]
+        for key in (
+            "contract",
+            "system",
+            "dataset_id",
+            "dvc_version",
+            "pointer_path",
+        )
+    }
+    preprocessing_artifact["metadata"]["data_version"] = data_version
+    pointer_path = tmp_path / "data" / "input.h5.dvc"
+    pointer_path.parent.mkdir()
+    pointer_path.write_text(
+        yaml.safe_dump(
+            {
+                "outs": [
+                    {
+                        "md5": data_version["hash"],
+                        "size": data_version["size_bytes"],
+                        "hash": "md5",
+                        "path": "input.h5",
+                    }
+                ]
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
     preprocessing_artifact["preprocessing_config_yaml"] = yaml.safe_dump(
         resolved_config, sort_keys=False
     )
@@ -91,6 +132,7 @@ def test_product_mlflow_artifact_set_is_complete_and_patient_safe(
     training_artifact = _training_artifact(
         training_folder=training_folder,
         input_h5_sha256=preprocessing_artifact["metadata"]["input_h5_sha256"],
+        data_version=data_version,
     )
 
     result = write_mlflow_product_artifacts(
@@ -115,6 +157,16 @@ def test_product_mlflow_artifact_set_is_complete_and_patient_safe(
     ).any()
     assert set(split["partition"]) == {"train", "test"}
     assert result["tags"]["product"] == "aramina"
+    assert result["tags"]["dvc_dataset_id"] == "synthetic_h5"
+    assert result["tags"]["dvc_data_hash"] == "c" * 32
+    assert result["tags"]["dvc_version"] == "3.67.1"
+    assert (
+        root.joinpath("dvc_data_pointer.dvc").read_text(encoding="utf-8")
+        == pointer_path.read_text(encoding="utf-8")
+    )
+    assert json.loads(root.joinpath("data_version.json").read_text(encoding="utf-8"))[
+        "input_h5_sha256"
+    ] == preprocessing_artifact["metadata"]["input_h5_sha256"]
     assert (
         result["tags"]["input_h5_checksum"]
         == preprocessing_artifact["metadata"]["input_h5_sha256"]
@@ -138,7 +190,7 @@ def test_product_mlflow_artifact_set_is_complete_and_patient_safe(
     assert result["params"]["profile_encoder.output_dimensions"] == 100
     assert "profile_encoder.components" not in result["params"]
     manifest = json.loads((root / "mlflow_manifest.json").read_text(encoding="utf-8"))
-    assert manifest["contract"] == "aramina_mlflow_product_run_v0_1"
+    assert manifest["contract"] == "aramina_mlflow_product_run_v0_2"
 
 
 def test_measurement_manifest_preserves_duplicate_clinical_keys(
@@ -232,6 +284,7 @@ def _training_artifact(
     *,
     training_folder: Path,
     input_h5_sha256: str,
+    data_version: dict[str, object],
 ) -> dict[str, object]:
     return {
         "run_folder": str(training_folder),
@@ -285,6 +338,7 @@ def _training_artifact(
             "source_h5": {
                 "filename": "input.h5",
                 "sha256": input_h5_sha256,
+                "data_version": data_version,
             },
             "source_code": {
                 "aramina": {"git_sha": "a" * 40},

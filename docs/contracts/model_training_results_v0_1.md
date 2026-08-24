@@ -38,7 +38,7 @@ training_config_yaml: <resolved training YAML>
 historical_preprocessing_yaml: <resolved historical preprocessing YAML>
 prediction_preprocessing_yaml: <resolved operational preprocessing YAML>
 prediction_contract_yaml: <embedded prediction contract YAML>
-reproducibility: <H5 checksum, source-code provenance, runtime versions>
+reproducibility: <H5 SHA256 and DVC revision, source-code provenance, runtime versions>
 ```
 
 `model_performance` is the held-out validation record: patient-safe method,

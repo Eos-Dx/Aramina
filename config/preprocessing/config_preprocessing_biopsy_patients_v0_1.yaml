@@ -7,6 +7,12 @@ aramina_preprocessing:
   name: aramina_biopsy_patients_model_input
   version: 0.1
   clinical_stage: research draft
+data_version:
+  contract: aramina_dvc_input_v0_1
+  system: dvc
+  dataset_id: aramina_combined_archive_h5
+  dvc_version: 3.67.1
+  pointer_path: data/combined_archive.h5.dvc
 provenance:
   status: research draft biopsy-patients model-input preprocessing config
   canonical_location: config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml

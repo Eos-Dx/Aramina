@@ -38,7 +38,7 @@ If `conda` is missing, `install.bat` asks to install Miniforge into
 ```bash
 conda env create -n eosproduct -f environment.yml
 conda activate eosproduct
-python -m pip install -e ".[dev]"
+python -m pip install -e ".[dev,data]"
 python -m aramina predict --config examples/prediction/configs/config_predict_cancer_example.yaml
 ```
 
@@ -61,6 +61,18 @@ They prove installation, preprocessing, prediction and report writing. They
 are not clinical validation examples.
 
 ## Full Training Reproduction
+
+For source-checkout training, configure the internal DVC remote and materialize
+the exact archive revision first:
+
+```bash
+dvc remote add --local --default internal-h5 /path/to/controlled/aramina-dvc/remote
+dvc pull data/combined_archive.h5.dvc
+python -m aramina preprocess-train --config config/preprocessing_and_training/config_preprocess_and_train_target_breast_risk_v0_1.yaml
+```
+
+The internal remote path is machine-specific and remains in ignored
+`.dvc/config.local`. See [data/README.md](data/README.md).
 
 `packaging/reproducible_training_bundle/make_bundle.sh` creates a separate ZIP
 with the full historical H5. The bundle uses Docker rather than this Conda

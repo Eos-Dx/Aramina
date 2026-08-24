@@ -60,7 +60,9 @@ python -m aramina predict --config examples/prediction/configs/config_predict_ca
 ```
 
 The full historical archive is required only for preprocessing and training.
-Prediction examples use the tracked one-patient H5 fixtures.
+Its exact internal revision is tracked by DVC; see
+[Data versioning](docs/data_versioning.md). Prediction examples use the tracked
+one-patient H5 fixtures and do not require DVC.
 
 The canonical `preprocess-train` config creates one fail-closed MLflow product
 run covering preprocessing, patient-safe evaluation, and final train-on-all.
@@ -75,6 +77,7 @@ mlflow ui --backend-store-uri sqlite:///examples/outputs/mlflow/aramina_radial_p
 | Path | Content |
 |---|---|
 | [`src/aramina/`](src/aramina/) | Product code. |
+| [`data/`](data/README.md) | DVC pointer and internal-storage instructions. |
 | [`config/`](config/README.md) | Runnable input YAML. |
 | [`contracts/`](contracts/README.md) | Filled output examples. |
 | [`docs/`](docs/README.md) | Canonical technical documentation. |

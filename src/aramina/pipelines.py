@@ -16,7 +16,8 @@ from xrd_preprocessing import (
     save_preprocessing_artifact,
 )
 
-from .config_paths import resolve_config_path
+from .config_paths import config_reference_root, resolve_config_path
+from .data_versioning import verify_dvc_input
 from .preprocessing_contract import validate_if_aramina_product_config
 from .runtime_identity import aramina_git_sha, aramina_version, file_sha256
 
@@ -45,6 +46,20 @@ class AraminaPreprocessingPipeline(TransformerMixin, BaseEstimator):
         config = _load_config(self.config)
         _require_output_columns(config)
         self.config_ = config
+        config_path = (
+            Path(self.config)
+            if isinstance(self.config, str | Path)
+            else config_reference_root(Path(__file__)) / "config.yaml"
+        )
+        self.data_version_ = (
+            verify_dvc_input(
+                config,
+                config_path=config_path,
+                input_h5_path=X,
+            )
+            if "aramina_preprocessing" in config
+            else None
+        )
         self.pipeline_ = build_pipeline_from_config(config, verbose=self.verbose)
         logger.info("Preprocessing input H5: %s", X)
         logger.info(
@@ -71,6 +86,7 @@ def run_preprocessing_pipeline(
         output_joblib_path,
         effective_config=pipeline.config_,
         input_h5_path=h5_path,
+        data_version=pipeline.data_version_,
     )
     # Fitted H5 readers retain calibration frames that are not part of the
     # returned DataFrame. Release them before downstream model training.
@@ -93,13 +109,14 @@ def run_preprocessing_artifact_from_config(
     output_joblib_path = output_joblib_path or _config_path(
         config, config_path, "output_joblib_path"
     )
-    pipeline = AraminaPreprocessingPipeline(config=config, verbose=verbose)
+    pipeline = AraminaPreprocessingPipeline(config=config_path, verbose=verbose)
     df = pipeline.fit_transform(h5_path).copy(deep=True)
     artifact = _write_joblib_if_requested(
         df,
         output_joblib_path,
         effective_config=pipeline.config_,
         input_h5_path=h5_path,
+        data_version=pipeline.data_version_,
     )
     # Keep only the compact artifact; fitted readers can retain raw calibration
     # frames and would otherwise overlap with the following training stage.
@@ -121,7 +138,7 @@ def run_preprocessing_from_config(
     output_joblib_path = _config_path(config, config_path, "output_joblib_path")
     return run_preprocessing_pipeline(
         h5_path,
-        config,
+        config_path,
         output_joblib_path=output_joblib_path,
         verbose=verbose,
     )
@@ -152,18 +169,26 @@ def _write_joblib_if_requested(
     *,
     effective_config: dict[str, Any],
     input_h5_path: str | Path,
+    data_version: dict[str, Any] | None,
 ) -> dict[str, Any] | None:
     if output_joblib_path is None:
         return None
     output_path = Path(output_joblib_path)
     config_text = yaml.safe_dump(effective_config, sort_keys=False)
+    metadata = {
+        "input_h5_sha256": (
+            data_version["input_h5_sha256"]
+            if data_version is not None
+            else file_sha256(input_h5_path)
+        ),
+        "aramina_version": aramina_version(),
+        "aramina_git_sha": aramina_git_sha(),
+    }
+    if data_version is not None:
+        metadata["data_version"] = data_version
     return save_preprocessing_artifact(
         df,
         output_path,
         preprocessing_config_text=config_text,
-        metadata={
-            "input_h5_sha256": file_sha256(input_h5_path),
-            "aramina_version": aramina_version(),
-            "aramina_git_sha": aramina_git_sha(),
-        },
+        metadata=metadata,
     )

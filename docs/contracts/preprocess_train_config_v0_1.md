@@ -80,6 +80,14 @@ artifacts. Missing values stop the run.
 | `data_contract` | `aramina_preprocessing_and_training_config_v0_2`. |
 | `input_h5_id` | Stable input H5 identifier or basename recorded by preprocessing. |
 | `input_h5_checksum` | SHA256 calculated from the input H5. |
+| `data_version_system` | `dvc` for the current product-data contract. |
+| `dvc_dataset_id` | Stable internal dataset identifier from preprocessing YAML. |
+| `dvc_data_hash` | Content hash from the tracked DVC pointer. |
+| `dvc_data_hash_algorithm` | Hash algorithm declared by the DVC pointer. |
+| `dvc_data_size_bytes` | Tracked source H5 size in bytes. |
+| `dvc_pointer_path` | Git-tracked DVC pointer used by the run. |
+| `dvc_pointer_git_sha` | Aramina Git revision whose tree contains the pointer. |
+| `dvc_version` | DVC version declared by the product data contract. |
 | `pipeline_version` | Resolved product preprocessing pipeline version. |
 | `preprocessing_git_sha` | Git SHA of the XRD-preprocessing implementation used. |
 | `model_git_sha` | Git SHA of the Aramina implementation used. |
@@ -101,6 +109,8 @@ to its existing contracts.
 
 | Artifact path | Content |
 |---|---|
+| `data_version.json` | DVC dataset ID, pointer, content hash, size, and source SHA256. |
+| `dvc_data_pointer.dvc` | Exact Git-tracked DVC pointer copied into the run. |
 | `preprocessing_config.json` | Fully resolved preprocessing configuration. |
 | `product_filter_rules.json` | Applied product inclusion/exclusion rules. |
 | `selected_measurement_ids.csv` | Accepted measurements with unique SHA256 IDs derived from H5 `session_uid + set_path`, patient IDs, and target-side linkage. |

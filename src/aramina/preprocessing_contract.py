@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from .data_versioning import DVC_DATA_CONTRACT
+
 
 ARAMINA_PREPROCESSING_CONTRACT = "aramina_product_preprocessing_v0_1"
 _ROUTES = {
@@ -127,6 +129,14 @@ def _require_output_columns(config: dict[str, Any], *, route: str) -> None:
 
 
 def _require_training_route(config: dict[str, Any]) -> None:
+    data_version = _mapping(config, "data_version")
+    _equal(data_version.get("contract"), DVC_DATA_CONTRACT, "DVC data contract")
+    _equal(data_version.get("system"), "dvc", "data version system")
+    _nonempty_string(data_version, "dataset_id", "data_version")
+    _nonempty_string(data_version, "dvc_version", "data_version")
+    pointer_path = _nonempty_string(data_version, "pointer_path", "data_version")
+    if not pointer_path.endswith(".dvc"):
+        raise ValueError("Aramina training data_version.pointer_path must end in .dvc.")
     filters = _mapping(config, "filters")
     quality = _mapping(filters, "quality_exclusions")
     _equal(quality.get("enabled"), True, "training quality exclusions")

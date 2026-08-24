@@ -34,10 +34,13 @@ python -m aramina preprocess \
   --config config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
 ```
 
-The historical route expects `data/combined_archive.h5`. Prediction replaces
-that path with the request H5 and applies no historical cohort filters.
+The historical route expects the DVC-tracked `data/combined_archive.h5` and
+fails before preprocessing when its pointer, size, or content hash differs.
+Prediction replaces that path with the request H5 and applies no historical
+cohort filters.
 
 Canonical contracts:
 
 - [Preprocessing config](../../docs/contracts/preprocessing_config_v0_1.md)
 - [Data and artifact route](../../docs/data_preprocessing.md)
+- [DVC data versioning](../../docs/data_versioning.md)

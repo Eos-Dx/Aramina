@@ -202,6 +202,7 @@ def _reproducibility_manifest(
         "source_h5": {
             "filename": Path(str(source_path)).name if source_path else "unknown",
             "sha256": str(source_metadata["input_h5_sha256"]),
+            "data_version": source_metadata.get("data_version"),
         },
         "source_code": {
             "aramina": {

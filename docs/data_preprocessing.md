@@ -222,6 +222,7 @@ kind / version / created_at
 dataframe
 preprocessing_config_yaml   # fully resolved effective YAML
 metadata.input_h5_sha256
+metadata.data_version       # DVC dataset ID, pointer, hash, size, and DVC version
 metadata.aramina_version
 metadata.aramina_git_sha
 ```

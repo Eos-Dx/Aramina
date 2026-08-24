@@ -3,22 +3,37 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import re
 import subprocess
 import tomllib
-from hashlib import sha256
 from importlib.metadata import PackageNotFoundError, distribution, version
 from pathlib import Path
 
 
 def file_sha256(path: str | Path) -> str:
     """Return the SHA256 digest of one file."""
-    digest = sha256()
+    return file_hashes(path, algorithms=("sha256",))["sha256"]
+
+
+def file_hashes(
+    path: str | Path,
+    *,
+    algorithms: tuple[str, ...],
+) -> dict[str, str]:
+    """Return requested file digests after one sequential read."""
+    if not algorithms:
+        raise ValueError("At least one hash algorithm is required.")
+    digests = {
+        algorithm: hashlib.new(algorithm, usedforsecurity=False)
+        for algorithm in algorithms
+    }
     with Path(path).open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+            for digest in digests.values():
+                digest.update(chunk)
+    return {name: digest.hexdigest() for name, digest in digests.items()}
 
 
 def safe_stem(value: str, *, fallback: str = "") -> str:

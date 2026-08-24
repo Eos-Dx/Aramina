@@ -47,6 +47,14 @@ Training route enables T100 AgBH exclusions, retains patients with at least one
 biopsy row, keeps contralateral measurements, maps `NORMAL` to `BENIGN`, and
 keeps model labels `BENIGN` and `CANCER`.
 
+Training additionally requires `data_version.contract=aramina_dvc_input_v0_1`,
+`system=dvc`, the required DVC version, a stable `dataset_id`, and a `.dvc`
+pointer path. Before reading
+measurements, Aramina verifies that the materialized H5 path, byte size, and
+MD5 match the pointer. The resulting artifact records both the DVC revision and
+an independently calculated SHA256. Prediction uses one incoming patient H5
+and therefore does not require the historical-training DVC pointer.
+
 Prediction route disables date, historical AgBH, diagnosis, biopsy, and pairing
 cohort filters. It applies only technical quality controls; target side comes
 from the prediction request YAML.
