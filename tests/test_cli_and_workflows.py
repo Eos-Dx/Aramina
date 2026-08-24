@@ -181,7 +181,7 @@ def test_workflow_resolves_root_relative_paths_from_external_config_tree(
                 "training_config_path": "./config/training/train.yaml",
                 "mlflow": {
                     "enabled": False,
-                    "tracking_uri": "./examples/outputs/mlflow",
+                    "tracking_uri": "sqlite:///examples/outputs/mlflow/aramina.db",
                     "experiment_name": "test",
                 },
             }
@@ -208,6 +208,34 @@ def test_workflow_resolves_root_relative_paths_from_external_config_tree(
     assert received["preprocess"] == project_root / "config/preprocessing/preprocess.yaml"
     assert received["training"] == project_root / "config/training/train.yaml"
     assert result["run_folder"].is_relative_to(project_root / "examples/outputs")
+    assert result["mlflow"]["tracking_uri"] == (
+        f"sqlite:///{project_root / 'examples/outputs/mlflow/aramina.db'}"
+    )
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("https://tracking.example", "https://tracking.example"),
+        ("databricks", "databricks"),
+        ("sqlite:////var/lib/mlflow/aramina.db", "sqlite:////var/lib/mlflow/aramina.db"),
+    ],
+)
+def test_tracking_uri_preserves_remote_and_absolute_uris(
+    tmp_path: Path,
+    value: str,
+    expected: str,
+):
+    config_path = tmp_path / "config.yaml"
+
+    assert workflows._tracking_uri(value, config_path) == expected
+
+
+def test_tracking_uri_preserves_file_store_uri_for_unit_tests(tmp_path: Path):
+    config_path = tmp_path / "config.yaml"
+    file_store_uri = (tmp_path / "mlruns").as_uri()
+
+    assert workflows._tracking_uri(file_store_uri, config_path) == file_store_uri
 
 
 def test_workflow_logs_one_complete_mlflow_run(monkeypatch, tmp_path: Path):
@@ -225,7 +253,7 @@ def test_workflow_logs_one_complete_mlflow_run(monkeypatch, tmp_path: Path):
                 "training_config_path": str(tmp_path / "train.yaml"),
                 "mlflow": {
                     "enabled": True,
-                    "tracking_uri": str(tmp_path / "mlruns"),
+                    "tracking_uri": "sqlite:///mlruns/aramina.db",
                     "experiment_name": "aramina-product-test",
                 },
             }
@@ -283,6 +311,9 @@ def test_workflow_logs_one_complete_mlflow_run(monkeypatch, tmp_path: Path):
     result = workflows.run_preprocess_train_from_config(config_path)
 
     assert result["mlflow"]["status"] == "FINISHED"
+    assert result["mlflow"]["tracking_uri"] == (
+        f"sqlite:///{tmp_path / 'mlruns/aramina.db'}"
+    )
     client = MlflowClient(tracking_uri=result["mlflow"]["tracking_uri"])
     run = client.get_run(result["mlflow"]["run_id"])
     assert run.info.status == "FINISHED"
@@ -337,7 +368,7 @@ def test_workflow_contract_rejects_invalid_string_values(
         "training_config_path": "config/training/train.yaml",
         "mlflow": {
             "enabled": False,
-            "tracking_uri": "outputs/mlflow",
+            "tracking_uri": "sqlite:///outputs/mlflow/aramina.db",
             "experiment_name": "test",
         },
     }
