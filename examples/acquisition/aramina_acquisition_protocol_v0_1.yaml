@@ -1,0 +1,164 @@
+contract: aramina_acquisition_protocol_v0_1
+schema_version: '0.1'
+record:
+  record_id: ARAMINA-ACQ-0001
+  patient_id: RESEARCH-PATIENT-0001
+  breast_profile:
+    captured: true
+    stored: true
+    storage_ref: session://ARAMINA-SESSION-0001/breast-profile-v1
+    target:
+      laterality: right
+      profile_id: PROFILE-R-0001
+      width_mm: 126.0
+      thickness_mm: 42.0
+    contralateral:
+      laterality: left
+      profile_id: PROFILE-L-0001
+      width_mm: 121.0
+      thickness_mm: 40.0
+  geometry:
+    coordinate_system: instrument_xyz_mm
+    central_point:
+      method: machine_guided_reproducible_central_point
+      machine_guided: true
+      normalized_width_fraction: 0.5
+      point_ids: {target: CENTRAL-R-01, contralateral: CENTRAL-L-01}
+    middle_plane:
+      definition: reproducible_middle_plane_across_breast
+      spacing_rule: normalized_breast_width
+      width_field: breast_profile.width_mm
+      operator_fixed_distance_allowed: false
+      alpha: 0.2 # Illustrative recorded value; final alpha requires hardware validation.
+      alpha_validation_status: pending_hardware_validation
+    point_count_variant: 12
+  points:
+    standardized_target:
+    - point_id: R-MP-NEG
+      side: target
+      role: standardized_middle_plane
+      normalized_width_fraction: 0.3
+      coordinates_mm: {x: -25.2, y: 0.0, z: 0.0}
+      xrd: {acquired: true, measurement_id: XRD-R-MP-NEG, raw_data_ref: h5://session/measurement/XRD-R-MP-NEG}
+      attenuation_coefficient: {value_cm_inv: 0.38, uncertainty_cm_inv: 0.02, unit: cm^-1, method: transmission_fit, source: paired_transmission_measurement}
+    - point_id: CENTRAL-R-01
+      side: target
+      role: central
+      normalized_width_fraction: 0.5
+      coordinates_mm: {x: 0.0, y: 0.0, z: 0.0}
+      xrd: {acquired: true, measurement_id: XRD-R-CENTRAL, raw_data_ref: h5://session/measurement/XRD-R-CENTRAL}
+      attenuation_coefficient: {value_cm_inv: 0.45, uncertainty_cm_inv: 0.02, unit: cm^-1, method: transmission_fit, source: paired_transmission_measurement}
+    - point_id: R-MP-POS
+      side: target
+      role: standardized_middle_plane
+      normalized_width_fraction: 0.7
+      coordinates_mm: {x: 25.2, y: 0.0, z: 0.0}
+      xrd: {acquired: true, measurement_id: XRD-R-MP-POS, raw_data_ref: h5://session/measurement/XRD-R-MP-POS}
+      attenuation_coefficient: {value_cm_inv: 0.39, uncertainty_cm_inv: 0.02, unit: cm^-1, method: transmission_fit, source: paired_transmission_measurement}
+    standardized_contralateral:
+    - point_id: L-MP-NEG
+      side: contralateral
+      role: standardized_middle_plane
+      normalized_width_fraction: 0.3
+      coordinates_mm: {x: -24.2, y: 0.0, z: 0.0}
+      xrd: {acquired: true, measurement_id: XRD-L-MP-NEG, raw_data_ref: h5://session/measurement/XRD-L-MP-NEG}
+      attenuation_coefficient: {value_cm_inv: 0.36, uncertainty_cm_inv: 0.02, unit: cm^-1, method: transmission_fit, source: paired_transmission_measurement}
+    - point_id: CENTRAL-L-01
+      side: contralateral
+      role: central
+      normalized_width_fraction: 0.5
+      coordinates_mm: {x: 0.0, y: 0.0, z: 0.0}
+      xrd: {acquired: true, measurement_id: XRD-L-CENTRAL, raw_data_ref: h5://session/measurement/XRD-L-CENTRAL}
+      attenuation_coefficient: {value_cm_inv: 0.40, uncertainty_cm_inv: 0.02, unit: cm^-1, method: transmission_fit, source: paired_transmission_measurement}
+    - point_id: L-MP-POS
+      side: contralateral
+      role: standardized_middle_plane
+      normalized_width_fraction: 0.7
+      coordinates_mm: {x: 24.2, y: 0.0, z: 0.0}
+      xrd: {acquired: true, measurement_id: XRD-L-MP-POS, raw_data_ref: h5://session/measurement/XRD-L-MP-POS}
+      attenuation_coefficient: {value_cm_inv: 0.37, uncertainty_cm_inv: 0.02, unit: cm^-1, method: transmission_fit, source: paired_transmission_measurement}
+    lesion_local:
+      target:
+      - point_id: R-LESION-01
+        side: target
+        role: lesion_local_target
+        mirror_pair_id: LESION-PAIR-01
+        normalized_width_fraction: 0.58
+        coordinates_mm: {x: 10.1, y: 4.0, z: 0.0}
+        xrd: {acquired: true, measurement_id: XRD-R-LESION-01, raw_data_ref: h5://session/measurement/XRD-R-LESION-01}
+        attenuation_coefficient: {value_cm_inv: 0.49, uncertainty_cm_inv: 0.03, unit: cm^-1, method: transmission_fit, source: paired_transmission_measurement}
+      - point_id: R-LESION-02
+        side: target
+        role: lesion_local_target
+        mirror_pair_id: LESION-PAIR-02
+        normalized_width_fraction: 0.60
+        coordinates_mm: {x: 12.0, y: 4.0, z: 0.0}
+        xrd: {acquired: true, measurement_id: XRD-R-LESION-02, raw_data_ref: h5://session/measurement/XRD-R-LESION-02}
+        attenuation_coefficient: {value_cm_inv: 0.50, uncertainty_cm_inv: 0.03, unit: cm^-1, method: transmission_fit, source: paired_transmission_measurement}
+      - point_id: R-LESION-03
+        side: target
+        role: lesion_local_target
+        mirror_pair_id: LESION-PAIR-03
+        normalized_width_fraction: 0.62
+        coordinates_mm: {x: 13.9, y: 4.0, z: 0.0}
+        xrd: {acquired: true, measurement_id: XRD-R-LESION-03, raw_data_ref: h5://session/measurement/XRD-R-LESION-03}
+        attenuation_coefficient: {value_cm_inv: 0.48, uncertainty_cm_inv: 0.03, unit: cm^-1, method: transmission_fit, source: paired_transmission_measurement}
+      mirrored_contralateral:
+      - point_id: L-MIRROR-01
+        side: contralateral
+        role: lesion_local_mirrored_contralateral
+        mirror_pair_id: LESION-PAIR-01
+        normalized_width_fraction: 0.58
+        coordinates_mm: {x: 9.7, y: 4.0, z: 0.0}
+        xrd: {acquired: true, measurement_id: XRD-L-MIRROR-01, raw_data_ref: h5://session/measurement/XRD-L-MIRROR-01}
+        attenuation_coefficient: {value_cm_inv: 0.40, uncertainty_cm_inv: 0.03, unit: cm^-1, method: transmission_fit, source: paired_transmission_measurement}
+      - point_id: L-MIRROR-02
+        side: contralateral
+        role: lesion_local_mirrored_contralateral
+        mirror_pair_id: LESION-PAIR-02
+        normalized_width_fraction: 0.60
+        coordinates_mm: {x: 11.5, y: 4.0, z: 0.0}
+        xrd: {acquired: true, measurement_id: XRD-L-MIRROR-02, raw_data_ref: h5://session/measurement/XRD-L-MIRROR-02}
+        attenuation_coefficient: {value_cm_inv: 0.41, uncertainty_cm_inv: 0.03, unit: cm^-1, method: transmission_fit, source: paired_transmission_measurement}
+      - point_id: L-MIRROR-03
+        side: contralateral
+        role: lesion_local_mirrored_contralateral
+        mirror_pair_id: LESION-PAIR-03
+        normalized_width_fraction: 0.62
+        coordinates_mm: {x: 13.4, y: 4.0, z: 0.0}
+        xrd: {acquired: true, measurement_id: XRD-L-MIRROR-03, raw_data_ref: h5://session/measurement/XRD-L-MIRROR-03}
+        attenuation_coefficient: {value_cm_inv: 0.40, uncertainty_cm_inv: 0.03, unit: cm^-1, method: transmission_fit, source: paired_transmission_measurement}
+  thickness:
+    preferred_max_mm: 50.0
+    measured_mm: 42.0
+    above_limit: {present: false, handling: none_within_preferred_limit, reason: null}
+  dose:
+    per_point:
+    - {point_id: R-MP-NEG, planned_dose_mgy: 0.5, delivered_dose_mgy: 0.48, maximum_dose_mgy: 0.5, within_limit: true}
+    - {point_id: CENTRAL-R-01, planned_dose_mgy: 0.5, delivered_dose_mgy: 0.49, maximum_dose_mgy: 0.5, within_limit: true}
+    - {point_id: R-MP-POS, planned_dose_mgy: 0.5, delivered_dose_mgy: 0.49, maximum_dose_mgy: 0.5, within_limit: true}
+    - {point_id: L-MP-NEG, planned_dose_mgy: 0.5, delivered_dose_mgy: 0.48, maximum_dose_mgy: 0.5, within_limit: true}
+    - {point_id: CENTRAL-L-01, planned_dose_mgy: 0.5, delivered_dose_mgy: 0.49, maximum_dose_mgy: 0.5, within_limit: true}
+    - {point_id: L-MP-POS, planned_dose_mgy: 0.5, delivered_dose_mgy: 0.49, maximum_dose_mgy: 0.5, within_limit: true}
+    - {point_id: R-LESION-01, planned_dose_mgy: 0.5, delivered_dose_mgy: 0.49, maximum_dose_mgy: 0.5, within_limit: true}
+    - {point_id: R-LESION-02, planned_dose_mgy: 0.5, delivered_dose_mgy: 0.49, maximum_dose_mgy: 0.5, within_limit: true}
+    - {point_id: R-LESION-03, planned_dose_mgy: 0.5, delivered_dose_mgy: 0.49, maximum_dose_mgy: 0.5, within_limit: true}
+    - {point_id: L-MIRROR-01, planned_dose_mgy: 0.5, delivered_dose_mgy: 0.49, maximum_dose_mgy: 0.5, within_limit: true}
+    - {point_id: L-MIRROR-02, planned_dose_mgy: 0.5, delivered_dose_mgy: 0.49, maximum_dose_mgy: 0.5, within_limit: true}
+    - {point_id: L-MIRROR-03, planned_dose_mgy: 0.5, delivered_dose_mgy: 0.49, maximum_dose_mgy: 0.5, within_limit: true}
+    cumulative: {planned_dose_mgy: 6.0, delivered_dose_mgy: 5.85, maximum_dose_mgy: 6.0, within_limit: true}
+    control: {per_point_limit_enforced: true, cumulative_limit_enforced: true, stop_on_exceedance: true}
+  traceability:
+    operator: {operator_id: OP-001, role: qualified_breast_imaging_operator}
+    hardware: {instrument_id: XRD-001, model: research_xrd_unit, serial_number: XRD-SN-001, firmware_version: FW-1.2.3, calibration_id: CAL-2026-001}
+    session: {session_id: ARAMINA-SESSION-0001, started_at: '2026-08-24T09:00:00Z', ended_at: '2026-08-24T09:28:00Z', software_version: acquisition-client-0.1.0, protocol_version: aramina_acquisition_protocol_v0_1}
+  timing:
+    visit_type: baseline_pre_biopsy
+    acquired_at: '2026-08-24T09:10:00Z'
+    biopsy_at: '2026-08-24T13:00:00Z'
+    hours_before_biopsy: 3.833
+    timing_deviation: {present: false, reason: null}
+  longitudinal:
+    optional_future_visits: true
+    baseline_endpoint_uses_only_pre_biopsy: true
+    visits: []

@@ -2,6 +2,12 @@
 
 Status: research draft.
 
+Validated acquisition record:
+
+```text
+acquisition/aramina_acquisition_protocol_v0_1.yaml
+```
+
 Current examples are one-patient H5 prediction fixtures and the frozen product
 model:
 

@@ -1,0 +1,104 @@
+contract: aramina_acquisition_protocol_v0_1
+schema_version: '0.1'
+status: research_draft
+record:
+  required:
+  - record_id
+  - patient_id
+  - breast_profile
+  - geometry
+  - points
+  - thickness
+  - dose
+  - traceability
+  - timing
+  - longitudinal
+  breast_profile:
+    required:
+    - captured
+    - stored
+    - storage_ref
+    - target
+    - contralateral
+    fields:
+      captured: boolean_true
+      stored: boolean_true
+      storage_ref: non_empty_string
+      target: breast_profile_record
+      contralateral: breast_profile_record
+    breast_profile_record:
+      required: [laterality, profile_id, width_mm, thickness_mm]
+      fields:
+        laterality: non_empty_string
+        profile_id: non_empty_string
+        width_mm: positive_number
+        thickness_mm: positive_number
+  geometry:
+    required: [coordinate_system, central_point, middle_plane, point_count_variant]
+    central_point:
+      method: machine_guided_reproducible_central_point
+      machine_guided: true
+      normalized_width_fraction: 0.5
+      point_ids: {target: target_central_point_id, contralateral: contralateral_central_point_id}
+    middle_plane:
+      definition: reproducible_middle_plane_across_breast
+      spacing_rule: normalized_breast_width
+      width_field: breast_profile.width_mm
+      operator_fixed_distance_allowed: false
+      alpha: recorded_protocol_value
+      alpha_validation_status: pending_hardware_validation
+    point_count_variants:
+    - point_count: 6
+      applies_when: minimum_patient_total_with_three_standardized_points_per_breast
+      total_patient_points: 6
+      standardized_points_per_breast: 3
+      target_lesion_local_points: 0
+      mirrored_contralateral_lesion_local_points: 0
+    - point_count: 9
+      applies_when: six_standardized_points_plus_three_target_lesion_local_points
+      total_patient_points: 9
+      standardized_points_per_breast: 3
+      target_lesion_local_points: 3
+      mirrored_contralateral_lesion_local_points: 0
+    - point_count: 12
+      applies_when: nine_points_plus_three_mirrored_contralateral_lesion_local_points
+      total_patient_points: 12
+      standardized_points_per_breast: 3
+      target_lesion_local_points: 3
+      mirrored_contralateral_lesion_local_points: 3
+  points:
+    total_patient_points: selected_variant_count
+    standardized_middle_plane_per_breast: 3
+    standardized_normalized_width_positions: [0.5 - alpha, 0.5, 0.5 + alpha]
+    physical_offset_rule: center +/- alpha * measured breast width
+    required_modalities_per_point: [xrd, attenuation_coefficient]
+    lesion_local:
+      target: array_of_three_when_variant_is_9_or_12_else_empty
+      mirrored_contralateral: array_of_three_when_variant_is_12_else_empty
+      mirror_pair_id: equal_for_target_mirrored_pairs
+  thickness:
+    preferred_max_mm: 50.0
+    measured_mm: explicit_positive_measurement
+    above_limit:
+      present: measured_mm_greater_than_preferred_max
+      handling: qualified_review_and_deviation_record
+      reason: required_when_above_limit
+  dose:
+    per_point:
+      required_fields: [point_id, planned_dose_mgy, delivered_dose_mgy, maximum_dose_mgy, within_limit]
+      control: delivered_must_not_exceed_maximum
+    cumulative:
+      required_fields: [planned_dose_mgy, delivered_dose_mgy, maximum_dose_mgy, within_limit]
+      control: delivered_must_not_exceed_maximum
+    control:
+      required_fields: [per_point_limit_enforced, cumulative_limit_enforced, stop_on_exceedance]
+      required_values: true
+  traceability:
+    required_sections: [operator, hardware, session]
+  timing:
+    visit_type: baseline_pre_biopsy
+    hours_before_biopsy: explicit_non_negative_measurement
+    timing_deviation_reason: required_when_deviation_present
+  longitudinal:
+    optional_future_visits: true
+    baseline_endpoint_uses_only_pre_biopsy: true

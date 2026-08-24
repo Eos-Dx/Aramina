@@ -29,6 +29,7 @@ canonical owner; other documents link to it instead of repeating it.
 | Training outputs | [Model training results](contracts/model_training_results_v0_1.md) |
 | Internal prediction report | [Internal report](modeling/internal_clinical_report_content_v0_9.md) |
 | TRA policy | [TRA contract](contracts/tissue_risk_assessment_v0_2.md) |
+| Acquisition protocol | [Aramina acquisition protocol](contracts/aramina_acquisition_protocol_v0_1.md) |
 
 Runnable input YAMLs live under [`config/`](../config/README.md). Filled output
 examples live under [`contracts/`](../contracts/README.md). Frozen model files
