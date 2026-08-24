@@ -18,6 +18,7 @@ from .mlflow_artifacts import (
 )
 from .mlflow_tracking import MlflowRun
 from .pipelines import run_preprocessing_artifact_from_config
+from .runtime_identity import aramina_git_sha, xrd_preprocessing_git_sha
 from .training import run_training_from_config
 from .training_config import load_training_config
 
@@ -40,6 +41,7 @@ def run_preprocess_train_from_config(
     training_config_path = _project_path(config["training_config_path"], config_path)
     tracking_config = config["mlflow"]
     _require_complete_product_run(training_config_path, tracking_config)
+    _require_product_source_provenance(tracking_config)
     run_folder = _preprocess_train_run_folder(config, config_path)
     dataframe_path = run_folder / "preprocessing" / "dataframe.joblib"
     dataframe_path.parent.mkdir(parents=True)
@@ -149,7 +151,9 @@ def _load_preprocess_train_config(config_path: Path) -> dict[str, Any]:
     if unknown:
         raise ValueError(f"Unknown preprocessing-and-training fields: {unknown}")
     if config["contract"] != PREPROCESS_TRAIN_CONTRACT:
-        raise ValueError(f"Unsupported preprocessing-and-training contract: {config['contract']!r}")
+        raise ValueError(
+            f"Unsupported preprocessing-and-training contract: {config['contract']!r}"
+        )
     preprocess_train = config["preprocessing_and_training"]
     fields = {"name", "run_author", "output_folder"}
     if not isinstance(preprocess_train, dict):
@@ -195,12 +199,30 @@ def _require_complete_product_run(
     if not tracking_config["enabled"]:
         return
     training_config, _ = load_training_config(training_config_path)
-    if not training_config["run"]["evaluation"] or not training_config["run"][
-        "train_on_all"
-    ]:
+    if (
+        not training_config["run"]["evaluation"]
+        or not training_config["run"]["train_on_all"]
+    ):
         raise ValueError(
             "Enabled product MLflow tracking requires evaluation=true and "
             "train_on_all=true."
+        )
+
+
+def _require_product_source_provenance(tracking_config: dict[str, Any]) -> None:
+    if not tracking_config["enabled"]:
+        return
+    sources = {
+        "Aramina": aramina_git_sha(),
+        "XRD-preprocessing": xrd_preprocessing_git_sha(),
+    }
+    unavailable = [
+        name for name, git_sha in sources.items() if git_sha == "unavailable"
+    ]
+    if unavailable:
+        raise ValueError(
+            "Enabled product MLflow tracking requires source Git SHAs before "
+            f"preprocessing starts: {unavailable}"
         )
 
 
@@ -288,4 +310,10 @@ def _value_counts(dataframe: Any, column: str) -> dict[str, int]:
 def _boolean_values(dataframe: Any, column: str) -> Any:
     if column not in dataframe:
         return [False] * len(dataframe)
-    return dataframe[column].fillna(False).astype(str).str.lower().isin({"true", "1", "yes"})
+    return (
+        dataframe[column]
+        .fillna(False)
+        .astype(str)
+        .str.lower()
+        .isin({"true", "1", "yes"})
+    )

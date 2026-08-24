@@ -1,9 +1,14 @@
 FROM python:3.13-slim-bookworm
 
+ARG ARAMINA_GIT_SHA
+ARG XRD_PREPROCESSING_GIT_SHA
+
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    ARAMINA_GIT_SHA=${ARAMINA_GIT_SHA} \
+    XRD_PREPROCESSING_GIT_SHA=${XRD_PREPROCESSING_GIT_SHA}
 
 WORKDIR /opt
 
@@ -29,6 +34,7 @@ RUN python -m pip install --upgrade pip \
         pyFAI==2026.5.0 \
         fabio==2025.10.0 \
         pyopencl==2026.1.2 \
+        pyarrow==24.0.0 \
         mlflow==3.14.0 \
     && python -m pip install --no-deps /opt/XRD-preprocessing
 

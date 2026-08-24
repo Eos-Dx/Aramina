@@ -111,16 +111,16 @@ docker buildx build \
   --platform linux/amd64 \
   --load \
   --tag "${AMD64_IMAGE_TAG}" \
-  --build-arg "XRD_PREPROCESSING_GIT_COMMIT=${XRD_COMMIT}" \
-  --build-arg "XRD_PREPROCESSING_REQUESTED_REVISION=${XRD_COMMIT}" \
+  --build-arg "ARAMINA_GIT_SHA=${ARAMINA_COMMIT}" \
+  --build-arg "XRD_PREPROCESSING_GIT_SHA=${XRD_COMMIT}" \
   "${BUILD_CONTEXT}"
 docker save --output "${WORK_DIR}/${AMD64_IMAGE_ARCHIVE}" "${AMD64_IMAGE_TAG}"
 docker buildx build \
   --platform linux/arm64 \
   --load \
   --tag "${ARM64_IMAGE_TAG}" \
-  --build-arg "XRD_PREPROCESSING_GIT_COMMIT=${XRD_COMMIT}" \
-  --build-arg "XRD_PREPROCESSING_REQUESTED_REVISION=${XRD_COMMIT}" \
+  --build-arg "ARAMINA_GIT_SHA=${ARAMINA_COMMIT}" \
+  --build-arg "XRD_PREPROCESSING_GIT_SHA=${XRD_COMMIT}" \
   "${BUILD_CONTEXT}"
 docker save --output "${WORK_DIR}/${ARM64_IMAGE_ARCHIVE}" "${ARM64_IMAGE_TAG}"
 
