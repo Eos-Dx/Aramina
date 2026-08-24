@@ -133,6 +133,10 @@ def test_product_mlflow_artifact_set_is_complete_and_patient_safe(
     )
     assert result["metrics"]["held_out.roc_auc.mean"] == 0.7
     assert result["metrics"]["final_fit.sensitivity"] == 0.96
+    assert result["params"]["profile_encoder.type"] == "raw_radial_profile"
+    assert result["params"]["profile_encoder.input_q_bins"] == 100
+    assert result["params"]["profile_encoder.output_dimensions"] == 100
+    assert "profile_encoder.components" not in result["params"]
     manifest = json.loads((root / "mlflow_manifest.json").read_text(encoding="utf-8"))
     assert manifest["contract"] == "aramina_mlflow_product_run_v0_1"
 
@@ -234,15 +238,15 @@ def _training_artifact(
         "model_type": "m2q_gated_target_case",
         "model_identity": {
             "name": "aramina_target_breast_risk",
-            "version": "0.3.1-beta",
+            "version": "0.2.13-beta",
             "clinical_stage": "research draft",
         },
         "models": {
             "aramina_target_breast_risk": {
                 "profile_encoder": {
-                    "type": "discrete_fpca",
-                    "input_q_bins": 256,
-                    "components": 30,
+                    "type": "raw_radial_profile",
+                    "input_q_bins": 100,
+                    "output_dimensions": 100,
                 },
                 "thresholds": {"threshold_target": 0.25},
             }

@@ -20,7 +20,6 @@ from aramina.training import (
 )
 from aramina.training_config import load_training_config
 from aramina.training_config import PRODUCT_MODEL_NAME
-from aramina.target_breast_model import build_profile_logistic
 from aramina.symmetry_features import (
     SK_SYMMETRY_COLUMNS,
     target_contralateral_symmetry_features,
@@ -29,7 +28,7 @@ from aramina.symmetry_features import (
 
 def _patient_training_frame() -> pd.DataFrame:
     rows = []
-    q = np.linspace(2.0, 23.0, 256)
+    q = np.linspace(2.0, 23.0, 100)
     for patient_idx in range(30):
         cancer = patient_idx % 3 == 0
         patient_label = "CANCER" if cancer else "BENIGN"
@@ -54,14 +53,6 @@ def _patient_training_frame() -> pd.DataFrame:
                     }
                 )
     return pd.DataFrame(rows)
-
-
-def test_fpca30_profile_model_requires_256_bins():
-    model = build_profile_logistic(logreg_c=0.1, random_state=42)
-    labels = np.array([0, 1] * 20)
-
-    with pytest.raises(ValueError, match="requires 256-bin profiles"):
-        model.fit(np.zeros((40, 100)), labels)
 
 
 def _training_config(
@@ -394,28 +385,16 @@ def test_final_fit_writes_clean_model_and_description(tmp_path: Path):
     assert "selected_model" not in description
     assert set(description["feature_schema"]) == {"final_model"}
     assert description["model_summary"]["architecture"] == {
-        "stage_1": "target_xrd_profile_fpca30_logistic_regression",
+        "stage_1": "target_xrd_profile_logistic_regression",
         "stage_2": "age_and_optional_symmetry_refinement",
         "symmetry_behavior": "neutralized_unless_2_valid_measurements_per_breast_and_finite_core4_features",
     }
     assert description["model_summary"]["profile_encoder"] == {
-        "type": "discrete_fpca",
-        "input_q_bins": 256,
-        "components": 30,
-        "fit_scope": "fold_local_during_evaluation_train_all_for_final_fit",
+        "type": "raw_radial_profile",
+        "input_q_bins": 100,
+        "output_dimensions": 100,
+        "fit_scope": "no_dimensionality_reduction",
     }
-    assert (
-        description["model_summary"]["lr1_profile_model"]["steps"]["fpca"][
-            "n_components"
-        ]
-        == 30
-    )
-    assert (
-        description["model_summary"]["lr1_profile_model"]["steps"][
-            "profile_shape"
-        ]["expected_features"]
-        == 256
-    )
     assert (
         description["model_summary"]["lr1_profile_model"]["steps"]["logreg"][
             "classes"

@@ -107,6 +107,12 @@ def _fit_target_breast_model(
     )
     return {
         "name": "Aramina T100 profile, optional SK symmetry refinement, and age",
+        "profile_encoder": {
+            "type": "raw_radial_profile",
+            "input_q_bins": 100,
+            "output_dimensions": 100,
+            "fit_scope": "no_dimensionality_reduction",
+        },
         "lr1_model": lr1_model,
         "final_model": final_model,
         "feature_columns": target_breast_model_input_columns(),

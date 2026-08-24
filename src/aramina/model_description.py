@@ -119,6 +119,7 @@ def _model_summary(model_info: dict[str, Any]) -> dict[str, Any]:
             "symmetry_behavior": "neutralized_unless_2_valid_measurements_per_breast_and_finite_core4_features",
         },
         "lr1_profile_model": _pipeline_summary(model_info.get("lr1_model")),
+        "profile_encoder": _jsonable(model_info.get("profile_encoder", {})),
         "thresholds": _jsonable(model_info.get("thresholds", {})),
     }
     if "routes" not in model_info:

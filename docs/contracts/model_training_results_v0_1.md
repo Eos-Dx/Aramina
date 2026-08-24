@@ -103,6 +103,11 @@ model_summary:
     stage_1: target_xrd_profile_logistic_regression
     stage_2: age_and_optional_symmetry_refinement
     symmetry_behavior: neutralized_unless_2_valid_measurements_per_breast_and_finite_core4_features
+  profile_encoder:
+    type: raw_radial_profile
+    input_q_bins: 100
+    output_dimensions: 100
+    fit_scope: no_dimensionality_reduction
   lr1_profile_model: <fitted pipeline summary>
   final_model: <fitted gated logistic-regression summary>
   symmetry_feature_contract: aramina_sk_symmetry_v0_2

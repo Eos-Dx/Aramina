@@ -537,13 +537,15 @@ def _mlflow_params(
     snr = preprocessing_config.get("snr", {})
     normalization = preprocessing_config.get("normalization", {})
     thresholds = model.get("thresholds", {})
-    return {
+    params: dict[str, str | int | float | bool] = {
         "model.name": str(identity.get("name", model_name)),
         "model.version": str(identity.get("version", "unknown")),
         "model.type": str(training_artifact.get("model_type", "unknown")),
         "profile_encoder.type": str(encoder.get("type", "unknown")),
         "profile_encoder.input_q_bins": int(encoder.get("input_q_bins", 0)),
-        "profile_encoder.components": int(encoder.get("components", 0)),
+        "profile_encoder.output_dimensions": int(
+            encoder.get("output_dimensions", encoder.get("components", 0))
+        ),
         "integration.npt": int(integration.get("npt", 0)),
         "integration.error_model": str(integration.get("error_model", "unknown")),
         "snr.method": str(snr.get("method", "unknown")),
@@ -555,6 +557,9 @@ def _mlflow_params(
         "evaluation.random_seed": int(evaluation.get("random_seed", 0)),
         "decision_threshold": float(thresholds.get("threshold_target", float("nan"))),
     }
+    if "components" in encoder:
+        params["profile_encoder.components"] = int(encoder["components"])
+    return params
 
 
 def _scalar_metrics(metrics: dict[str, Any]) -> dict[str, float]:
