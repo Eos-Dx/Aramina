@@ -17,6 +17,8 @@ cohort:
 polar_cakes:
   n_q: 256
   n_chi: 36
+  radial_q_range: [2.0, 23.0]
+  azimuthal_range: [-180.0, 180.0]
   normalization_q_range: [6.7, 7.1]
   harmonic_q_range: [2.1, 12.7]
   cache_folder: examples/outputs/experiments/polar_basis_compression/cache

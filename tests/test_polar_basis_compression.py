@@ -128,13 +128,15 @@ def test_fold_encoder_has_exact_budget_and_finite_reconstruction(
 def test_polar_cache_reuses_unique_measurements(monkeypatch, tmp_path: Path) -> None:
     calls = []
 
-    def fake_integration(*args, **kwargs):
+    def fake_integration(row, **kwargs):
         calls.append(kwargs)
+        assert row["interpolation_q_range"] == (2.0, 23.0)
+        assert row["azimuthal_range"] == (-180.0, 180.0)
         return SimpleNamespace(
             intensity=np.ones((36, 256)),
             count=np.ones((36, 256)),
             sigma=np.full((36, 256), 0.1),
-            q=np.linspace(2.0, 23.0, 256),
+            q=np.linspace(2.0 + 21.0 / 512.0, 23.0 - 21.0 / 512.0, 256),
             azimuth=np.linspace(-175.0, 175.0, 36),
         )
 
@@ -150,6 +152,8 @@ def test_polar_cache_reuses_unique_measurements(monkeypatch, tmp_path: Path) -> 
             "ponifile": ["a.poni", "a.poni"],
             "sample_thickness_mm": [40.0, 41.0],
             "calibrant_thickness_mm": [40.0, 40.0],
+            "interpolation_q_range": [(3.0, 12.0), (4.0, 15.0)],
+            "azimuthal_range": [(-90.0, 90.0), (-120.0, 120.0)],
         }
     )
     kwargs = {
@@ -164,6 +168,26 @@ def test_polar_cache_reuses_unique_measurements(monkeypatch, tmp_path: Path) -> 
     assert len(first) == len(second) == 2
     assert len(calls) == 2
     assert first["measurement_key"].is_unique
+    assert first["axis_contract_sha256"].nunique() == 1
+
+
+def test_axes_contract_rejects_different_grid() -> None:
+    assert polar._axes_match_contract(
+        np.linspace(2.0 + 21.0 / 512.0, 23.0 - 21.0 / 512.0, 256),
+        np.linspace(-175.0, 175.0, 36),
+        n_q=256,
+        n_chi=36,
+        radial_q_range=(2.0, 23.0),
+        azimuthal_range=(-180.0, 180.0),
+    )
+    assert not polar._axes_match_contract(
+        np.linspace(3.0, 12.0, 256),
+        np.linspace(-175.0, 175.0, 36),
+        n_q=256,
+        n_chi=36,
+        radial_q_range=(2.0, 23.0),
+        azimuthal_range=(-180.0, 180.0),
+    )
 
 
 def test_embedded_poni_text_is_hashed_as_content() -> None:
