@@ -103,7 +103,9 @@ LEGACY_PROFILE_EXCLUDED_SOURCES = (
     "poni_geometry_calibration_uncertainty_shared_by_calib_session",
     "sample_and_calibrant_thickness_uncertainty",
     "detector_gain_and_readout_uncertainty",
+    "detector_baseline_uncertainty",
     "faulty_pixel_mask_and_measurement_selection_uncertainty",
+    "positioning_and_biological_repeatability",
     "model_parameter_and_training_data_uncertainty",
 )
 COVARIANCE_INCLUDED_SOURCES = (
@@ -114,7 +116,9 @@ COVARIANCE_EXCLUDED_SOURCES = (
     "poni_geometry_calibration_uncertainty_shared_by_calib_session",
     "sample_and_calibrant_thickness_uncertainty",
     "detector_gain_and_readout_uncertainty",
+    "detector_baseline_uncertainty",
     "faulty_pixel_mask_and_measurement_selection_uncertainty",
+    "positioning_and_biological_repeatability",
     "model_parameter_and_training_data_uncertainty",
 )
 DETECTOR_INCLUDED_SOURCES = (
@@ -127,6 +131,7 @@ DETECTOR_EXCLUDED_SOURCES = (
     "poni_geometry_calibration_uncertainty_shared_by_calib_session",
     "sample_and_calibrant_thickness_uncertainty",
     "detector_gain_and_readout_uncertainty",
+    "detector_baseline_uncertainty",
     "positioning_and_biological_repeatability",
     "model_parameter_and_training_data_uncertainty",
 )

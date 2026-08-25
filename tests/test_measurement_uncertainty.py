@@ -142,6 +142,9 @@ def test_correlated_covariance_scores_are_seeded_and_preserve_product_route(
     assert first_summary["measurement_count"].iloc[0] == 6
     assert len(first_draws) == 30
     assert first_summary["model_route"].iloc[0] in {"single_model", "with_symmetry"}
+    excluded = first_summary["excluded_uncertainty_sources"].iloc[0].split(";")
+    assert "detector_baseline_uncertainty" in excluded
+    assert "positioning_and_biological_repeatability" in excluded
 
 
 def test_profile_sigma_fails_closed_for_missing_or_invalid_sigma(model_artifact: dict):

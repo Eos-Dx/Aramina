@@ -34,6 +34,12 @@ seeded block is retained for comparison. This prevents comparing a fast model
 with the same Monte Carlo realizations from which its correlation structure was
 estimated.
 
+The stochastic draws are held out, but the reference patients are not. The
+pooled covariance includes fit draws from the same stratified cases used for
+detector comparison. The present gate therefore tests Monte Carlo approximation
+within the available reference cohort; it does not establish patient-level
+covariance transfer to an independent cohort.
+
 For each detector-reference measurement, covariance is calculated after the
 exact integration and normalization path. It is converted to a correlation
 matrix by its detector-MC standard deviations. These matrices are pooled over
