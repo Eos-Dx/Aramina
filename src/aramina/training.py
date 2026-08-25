@@ -562,7 +562,7 @@ def _load_training_dataframe(path: Path) -> tuple[pd.DataFrame, dict[str, Any]]:
 
 
 def _require_preprocessing_lineage(artifact: dict[str, Any] | None) -> None:
-    """Require the resolved preprocessing YAML and input H5 checksum."""
+    """Require the resolved preprocessing YAML and verified DVC input identity."""
     if not isinstance(artifact, dict):
         raise ValueError("Training requires a preprocessing artifact with provenance.")
     if not isinstance(artifact.get("preprocessing_config_yaml"), str):
@@ -570,6 +570,25 @@ def _require_preprocessing_lineage(artifact: dict[str, Any] | None) -> None:
     metadata = artifact.get("metadata")
     if not isinstance(metadata, dict) or not metadata.get("input_h5_sha256"):
         raise ValueError("Training artifact is missing metadata.input_h5_sha256.")
+    data_version = metadata.get("data_version")
+    if not isinstance(data_version, dict):
+        raise ValueError("Training artifact is missing metadata.data_version.")
+    required = {
+        "contract",
+        "system",
+        "dataset_id",
+        "dvc_version",
+        "pointer_path",
+        "hash_algorithm",
+        "hash",
+        "size_bytes",
+        "input_h5_sha256",
+    }
+    missing = sorted(required.difference(data_version))
+    if missing:
+        raise ValueError(f"Training DVC data version metadata is missing: {missing}")
+    if data_version["input_h5_sha256"] != metadata["input_h5_sha256"]:
+        raise ValueError("Training DVC input SHA256 does not match preprocessing metadata.")
 
 
 def _validate_training_config(config: dict[str, Any], config_path: Path) -> None:

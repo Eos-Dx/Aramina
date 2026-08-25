@@ -21,9 +21,10 @@ canonical owner; other documents link to it instead of repeating it.
 
 | Input or output | Contract |
 |---|---|
-| Preprocessing YAML | [Preprocessing config](contracts/preprocessing_config_v0_1.md) |
-| Training YAML | [Training config](contracts/training_config_v0_1.md) |
-| Combined preprocessing and training YAML and MLflow product-run contract | [Preprocess-train config v0.2](contracts/preprocess_train_config_v0_1.md) |
+| Preprocessing YAML | [Preprocessing config v0.2](contracts/preprocessing_config_v0_2.md) |
+| Training YAML | [Training config v0.4](contracts/training_config_v0_4.md) |
+| Combined preprocessing, training, DVC, and MLflow product run | [Preprocess-train config v0.3](contracts/preprocess_train_config_v0_3.md) |
+| Legacy `0.2.13-beta` YAML | [Legacy contracts](contracts/legacy_contracts_0_2_13_beta.md) |
 | Prediction YAML | [Prediction config](contracts/prediction_config_v0_1.md) |
 | Training outputs | [Model training results](contracts/model_training_results_v0_1.md) |
 | Internal prediction report | [Internal report](modeling/internal_clinical_report_content_v0_9.md) |

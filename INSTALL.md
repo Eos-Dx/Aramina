@@ -68,7 +68,7 @@ the exact archive revision first:
 ```bash
 dvc remote add --local --default internal-h5 /path/to/controlled/aramina-dvc/remote
 dvc pull data/combined_archive.h5.dvc
-python -m aramina preprocess-train --config config/preprocessing_and_training/config_preprocess_and_train_target_breast_risk_v0_1.yaml
+python -m aramina preprocess-train --config config/preprocessing_and_training/config_preprocess_and_train_target_breast_risk_v0_3.yaml
 ```
 
 The internal remote path is machine-specific and remains in ignored

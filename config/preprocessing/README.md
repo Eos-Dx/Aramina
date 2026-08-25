@@ -4,8 +4,10 @@ Two fixed product routes are tracked:
 
 | Config | Purpose |
 |---|---|
-| `config_preprocessing_biopsy_patients_v0_1.yaml` | Build historical training input. |
-| `config_preprocessing_prediction_patient_v0_1.yaml` | Prepare one incoming patient. |
+| `config_preprocessing_biopsy_patients_v0_2.yaml` | Current DVC-verified historical training input. |
+| `config_preprocessing_prediction_patient_v0_2.yaml` | Current one-patient prediction input; DVC is not used. |
+| `config_preprocessing_biopsy_patients_v0_1.yaml` | Legacy `0.2.13-beta` training YAML without DVC. |
+| `config_preprocessing_prediction_patient_v0_1.yaml` | Legacy `0.2.13-beta` prediction YAML. |
 
 Both use readable `extends` fragments. XRD-preprocessing resolves them into one
 effective mapping before execution.
@@ -31,7 +33,7 @@ normalization: median over 6.7-7.1 nm^-1
 
 ```bash
 python -m aramina preprocess \
-  --config config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
+  --config config/preprocessing/config_preprocessing_biopsy_patients_v0_2.yaml
 ```
 
 The historical route expects the DVC-tracked `data/combined_archive.h5` and
@@ -41,6 +43,7 @@ cohort filters.
 
 Canonical contracts:
 
-- [Preprocessing config](../../docs/contracts/preprocessing_config_v0_1.md)
+- [Current preprocessing config](../../docs/contracts/preprocessing_config_v0_2.md)
+- [Legacy preprocessing config](../../docs/contracts/preprocessing_config_v0_1.md)
 - [Data and artifact route](../../docs/data_preprocessing.md)
 - [DVC data versioning](../../docs/data_versioning.md)

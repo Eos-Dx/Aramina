@@ -62,7 +62,7 @@ def _training_config(
     mode: str,
 ) -> dict:
     return {
-        "contract": "aramina_training_config_v0_3",
+        "contract": "aramina_training_config_v0_4",
         "model": {
             "name": PRODUCT_MODEL_NAME,
             "version": "0.1-beta",
@@ -95,7 +95,20 @@ def _write_training_input(path: Path) -> None:
             "  - name: test\n"
             "    transformer: H5ToDataFrameTransformer\n"
         ),
-        metadata={"input_h5_sha256": "abc"},
+        metadata={
+            "input_h5_sha256": "abc",
+            "data_version": {
+                "contract": "aramina_dvc_input_v0_1",
+                "system": "dvc",
+                "dataset_id": "synthetic",
+                "dvc_version": "3.67.1",
+                "pointer_path": "data/synthetic.h5.dvc",
+                "hash_algorithm": "md5",
+                "hash": "a" * 32,
+                "size_bytes": 1,
+                "input_h5_sha256": "abc",
+            },
+        },
     )
 
 
@@ -107,13 +120,13 @@ def test_model_owned_preprocessing_path_uses_training_config_project_root(tmp_pa
         / "Aramina"
         / "config"
         / "preprocessing"
-        / "config_preprocessing_prediction_patient_v0_1.yaml"
+        / "config_preprocessing_prediction_patient_v0_2.yaml"
     )
     expected.parent.mkdir()
     expected.touch()
 
     resolved = _project_owned_path(
-        "config/preprocessing/config_preprocessing_prediction_patient_v0_1.yaml",
+        "config/preprocessing/config_preprocessing_prediction_patient_v0_2.yaml",
         config_path,
     )
 
@@ -189,6 +202,33 @@ def test_training_contract_requires_at_least_one_requested_operation(tmp_path: P
 
     with pytest.raises(ValueError, match="At least one"):
         load_training_config(config_path)
+
+
+def test_training_rejects_preprocessing_artifact_without_dvc_lineage(
+    tmp_path: Path,
+):
+    input_path = tmp_path / "input.joblib"
+    config_path = tmp_path / "train.yaml"
+    save_preprocessing_artifact(
+        _patient_training_frame(),
+        input_path,
+        preprocessing_config_text=(
+            "pipeline:\n"
+            "  steps:\n"
+            "  - name: test\n"
+            "    transformer: H5ToDataFrameTransformer\n"
+        ),
+        metadata={"input_h5_sha256": "abc"},
+    )
+    config_path.write_text(
+        yaml.safe_dump(
+            _training_config(input_path, tmp_path / "runs", mode="evaluation")
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="metadata.data_version"):
+        run_training_from_config(config_path)
 
 
 def test_training_contract_allows_only_product_evaluation_method(tmp_path: Path):

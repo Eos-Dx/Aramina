@@ -46,6 +46,7 @@ def test_product_mlflow_artifact_set_is_complete_and_patient_safe(
         preprocessing_artifact["preprocessing_config_yaml"]
     )
     resolved_config["aramina_preprocessing"] = {
+        "contract": "aramina_product_preprocessing_v0_2",
         "name": "aramina_biopsy_patients_model_input",
         "version": "0.2",
         "clinical_stage": "research draft",
@@ -140,7 +141,7 @@ def test_product_mlflow_artifact_set_is_complete_and_patient_safe(
         preprocessing_artifact=preprocessing_artifact,
         training_artifact=training_artifact,
         preprocessing_config_path=preprocessing_config_path,
-        preprocess_train_contract="aramina_preprocessing_and_training_config_v0_2",
+        preprocess_train_contract="aramina_preprocessing_and_training_config_v0_3",
     )
 
     root = result["artifact_directory"]
@@ -190,7 +191,7 @@ def test_product_mlflow_artifact_set_is_complete_and_patient_safe(
     assert result["params"]["profile_encoder.output_dimensions"] == 100
     assert "profile_encoder.components" not in result["params"]
     manifest = json.loads((root / "mlflow_manifest.json").read_text(encoding="utf-8"))
-    assert manifest["contract"] == "aramina_mlflow_product_run_v0_2"
+    assert manifest["contract"] == "aramina_mlflow_product_run_v0_3"
 
 
 def test_measurement_manifest_preserves_duplicate_clinical_keys(
@@ -291,7 +292,7 @@ def _training_artifact(
         "model_type": "m2q_gated_target_case",
         "model_identity": {
             "name": "aramina_target_breast_risk",
-            "version": "0.2.13-beta",
+            "version": "0.2.14-beta",
             "clinical_stage": "research draft",
         },
         "models": {

@@ -20,7 +20,7 @@ from xrd_preprocessing import list_h5_measurement_sets
 from .config_paths import resolve_config_path
 from .mlflow_data_lineage import mlflow_data_tags, mlflow_data_version
 
-ARTIFACT_CONTRACT = "aramina_mlflow_product_run_v0_2"
+ARTIFACT_CONTRACT = "aramina_mlflow_product_run_v0_3"
 INTENDED_USE_ID = "aramina_target_breast_biopsy_decision_support_v0_1"
 MLFLOW_REQUIRED_ARTIFACTS = (
     "data_version.json",

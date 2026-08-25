@@ -42,7 +42,7 @@ def patient_frame() -> pd.DataFrame:
 
 def training_config(input_path: Path, output_folder: Path) -> dict:
     return {
-        "contract": "aramina_training_config_v0_3",
+        "contract": "aramina_training_config_v0_4",
         "model": {
             "name": PRODUCT_MODEL_NAME,
             "version": "0.1-beta",
@@ -98,7 +98,20 @@ def train_model(tmp_path_factory) -> tuple[Path, Path]:
             "  - name: test\n"
             "    transformer: H5ToDataFrameTransformer\n"
         ),
-        metadata={"input_h5_sha256": "test-h5"},
+        metadata={
+            "input_h5_sha256": "test-h5",
+            "data_version": {
+                "contract": "aramina_dvc_input_v0_1",
+                "system": "dvc",
+                "dataset_id": "synthetic",
+                "dvc_version": "3.67.1",
+                "pointer_path": "data/synthetic.h5.dvc",
+                "hash_algorithm": "md5",
+                "hash": "a" * 32,
+                "size_bytes": 1,
+                "input_h5_sha256": "test-h5",
+            },
+        },
     )
     config_path.write_text(
         yaml.safe_dump(training_config(dataframe_path, root / "runs")),

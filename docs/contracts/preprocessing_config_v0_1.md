@@ -1,65 +1,17 @@
 # Aramina Preprocessing Config Contract v0.1
 
-Status: research draft. Aramina preprocessing YAML is a product policy layered
-on the general `xrd-preprocessing` YAML grammar. XRD-preprocessing builds the
-declared sklearn transformer route; Aramina validates that a resolved product
-YAML retains the approved clinical-research policy before processing starts.
+Status: legacy research draft for tag `0.2.13-beta`.
 
-## Product Routes
+The two v0.1 YAMLs define historical-training and one-patient prediction routes:
 
-```text
-aramina_biopsy_patients_model_input
-  historical training cohort
+- `config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml`
+- `config/preprocessing/config_preprocessing_prediction_patient_v0_1.yaml`
 
-aramina_prediction_patient_model_input
-  one incoming prediction patient
-```
+Both use the fixed GFRM, P1/P2/P3, 100-point integration, Poisson SNR >=18 dB,
+6.7-7.1 nm^-1 median normalization, and ordered preprocessing policy. Historical
+training uses T100 exclusions and biopsy-patient cohort selection. Prediction
+disables historical cohort filters.
 
-Both require non-empty `aramina_preprocessing.name`, scalar `version`,
-`clinical_stage`, `io.input_h5_path`, and `io.output_joblib_path` after YAML
-composition. `metadata.output_columns` is mandatory, unique, and must retain
-patient/specimen/side identifiers, age, q grid, normalized radial profile, SNR,
-and measurement count. Prediction output retains session metadata when the H5
-container provides it; absent optional metadata is reported as `unknown`.
-
-## Fixed Shared Policy
-
-```text
-raw source: GFRM only
-measurement positions: P1, P2, P3
-PONI q max: >=23 nm^-1
-sample thickness: required
-calibrant thickness: 2..40 mm
-integration: 100 q points, q=2..23 nm^-1, Poisson errors
-SNR: Poisson, >=18 dB
-normalisation: median value at q=6.7..7.1 nm^-1
-profile gate: q=14 nm^-1, value >2.0
-```
-
-The approved transformer order starts with PONI/session/H5 loading and ends
-with faulty-pixel handling, integration, SNR, normalization, profile gate, and
-`KeepColumnsTransformer`. A changed order is a product preprocessing change and
-must update the model version, documentation, tests, and training artifact.
-
-## Route Differences
-
-Training route enables T100 AgBH exclusions, retains patients with at least one
-biopsy row, keeps contralateral measurements, maps `NORMAL` to `BENIGN`, and
-keeps model labels `BENIGN` and `CANCER`.
-
-Training additionally requires `data_version.contract=aramina_dvc_input_v0_1`,
-`system=dvc`, the required DVC version, a stable `dataset_id`, and a `.dvc`
-pointer path. Before reading
-measurements, Aramina verifies that the materialized H5 path, byte size, and
-MD5 match the pointer. The resulting artifact records both the DVC revision and
-an independently calculated SHA256. Prediction uses one incoming patient H5
-and therefore does not require the historical-training DVC pointer.
-
-Prediction route disables date, historical AgBH, diagnosis, biopsy, and pairing
-cohort filters. It applies only technical quality controls; target side comes
-from the prediction request YAML.
-
-The current implementation is
-`src/aramina/preprocessing_contract.py`. Product runs reject a resolved YAML
-that violates this contract. Generic XRD-preprocessing YAML remains flexible
-outside the Aramina product route.
+This contract predates DVC and does not contain `data_version`. Use it only with
+code checked out at tag `0.2.13-beta`. Current development uses
+[preprocessing contract v0.2](preprocessing_config_v0_2.md).

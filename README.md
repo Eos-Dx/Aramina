@@ -18,8 +18,8 @@ one-patient EOS H5 v0.3
 
 ```text
 model: aramina_target_breast_risk
-frozen product model: 0.2.12-beta
-retrained candidate: 0.2.13-beta
+legacy implementation release: 0.2.13-beta (no DVC requirement)
+current data-versioned release: 0.2.14-beta
 cohort: T100 biopsy-patient target-breast cases
 evaluation: repeated patient-safe stratified 5-fold x20
 regularization: profile C=0.1; final model C=0.3
@@ -53,9 +53,9 @@ requirements.
 ## Commands
 
 ```bash
-python -m aramina preprocess --config config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
-python -m aramina train --config config/training/config_training_target_breast_risk_v0_1.yaml
-python -m aramina preprocess-train --config config/preprocessing_and_training/config_preprocess_and_train_target_breast_risk_v0_1.yaml
+python -m aramina preprocess --config config/preprocessing/config_preprocessing_biopsy_patients_v0_2.yaml
+python -m aramina train --config config/training/config_training_target_breast_risk_v0_4.yaml
+python -m aramina preprocess-train --config config/preprocessing_and_training/config_preprocess_and_train_target_breast_risk_v0_3.yaml
 python -m aramina predict --config examples/prediction/configs/config_predict_cancer_example.yaml
 ```
 
@@ -63,6 +63,10 @@ The full historical archive is required only for preprocessing and training.
 Its exact internal revision is tracked by DVC; see
 [Data versioning](docs/data_versioning.md). Prediction examples use the tracked
 one-patient H5 fixtures and do not require DVC.
+
+Tag `0.2.13-beta` and its `v0_1` YAML files remain the implementation baseline
+without DVC. Release `0.2.14-beta` preserves the same XRD preprocessing and
+model recipe, but requires verified DVC lineage for historical training.
 
 The canonical `preprocess-train` config creates one fail-closed MLflow product
 run covering preprocessing, patient-safe evaluation, and final train-on-all.

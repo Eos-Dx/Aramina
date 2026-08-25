@@ -23,7 +23,7 @@ from .training import run_training_from_config
 from .training_config import load_training_config
 
 
-PREPROCESS_TRAIN_CONTRACT = "aramina_preprocessing_and_training_config_v0_2"
+PREPROCESS_TRAIN_CONTRACT = "aramina_preprocessing_and_training_config_v0_3"
 logger = logging.getLogger(__name__)
 
 

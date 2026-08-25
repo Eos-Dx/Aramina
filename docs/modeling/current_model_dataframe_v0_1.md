@@ -9,7 +9,7 @@ The current product-clean preprocessing YAML produces the biopsy-patient
 model-input DataFrame:
 
 ```text
-config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
+config/preprocessing/config_preprocessing_biopsy_patients_v0_2.yaml
 examples/outputs/model_input/aramina_biopsy_patients_model_input_v0_1.joblib
 ```
 

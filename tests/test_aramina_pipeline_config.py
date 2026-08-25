@@ -30,8 +30,8 @@ from .synthetic_aramina_h5 import load_synthetic_config, write_known_synthetic_h
 def test_shipped_product_yaml_contracts_build_or_validate():
     root = Path(__file__).parents[1]
     expected_steps = {
-        "config_preprocessing_biopsy_patients_v0_1.yaml": 19,
-        "config_preprocessing_prediction_patient_v0_1.yaml": 16,
+        "config_preprocessing_biopsy_patients_v0_2.yaml": 19,
+        "config_preprocessing_prediction_patient_v0_2.yaml": 16,
     }
     for filename, count in expected_steps.items():
         config = load_preprocessing_config(root / "config" / "preprocessing" / filename)
@@ -39,18 +39,32 @@ def test_shipped_product_yaml_contracts_build_or_validate():
         validate_aramina_preprocessing_config(config)
 
     load_training_config(
-        root / "config" / "training" / "config_training_target_breast_risk_v0_1.yaml"
+        root / "config" / "training" / "config_training_target_breast_risk_v0_4.yaml"
     )
     _load_preprocess_train_config(
         root
         / "config"
         / "preprocessing_and_training"
-        / "config_preprocess_and_train_target_breast_risk_v0_1.yaml"
+        / "config_preprocess_and_train_target_breast_risk_v0_3.yaml"
     )
     for path in sorted((root / "config" / "prediction").glob("*.yaml")):
         _validate_prediction_config(
             yaml.safe_load(path.read_text(encoding="utf-8")), path
         )
+
+
+def test_legacy_preprocessing_is_prediction_only_under_current_code():
+    root = Path(__file__).parents[1] / "config" / "preprocessing"
+    legacy_prediction = load_preprocessing_config(
+        root / "config_preprocessing_prediction_patient_v0_1.yaml"
+    )
+    validate_aramina_preprocessing_config(legacy_prediction)
+
+    legacy_training = load_preprocessing_config(
+        root / "config_preprocessing_biopsy_patients_v0_1.yaml"
+    )
+    with pytest.raises(ValueError, match="preprocessing contract"):
+        validate_aramina_preprocessing_config(legacy_training)
     for path in sorted(
         (root / "examples" / "prediction" / "configs").glob("*.yaml")
     ):
@@ -88,7 +102,7 @@ def test_aramina_product_preprocessing_contract_rejects_policy_changes(
         Path(__file__).parents[1]
         / "config"
         / "preprocessing"
-        / "config_preprocessing_biopsy_patients_v0_1.yaml"
+        / "config_preprocessing_biopsy_patients_v0_2.yaml"
     )
     mutate(config)
 
@@ -251,7 +265,7 @@ def test_preprocess_train_contract_rejects_unknown_fields(tmp_path):
     config_path.write_text(
         yaml.safe_dump(
             {
-                "contract": "aramina_preprocessing_and_training_config_v0_2",
+                "contract": "aramina_preprocessing_and_training_config_v0_3",
                 "preprocessing_and_training": {
                     "name": "test",
                     "run_author": "tester",

@@ -1,6 +1,6 @@
 # Data Versioning
 
-Status: research draft product-data contract for Aramina `0.2.x`.
+Status: research draft product-data contract for Aramina `0.2.14-beta`.
 
 ## Ownership
 
@@ -51,3 +51,6 @@ dvc pull data/combined_archive.h5.dvc
 `dvc push` copies that revision to the configured internal remote. Data changes
 must be reviewed together with preprocessing, model evaluation, and MLflow
 lineage; changing only the H5 pointer does not promote a product model.
+
+Tag `0.2.13-beta` remains available without DVC. Its legacy YAMLs must not be
+mixed with current code or current training artifacts.

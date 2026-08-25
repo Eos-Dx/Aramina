@@ -387,7 +387,7 @@ def test_workflow_contract_rejects_invalid_string_values(
 
 def test_training_config_rejects_unknown_and_resolves_packaged_path(tmp_path: Path):
     config = {
-        "contract": "aramina_training_config_v0_3",
+        "contract": "aramina_training_config_v0_4",
         "model": {
             "name": "test",
             "version": "0.1-beta",

@@ -7,7 +7,7 @@ from typing import Any
 from .data_versioning import DVC_DATA_CONTRACT
 
 
-ARAMINA_PREPROCESSING_CONTRACT = "aramina_product_preprocessing_v0_1"
+ARAMINA_PREPROCESSING_CONTRACT = "aramina_product_preprocessing_v0_2"
 _ROUTES = {
     "aramina_biopsy_patients_model_input": "training",
     "aramina_prediction_patient_model_input": "prediction",
@@ -55,17 +55,31 @@ def validate_aramina_preprocessing_config(config: dict[str, Any]) -> None:
     name = _nonempty_string(product, "name", "aramina_preprocessing")
     if name not in _ROUTES:
         raise ValueError(f"Unknown Aramina preprocessing route: {name!r}")
-    _nonempty_scalar(product, "version", "aramina_preprocessing")
+    route = _ROUTES[name]
+    version = _nonempty_scalar(product, "version", "aramina_preprocessing")
+    if not _is_legacy_prediction_contract(product, route=route, version=version):
+        _equal(
+            product.get("contract"),
+            ARAMINA_PREPROCESSING_CONTRACT,
+            "preprocessing contract",
+        )
     _nonempty_string(product, "clinical_stage", "aramina_preprocessing")
     _nonempty_string(config.get("io"), "input_h5_path", "io")
     _nonempty_string(config.get("io"), "output_joblib_path", "io")
     _require_common_policy(config)
     _require_pipeline_order(config)
-    _require_output_columns(config, route=_ROUTES[name])
-    if _ROUTES[name] == "training":
+    _require_output_columns(config, route=route)
+    if route == "training":
         _require_training_route(config)
     else:
         _require_prediction_route(config)
+
+
+def _is_legacy_prediction_contract(
+    product: dict[str, Any], *, route: str, version: Any
+) -> bool:
+    """Allow frozen 0.2.13 artifacts to retain their embedded v0.1 predictor."""
+    return route == "prediction" and version == 0.1 and "contract" not in product
 
 
 def validate_if_aramina_product_config(config: dict[str, Any]) -> None:

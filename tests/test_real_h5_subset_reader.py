@@ -21,7 +21,7 @@ ARAMINA_CONFIG = (
     Path(__file__).parents[1]
     / "config"
     / "preprocessing"
-    / "config_preprocessing_biopsy_patients_v0_1.yaml"
+    / "config_preprocessing_biopsy_patients_v0_2.yaml"
 )
 
 
