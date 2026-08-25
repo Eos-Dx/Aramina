@@ -6,6 +6,7 @@ import argparse
 import logging
 from pathlib import Path
 
+from .experiments.measurement_uncertainty import run_measurement_uncertainty_from_config
 from .pipelines import run_preprocessing_from_config
 from .prediction import run_prediction_from_config
 from .promotion import promote_model_run
@@ -88,6 +89,17 @@ def main(argv: list[str] | None = None) -> int:
         help="Path to Aramina prediction YAML.",
     )
     _add_verbose_argument(predict)
+    measurement_uncertainty = subparsers.add_parser(
+        "experiment-measurement-uncertainty",
+        help="Run bounded, auditable measurement-uncertainty Monte Carlo.",
+    )
+    measurement_uncertainty.add_argument(
+        "--config",
+        required=True,
+        type=Path,
+        help="Path to experimental measurement-uncertainty YAML.",
+    )
+    _add_verbose_argument(measurement_uncertainty)
     promote = subparsers.add_parser(
         "promote",
         help="Copy one reviewed final-fit run into the immutable models directory.",
@@ -156,6 +168,17 @@ def main(argv: list[str] | None = None) -> int:
         print(f"risk_probability={external['risk_probability']:.5f}")
         print(f"reliability={external['reliability']}")
         print(f"config={args.config}")
+        return 0
+    if args.command == "experiment-measurement-uncertainty":
+        result = run_measurement_uncertainty_from_config(
+            args.config,
+            verbose=args.verbose,
+        )
+        print(f"patients_scored={result['patients_scored']}")
+        print(f"run_folder={result['run_folder']}")
+        print(f"summary_path={result['summary_path']}")
+        print(f"mlflow_run_id={result['mlflow']['run_id']}")
+        print(f"mlflow_status={result['mlflow']['status']}")
         return 0
     if args.command == "promote":
         promoted = promote_model_run(args.run_folder, models_root=args.models_root)

@@ -1,6 +1,6 @@
 # Measurement Uncertainty And Polar-Cake Experiment v0.1
 
-Status: research draft experiment design. This document does not change the
+Status: implemented research-draft experiment. This document does not change the
 Aramina product model, preprocessing configuration, model artifact, report
 contract, or clinical interpretation.
 
@@ -89,16 +89,28 @@ cohort performance:   sensitivity/specificity + Wilson interval
 
 ### Detector-level reference method
 
-The reference implementation should start from the original detector frame.
+The detector-reference implementation starts from the product
+`measurement_data` frame. This frame is a baseline-corrected estimated-photon
+image, not direct photon-counting events, and may contain negative values. A
+direct Poisson draw from the full frame would therefore be invalid.
+
+For each observed pixel value (x), the implemented centered perturbation is:
+
+\[
+\lambda=\max(x,0),
+\qquad
+x^{(b)}=x+\operatorname{Poisson}(\lambda)-\lambda.
+\]
+
+This preserves (x) as the Monte Carlo expectation while using only the
+nonnegative estimated-photon component as a variance proxy. Pixels already in
+the product faulty-pixel mask are set to zero before perturbation and remain
+masked during reintegration. Non-finite unmasked pixels fail closed.
+
+For Monte Carlo draw (b):
 For Monte Carlo draw (b):
 
-1. sample detector counting noise using a Poisson model when the input is in
-   calibrated photon/count units:
-
-   \[
-   N_{ij}^{(b)} \sim \operatorname{Poisson}(\max(N_{ij},0)).
-   \]
-
+1. apply the centered Poisson perturbation to the positive component;
 2. sample calibrated nuisance parameters only when their covariance is
    available. Candidate parameters are beam centre, detector distance,
    detector rotations, wavelength, and sample thickness;
@@ -109,10 +121,12 @@ For Monte Carlo draw (b):
    symmetry features;
 6. score every draw with the frozen model and collect `p_cancer`.
 
-The dependency structure matters. Counting noise may be frame-specific, while
-calibration error is shared by measurements from one acquisition session.
-Thickness uncertainty is shared at the appropriate sample or breast level.
-The three measurements from one breast must be re-aggregated in every draw.
+The dependency structure matters. Counting perturbations are frame-specific,
+while calibration error would be shared by measurements from one acquisition
+session. Calibration nuisance sampling is currently disabled because no
+reviewed covariance is available; the future scope is recorded explicitly as
+`shared_by_calib_session`. Thickness uncertainty is also excluded. The three
+measurements from one breast are re-aggregated in every draw.
 
 The model is not retrained inside a draw. Sampling model coefficients would
 mix measurement uncertainty with model or training uncertainty and would answer
@@ -306,6 +320,47 @@ The experiment can proceed to model comparison only when:
 These criteria do not establish clinical performance, clinical utility, or
 autonomous diagnosis.
 
+## Verified Runs
+
+Verified configuration:
+
+```text
+model                         0.2.14-beta, frozen
+DVC source                    combined_archive.h5
+preprocessed measurements     893
+target cases                  175
+profile draws per case        pilot 250; full 1,000
+detector-reference cases      8 (BENIGN/CANCER x 4 SNR strata)
+detector draws per case       pilot 10; full 100
+polar representation          256 q bins x 36 chi sectors
+```
+
+The seeded 250-draw pilot and 1,000-draw verification both finished
+successfully. The polar angular mean reproduced the independent 1D integration
+for all 48 reference measurements. Median relative RMSE was `4.39e-8`; maximum
+relative RMSE was `9.75e-8`, below the configured `0.05` limit.
+
+The diagonal profile-sigma approximation did not pass detector-reference
+calibration. At 1,000 draws it crossed the frozen threshold for 119 of 175
+target cases. On the eight paired reference cases, median profile interval
+width was `1.49` times detector-reference width. Threshold-crossing status
+agreed for seven of eight cases; the detector reference crossed the threshold
+for two cases.
+
+The nested 250, 500, and 1,000 draw convergence control also failed the
+provisional `0.005` endpoint criterion. Between 500 and 1,000 draws, median
+maximum endpoint change was `0.0083`, the 90th percentile was `0.0232`, and
+only 63 of 175 cases met the criterion. Maximum endpoint change was `0.1252`.
+
+Therefore, profile-level intervals must not be added to a product report in
+their current form. Cross-bin covariance and normalization covariance require
+calibration before that approximation can be interpreted. More draws alone do
+not correct the mismatch with the detector reference.
+
+These runs are an engineering verification of uncertainty propagation and polar
+parity. It is not independent clinical validation and does not estimate
+sensitivity or specificity.
+
 ## Limitations
 
 - Current product preprocessing stores 1D Poisson `sigma` for SNR but does not
@@ -325,9 +380,9 @@ autonomous diagnosis.
 
 ## Reproducibility And Lineage
 
-This branch is documentation-only. It does not add a Monte Carlo or polar-cake
-CLI. The commands below reproduce the current `0.2.14-beta` DVC/MLflow product
-lineage and provide the controlled starting point for the future experiment.
+The experiment is implemented on the frozen `0.2.14-beta` artifact. It reruns
+the exact historical preprocessing from the model artifact, retains detector
+frames and pyFAI sigma, and adds no fields to product reports.
 
 ```bash
 git switch experiment/measurement-uncertainty-polar-cake
@@ -341,14 +396,19 @@ dvc remote add --local --default internal-h5 /path/to/controlled/aramina-dvc/rem
 dvc pull data/combined_archive.h5.dvc
 dvc status
 
-# Reproduce the current DVC-tracked product preprocessing, evaluation,
-# train-on-all fit, model artifact, and MLflow run.
-python -m aramina preprocess-train \
-  --config config/preprocessing_and_training/config_preprocess_and_train_target_breast_risk_v0_3.yaml
+# Run the short end-to-end reference.
+aramina experiment-measurement-uncertainty \
+  --config config/experiments/config_measurement_uncertainty_pilot_v0_1.yaml \
+  --verbose
+
+# Run 1,000 profile draws and 100 detector-reference draws.
+aramina experiment-measurement-uncertainty \
+  --config config/experiments/config_measurement_uncertainty_v0_1.yaml \
+  --verbose
 
 # Inspect the local product MLflow store.
 mlflow ui \
-  --backend-store-uri sqlite:///examples/outputs/mlflow/aramina_radial_profile.db \
+  --backend-store-uri sqlite:///examples/outputs/mlflow/aramina_measurement_uncertainty.db \
   --port 5000
 
 # Verify repository code and existing contracts.
@@ -356,8 +416,7 @@ conda run --no-capture-output -n eosproduct ruff check .
 conda run --no-capture-output -n eosproduct pytest -q
 ```
 
-The future implementation must add its own controlled experiment command and
-record at least:
+Each run records:
 
 ```text
 experiment branch and source SHA
@@ -368,7 +427,6 @@ q/chi axes and geometry metadata
 noise and nuisance-parameter distributions
 Monte Carlo draw count and seed policy
 representation and basis fingerprint
-patient-safe fold manifest
 model artifact and threshold
 deterministic predictions
 Monte Carlo summaries

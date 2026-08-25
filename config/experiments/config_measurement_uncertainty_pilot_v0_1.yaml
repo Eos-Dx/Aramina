@@ -1,0 +1,43 @@
+contract: aramina_measurement_uncertainty_v0_1
+experiment:
+  name: aramina_measurement_uncertainty_pilot
+  model_name: aramina_target_breast_risk
+  model_version: 0.2.14-beta
+input:
+  input_h5_path: data/combined_archive.h5
+  model_joblib_path: models/aramina_target_breast_risk_0_2_14-beta_98526329f40d/model.joblib
+data_version:
+  contract: aramina_dvc_input_v0_1
+  system: dvc
+  dataset_id: aramina_combined_archive_h5
+  dvc_version: 3.67.1
+  pointer_path: data/combined_archive.h5.dvc
+targets:
+  mode: all_training_target_cases
+  selected: []
+profile_monte_carlo:
+  draws: 250
+  seed: 20260825
+  interval_quantiles: [0.025, 0.5, 0.975]
+  convergence_draws: [100, 250]
+  convergence_tolerance: 0.005
+detector_reference:
+  draws: 10
+  seed: 20260826
+  snr_quantiles: 4
+  max_cases_per_stratum: 1
+  calibration_nuisance:
+    enabled: false
+    exclusion_reason: covariance_unavailable
+    future_scope: shared_by_calib_session
+  masked_pixel_policy: zero_masked_pixels_then_centered_poisson_on_positive_component
+polar_cake:
+  n_q: 256
+  n_chi: 36
+  parity_max_relative_rmse: 0.05
+mlflow:
+  enabled: true
+  tracking_uri: sqlite:///examples/outputs/mlflow/aramina_measurement_uncertainty.db
+  experiment_name: aramina_measurement_uncertainty
+output:
+  folder: examples/outputs/experiments/measurement_uncertainty
