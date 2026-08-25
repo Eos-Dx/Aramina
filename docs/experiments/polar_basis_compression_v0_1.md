@@ -41,11 +41,12 @@ generated cake is validated against it. pyFAI bin centres within 1e-4 of the
 contract are represented on the canonical grid; larger differences fail. Thus,
 row-level integration ranges cannot silently change the feature geometry.
 
-The detector provides fewer than nine independent angular sectors above
-approximately 12.8 nm^-1 for some accepted measurements. A simultaneous fit of
-`m=0..4` would therefore be underdetermined over that region. The v0.1 harmonic
-model uses the prespecified common range 2.1-12.7 nm^-1 while preserving the
-full 256-bin cake in cache. This geometry-derived restriction is applied before
+The detector provides fewer than nine independent angular sectors from
+12.2129 nm^-1 for some accepted measurements. A simultaneous fit of `m=0..4`
+would therefore be underdetermined over that region. The v0.1 harmonic model
+uses the prespecified common range 2.1-12.2 nm^-1 while preserving the full
+256-bin cake in cache. All 496 target measurements retain full-rank angular
+support inside this range. This geometry-derived restriction is applied before
 labels or folds are evaluated and is recorded in `q_chi_axes.npz`. Missing
 angular sectors are never replaced by physical zeros.
 

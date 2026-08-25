@@ -20,7 +20,7 @@ polar_cakes:
   radial_q_range: [2.0, 23.0]
   azimuthal_range: [-180.0, 180.0]
   normalization_q_range: [6.7, 7.1]
-  harmonic_q_range: [2.1, 12.7]
+  harmonic_q_range: [2.1, 12.2]
   cache_folder: examples/outputs/experiments/polar_basis_compression/cache
   force_rebuild: false
 representations:
