@@ -94,9 +94,13 @@ REQUIRED_ARTIFACTS = (
     "fold_metrics.csv",
     "lineage.json",
     "metrics.csv",
+    "polar_to_raw100_comparison.csv",
     "predictions.csv",
     "polar_cake_manifest.csv",
     "q_chi_axes.npz",
+    "raw100_fold_metrics.csv",
+    "raw100_metrics.csv",
+    "raw100_predictions.csv",
     "reconstruction_examples.npz",
     "reconstruction_metrics.csv",
     "run_manifest.json",
@@ -628,6 +632,17 @@ def evaluate_representations(
     product_threshold = float(model_info["thresholds"]["threshold_target"])
     seed = int(config["evaluation"]["seed"])
     max_examples = int(config["runtime"]["reconstruction_examples_per_variant"])
+    raw100 = _evaluate_raw100_baseline(
+        dataframe=dataframe,
+        context=context,
+        split_pairs=split_pairs,
+        model_definition=model_definition,
+        threshold_policy=threshold_policy,
+        target_sensitivity=target_sensitivity,
+        product_threshold=product_threshold,
+        seed=seed,
+        folds=int(config["evaluation"]["folds"]),
+    )
 
     for specification in specifications:
         for split_id, (train_index, test_index) in enumerate(split_pairs):
@@ -750,6 +765,10 @@ def evaluate_representations(
         "fold_manifest": fold_manifest,
         "fold_metrics": metrics_frame,
         "summary": summary,
+        "raw100_fold_metrics": raw100["fold_metrics"],
+        "raw100_summary": raw100["summary"],
+        "raw100_predictions": raw100["predictions"],
+        "polar_to_raw100": _compare_to_raw100(summary, raw100["summary"]),
         "predictions": pd.concat(predictions, ignore_index=True),
         "coefficients": pd.concat(coefficients, ignore_index=True),
         "reconstruction": reconstruction_frame,
@@ -758,6 +777,93 @@ def evaluate_representations(
         "confounder_availability": _confounder_availability(context),
         "bases": fitted_bases,
         "basis_metadata": basis_metadata,
+    }
+
+
+def _evaluate_raw100_baseline(
+    *,
+    dataframe: pd.DataFrame,
+    context: pd.DataFrame,
+    split_pairs: list[tuple[np.ndarray, np.ndarray]],
+    model_definition: dict[str, Any],
+    threshold_policy: str,
+    target_sensitivity: float,
+    product_threshold: float,
+    seed: int,
+    folds: int,
+) -> dict[str, pd.DataFrame]:
+    """Evaluate the uncompressed 100-bin product profile on matched folds."""
+    target_rows = _target_measurement_rows(dataframe, model_definition)
+    profile_column = str(model_definition["profile_column"])
+    fold_metrics: list[dict[str, Any]] = []
+    predictions: list[pd.DataFrame] = []
+    for split_id, (train_index, test_index) in enumerate(split_pairs):
+        train_patients = set(context.iloc[train_index]["patientId"].astype(str))
+        test_patients = set(context.iloc[test_index]["patientId"].astype(str))
+        if train_patients.intersection(test_patients):
+            raise RuntimeError("Patient leakage detected in raw100 baseline.")
+        train_rows = target_rows[
+            target_rows["patientId"].astype(str).isin(train_patients)
+        ].copy()
+        test_rows = target_rows[
+            target_rows["patientId"].astype(str).isin(test_patients)
+        ].copy()
+        train_profiles = profile_matrix(train_rows, profile_column)
+        test_profiles = profile_matrix(test_rows, profile_column)
+        if train_profiles.shape[1] != 100 or test_profiles.shape[1] != 100:
+            raise PolarBasisExperimentError(
+                "raw100 baseline requires the frozen 100-bin product profile."
+            )
+        fitted = _fit_product_fold(
+            dataframe=dataframe,
+            context=context,
+            train_rows=train_rows,
+            test_rows=test_rows,
+            train_coefficients=train_profiles,
+            test_coefficients=test_profiles,
+            train_patients=train_patients,
+            test_patients=test_patients,
+            model_definition=model_definition,
+            threshold_policy=threshold_policy,
+            target_sensitivity=target_sensitivity,
+            product_threshold=product_threshold,
+            seed=seed + split_id,
+        )
+        metric = _classification_metrics(
+            fitted["test_features"]["label"].to_numpy(dtype=int),
+            fitted["test_scores"],
+            threshold=fitted["threshold"],
+        )
+        fold_metrics.append(
+            {
+                "representation": "raw100",
+                "budget": 100,
+                "split_id": split_id,
+                "repeat_id": split_id // folds,
+                "fold_id": split_id % folds,
+                "threshold_policy": threshold_policy,
+                **metric,
+            }
+        )
+        prediction = fitted["test_features"][
+            [TARGET_CASE_ID, "patientId", "target_side", "label", "label_name"]
+        ].copy()
+        prediction.insert(0, "representation", "raw100")
+        prediction.insert(1, "budget", 100)
+        prediction.insert(2, "split_id", split_id)
+        prediction["p_cancer"] = fitted["test_scores"]
+        prediction["threshold"] = fitted["threshold"]
+        prediction["suggested_class"] = np.where(
+            prediction["p_cancer"] >= prediction["threshold"],
+            "CANCER",
+            "BENIGN",
+        )
+        predictions.append(prediction)
+    metrics = pd.DataFrame(fold_metrics)
+    return {
+        "fold_metrics": metrics,
+        "summary": _summarize_classification_metrics(metrics),
+        "predictions": pd.concat(predictions, ignore_index=True),
     }
 
 
@@ -882,29 +988,7 @@ def _summarize_metrics(
     metrics: pd.DataFrame,
     reconstruction: pd.DataFrame,
 ) -> pd.DataFrame:
-    columns = (
-        "sensitivity",
-        "specificity",
-        "roc_auc",
-        "balanced_accuracy",
-        "ppv",
-        "npv",
-        "threshold",
-    )
-    rows = []
-    for (representation, budget), group in metrics.groupby(
-        ["representation", "budget"], sort=False
-    ):
-        row: dict[str, Any] = {
-            "representation": representation,
-            "budget": int(budget),
-            "splits": int(len(group)),
-        }
-        for column in columns:
-            row[f"{column}_mean"] = float(group[column].mean())
-            row[f"{column}_std"] = float(group[column].std(ddof=0))
-        rows.append(row)
-    summary = pd.DataFrame(rows)
+    summary = _summarize_classification_metrics(metrics)
     reconstruction_summary = reconstruction.groupby(
         ["representation", "budget"], as_index=False
     ).agg(
@@ -931,6 +1015,53 @@ def _summarize_metrics(
         how="left",
         validate="one_to_one",
     )
+
+
+def _summarize_classification_metrics(metrics: pd.DataFrame) -> pd.DataFrame:
+    columns = (
+        "sensitivity",
+        "specificity",
+        "roc_auc",
+        "balanced_accuracy",
+        "ppv",
+        "npv",
+        "threshold",
+    )
+    rows = []
+    for (representation, budget), group in metrics.groupby(
+        ["representation", "budget"], sort=False
+    ):
+        row: dict[str, Any] = {
+            "representation": representation,
+            "budget": int(budget),
+            "splits": int(len(group)),
+        }
+        for column in columns:
+            row[f"{column}_mean"] = float(group[column].mean())
+            row[f"{column}_std"] = float(group[column].std(ddof=0))
+        rows.append(row)
+    return pd.DataFrame(rows)
+
+
+def _compare_to_raw100(
+    polar_summary: pd.DataFrame,
+    raw100_summary: pd.DataFrame,
+) -> pd.DataFrame:
+    if len(raw100_summary) != 1:
+        raise PolarBasisExperimentError("raw100 summary must contain one row.")
+    out = polar_summary.copy()
+    baseline = raw100_summary.iloc[0]
+    for metric in (
+        "sensitivity_mean",
+        "specificity_mean",
+        "roc_auc_mean",
+        "balanced_accuracy_mean",
+        "ppv_mean",
+        "npv_mean",
+    ):
+        out[f"raw100_{metric}"] = float(baseline[metric])
+        out[f"delta_{metric}"] = out[metric] - float(baseline[metric])
+    return out
 
 
 def _reconstruction_metrics(
@@ -1296,6 +1427,16 @@ def _write_artifacts(
     result["fold_metrics"].to_csv(run_folder / "fold_metrics.csv", index=False)
     result["summary"].to_csv(run_folder / "metrics.csv", index=False)
     result["predictions"].to_csv(run_folder / "predictions.csv", index=False)
+    result["raw100_fold_metrics"].to_csv(
+        run_folder / "raw100_fold_metrics.csv", index=False
+    )
+    result["raw100_summary"].to_csv(run_folder / "raw100_metrics.csv", index=False)
+    result["raw100_predictions"].to_csv(
+        run_folder / "raw100_predictions.csv", index=False
+    )
+    result["polar_to_raw100"].to_csv(
+        run_folder / "polar_to_raw100_comparison.csv", index=False
+    )
     cake_manifest.to_csv(run_folder / "polar_cake_manifest.csv", index=False)
     experiment_lineage = {
         "effective_config_sha256": file_sha256(
@@ -1338,6 +1479,7 @@ def _write_artifacts(
             "clinical_stage": "research_only",
             "endpoint": "target_breast_BENIGN_vs_CANCER_decision_support",
             "representations": list(REPRESENTATIONS),
+            "matched_baseline": "raw100_product_architecture",
             "coefficient_budgets": list(COEFFICIENT_BUDGETS),
             "candidate_modes": list(CANDIDATE_MODES),
             "qc_modes": list(QC_MODES),
@@ -1369,6 +1511,7 @@ def _write_artifacts(
                 "single retrospective training archive",
                 "no independent blind validation cohort",
                 "basis comparison is exploratory and not a product release",
+                "polar compression and the common harmonic q-range restriction are not separated",
                 "session/date/thickness analyses depend on recorded metadata availability",
                 "m1 and m3 are QC/confounder channels and are excluded from cancer prediction",
             ],
@@ -1434,6 +1577,16 @@ def _log_mlflow(
         "model": lineage["model"],
     }
     metrics = {}
+    raw100 = result["raw100_summary"].iloc[0]
+    for name in (
+        "sensitivity_mean",
+        "specificity_mean",
+        "roc_auc_mean",
+        "balanced_accuracy_mean",
+        "ppv_mean",
+        "npv_mean",
+    ):
+        metrics[f"raw100.{name}"] = float(raw100[name])
     for row in result["summary"].itertuples(index=False):
         prefix = f"{row.representation}.{row.budget}"
         for name in (
@@ -1445,6 +1598,9 @@ def _log_mlflow(
             "npv_mean",
         ):
             metrics[f"{prefix}.{name}"] = float(getattr(row, name))
+            metrics[f"{prefix}.delta_{name}"] = float(
+                getattr(row, name) - raw100[name]
+            )
     run_name = f"{config['experiment']['name']}_{run_folder.name.rsplit('_', 1)[-1]}"
     with MlflowRun(
         enabled=True,

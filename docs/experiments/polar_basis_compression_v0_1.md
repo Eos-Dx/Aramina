@@ -83,6 +83,12 @@ Fourier-Bessel functions impose a global oscillatory basis and an artificial
 boundary convention on a truncated annular q interval. They are therefore a
 matched-dimensional control, not the preferred physical interpretation.
 
+The uncompressed 100-bin radial product architecture is retrained on the exact
+same outer folds as `raw100`. It uses the same LR1, LR2, regularization, and
+training-fold threshold policy. `polar_to_raw100_comparison.csv` reports the
+metric difference for every compressed variant. This matched baseline is
+required to interpret whether compression preserved decision-support signal.
+
 ## Patient-Safe Product Architecture
 
 Every encoder is evaluated through the same sequence:
@@ -118,6 +124,7 @@ Each MLflow run logs DVC, model, Aramina, and XRD-preprocessing lineage plus:
 - basis metadata and fingerprints;
 - one patient/case fold manifest;
 - out-of-fold coefficient table and predictions;
+- matched raw-100 fold metrics, predictions, and metric-difference table;
 - fold and aggregate classification metrics;
 - harmonic reconstruction and radial-profile preservation errors;
 - compressed reconstruction examples;
@@ -155,6 +162,10 @@ aramina experiment-polar-basis-compression \
 - All variants use one retrospective training archive.
 - Comparing nine variants on the same folds makes these folds development
   evidence, not an untouched blind test.
+- The polar variants use the common harmonic range 2.1-12.7 nm^-1, whereas the
+  raw-100 baseline retains its frozen product q range. A performance difference
+  therefore combines representation compression with loss of the high-q region;
+  it cannot be attributed to coefficient count alone.
 - Patient-safe splitting does not by itself remove calibration-session,
   acquisition-date, thickness, age, hardware, or operator confounding.
 - Only age, thickness, session, and date are analyzed because they are the
