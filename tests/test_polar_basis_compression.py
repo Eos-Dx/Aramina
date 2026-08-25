@@ -213,6 +213,15 @@ def test_all_representations_reuse_one_patient_safe_manifest() -> None:
         },
     )
     assert len(result["summary"]) == 9
+    assert len(result["raw100_summary"]) == 1
+    assert result["raw100_summary"].iloc[0]["representation"] == "raw100"
+    assert len(result["polar_to_raw100"]) == 9
+    assert {
+        "raw100_roc_auc_mean",
+        "delta_roc_auc_mean",
+        "raw100_sensitivity_mean",
+        "delta_sensitivity_mean",
+    }.issubset(result["polar_to_raw100"].columns)
     assert set(result["summary"]["budget"]) == {15, 30, 50}
     assert len(result["bases"]) == 18
     held_out = manifest[manifest["partition"] == "test"]
@@ -224,6 +233,7 @@ def test_all_representations_reuse_one_patient_safe_manifest() -> None:
         )
     ]
     assert all(values == case_sets[0] for values in case_sets[1:])
+    assert set(result["raw100_predictions"][polar.TARGET_CASE_ID]) == case_sets[0]
     for split_id, (train_index, _) in enumerate(splits):
         expected_patients = set(context.iloc[train_index]["patientId"].astype(str))
         expected_fingerprint = polar._text_fingerprint(expected_patients)
