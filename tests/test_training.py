@@ -204,9 +204,7 @@ def test_training_contract_requires_at_least_one_requested_operation(tmp_path: P
         load_training_config(config_path)
 
 
-def test_training_rejects_preprocessing_artifact_without_dvc_lineage(
-    tmp_path: Path,
-):
+def test_training_rejects_preprocessing_artifact_without_dvc_lineage(tmp_path: Path):
     input_path = tmp_path / "input.joblib"
     config_path = tmp_path / "train.yaml"
     save_preprocessing_artifact(

@@ -9,6 +9,7 @@ canonical owner; other documents link to it instead of repeating it.
 |---|---|
 | What model is frozen? | [Current product model](modeling/aramina_t100_target_case_model_v0_1.md) |
 | What was retrained with XRD v0.1.9-beta? | [Candidate record](modeling/aramina_t100_target_case_model_v0_2.md) |
+| What is the DVC-tracked 0.2.14 candidate? | [DVC candidate record](modeling/aramina_t100_target_case_model_v0_3.md) |
 | What data enter training? | [Current model DataFrame](modeling/current_model_dataframe_v0_1.md) |
 | How are profiles preprocessed? | [Data preprocessing](data_preprocessing.md) |
 | How is the source H5 versioned? | [Data versioning](data_versioning.md) |

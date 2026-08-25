@@ -19,13 +19,13 @@ python -m aramina predict --config examples/prediction/configs/config_predict_ca
 Build the current biopsy-patient model input:
 
 ```bash
-python -m aramina preprocess --config config/preprocessing/config_preprocessing_biopsy_patients_v0_1.yaml
+python -m aramina preprocess --config config/preprocessing/config_preprocessing_biopsy_patients_v0_2.yaml
 ```
 
 Build and train in one combined run:
 
 ```bash
-python -m aramina preprocess-train --config config/preprocessing_and_training/config_preprocess_and_train_target_breast_risk_v0_1.yaml
+python -m aramina preprocess-train --config config/preprocessing_and_training/config_preprocess_and_train_target_breast_risk_v0_3.yaml
 ```
 
 Historical notebooks, alternative cohorts, and threshold-grid outputs remain on

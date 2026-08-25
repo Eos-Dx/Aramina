@@ -30,6 +30,9 @@ cohort, metrics, threshold, and limitations are recorded in the
 [current product-model record](docs/modeling/aramina_t100_target_case_model_v0_1.md).
 The separately retrained XRD `v0.1.9-beta` candidate is recorded in
 [`docs/modeling/aramina_t100_target_case_model_v0_2.md`](docs/modeling/aramina_t100_target_case_model_v0_2.md).
+The same fixed recipe retrained with mandatory DVC/MLflow lineage as
+`0.2.14-beta` is recorded in
+[`docs/modeling/aramina_t100_target_case_model_v0_3.md`](docs/modeling/aramina_t100_target_case_model_v0_3.md).
 
 ## Install
 

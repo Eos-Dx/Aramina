@@ -37,7 +37,7 @@ PREDICTION_REPORT_EXAMPLE_ROOT = (
 FINAL_EXAMPLE_MODEL = (
     Path(__file__).parents[1]
     / "models"
-    / "aramina_target_breast_risk_0_2_12-beta_9bb911189af6"
+    / "aramina_target_breast_risk_0_2_14-beta_98526329f40d"
     / "model.joblib"
 )
 

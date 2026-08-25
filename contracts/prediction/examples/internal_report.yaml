@@ -1,15 +1,15 @@
 output_type: aramina_internal_clinical_report
 report_version: '0.9'
 reference_doc: ./docs/modeling/internal_clinical_report_content_v0_9.md
-report_id: 20260724T150446_eae484fb
-created_at: '2026-07-24T15:04:48+02:00'
+report_id: 20260825T095050_50494cb2
+created_at: '2026-08-25T09:50:52+02:00'
 analysis_author: Aramina bundle example
 prediction_comment: Bundled cancer fixture
 model:
-  id: aramina_target_breast_risk_0_2_12-beta_9bb911189af6
+  id: aramina_target_breast_risk_0_2_14-beta_98526329f40d
   name: aramina_target_breast_risk
-  version: 0.2.12-beta
-  artifact_sha256: 9bb911189af6e1bd954d21765cbc97c4a57fcf7884657c4b22518f280103e11d
+  version: 0.2.14-beta
+  artifact_sha256: 98526329f40dc4fc379d4278bec75005c3c0e598cd65e126c68d6b875d6ac479
 model_metrics:
   dataset: train_on_all_target_breast_cases
   validation: not_performed
