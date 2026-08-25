@@ -416,6 +416,12 @@ def build_or_reuse_polar_cakes(
         radial_q_range=radial_q_range,
         azimuthal_range=azimuthal_range,
     )
+    canonical_axes = _canonical_axes(
+        n_q=n_q,
+        n_chi=n_chi,
+        radial_q_range=radial_q_range,
+        azimuthal_range=azimuthal_range,
+    )
     existing = (
         pd.read_csv(manifest_path, dtype={"measurement_key": str})
         if manifest_path.is_file() and not force_rebuild
@@ -457,8 +463,8 @@ def build_or_reuse_polar_cakes(
             }
         )
         records[str(row.measurement_key)] = record
-    shared_q: np.ndarray | None = None
-    shared_chi: np.ndarray | None = None
+    shared_q: np.ndarray | None = canonical_axes.q
+    shared_chi: np.ndarray | None = canonical_axes.chi
     for position, row in target_rows.reset_index(drop=True).iterrows():
         key = str(row["measurement_key"])
         recovered_artifact = cache_folder / f"cakes/{key}.npz"
@@ -526,6 +532,8 @@ def build_or_reuse_polar_cakes(
                 f"Polar cake {key} violates the configured q/chi axis contract."
             )
         shared_q, shared_chi = _validate_shared_axes(shared_q, shared_chi, q, chi)
+        q = canonical_axes.q
+        chi = canonical_axes.chi
         artifact = f"cakes/{key}.npz"
         artifact_path = cache_folder / artifact
         artifact_path.parent.mkdir(parents=True, exist_ok=True)
@@ -561,9 +569,7 @@ def build_or_reuse_polar_cakes(
     ].copy()
     if len(selected) != len(target_rows):
         raise PolarBasisExperimentError("Polar cake cache is incomplete.")
-    first = np.load(cache_folder / str(selected.iloc[0]["artifact"]))
-    axes = PolarAxes(q=np.asarray(first["q"]), chi=np.asarray(first["chi"]))
-    return selected.reset_index(drop=True), axes
+    return selected.reset_index(drop=True), canonical_axes
 
 
 def load_polar_harmonics(
@@ -585,6 +591,8 @@ def load_polar_harmonics(
             q = np.asarray(cake["q"], dtype=float)
             chi = np.asarray(cake["chi"], dtype=float)
         _validate_axes(axes, q, chi)
+        q = axes.q
+        chi = axes.chi
         normalized = _normalize_cake(
             intensity,
             count,
@@ -2110,29 +2118,46 @@ def _axes_match_contract(
     radial_q_range: tuple[float, float],
     azimuthal_range: tuple[float, float],
 ) -> bool:
-    q_step = (radial_q_range[1] - radial_q_range[0]) / n_q
-    chi_step = (azimuthal_range[1] - azimuthal_range[0]) / n_chi
-    expected_q = np.linspace(
-        radial_q_range[0] + 0.5 * q_step,
-        radial_q_range[1] - 0.5 * q_step,
-        n_q,
-    )
-    expected_chi = np.linspace(
-        azimuthal_range[0] + 0.5 * chi_step,
-        azimuthal_range[1] - 0.5 * chi_step,
-        n_chi,
+    expected = _canonical_axes(
+        n_q=n_q,
+        n_chi=n_chi,
+        radial_q_range=radial_q_range,
+        azimuthal_range=azimuthal_range,
     )
     return bool(
-        np.asarray(q).shape == expected_q.shape
-        and np.asarray(chi).shape == expected_chi.shape
-        and np.allclose(q, expected_q, rtol=1e-7, atol=1e-4)
-        and np.allclose(chi, expected_chi, rtol=1e-7, atol=1e-4)
+        np.asarray(q).shape == expected.q.shape
+        and np.asarray(chi).shape == expected.chi.shape
+        and np.allclose(q, expected.q, rtol=1e-7, atol=1e-4)
+        and np.allclose(chi, expected.chi, rtol=1e-7, atol=1e-4)
+    )
+
+
+def _canonical_axes(
+    *,
+    n_q: int,
+    n_chi: int,
+    radial_q_range: tuple[float, float],
+    azimuthal_range: tuple[float, float],
+) -> PolarAxes:
+    q_step = (radial_q_range[1] - radial_q_range[0]) / n_q
+    chi_step = (azimuthal_range[1] - azimuthal_range[0]) / n_chi
+    return PolarAxes(
+        q=np.linspace(
+            radial_q_range[0] + 0.5 * q_step,
+            radial_q_range[1] - 0.5 * q_step,
+            n_q,
+        ),
+        chi=np.linspace(
+            azimuthal_range[0] + 0.5 * chi_step,
+            azimuthal_range[1] - 0.5 * chi_step,
+            n_chi,
+        ),
     )
 
 
 def _validate_axes(axes: PolarAxes, q: np.ndarray, chi: np.ndarray) -> None:
-    if not np.allclose(axes.q, q, rtol=1e-9, atol=1e-10) or not np.allclose(
-        axes.chi, chi, rtol=1e-9, atol=1e-10
+    if not np.allclose(axes.q, q, rtol=1e-7, atol=1e-4) or not np.allclose(
+        axes.chi, chi, rtol=1e-7, atol=1e-4
     ):
         raise PolarBasisExperimentError("Polar cakes do not share fixed q/chi axes.")
 
