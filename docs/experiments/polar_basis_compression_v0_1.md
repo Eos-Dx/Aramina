@@ -34,6 +34,12 @@ Each cake is normalized once. The normalization factor is the median of its
 count-weighted angular mean over 6.7-7.1 nm^-1. Individual chi sectors are not
 normalized separately.
 
+Integration uses one explicit detector-independent axis contract: 256 q-bin
+centres over 2.0-23.0 nm^-1 and 36 chi-bin centres over -180 to 180 degrees.
+The contract is fingerprinted in the cache manifest. Every reused or newly
+generated cake is validated against it, so row-level integration ranges cannot
+silently change the feature geometry.
+
 The detector provides fewer than nine independent angular sectors above
 approximately 12.8 nm^-1 for some accepted measurements. A simultaneous fit of
 `m=0..4` would therefore be underdetermined over that region. The v0.1 harmonic

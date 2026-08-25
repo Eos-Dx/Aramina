@@ -309,6 +309,8 @@ def run_polar_basis_compression_from_config(
         dataset_sha256=data_version["input_h5_sha256"],
         n_q=int(config["polar_cakes"]["n_q"]),
         n_chi=int(config["polar_cakes"]["n_chi"]),
+        radial_q_range=tuple(config["polar_cakes"]["radial_q_range"]),
+        azimuthal_range=tuple(config["polar_cakes"]["azimuthal_range"]),
         force_rebuild=bool(config["polar_cakes"]["force_rebuild"]),
         verbose=verbose,
     )
@@ -400,35 +402,81 @@ def build_or_reuse_polar_cakes(
     dataset_sha256: str,
     n_q: int,
     n_chi: int,
+    radial_q_range: tuple[float, float] = (2.0, 23.0),
+    azimuthal_range: tuple[float, float] = (-180.0, 180.0),
     force_rebuild: bool,
     verbose: bool = False,
 ) -> tuple[pd.DataFrame, PolarAxes]:
     """Create only missing fixed cakes, one detector frame at a time."""
     cache_folder.mkdir(parents=True, exist_ok=True)
     manifest_path = cache_folder / "polar_cake_cache_manifest.csv"
+    axis_contract = _axis_contract_fingerprint(
+        n_q=n_q,
+        n_chi=n_chi,
+        radial_q_range=radial_q_range,
+        azimuthal_range=azimuthal_range,
+    )
     existing = (
         pd.read_csv(manifest_path, dtype={"measurement_key": str})
         if manifest_path.is_file() and not force_rebuild
         else pd.DataFrame()
     )
-    records = {
-        str(row.measurement_key): row._asdict()
-        for row in existing.itertuples(index=False)
-        if row.dataset_sha256 == dataset_sha256
-        and int(row.n_q) == n_q
-        and int(row.n_chi) == n_chi
-        and (cache_folder / str(row.artifact)).is_file()
-    }
+    records: dict[str, dict[str, Any]] = {}
+    for row in existing.itertuples(index=False):
+        artifact_path = cache_folder / str(row.artifact)
+        if (
+            row.dataset_sha256 != dataset_sha256
+            or int(row.n_q) != n_q
+            or int(row.n_chi) != n_chi
+            or not artifact_path.is_file()
+        ):
+            continue
+        record = row._asdict()
+        cached_contract = str(record.get("axis_contract_sha256", ""))
+        if cached_contract and cached_contract != axis_contract:
+            continue
+        with np.load(artifact_path) as cached:
+            q = np.asarray(cached["q"], dtype=float)
+            chi = np.asarray(cached["chi"], dtype=float)
+        if not _axes_match_contract(
+            q,
+            chi,
+            n_q=n_q,
+            n_chi=n_chi,
+            radial_q_range=radial_q_range,
+            azimuthal_range=azimuthal_range,
+        ):
+            continue
+        record.update(
+            {
+                "axis_contract_sha256": axis_contract,
+                "radial_q_min": float(radial_q_range[0]),
+                "radial_q_max": float(radial_q_range[1]),
+                "azimuthal_min": float(azimuthal_range[0]),
+                "azimuthal_max": float(azimuthal_range[1]),
+            }
+        )
+        records[str(row.measurement_key)] = record
     shared_q: np.ndarray | None = None
     shared_chi: np.ndarray | None = None
     for position, row in target_rows.reset_index(drop=True).iterrows():
         key = str(row["measurement_key"])
         if key in records:
+            artifact_path = cache_folder / str(records[key]["artifact"])
+            with np.load(artifact_path) as cached:
+                q = np.asarray(cached["q"], dtype=float)
+                chi = np.asarray(cached["chi"], dtype=float)
+            shared_q, shared_chi = _validate_shared_axes(
+                shared_q, shared_chi, q, chi
+            )
             if verbose:
                 print(f"polar_cake_cached={position + 1}/{len(target_rows)}")
             continue
+        integration_row = row.copy()
+        integration_row["interpolation_q_range"] = tuple(radial_q_range)
+        integration_row["azimuthal_range"] = tuple(azimuthal_range)
         cake = perform_polar_cake_integration(
-            row,
+            integration_row,
             column=RAW_FRAME_COLUMN,
             npt=n_q,
             npt_azimuthal=n_chi,
@@ -442,6 +490,17 @@ def build_or_reuse_polar_cakes(
         )
         q = np.asarray(cake.q, dtype=float)
         chi = np.asarray(cake.azimuth, dtype=float)
+        if not _axes_match_contract(
+            q,
+            chi,
+            n_q=n_q,
+            n_chi=n_chi,
+            radial_q_range=radial_q_range,
+            azimuthal_range=azimuthal_range,
+        ):
+            raise PolarBasisExperimentError(
+                f"Polar cake {key} violates the configured q/chi axis contract."
+            )
         shared_q, shared_chi = _validate_shared_axes(shared_q, shared_chi, q, chi)
         artifact = f"cakes/{key}.npz"
         artifact_path = cache_folder / artifact
@@ -466,6 +525,11 @@ def build_or_reuse_polar_cakes(
             "label": int(row["_label"]),
             "n_q": n_q,
             "n_chi": n_chi,
+            "axis_contract_sha256": axis_contract,
+            "radial_q_min": float(radial_q_range[0]),
+            "radial_q_max": float(radial_q_range[1]),
+            "azimuthal_min": float(azimuthal_range[0]),
+            "azimuthal_max": float(azimuthal_range[1]),
             "artifact": artifact,
             "error_model": "poisson",
             "integration_method": "pyfai_integrate2d_default",
@@ -1966,6 +2030,53 @@ def _validate_shared_axes(
         return q, chi
     _validate_axes(PolarAxes(shared_q, shared_chi), q, chi)
     return shared_q, shared_chi
+
+
+def _axis_contract_fingerprint(
+    *,
+    n_q: int,
+    n_chi: int,
+    radial_q_range: tuple[float, float],
+    azimuthal_range: tuple[float, float],
+) -> str:
+    payload = {
+        "n_q": int(n_q),
+        "n_chi": int(n_chi),
+        "radial_q_range": [float(value) for value in radial_q_range],
+        "azimuthal_range": [float(value) for value in azimuthal_range],
+    }
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("ascii")
+    ).hexdigest()
+
+
+def _axes_match_contract(
+    q: np.ndarray,
+    chi: np.ndarray,
+    *,
+    n_q: int,
+    n_chi: int,
+    radial_q_range: tuple[float, float],
+    azimuthal_range: tuple[float, float],
+) -> bool:
+    q_step = (radial_q_range[1] - radial_q_range[0]) / n_q
+    chi_step = (azimuthal_range[1] - azimuthal_range[0]) / n_chi
+    expected_q = np.linspace(
+        radial_q_range[0] + 0.5 * q_step,
+        radial_q_range[1] - 0.5 * q_step,
+        n_q,
+    )
+    expected_chi = np.linspace(
+        azimuthal_range[0] + 0.5 * chi_step,
+        azimuthal_range[1] - 0.5 * chi_step,
+        n_chi,
+    )
+    return bool(
+        np.asarray(q).shape == expected_q.shape
+        and np.asarray(chi).shape == expected_chi.shape
+        and np.allclose(q, expected_q, rtol=1e-7, atol=1e-4)
+        and np.allclose(chi, expected_chi, rtol=1e-7, atol=1e-4)
+    )
 
 
 def _validate_axes(axes: PolarAxes, q: np.ndarray, chi: np.ndarray) -> None:
