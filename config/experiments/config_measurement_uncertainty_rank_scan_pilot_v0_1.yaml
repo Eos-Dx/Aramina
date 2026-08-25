@@ -1,0 +1,58 @@
+contract: aramina_measurement_uncertainty_rank_scan_v0_1
+experiment:
+  name: aramina_measurement_uncertainty_rank_scan_pilot
+  model_name: aramina_target_breast_risk
+  model_version: 0.2.14-beta
+input:
+  input_h5_path: data/combined_archive.h5
+  model_joblib_path: models/aramina_target_breast_risk_0_2_14-beta_98526329f40d/model.joblib
+data_version:
+  contract: aramina_dvc_input_v0_1
+  system: dvc
+  dataset_id: aramina_combined_archive_h5
+  dvc_version: 3.67.1
+  pointer_path: data/combined_archive.h5.dvc
+targets:
+  mode: selected
+  selected:
+    - patient_id: Nova_214
+      target_side: left
+    - patient_id: Nova_215
+      target_side: left
+source_run:
+  folder: examples/outputs/experiments/measurement_uncertainty/measurement_uncertainty_20260825T123528Z
+  mlflow_run_id: e94c86d3d54c40d5b705c54d73b65935
+rank_scan:
+  minimum_diagonal_variance: 1.0e-12
+  variants:
+    - name: empirical_rank_30
+      estimator: pooled_empirical_correlation_eigendecomposition
+      rank: 30
+    - name: empirical_rank_50
+      estimator: pooled_empirical_correlation_eigendecomposition
+      rank: 50
+    - name: empirical_rank_75
+      estimator: pooled_empirical_correlation_eigendecomposition
+      rank: 75
+    - name: empirical_rank_100
+      estimator: pooled_empirical_correlation_eigendecomposition
+      rank: 100
+    - name: full_ledoit_wolf
+      estimator: pooled_standardized_residual_ledoit_wolf
+      rank: 100
+monte_carlo:
+  draws: 1000
+  seed: 20260827
+  interval_quantiles: [0.025, 0.5, 0.975]
+  convergence_draws: [250, 500, 1000]
+provisional_gates:
+  threshold_crossing_agreement_min: 0.95
+  interval_width_ratio_min: 0.8
+  interval_width_ratio_max: 1.25
+  interval_endpoint_convergence_max: 0.005
+mlflow:
+  enabled: true
+  tracking_uri: sqlite:///examples/outputs/mlflow/aramina_measurement_uncertainty.db
+  experiment_name: aramina_measurement_uncertainty_rank_scan
+output:
+  folder: examples/outputs/experiments/measurement_uncertainty_rank_scan

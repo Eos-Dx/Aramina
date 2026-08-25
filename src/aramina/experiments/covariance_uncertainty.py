@@ -12,6 +12,7 @@ from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
+from sklearn.covariance import LedoitWolf
 
 
 class CovarianceUncertaintyError(ValueError):
@@ -30,7 +31,7 @@ class LowRankCovarianceModel:
     basis: np.ndarray
     eigenvalues: np.ndarray
     diagonal: np.ndarray
-    diagnostics: dict[str, float | int]
+    diagnostics: dict[str, float | int | str]
 
     def sample(
         self,
@@ -110,6 +111,7 @@ def fit_low_rank_covariance(
     explained_variance: float,
     max_rank: int,
     minimum_diagonal_variance: float,
+    fixed_rank: int | None = None,
 ) -> LowRankCovarianceModel:
     """Estimate a pooled covariance from exact normalized detector draws.
 
@@ -121,6 +123,10 @@ def fit_low_rank_covariance(
         raise CovarianceUncertaintyError("explained_variance must be in [0.5, 1).")
     if max_rank < 1:
         raise CovarianceUncertaintyError("max_rank must be positive.")
+    if fixed_rank is not None and (
+        isinstance(fixed_rank, bool) or not isinstance(fixed_rank, int) or fixed_rank < 1
+    ):
+        raise CovarianceUncertaintyError("fixed_rank must be a positive integer.")
     if minimum_diagonal_variance < 0.0:
         raise CovarianceUncertaintyError("minimum_diagonal_variance must be nonnegative.")
     required = {"profile_key"}
@@ -171,7 +177,18 @@ def fit_low_rank_covariance(
         raise CovarianceUncertaintyError("Empirical covariance has no positive variance.")
     cumulative = np.cumsum(eigenvalues) / total_variance
     required_rank = int(np.searchsorted(cumulative, float(explained_variance)) + 1)
-    rank = min(max_rank, required_rank, int(np.count_nonzero(eigenvalues > 0.0)))
+    positive_rank = int(np.count_nonzero(eigenvalues > 0.0))
+    if fixed_rank is None:
+        rank = min(max_rank, required_rank, positive_rank)
+        rank_policy = "explained_variance_capped_by_max_rank"
+    else:
+        rank = min(fixed_rank, positive_rank)
+        rank_policy = "fixed_rank"
+        if rank != fixed_rank:
+            raise CovarianceUncertaintyError(
+                f"Requested fixed rank {fixed_rank} exceeds positive covariance rank "
+                f"{positive_rank}."
+            )
     if rank < 1:
         raise CovarianceUncertaintyError("Covariance has no usable positive eigenvalues.")
     basis = eigenvectors[:, :rank]
@@ -196,11 +213,117 @@ def fit_low_rank_covariance(
             "reference_draws_max": max(draw_counts),
             "selected_rank": rank,
             "requested_max_rank": int(max_rank),
+            "rank_policy": rank_policy,
             "explained_variance_target": float(explained_variance),
             "explained_variance_retained": float(cumulative[rank - 1]),
             "pooled_correlation_trace": total_variance,
             "relative_frobenius_reconstruction_error": reconstruction_error,
             "minimum_diagonal_variance": float(minimum_diagonal_variance),
+        },
+    )
+
+
+def fit_full_shrinkage_covariance(
+    profile_draws: dict[str, np.ndarray],
+    measurement_manifest: pd.DataFrame,
+) -> LowRankCovarianceModel:
+    """Fit full-rank Ledoit-Wolf correlation from detector-MC residuals.
+
+    Draws are centered and standardized within each measurement before they
+    are pooled. Ledoit-Wolf then shrinks their covariance toward a scaled
+    identity target. The result is normalized to a unit-diagonal correlation
+    matrix and represented by the existing covariance-model interface without
+    spectral truncation.
+    """
+    required = {"profile_key"}
+    missing = required.difference(measurement_manifest.columns)
+    if missing:
+        raise CovarianceUncertaintyError(
+            f"Measurement manifest lacks covariance fields: {sorted(missing)}."
+        )
+
+    standardized_residuals: list[np.ndarray] = []
+    dimension: int | None = None
+    draw_counts: set[int] = set()
+    for row in measurement_manifest.itertuples(index=False):
+        key = str(row.profile_key)
+        samples = np.asarray(profile_draws.get(key), dtype=float)
+        if samples.ndim != 2 or samples.shape[0] < 3 or not np.isfinite(samples).all():
+            raise CovarianceUncertaintyError(
+                f"Detector profile draws for {key!r} are incomplete or non-finite."
+            )
+        if dimension is None:
+            dimension = int(samples.shape[1])
+        if samples.shape[1] != dimension:
+            raise CovarianceUncertaintyError("Detector profiles have inconsistent bins.")
+
+        residuals = samples - samples.mean(axis=0, keepdims=True)
+        standard_deviation = residuals.std(axis=0, ddof=1)
+        if np.any(standard_deviation <= 0.0):
+            raise CovarianceUncertaintyError(
+                f"Detector profile draws for {key!r} have zero-variance bins."
+            )
+        standardized_residuals.append(residuals / standard_deviation)
+        draw_counts.add(int(samples.shape[0]))
+
+    if not standardized_residuals or dimension is None:
+        raise CovarianceUncertaintyError("No detector profiles were available for fitting.")
+
+    pooled = np.vstack(standardized_residuals)
+    estimator = LedoitWolf(assume_centered=True, store_precision=False).fit(pooled)
+    covariance = np.asarray(estimator.covariance_, dtype=float)
+    covariance = (covariance + covariance.T) / 2.0
+    scale = np.sqrt(np.diag(covariance))
+    if not np.isfinite(scale).all() or np.any(scale <= 0.0):
+        raise CovarianceUncertaintyError(
+            "Ledoit-Wolf covariance has invalid diagonal variance."
+        )
+    correlation = covariance / np.outer(scale, scale)
+    correlation = (correlation + correlation.T) / 2.0
+
+    eigenvalues, eigenvectors = np.linalg.eigh(correlation)
+    eigenvalues = np.clip(eigenvalues, 0.0, None)
+    correlation = (eigenvectors * eigenvalues) @ eigenvectors.T
+    correlation_scale = np.sqrt(np.diag(correlation))
+    if not np.isfinite(correlation_scale).all() or np.any(correlation_scale <= 0.0):
+        raise CovarianceUncertaintyError(
+            "Ledoit-Wolf correlation normalization is invalid."
+        )
+    correlation /= np.outer(correlation_scale, correlation_scale)
+    correlation = (correlation + correlation.T) / 2.0
+
+    eigenvalues, eigenvectors = np.linalg.eigh(correlation)
+    order = np.argsort(eigenvalues)[::-1]
+    eigenvalues = np.clip(eigenvalues[order], 0.0, None)
+    basis = eigenvectors[:, order]
+    diagonal = np.zeros(dimension, dtype=float)
+    reconstructed = (basis * eigenvalues) @ basis.T
+    trace = float(np.trace(correlation))
+    reconstruction_error = float(
+        np.linalg.norm(correlation - reconstructed, ord="fro")
+        / np.linalg.norm(correlation, ord="fro")
+    )
+
+    return LowRankCovarianceModel(
+        basis=basis,
+        eigenvalues=eigenvalues,
+        diagonal=diagonal,
+        diagnostics={
+            "estimator": "ledoit_wolf",
+            "shrinkage_coefficient": float(estimator.shrinkage_),
+            "feature_count": dimension,
+            "reference_measurements": len(standardized_residuals),
+            "reference_observations": int(pooled.shape[0]),
+            "reference_draws_min": min(draw_counts),
+            "reference_draws_max": max(draw_counts),
+            "selected_rank": dimension,
+            "requested_max_rank": dimension,
+            "explained_variance_target": 1.0,
+            "explained_variance_retained": 1.0,
+            "pooled_correlation_trace": trace,
+            "relative_frobenius_reconstruction_error": reconstruction_error,
+            "minimum_diagonal_variance": 0.0,
+            "minimum_correlation_eigenvalue": float(eigenvalues[-1]),
         },
     )
 
