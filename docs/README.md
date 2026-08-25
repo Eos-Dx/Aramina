@@ -49,6 +49,7 @@ documentation source.
 - [Code structure](development/code_structure.md)
 - [Future development](future_development_steps.md)
 - [Measurement uncertainty and polar-cake experiment](experiments/measurement_uncertainty_polar_cake_v0_1.md)
+- [Polar-basis compression experiment](experiments/polar_basis_compression_v0_1.md)
 - [Patient collection and independent validation plan](development/Aramina_Patient_Collection_and_Independent_Validation_Plan.docx)
 
 ## Documentation Rules

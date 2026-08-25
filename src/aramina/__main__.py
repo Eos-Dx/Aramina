@@ -7,6 +7,9 @@ import logging
 from pathlib import Path
 
 from .experiments.measurement_uncertainty import run_measurement_uncertainty_from_config
+from .experiments.polar_basis_compression import (
+    run_polar_basis_compression_from_config,
+)
 from .pipelines import run_preprocessing_from_config
 from .prediction import run_prediction_from_config
 from .promotion import promote_model_run
@@ -100,6 +103,17 @@ def main(argv: list[str] | None = None) -> int:
         help="Path to experimental measurement-uncertainty YAML.",
     )
     _add_verbose_argument(measurement_uncertainty)
+    polar_basis = subparsers.add_parser(
+        "experiment-polar-basis-compression",
+        help="Compare fold-local polar representations in the product architecture.",
+    )
+    polar_basis.add_argument(
+        "--config",
+        required=True,
+        type=Path,
+        help="Path to experimental polar-basis compression YAML.",
+    )
+    _add_verbose_argument(polar_basis)
     promote = subparsers.add_parser(
         "promote",
         help="Copy one reviewed final-fit run into the immutable models directory.",
@@ -177,6 +191,17 @@ def main(argv: list[str] | None = None) -> int:
         print(f"patients_scored={result['patients_scored']}")
         print(f"run_folder={result['run_folder']}")
         print(f"summary_path={result['summary_path']}")
+        print(f"mlflow_run_id={result['mlflow']['run_id']}")
+        print(f"mlflow_status={result['mlflow']['status']}")
+        return 0
+    if args.command == "experiment-polar-basis-compression":
+        result = run_polar_basis_compression_from_config(
+            args.config,
+            verbose=args.verbose,
+        )
+        print(f"target_cases={result['target_cases']}")
+        print(f"variants={result['variants']}")
+        print(f"run_folder={result['run_folder']}")
         print(f"mlflow_run_id={result['mlflow']['run_id']}")
         print(f"mlflow_status={result['mlflow']['status']}")
         return 0

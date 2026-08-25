@@ -1,0 +1,45 @@
+contract: aramina_polar_basis_compression_v0_1
+experiment:
+  name: aramina_polar_basis_compression
+  model_name: aramina_target_breast_risk
+  model_version: 0.2.14-beta
+input:
+  input_h5_path: data/combined_archive.h5
+  model_joblib_path: models/aramina_target_breast_risk_0_2_14-beta_98526329f40d/model.joblib
+data_version:
+  contract: aramina_dvc_input_v0_1
+  system: dvc
+  dataset_id: aramina_combined_archive_h5
+  dvc_version: 3.67.1
+  pointer_path: data/combined_archive.h5.dvc
+cohort:
+  max_patients_per_class: null
+polar_cakes:
+  n_q: 256
+  n_chi: 36
+  normalization_q_range: [6.7, 7.1]
+  harmonic_q_range: [2.1, 12.7]
+  cache_folder: examples/outputs/experiments/polar_basis_compression/cache
+  force_rebuild: false
+representations:
+  families: [fourier_bspline, fourier_bessel, fourier_fpca]
+  candidate_modes: [0, 2, 4]
+  qc_modes: [1, 3]
+  coefficient_budgets: [15, 30, 50]
+evaluation:
+  method: repeated_stratified_patient_kfold
+  folds: 5
+  repeats: 20
+  seed: 42
+  target_sensitivity: 0.95
+  threshold_policy: training_fold_target_sensitivity
+confounders:
+  fields: [age, thickness, session, date]
+runtime:
+  reconstruction_examples_per_variant: 3
+mlflow:
+  enabled: true
+  tracking_uri: sqlite:///examples/outputs/mlflow/aramina_polar_basis_compression.db
+  experiment_name: aramina_polar_basis_compression
+output:
+  folder: examples/outputs/experiments/polar_basis_compression/runs

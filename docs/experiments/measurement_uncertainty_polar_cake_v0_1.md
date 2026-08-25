@@ -277,9 +277,10 @@ coefficients for (A_2), 3-5 for (A_4), and a small number of QC and
 uncertainty summaries. The approximate total is 35-50 values, not thousands of
 raw bins.
 
-This is a future phase of the experiment. The first documentation and data
-contract work should establish cake parity and uncertainty propagation before
-claiming that any harmonic component carries cancer-related information.
+The controlled implementation is described in
+[`polar_basis_compression_v0_1.md`](polar_basis_compression_v0_1.md). It remains
+an exploratory comparison and does not establish that any harmonic component
+carries cancer-related information.
 
 ## Controls
 
