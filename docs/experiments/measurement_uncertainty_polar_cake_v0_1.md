@@ -1,5 +1,9 @@
 # Measurement Uncertainty And Polar-Cake Experiment v0.1
 
+Historical runnable contract. The diagonal profile-sigma adapter is retained
+for reproducibility. New covariance work is documented separately in
+`measurement_uncertainty_covariance_v0_2.md`.
+
 Status: implemented research-draft experiment. This document does not change the
 Aramina product model, preprocessing configuration, model artifact, report
 contract, or clinical interpretation.

@@ -48,7 +48,8 @@ documentation source.
 - [Controlled Human-1 metadata](meta/README.md)
 - [Code structure](development/code_structure.md)
 - [Future development](future_development_steps.md)
-- [Measurement uncertainty and polar-cake experiment](experiments/measurement_uncertainty_polar_cake_v0_1.md)
+- [Measurement uncertainty and polar-cake experiment v0.1, historical](experiments/measurement_uncertainty_polar_cake_v0_1.md)
+- [Correlated measurement-uncertainty experiment v0.2](experiments/measurement_uncertainty_covariance_v0_2.md)
 - [Patient collection and independent validation plan](development/Aramina_Patient_Collection_and_Independent_Validation_Plan.docx)
 
 ## Documentation Rules

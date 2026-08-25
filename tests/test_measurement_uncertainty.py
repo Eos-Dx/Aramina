@@ -11,9 +11,20 @@ import pytest
 import yaml
 
 from aramina.experiments import measurement_uncertainty as uncertainty
+from aramina.experiments.covariance_uncertainty import fit_low_rank_covariance
 from aramina.runtime_identity import file_hashes
 
 from .prediction_fixtures import patient_frame, train_model
+
+
+def test_historical_v0_1_configs_remain_loadable():
+    root = Path(__file__).resolve().parents[1]
+    for name in (
+        "config_measurement_uncertainty_v0_1.yaml",
+        "config_measurement_uncertainty_pilot_v0_1.yaml",
+    ):
+        config = uncertainty._load_config(root / "config" / "experiments" / name)
+        assert config["contract"] == uncertainty.LEGACY_MEASUREMENT_UNCERTAINTY_CONTRACT
 
 
 def _profile_sigma_frame() -> pd.DataFrame:
@@ -83,7 +94,54 @@ def test_profile_sigma_scores_are_seeded_and_include_all_patient_measurements(
         <= summary["p_cancer_median"]
         <= summary["p_cancer_high"]
     )
-    assert "pyfai_poisson_per_bin_sigma" in summary["included_uncertainty_sources"]
+    assert summary["included_uncertainty_sources"] == ";".join(
+        uncertainty.LEGACY_PROFILE_INCLUDED_SOURCES
+    )
+
+
+def test_correlated_covariance_scores_are_seeded_and_preserve_product_route(
+    model_artifact: dict,
+):
+    frame = _profile_sigma_frame()
+    rng = np.random.default_rng(9)
+    profile_draws = {}
+    manifest_rows = []
+    for index, profile in enumerate(frame["radial_profile_data"]):
+        key = f"measurement_{index}"
+        latent = rng.normal(size=(40, 1))
+        independent = rng.normal(size=(40, 100)) * 0.003
+        profile_draws[key] = np.asarray(profile)[np.newaxis, :] + latent * 0.01 + independent
+        manifest_rows.append({"profile_key": key})
+    covariance = fit_low_rank_covariance(
+        profile_draws,
+        pd.DataFrame(manifest_rows),
+        explained_variance=0.95,
+        max_rank=10,
+        minimum_diagonal_variance=1e-12,
+    )
+    target = uncertainty.TargetRequest(patient_id="P00", target_side="left")
+    first_summary, first_draws = uncertainty.score_correlated_covariance_uncertainty(
+        frame,
+        model_artifact=model_artifact,
+        targets=[target],
+        covariance_model=covariance,
+        draws=30,
+        seed=47,
+    )
+    second_summary, second_draws = uncertainty.score_correlated_covariance_uncertainty(
+        frame,
+        model_artifact=model_artifact,
+        targets=[target],
+        covariance_model=covariance,
+        draws=30,
+        seed=47,
+    )
+
+    pd.testing.assert_frame_equal(first_summary, second_summary)
+    pd.testing.assert_frame_equal(first_draws, second_draws)
+    assert first_summary["measurement_count"].iloc[0] == 6
+    assert len(first_draws) == 30
+    assert first_summary["model_route"].iloc[0] in {"single_model", "with_symmetry"}
 
 
 def test_profile_sigma_fails_closed_for_missing_or_invalid_sigma(model_artifact: dict):
@@ -155,6 +213,13 @@ def test_profile_detector_comparison_preserves_score_and_compares_intervals():
     assert comparison["profile_to_detector_width_ratio"].iloc[0] == pytest.approx(2.0)
     assert comparison["threshold_crossing_agreement"].tolist() == [False]
 
+    covariance_comparison = uncertainty.compare_covariance_detector_reference(
+        profile,
+        detector,
+    )
+    assert covariance_comparison["covariance_to_detector_width_ratio"].iloc[0] == pytest.approx(2.0)
+    assert covariance_comparison["abs_probability_above_threshold_difference"].iloc[0] == pytest.approx(0.0)
+
 
 def test_profile_convergence_uses_nested_seeded_draw_stream():
     draws = pd.DataFrame(
@@ -182,6 +247,7 @@ def test_full_experiment_logs_dvc_model_lineage_and_mlflow(
     model_artifact: dict,
     monkeypatch: pytest.MonkeyPatch,
 ):
+    pytest.importorskip("mlflow")
     input_h5 = tmp_path / "input.h5"
     input_h5.write_bytes(b"dvc-verified-test-h5")
     hashes = file_hashes(input_h5, algorithms=("sha256", "md5"))
@@ -263,12 +329,28 @@ def test_full_experiment_logs_dvc_model_lineage_and_mlflow(
             "mode": "selected",
             "selected": [{"patient_id": "P00", "target_side": "left"}],
         },
-            "profile_monte_carlo": {
+            "covariance_monte_carlo": {
                 "draws": 30,
                 "seed": 47,
                 "interval_quantiles": [0.025, 0.5, 0.975],
                 "convergence_draws": [10, 20, 30],
                 "convergence_tolerance": 0.005,
+            },
+            "covariance_model": {
+                "estimation_draws": 10,
+                "explained_variance": 0.95,
+                "max_rank": 10,
+                "minimum_diagonal_variance": 1.0e-12,
+                "transfer_assumption": (
+                    "pooled_detector_mc_correlation_with_measurement_specific_pyfai_sigma"
+                ),
+                "provisional_gates": {
+                    "deterministic_parity_atol": 1.0e-12,
+                    "threshold_crossing_agreement_min": 0.95,
+                    "interval_width_ratio_min": 0.8,
+                    "interval_width_ratio_max": 1.25,
+                    "interval_endpoint_convergence_max": 0.005,
+                },
             },
             "detector_reference": {
                 "draws": 10,
@@ -318,19 +400,42 @@ def test_full_experiment_logs_dvc_model_lineage_and_mlflow(
         ),
     )
 
-    def fake_detector(dataframe, *, model_artifact, targets, **_kwargs):
-        return uncertainty.score_profile_sigma_measurement_uncertainty(
+    def fake_detector_collection(dataframe, *, model_artifact, targets, **_kwargs):
+        summaries, score_draws = uncertainty.score_profile_sigma_measurement_uncertainty(
             dataframe,
             model_artifact=model_artifact,
             targets=targets,
             draws=10,
             seed=48,
         )
+        profile_draws = {}
+        manifest_rows = []
+        rng = np.random.default_rng(12)
+        for index, profile in enumerate(dataframe["radial_profile_data"]):
+            key = f"P00::left::measurement_{index}"
+            profile_draws[key] = np.asarray(profile)[np.newaxis, :] + rng.normal(
+                scale=0.002,
+                size=(10, len(profile)),
+            )
+            manifest_rows.append(
+                {
+                    "profile_key": key,
+                    "patient_id": "P00",
+                    "target_side": "left",
+                    "measurement_index": index,
+                }
+            )
+        return uncertainty.DetectorReferenceCollection(
+            summaries=summaries,
+            score_draws=score_draws,
+            profile_draws=profile_draws,
+            measurement_manifest=pd.DataFrame(manifest_rows),
+        )
 
     monkeypatch.setattr(
         uncertainty,
-        "score_detector_poisson_uncertainty",
-        fake_detector,
+        "collect_detector_reference_draws",
+        fake_detector_collection,
     )
     monkeypatch.setattr(
         uncertainty,
@@ -355,7 +460,8 @@ def test_full_experiment_logs_dvc_model_lineage_and_mlflow(
     )
     assert lineage["data_version"]["hash"] == hashes["md5"]
     assert (
-        len(pd.read_csv(artifacts / "profile_measurement_uncertainty_draws.csv")) == 30
+        len(pd.read_csv(artifacts / "covariance_measurement_uncertainty_draws.csv"))
+        == 30
     )
     assert (
         len(pd.read_csv(artifacts / "detector_measurement_uncertainty_draws.csv")) == 10
