@@ -604,12 +604,17 @@ def load_polar_harmonics(
             if axes.harmonic_q_mask is None
             else np.asarray(axes.harmonic_q_mask, dtype=bool)
         )
-        harmonics = angular_harmonic_channels(
-            normalized[:, q_mask],
-            count[:, q_mask],
-            chi,
-            max_mode=4,
-        )
+        try:
+            harmonics = angular_harmonic_channels(
+                normalized[:, q_mask],
+                count[:, q_mask],
+                chi,
+                max_mode=4,
+            )
+        except PolarBasisExperimentError as exc:
+            raise PolarBasisExperimentError(
+                f"Polar harmonic fit failed for measurement {key}: {exc}"
+            ) from exc
         metadata = {
             column: row[column]
             for column in (
