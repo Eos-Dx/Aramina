@@ -1,0 +1,38 @@
+contract: aramina_detector_noise_scale_v0_1
+experiment:
+  name: aramina_detector_noise_scale_pilot
+  model_name: aramina_target_breast_risk
+  model_version: 0.2.14-beta
+input:
+  input_h5_path: data/combined_archive.h5
+  model_joblib_path: models/aramina_target_breast_risk_0_2_14-beta_98526329f40d/model.joblib
+data_version:
+  contract: aramina_dvc_input_v0_1
+  system: dvc
+  dataset_id: aramina_combined_archive_h5
+  dvc_version: 3.67.1
+  pointer_path: data/combined_archive.h5.dvc
+  hash_algorithm: md5
+  hash: 46e199e316e95969731d61d8ab4b2c52
+  size_bytes: 3663436764
+  input_h5_sha256: d2d61e83850b282c3d2479ea436deed821c4488b96983252d294f3d56ee3f1f9
+targets:
+  mode: balanced_unique_patient_pilot
+  patient_count: 10
+validation:
+  integration_smoke_measurements: 10
+  parity_tolerance: 1.0e-8
+execution:
+  workers: 4
+  score_after_integration: true
+monte_carlo:
+  draws: 10
+  seed: 20260828
+  noise_scales: [0.25, 0.5, 1.0, 1.25, 1.5]
+  interval_quantiles: [0.025, 0.5, 0.975]
+mlflow:
+  enabled: true
+  tracking_uri: sqlite:///examples/outputs/mlflow/aramina_measurement_uncertainty.db
+  experiment_name: aramina_measurement_uncertainty
+output:
+  folder: examples/outputs/experiments/detector_noise_scale

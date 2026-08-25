@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import copy
 from collections.abc import Iterator, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -83,6 +85,188 @@ def iter_detector_poisson_profiles(
         out["radial_profile_data_raw"] = raw_profiles
         out["radial_profile_data"] = normalized_profiles
         yield out
+
+
+@dataclass
+class PreparedDetectorIntegration:
+    """One thickness-adjusted pyFAI context reused across detector draws."""
+
+    integrator: Any
+    mask: np.ndarray
+    radial_range: Any
+    azimuth_range: Any
+    npt: int
+
+    def integrate(self, image: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Integrate one image with frozen product geometry and Poisson errors."""
+        result = self.integrator.integrate1d(
+            np.asarray(image, dtype=float),
+            self.npt,
+            radial_range=self.radial_range,
+            azimuth_range=self.azimuth_range,
+            mask=self.mask,
+            error_model="poisson",
+        )
+        if isinstance(result, tuple):
+            q, intensity = result[0], result[1]
+        else:
+            q, intensity = result.radial, result.intensity
+        return np.asarray(q, dtype=float), np.asarray(intensity, dtype=float)
+
+
+def prepare_detector_integration(
+    row: pd.Series,
+    *,
+    npt: int = 100,
+) -> PreparedDetectorIntegration:
+    """Build one reusable integration context for a measurement row."""
+    from xrd_preprocessing.azimuthal import (
+        _adjust_integrator_distance,
+        _coerce_integration_mask,
+        _integrator_from_poni_text,
+    )
+
+    image = np.asarray(row[RAW_FRAME_COLUMN])
+    integrator = copy.deepcopy(_integrator_from_poni_text(str(row["ponifile"])))
+    _adjust_integrator_distance(
+        integrator,
+        float(row["sample_thickness_mm"]),
+        float(row["calibrant_thickness_mm"]),
+    )
+    mask = _coerce_integration_mask(row[MASK_COLUMN], image.shape).astype(bool)
+    return PreparedDetectorIntegration(
+        integrator=integrator,
+        mask=mask,
+        radial_range=row.get("interpolation_q_range"),
+        azimuth_range=row.get("azimuthal_range"),
+        npt=int(npt),
+    )
+
+
+def sample_scaled_centered_poisson(
+    observed: np.ndarray,
+    *,
+    noise_scale: float,
+    rng: np.random.Generator,
+) -> np.ndarray:
+    """Scale photon standard deviation while preserving pixel expectations.
+
+    For scale ``a``, the sampled positive photon component has variance
+    ``a**2 * max(x, 0)``. Scale 1.0 is exactly the existing centered-Poisson
+    approximation. Negative baseline-corrected values remain unchanged.
+    """
+    scale = float(noise_scale)
+    if not np.isfinite(scale) or scale <= 0.0:
+        raise ValueError("noise_scale must be finite and positive.")
+    values = np.asarray(observed, dtype=float)
+    if not np.isfinite(values).all():
+        raise ValueError("Prepared detector observations must be finite.")
+    positive = np.clip(values, 0.0, None)
+    scale_squared = scale * scale
+    sampled_positive = scale_squared * rng.poisson(positive / scale_squared)
+    return values - positive + sampled_positive
+
+
+def iter_scaled_detector_poisson_profiles(
+    patient_frame: pd.DataFrame,
+    *,
+    draws: int,
+    noise_scale: float,
+    random_state: int,
+    normalization_q_range: tuple[float, float],
+) -> Iterator[pd.DataFrame]:
+    """Yield scaled detector-Poisson profiles using persistent pyFAI contexts."""
+    _require_detector_columns(patient_frame)
+    observed = [
+        _centered_poisson_observation(row[RAW_FRAME_COLUMN], row[MASK_COLUMN])
+        for _, row in patient_frame.iterrows()
+    ]
+    contexts = [
+        prepare_detector_integration(row) for _, row in patient_frame.iterrows()
+    ]
+    rng = np.random.default_rng(random_state)
+    for _ in range(draws):
+        out = patient_frame.copy(deep=False)
+        q_values: list[np.ndarray] = []
+        raw_profiles: list[np.ndarray] = []
+        normalized_profiles: list[np.ndarray] = []
+        for image, context in zip(observed, contexts, strict=True):
+            sampled = sample_scaled_centered_poisson(
+                image,
+                noise_scale=noise_scale,
+                rng=rng,
+            )
+            q, intensity = context.integrate(sampled)
+            q_values.append(q)
+            raw_profiles.append(intensity)
+            normalized_profiles.append(
+                normalize_profile(q, intensity, q_range=normalization_q_range)
+            )
+            del sampled
+        out = out.copy()
+        out["q_range"] = q_values
+        out["radial_profile_data_raw"] = raw_profiles
+        out["radial_profile_data"] = normalized_profiles
+        yield out
+
+
+def integrate_scaled_detector_profile_cube(
+    patient_frame: pd.DataFrame,
+    *,
+    draws: int,
+    noise_scales: Sequence[float],
+    random_states: Sequence[int],
+    normalization_q_range: tuple[float, float],
+) -> tuple[np.ndarray, np.ndarray]:
+    """Integrate all configured draws while retaining only 1D profiles."""
+    _require_detector_columns(patient_frame)
+    if draws < 1:
+        raise ValueError("draws must be positive.")
+    if len(noise_scales) != len(random_states) or not noise_scales:
+        raise ValueError("noise_scales and random_states must have equal length.")
+    observed = [
+        _centered_poisson_observation(row[RAW_FRAME_COLUMN], row[MASK_COLUMN])
+        for _, row in patient_frame.iterrows()
+    ]
+    contexts = [
+        prepare_detector_integration(row) for _, row in patient_frame.iterrows()
+    ]
+    profiles = np.empty(
+        (len(noise_scales), draws, len(patient_frame), contexts[0].npt),
+        dtype=np.float32,
+    )
+    q_values = np.empty((len(patient_frame), contexts[0].npt), dtype=np.float64)
+    q_initialized = np.zeros(len(patient_frame), dtype=bool)
+    for scale_index, (noise_scale, random_state) in enumerate(
+        zip(noise_scales, random_states, strict=True)
+    ):
+        rng = np.random.default_rng(random_state)
+        for draw_index in range(draws):
+            for measurement_index, (image, context) in enumerate(
+                zip(observed, contexts, strict=True)
+            ):
+                sampled = sample_scaled_centered_poisson(
+                    image,
+                    noise_scale=float(noise_scale),
+                    rng=rng,
+                )
+                q, intensity = context.integrate(sampled)
+                if not q_initialized[measurement_index]:
+                    q_values[measurement_index] = q
+                    q_initialized[measurement_index] = True
+                elif not np.allclose(
+                    q_values[measurement_index], q, rtol=0.0, atol=1e-12
+                ):
+                    raise ValueError("pyFAI q grid changed between detector draws.")
+                profiles[scale_index, draw_index, measurement_index] = (
+                    normalize_profile(
+                        q,
+                        intensity,
+                        q_range=normalization_q_range,
+                    )
+                )
+                del sampled
+    return q_values, profiles
 
 
 def _centered_poisson_observation(frame: Any, faulty_pixels: Any) -> np.ndarray:

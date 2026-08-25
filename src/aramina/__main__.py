@@ -6,6 +6,7 @@ import argparse
 import logging
 from pathlib import Path
 
+from .experiments.detector_noise_scale import run_detector_noise_scale_from_config
 from .experiments.measurement_uncertainty import run_measurement_uncertainty_from_config
 from .experiments.uncertainty_rank_scan import (
     run_uncertainty_rank_scan_from_config,
@@ -114,6 +115,17 @@ def main(argv: list[str] | None = None) -> int:
         help="Path to experimental covariance rank-scan YAML.",
     )
     _add_verbose_argument(uncertainty_rank_scan)
+    detector_noise_scale = subparsers.add_parser(
+        "experiment-detector-noise-scale",
+        help="Run parallel detector-level photon-noise scale Monte Carlo.",
+    )
+    detector_noise_scale.add_argument(
+        "--config",
+        required=True,
+        type=Path,
+        help="Path to detector-noise scale experiment YAML.",
+    )
+    _add_verbose_argument(detector_noise_scale)
     promote = subparsers.add_parser(
         "promote",
         help="Copy one reviewed final-fit run into the immutable models directory.",
@@ -203,6 +215,19 @@ def main(argv: list[str] | None = None) -> int:
         print(f"variants={result['variants']}")
         print(f"run_folder={result['run_folder']}")
         print(f"metrics_path={result['metrics_path']}")
+        print(f"mlflow_run_id={result['mlflow']['run_id']}")
+        print(f"mlflow_status={result['mlflow']['status']}")
+        return 0
+    if args.command == "experiment-detector-noise-scale":
+        result = run_detector_noise_scale_from_config(
+            args.config,
+            verbose=args.verbose,
+        )
+        print(f"run_folder={result['run_folder']}")
+        print(f"aggregate_path={result['aggregate_path']}")
+        print(f"patients={result['manifest']['patients']}")
+        print(f"measurements={result['manifest']['measurements']}")
+        print(f"elapsed_seconds={result['manifest']['elapsed_seconds']:.3f}")
         print(f"mlflow_run_id={result['mlflow']['run_id']}")
         print(f"mlflow_status={result['mlflow']['status']}")
         return 0

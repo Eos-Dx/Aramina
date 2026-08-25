@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from aramina.experiments import detector_uncertainty
 
@@ -140,6 +141,82 @@ def test_detector_poisson_profiles_keep_unmasked_negative_pixel(monkeypatch):
     )
 
     assert captured["observed"][0, 0, 1] == -2.0
+
+
+def test_scaled_centered_poisson_preserves_mean_and_scales_variance():
+    observed = np.full((50_000, 1), 100.0)
+    low = detector_uncertainty.sample_scaled_centered_poisson(
+        observed,
+        noise_scale=0.5,
+        rng=np.random.default_rng(10),
+    )
+    standard = detector_uncertainty.sample_scaled_centered_poisson(
+        observed,
+        noise_scale=1.0,
+        rng=np.random.default_rng(11),
+    )
+
+    assert np.mean(low) == pytest.approx(100.0, abs=0.1)
+    assert np.mean(standard) == pytest.approx(100.0, abs=0.1)
+    assert np.var(low) == pytest.approx(25.0, rel=0.04)
+    assert np.var(standard) == pytest.approx(100.0, rel=0.04)
+
+
+def test_scaled_centered_poisson_keeps_negative_baseline_values():
+    observed = np.asarray([[-3.0, 10.0]])
+    sampled = detector_uncertainty.sample_scaled_centered_poisson(
+        observed,
+        noise_scale=1.5,
+        rng=np.random.default_rng(12),
+    )
+
+    assert sampled[0, 0] == -3.0
+
+
+def test_integrated_profile_cube_reuses_prepared_contexts(monkeypatch):
+    frame = _detector_frame()
+    prepared = []
+
+    class FakeContext:
+        npt = 3
+
+        def __init__(self, offset):
+            self.offset = offset
+
+        def integrate(self, image):
+            mean = float(np.mean(image))
+            return np.asarray([6.8, 7.0, 8.0]), np.asarray(
+                [2.0, 4.0, mean + self.offset]
+            )
+
+    def fake_prepare(row):
+        context = FakeContext(len(prepared))
+        prepared.append(context)
+        return context
+
+    monkeypatch.setattr(
+        detector_uncertainty,
+        "prepare_detector_integration",
+        fake_prepare,
+    )
+    monkeypatch.setattr(
+        detector_uncertainty,
+        "sample_scaled_centered_poisson",
+        lambda observed, **_kwargs: observed,
+    )
+
+    q, profiles = detector_uncertainty.integrate_scaled_detector_profile_cube(
+        frame,
+        draws=2,
+        noise_scales=[0.5, 1.0],
+        random_states=[1, 2],
+        normalization_q_range=(6.7, 7.1),
+    )
+
+    assert len(prepared) == 2
+    assert q.shape == (2, 3)
+    assert profiles.shape == (2, 2, 2, 3)
+    assert np.allclose(profiles[:, :, 0, :2], [2 / 3, 4 / 3])
 
 
 def test_polar_cake_artifacts_store_axes_uncertainty_and_parity(
