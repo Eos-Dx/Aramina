@@ -340,6 +340,17 @@ successfully. The polar angular mean reproduced the independent 1D integration
 for all 48 reference measurements. Median relative RMSE was `4.39e-8`; maximum
 relative RMSE was `9.75e-8`, below the configured `0.05` limit.
 
+Final committed verification:
+
+```text
+Aramina source commit     ddd832564d830dec04c22065e21329d7b64f2b03
+XRD source commit         ad8ba22a31a35ef04fa8e29504c6d9f659f98f39
+MLflow run                1447f9510f0a40d6a67d613b0415704a
+MLflow status             FINISHED
+DVC MD5                   46e199e316e95969731d61d8ab4b2c52
+frozen model SHA256       98526329f40dc4fc379d4278bec75005c3c0e598cd65e126c68d6b875d6ac479
+```
+
 The diagonal profile-sigma approximation did not pass detector-reference
 calibration. At 1,000 draws it crossed the frozen threshold for 119 of 175
 target cases. On the eight paired reference cases, median profile interval
