@@ -44,8 +44,10 @@ biological uncertainty.
 
 ## Propagation And Gates
 
-Each model generates 5,000 seeded profile draws for all 175 target cases. Every
-draw passes through the unchanged frozen sequence:
+Each model generates 1,000 seeded profile draws for all 175 target cases. This
+is 875,000 complete patient-level propagations across the five covariance
+variants. Checkpoints at 250, 500, and 1,000 draws quantify Monte Carlo endpoint
+stability. Every draw passes through the unchanged frozen sequence:
 
 ```text
 measurement profile

@@ -37,10 +37,10 @@ rank_scan:
       estimator: pooled_standardized_residual_ledoit_wolf
       rank: 100
 monte_carlo:
-  draws: 5000
+  draws: 1000
   seed: 20260827
   interval_quantiles: [0.025, 0.5, 0.975]
-  convergence_draws: [1000, 2500, 5000]
+  convergence_draws: [250, 500, 1000]
 provisional_gates:
   threshold_crossing_agreement_min: 0.95
   interval_width_ratio_min: 0.8

@@ -17,7 +17,7 @@ from aramina.experiments import uncertainty_rank_scan as scan
     "name,draws",
     [
         ("config_measurement_uncertainty_rank_scan_pilot_v0_1.yaml", 1000),
-        ("config_measurement_uncertainty_rank_scan_v0_1.yaml", 5000),
+        ("config_measurement_uncertainty_rank_scan_v0_1.yaml", 1000),
     ],
 )
 def test_committed_rank_scan_config_is_valid(name: str, draws: int) -> None:
