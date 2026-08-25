@@ -177,3 +177,25 @@ def test_rank_scan_cli_reports_result(monkeypatch, capsys, tmp_path: Path) -> No
     output = capsys.readouterr().out
     assert "patients_scored=175" in output
     assert "variants=5" in output
+
+
+def test_rank_scan_mlflow_params_contain_only_scalar_leaves() -> None:
+    root = Path(__file__).resolve().parents[1]
+    config = scan.load_rank_scan_config(
+        root
+        / "config"
+        / "experiments"
+        / "config_measurement_uncertainty_rank_scan_v0_1.yaml"
+    )
+
+    params = scan.rank_scan_mlflow_params(config)
+
+    def assert_scalar_leaves(value):
+        if isinstance(value, dict):
+            for child in value.values():
+                assert_scalar_leaves(child)
+            return
+        assert isinstance(value, str | int | float | bool) or value is None
+
+    assert_scalar_leaves(params)
+    assert "empirical_rank_30" in params["rank_scan"]["variants"]

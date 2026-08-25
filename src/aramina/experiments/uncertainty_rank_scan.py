@@ -562,12 +562,7 @@ def _log_rank_scan_mlflow(
         metric_values[f"{prefix}.all_provisional_gates_pass"] = float(
             bool(row["all_provisional_gates_pass"])
         )
-    params = {
-        "experiment": config["experiment"],
-        "rank_scan": config["rank_scan"],
-        "monte_carlo": config["monte_carlo"],
-        "source_run": config["source_run"],
-    }
+    params = rank_scan_mlflow_params(config)
     tags = {
         "product": "aramina",
         "clinical_stage": "research_draft",
@@ -598,6 +593,35 @@ def _log_rank_scan_mlflow(
         "run_id": run_id,
         "status": run.status,
         "tracking_uri": tracking_uri,
+    }
+
+
+def rank_scan_mlflow_params(config: dict[str, Any]) -> dict[str, Any]:
+    """Return MLflow-safe scalar parameters for the rank-scan contract."""
+    variants = config["rank_scan"]["variants"]
+    monte_carlo = config["monte_carlo"]
+    return {
+        "experiment": config["experiment"],
+        "rank_scan": {
+            "minimum_diagonal_variance": config["rank_scan"][
+                "minimum_diagonal_variance"
+            ],
+            "variants": ";".join(
+                f"{item['name']}:{item['estimator']}:rank={item['rank']}"
+                for item in variants
+            ),
+        },
+        "monte_carlo": {
+            "draws": monte_carlo["draws"],
+            "seed": monte_carlo["seed"],
+            "interval_quantiles": ",".join(
+                str(value) for value in monte_carlo["interval_quantiles"]
+            ),
+            "convergence_draws": ",".join(
+                str(value) for value in monte_carlo["convergence_draws"]
+            ),
+        },
+        "source_run": config["source_run"],
     }
 
 
