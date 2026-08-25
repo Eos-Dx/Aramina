@@ -461,6 +461,30 @@ def build_or_reuse_polar_cakes(
     shared_chi: np.ndarray | None = None
     for position, row in target_rows.reset_index(drop=True).iterrows():
         key = str(row["measurement_key"])
+        recovered_artifact = cache_folder / f"cakes/{key}.npz"
+        if key not in records and not force_rebuild and recovered_artifact.is_file():
+            with np.load(recovered_artifact) as cached:
+                q = np.asarray(cached["q"], dtype=float)
+                chi = np.asarray(cached["chi"], dtype=float)
+            if _axes_match_contract(
+                q,
+                chi,
+                n_q=n_q,
+                n_chi=n_chi,
+                radial_q_range=radial_q_range,
+                azimuthal_range=azimuthal_range,
+            ):
+                records[key] = _cake_manifest_record(
+                    row,
+                    key=key,
+                    artifact=f"cakes/{key}.npz",
+                    dataset_sha256=dataset_sha256,
+                    n_q=n_q,
+                    n_chi=n_chi,
+                    axis_contract=axis_contract,
+                    radial_q_range=radial_q_range,
+                    azimuthal_range=azimuthal_range,
+                )
         if key in records:
             artifact_path = cache_folder / str(records[key]["artifact"])
             with np.load(artifact_path) as cached:
@@ -517,31 +541,17 @@ def build_or_reuse_polar_cakes(
             q=q,
             chi=chi,
         )
-        records[key] = {
-            "measurement_key": key,
-            "dataset_sha256": dataset_sha256,
-            "patient_id": str(row["patientId"]),
-            "target_case_id": str(row[TARGET_CASE_ID]),
-            "label": int(row["_label"]),
-            "n_q": n_q,
-            "n_chi": n_chi,
-            "axis_contract_sha256": axis_contract,
-            "radial_q_min": float(radial_q_range[0]),
-            "radial_q_max": float(radial_q_range[1]),
-            "azimuthal_min": float(azimuthal_range[0]),
-            "azimuthal_max": float(azimuthal_range[1]),
-            "artifact": artifact,
-            "error_model": "poisson",
-            "integration_method": "pyfai_integrate2d_default",
-            "unit": "q_nm^-1",
-            "calibration_session_uid": str(row.get(CALIBRATION_SESSION_COLUMN, "")),
-            "poni_sha256": _poni_fingerprint(row.get("ponifile")),
-            "sample_thickness_mm": _finite_or_nan(row.get("sample_thickness_mm")),
-            "calibrant_thickness_mm": _finite_or_nan(row.get("calibrant_thickness_mm")),
-            "mask_fraction": _mask_fraction(
-                row.get(MASK_COLUMN), row.get(RAW_FRAME_COLUMN)
-            ),
-        }
+        records[key] = _cake_manifest_record(
+            row,
+            key=key,
+            artifact=artifact,
+            dataset_sha256=dataset_sha256,
+            n_q=n_q,
+            n_chi=n_chi,
+            axis_contract=axis_contract,
+            radial_q_range=radial_q_range,
+            azimuthal_range=azimuthal_range,
+        )
         if verbose:
             print(f"polar_cake_generated={position + 1}/{len(target_rows)}")
     manifest = pd.DataFrame(list(records.values())).sort_values("measurement_key")
@@ -2048,6 +2058,47 @@ def _axis_contract_fingerprint(
     return hashlib.sha256(
         json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("ascii")
     ).hexdigest()
+
+
+def _cake_manifest_record(
+    row: pd.Series,
+    *,
+    key: str,
+    artifact: str,
+    dataset_sha256: str,
+    n_q: int,
+    n_chi: int,
+    axis_contract: str,
+    radial_q_range: tuple[float, float],
+    azimuthal_range: tuple[float, float],
+) -> dict[str, Any]:
+    return {
+        "measurement_key": key,
+        "dataset_sha256": dataset_sha256,
+        "patient_id": str(row["patientId"]),
+        "target_case_id": str(row[TARGET_CASE_ID]),
+        "label": int(row["_label"]),
+        "n_q": n_q,
+        "n_chi": n_chi,
+        "axis_contract_sha256": axis_contract,
+        "radial_q_min": float(radial_q_range[0]),
+        "radial_q_max": float(radial_q_range[1]),
+        "azimuthal_min": float(azimuthal_range[0]),
+        "azimuthal_max": float(azimuthal_range[1]),
+        "artifact": artifact,
+        "error_model": "poisson",
+        "integration_method": "pyfai_integrate2d_default",
+        "unit": "q_nm^-1",
+        "calibration_session_uid": str(row.get(CALIBRATION_SESSION_COLUMN, "")),
+        "poni_sha256": _poni_fingerprint(row.get("ponifile")),
+        "sample_thickness_mm": _finite_or_nan(row.get("sample_thickness_mm")),
+        "calibrant_thickness_mm": _finite_or_nan(
+            row.get("calibrant_thickness_mm")
+        ),
+        "mask_fraction": _mask_fraction(
+            row.get(MASK_COLUMN), row.get(RAW_FRAME_COLUMN)
+        ),
+    }
 
 
 def _axes_match_contract(

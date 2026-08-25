@@ -169,6 +169,10 @@ def test_polar_cache_reuses_unique_measurements(monkeypatch, tmp_path: Path) -> 
     assert len(calls) == 2
     assert first["measurement_key"].is_unique
     assert first["axis_contract_sha256"].nunique() == 1
+    (tmp_path / "polar_cake_cache_manifest.csv").unlink()
+    recovered, _ = polar.build_or_reuse_polar_cakes(rows, **kwargs)
+    assert len(recovered) == 2
+    assert len(calls) == 2
 
 
 def test_axes_contract_rejects_different_grid() -> None:
