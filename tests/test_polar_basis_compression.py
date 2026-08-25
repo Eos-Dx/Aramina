@@ -10,6 +10,20 @@ import pytest
 from aramina.experiments import polar_basis_compression as polar
 
 
+@pytest.mark.parametrize(
+    "name",
+    [
+        "config_polar_basis_compression_pilot_v0_1.yaml",
+        "config_polar_basis_compression_v0_1.yaml",
+    ],
+)
+def test_committed_polar_configs_validate(name: str) -> None:
+    root = Path(__file__).resolve().parents[1]
+    config = polar.load_config(root / "config" / "experiments" / name)
+    assert config["polar_cakes"]["radial_q_range"] == [2.0, 23.0]
+    assert config["polar_cakes"]["azimuthal_range"] == [-180.0, 180.0]
+
+
 def test_angular_harmonic_amplitudes_are_rotation_invariant() -> None:
     chi = np.linspace(-175.0, 175.0, 36)
     theta = np.deg2rad(chi)

@@ -2273,6 +2273,8 @@ def _validate_config(config: Any) -> None:
         {
             "n_q",
             "n_chi",
+            "radial_q_range",
+            "azimuthal_range",
             "normalization_q_range",
             "harmonic_q_range",
             "cache_folder",
@@ -2283,6 +2285,14 @@ def _validate_config(config: Any) -> None:
     if int(polar.get("n_q", 0)) != 256 or int(polar.get("n_chi", 0)) != 36:
         raise PolarBasisExperimentError(
             "Polar grid must remain fixed at 256 q x 36 chi."
+        )
+    if polar.get("radial_q_range") != [2.0, 23.0]:
+        raise PolarBasisExperimentError(
+            "Polar radial q range must remain fixed at 2.0-23.0 nm^-1."
+        )
+    if polar.get("azimuthal_range") != [-180.0, 180.0]:
+        raise PolarBasisExperimentError(
+            "Polar azimuthal range must remain fixed at -180 to 180 degrees."
         )
     if polar.get("normalization_q_range") != [6.7, 7.1]:
         raise PolarBasisExperimentError(
