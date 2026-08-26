@@ -1,0 +1,82 @@
+contract: aramina_polar_harmonic_ablation_v0_1
+
+experiment:
+  name: aramina_polar_harmonic_ablation_pilot
+  model_name: aramina_target_breast_risk
+  model_version: 0.2.14-beta
+  purpose: validate_polar_harmonic_ablation_pipeline
+
+input:
+  input_h5_path: data/combined_archive.h5
+  model_joblib_path: models/aramina_target_breast_risk_0_2_14-beta_98526329f40d/model.joblib
+
+data_version:
+  contract: aramina_dvc_input_v0_1
+  system: dvc
+  dataset_id: aramina_combined_archive_h5
+  dvc_version: 3.67.1
+  pointer_path: data/combined_archive.h5.dvc
+
+cohort:
+  selection: all_accepted_target_measurements_and_cases
+  accepted_target_measurements: 496
+  target_cases: 175
+  patient_grouping: patient_safe
+
+polar_representation:
+  n_q: 256
+  n_chi_values: [12, 36]
+  radial_q_range: [2.0, 23.0]
+  azimuthal_range: [-180.0, 180.0]
+  normalization_q_range: [6.7, 7.1]
+  harmonic_q_range: [2.1, 12.2]
+  missing_sector_policy: weighted_fit_with_zero_weight_for_missing_sectors
+  cache_folder: examples/outputs/experiments/polar_harmonic_ablation/cache
+  force_rebuild: false
+
+harmonic_ablation:
+  mode_sets:
+    A0: [0]
+    A0_A2: [0, 2]
+    A0_A2_A4: [0, 2, 4]
+  encoder: cubic_bspline
+  coefficients_per_channel: [8, 12, 16]
+  primary:
+    n_chi: 36
+    coefficients_per_channel: 12
+
+evaluation:
+  method: repeated_stratified_patient_kfold
+  folds: 2
+  repeats: 1
+  seed: 42
+  inner_oof_lr1_to_lr2: true
+  threshold_policy: training_fold_target_sensitivity
+  target_sensitivity: 0.95
+  compare_on_identical_measurement_and_fold_manifests: true
+  metrics:
+    - sensitivity
+    - specificity
+    - roc_auc
+    - balanced_accuracy
+    - ppv
+    - npv
+    - confusion_matrix
+  confidence_interval: paired_patient_cluster_bootstrap_95
+
+controls:
+  radial_baseline: raw100
+  qc_modes: [1, 3]
+  confounder_fields: [age, thickness, session, date, target_side, measurement_count, snr]
+  permutation_control: not_executed_partial_arc_limitation
+  session_stress_test: unavailable_sparse_or_high_cardinality_session_labels
+
+mlflow:
+  enabled: true
+  tracking_uri: sqlite:///examples/outputs/mlflow/aramina_polar_harmonic_ablation.db
+  experiment_name: aramina_polar_harmonic_ablation
+
+output:
+  folder: examples/outputs/experiments/polar_harmonic_ablation/runs
+  product_artifact_changes: false
+  report_changes: false

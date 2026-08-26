@@ -21,8 +21,6 @@ import joblib
 import numpy as np
 import pandas as pd
 from scipy.interpolate import BSpline
-from scipy.special import jn_zeros, jv
-from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression, Ridge
 from sklearn.metrics import (
     accuracy_score,
@@ -73,12 +71,34 @@ from .measurement_uncertainty import (
 CONTRACT = "aramina_polar_basis_compression_v0_1"
 CANDIDATE_MODES = (0, 2, 4)
 QC_MODES = (1, 3)
-COEFFICIENT_BUDGETS = (15, 30, 50)
-REPRESENTATIONS = ("fourier_bspline", "fourier_bessel", "fourier_fpca")
+MODE_SETS = {
+    "A0": (0,),
+    "A0+A2": (0, 2),
+    "A0+A2+A4": (0, 2, 4),
+}
+COEFFICIENTS_PER_CHANNEL = (8, 12, 16)
+ALLOWED_N_CHI = (12, 18, 36, 72)
+REPRESENTATIONS = ("fourier_bspline",)
+LEGACY_CONFIG_REPRESENTATIONS = (
+    "fourier_bspline",
+    "fourier_bessel",
+    "fourier_fpca",
+)
+LEGACY_CONFIG_COEFFICIENT_BUDGETS = (15, 30, 50)
+MIN_VALID_ANGULAR_SECTORS = 4
+MAX_HARMONIC_CONDITION_NUMBER = 1.0e4
 PROFILE_SCORE_COLUMNS = (
     "profile_p_cancer_probability_mean",
     "profile_p_cancer_logit_average",
     "profile_p_cancer_n_measurements",
+)
+POLAR_VARIANT_COLUMNS = (
+    "representation",
+    "basis_family",
+    "mode_set",
+    "n_chi",
+    "coefficients_per_channel",
+    "budget",
 )
 REQUIRED_ARTIFACTS = (
     "basis.joblib",
@@ -120,12 +140,32 @@ class PolarBasisExperimentError(ValueError):
 class RepresentationSpec:
     """One controlled candidate representation."""
 
-    family: Literal["fourier_bspline", "fourier_bessel", "fourier_fpca"]
-    budget: int
+    mode_set: Literal["A0", "A0+A2", "A0+A2+A4"]
+    coefficients_per_channel: int
+    family: Literal["fourier_bspline"] = "fourier_bspline"
+
+    def __post_init__(self) -> None:
+        if self.mode_set not in MODE_SETS:
+            raise PolarBasisExperimentError(
+                f"Unsupported harmonic mode set: {self.mode_set!r}."
+            )
+        if self.coefficients_per_channel not in COEFFICIENTS_PER_CHANNEL:
+            raise PolarBasisExperimentError(
+                "Unsupported number of B-spline coefficients per channel."
+            )
+
+    @property
+    def modes(self) -> tuple[int, ...]:
+        return MODE_SETS[self.mode_set]
+
+    @property
+    def budget(self) -> int:
+        return int(self.coefficients_per_channel * len(self.modes))
 
     @property
     def name(self) -> str:
-        return f"{self.family}_{self.budget}"
+        modes = self.mode_set.replace("+", "_")
+        return f"{self.family}_{modes}_k{self.coefficients_per_channel}"
 
 
 @dataclass(frozen=True)
@@ -144,7 +184,7 @@ class PolarAxes:
 
 
 class PolarBasisEncoder:
-    """Fold-local compressor for candidate angular harmonics."""
+    """Fixed cubic B-spline compressor for one nested harmonic mode set."""
 
     def __init__(self, *, spec: RepresentationSpec, q: np.ndarray, seed: int) -> None:
         self.spec = spec
@@ -152,65 +192,36 @@ class PolarBasisEncoder:
         self.seed = int(seed)
 
     def fit(self, values: np.ndarray) -> "PolarBasisEncoder":
-        matrix = _candidate_tensor(values)
-        if self.spec.family == "fourier_fpca":
-            flat = matrix.reshape(len(matrix), -1)
-            if self.spec.budget >= min(flat.shape):
-                raise PolarBasisExperimentError(
-                    f"FPCA budget {self.spec.budget} must be smaller than "
-                    f"training matrix limit {min(flat.shape)}."
-                )
-            self.transformer_ = PCA(
-                n_components=self.spec.budget,
-                svd_solver="full",
-                random_state=self.seed,
-            ).fit(flat)
-            self.radial_basis_ = None
-        else:
-            radial_terms = _budget_allocation(self.spec.budget)
-            self.radial_basis_ = _radial_basis(
-                self.spec.family,
-                q=self.q,
-                terms_by_channel=radial_terms,
-            )
-            weights = (
-                self.q / float(np.mean(self.q))
-                if self.spec.family == "fourier_bessel"
-                else np.ones_like(self.q)
-            )
-            sqrt_weights = np.sqrt(weights)
-            self.radial_projector_ = {
-                name: np.linalg.pinv(basis * sqrt_weights[:, None])
-                * sqrt_weights[None, :]
-                for name, basis in self.radial_basis_.items()
-            }
-            self.transformer_ = None
+        matrix = _candidate_tensor(values, mode_set=self.spec.mode_set)
+        channel_names = _mode_set_channel_names(self.spec.mode_set)
+        self.radial_basis_ = _radial_basis(
+            q=self.q,
+            channel_names=channel_names,
+            coefficients_per_channel=self.spec.coefficients_per_channel,
+        )
+        self.radial_projector_ = {
+            name: np.linalg.pinv(basis) for name, basis in self.radial_basis_.items()
+        }
         self.training_rows_ = int(len(matrix))
         return self
 
     def transform(self, values: np.ndarray) -> np.ndarray:
-        matrix = _candidate_tensor(values)
-        if self.spec.family == "fourier_fpca":
-            return self.transformer_.transform(matrix.reshape(len(matrix), -1))
+        matrix = _candidate_tensor(values, mode_set=self.spec.mode_set)
         coefficients = []
-        for channel_index, channel_name in enumerate(_candidate_channel_names()):
+        for channel_index, channel_name in enumerate(
+            _mode_set_channel_names(self.spec.mode_set)
+        ):
             projector = self.radial_projector_[channel_name]
             coefficients.append(matrix[:, channel_index, :] @ projector.T)
         return np.hstack(coefficients)
 
     def inverse_transform(self, coefficients: np.ndarray) -> np.ndarray:
         values = np.asarray(coefficients, dtype=float)
-        if self.spec.family == "fourier_fpca":
-            reconstructed = self.transformer_.inverse_transform(values)
-            return reconstructed.reshape(
-                len(values), len(_candidate_channel_names()), -1
-            )
-        radial_terms = _budget_allocation(self.spec.budget)
         channels = []
         offset = 0
-        for channel_name in _candidate_channel_names():
+        for channel_name in _mode_set_channel_names(self.spec.mode_set):
             basis = self.radial_basis_[channel_name]
-            channel_terms = radial_terms[channel_name]
+            channel_terms = self.spec.coefficients_per_channel
             channels.append(values[:, offset : offset + channel_terms] @ basis.T)
             offset += channel_terms
         return np.stack(channels, axis=1)
@@ -220,46 +231,25 @@ class PolarBasisEncoder:
         out: dict[str, Any] = {
             "family": self.spec.family,
             "budget": self.spec.budget,
-            "candidate_modes": list(CANDIDATE_MODES),
-            "candidate_channels": list(_candidate_channel_names()),
+            "mode_set": self.spec.mode_set,
+            "candidate_modes": list(self.spec.modes),
+            "candidate_channels": list(_mode_set_channel_names(self.spec.mode_set)),
+            "coefficients_per_channel": self.spec.coefficients_per_channel,
             "training_basis_rows": self.training_rows_,
             "training_basis_balance": "one_mean_harmonic_tensor_per_target_case",
             "q_bins": int(len(self.q)),
+            "fit_scope": "fixed_q_grid_identical_across_all_folds",
+            "radial_basis": "cubic_b_spline",
+            "radial_fit_weight": "uniform_q_grid",
+            "radial_terms_per_candidate_channel": {
+                name: self.spec.coefficients_per_channel
+                for name in _mode_set_channel_names(self.spec.mode_set)
+            },
+            "basis_fingerprint": _array_fingerprint(
+                *(self.radial_basis_[name] for name in self.radial_basis_),
+                *(self.radial_projector_[name] for name in self.radial_projector_),
+            ),
         }
-        if self.transformer_ is not None:
-            out.update(
-                {
-                    "fit_scope": "training_patients_only",
-                    "explained_variance_ratio": self.transformer_.explained_variance_ratio_.tolist(),
-                    "basis_fingerprint": _array_fingerprint(
-                        self.transformer_.components_, self.transformer_.mean_
-                    ),
-                }
-            )
-        else:
-            out.update(
-                {
-                    "fit_scope": "fixed_q_grid_recreated_inside_training_fold",
-                    "radial_terms_per_candidate_channel": _budget_allocation(
-                        self.spec.budget
-                    ),
-                    "basis_fingerprint": _array_fingerprint(
-                        *(
-                            self.radial_basis_[name]
-                            for name in _candidate_channel_names()
-                        ),
-                        *(
-                            self.radial_projector_[name]
-                            for name in _candidate_channel_names()
-                        ),
-                    ),
-                    "radial_fit_weight": (
-                        "q_dq_discrete_weight"
-                        if self.spec.family == "fourier_bessel"
-                        else "uniform_q_grid"
-                    ),
-                }
-            )
         return out
 
 
@@ -316,7 +306,7 @@ def run_polar_basis_compression_from_config(
     )
     harmonic_q_range = tuple(config["polar_cakes"]["harmonic_q_range"])
     harmonic_q_mask = (axes.q >= harmonic_q_range[0]) & (axes.q <= harmonic_q_range[1])
-    if int(np.sum(harmonic_q_mask)) < max(COEFFICIENT_BUDGETS):
+    if int(np.sum(harmonic_q_mask)) < max(COEFFICIENTS_PER_CHANNEL):
         raise PolarBasisExperimentError(
             "Configured harmonic q range has too few q bins for the experiment."
         )
@@ -339,6 +329,10 @@ def run_polar_basis_compression_from_config(
                 "normalization_scale",
                 "qc_m1_energy",
                 "qc_m3_energy",
+                "harmonic_min_valid_sectors",
+                "harmonic_min_rank",
+                "harmonic_max_condition_number",
+                "harmonic_max_angular_gap_degrees",
             ]
         ],
         on="measurement_key",
@@ -409,13 +403,20 @@ def build_or_reuse_polar_cakes(
 ) -> tuple[pd.DataFrame, PolarAxes]:
     """Create only missing fixed cakes, one detector frame at a time."""
     cache_folder.mkdir(parents=True, exist_ok=True)
-    manifest_path = cache_folder / "polar_cake_cache_manifest.csv"
     axis_contract = _axis_contract_fingerprint(
         n_q=n_q,
         n_chi=n_chi,
         radial_q_range=radial_q_range,
         azimuthal_range=azimuthal_range,
     )
+    namespace = _polar_cache_namespace(
+        cache_folder,
+        n_q=n_q,
+        n_chi=n_chi,
+        axis_contract=axis_contract,
+    )
+    namespace.mkdir(parents=True, exist_ok=True)
+    manifest_path = namespace / "polar_cake_cache_manifest.csv"
     canonical_axes = _canonical_axes(
         n_q=n_q,
         n_chi=n_chi,
@@ -467,7 +468,10 @@ def build_or_reuse_polar_cakes(
     shared_chi: np.ndarray | None = canonical_axes.chi
     for position, row in target_rows.reset_index(drop=True).iterrows():
         key = str(row["measurement_key"])
-        recovered_artifact = cache_folder / f"cakes/{key}.npz"
+        artifact = str(
+            (namespace.relative_to(cache_folder) / "cakes" / f"{key}.npz")
+        )
+        recovered_artifact = cache_folder / artifact
         if key not in records and not force_rebuild and recovered_artifact.is_file():
             with np.load(recovered_artifact) as cached:
                 q = np.asarray(cached["q"], dtype=float)
@@ -483,7 +487,7 @@ def build_or_reuse_polar_cakes(
                 records[key] = _cake_manifest_record(
                     row,
                     key=key,
-                    artifact=f"cakes/{key}.npz",
+                    artifact=artifact,
                     dataset_sha256=dataset_sha256,
                     n_q=n_q,
                     n_chi=n_chi,
@@ -534,7 +538,6 @@ def build_or_reuse_polar_cakes(
         shared_q, shared_chi = _validate_shared_axes(shared_q, shared_chi, q, chi)
         q = canonical_axes.q
         chi = canonical_axes.chi
-        artifact = f"cakes/{key}.npz"
         artifact_path = cache_folder / artifact
         artifact_path.parent.mkdir(parents=True, exist_ok=True)
         np.savez_compressed(
@@ -605,11 +608,12 @@ def load_polar_harmonics(
             else np.asarray(axes.harmonic_q_mask, dtype=bool)
         )
         try:
-            harmonics = angular_harmonic_channels(
+            harmonics, harmonic_qc = angular_harmonic_channels(
                 normalized[:, q_mask],
                 count[:, q_mask],
                 chi,
                 max_mode=4,
+                return_qc=True,
             )
         except PolarBasisExperimentError as exc:
             raise PolarBasisExperimentError(
@@ -641,6 +645,7 @@ def load_polar_harmonics(
                     q,
                     normalization_q_range=normalization_q_range,
                 ),
+                **harmonic_qc,
             }
         )
     return pd.DataFrame(records)
@@ -652,8 +657,9 @@ def angular_harmonic_channels(
     chi_degrees: np.ndarray,
     *,
     max_mode: int,
-) -> np.ndarray:
-    """Fit weighted Fourier channels independently at every q bin."""
+    return_qc: bool = False,
+) -> np.ndarray | tuple[np.ndarray, dict[str, float | int]]:
+    """Fit radial mean and partial-arc even harmonics at every q bin."""
     values = np.asarray(intensity, dtype=float)
     weights = np.asarray(count, dtype=float)
     chi = np.deg2rad(np.asarray(chi_degrees, dtype=float).ravel())
@@ -661,31 +667,111 @@ def angular_harmonic_channels(
         raise PolarBasisExperimentError(
             "Polar cake intensity/count shapes are invalid."
         )
-    design_columns = [np.ones_like(chi)]
-    for mode in range(1, max_mode + 1):
-        design_columns.extend([np.cos(mode * chi), np.sin(mode * chi)])
-    design = np.column_stack(design_columns)
-    channels = np.empty((design.shape[1], values.shape[1]), dtype=float)
+    if max_mode != 4:
+        raise PolarBasisExperimentError("Polar harmonic experiment requires max_mode=4.")
+    even_design = np.column_stack(
+        [
+            np.cos(2.0 * chi),
+            np.sin(2.0 * chi),
+            np.cos(4.0 * chi),
+            np.sin(4.0 * chi),
+        ]
+    )
+    odd_design = np.column_stack(
+        [
+            np.cos(chi),
+            np.sin(chi),
+            np.cos(3.0 * chi),
+            np.sin(3.0 * chi),
+        ]
+    )
+    channels = np.empty((9, values.shape[1]), dtype=float)
+    valid_sector_counts: list[int] = []
+    design_ranks: list[int] = []
+    condition_numbers: list[float] = []
+    angular_gaps: list[float] = []
     for q_index in range(values.shape[1]):
         valid = (
             np.isfinite(values[:, q_index])
             & np.isfinite(weights[:, q_index])
             & (weights[:, q_index] > 0.0)
         )
-        if int(np.sum(valid)) < design.shape[1]:
+        valid_count = int(np.sum(valid))
+        if valid_count < MIN_VALID_ANGULAR_SECTORS:
             raise PolarBasisExperimentError(
                 f"Polar q bin {q_index} has insufficient angular support."
             )
-        weighted_design = design[valid] * np.sqrt(weights[valid, q_index])[:, None]
-        weighted_values = values[valid, q_index] * np.sqrt(weights[valid, q_index])
-        channels[:, q_index] = np.linalg.lstsq(
-            weighted_design,
-            weighted_values,
+        q_weights = weights[valid, q_index]
+        sqrt_weights = np.sqrt(q_weights)
+        observed = values[valid, q_index]
+        a0 = float(np.average(observed, weights=q_weights))
+        centered = observed - a0
+        weighted_even = even_design[valid] * sqrt_weights[:, None]
+        weighted_odd = odd_design[valid] * sqrt_weights[:, None]
+        rank_even = int(np.linalg.matrix_rank(weighted_even))
+        rank_odd = int(np.linalg.matrix_rank(weighted_odd))
+        rank = min(rank_even, rank_odd)
+        condition_number = max(
+            float(np.linalg.cond(weighted_even)),
+            float(np.linalg.cond(weighted_odd)),
+        )
+        angular_gap = _maximum_angular_gap_degrees(chi[valid])
+        if rank < 4:
+            raise PolarBasisExperimentError(
+                f"Polar q bin {q_index} has rank-deficient angular support."
+            )
+        if (
+            not np.isfinite(condition_number)
+            or condition_number > MAX_HARMONIC_CONDITION_NUMBER
+        ):
+            raise PolarBasisExperimentError(
+                f"Polar q bin {q_index} has ill-conditioned angular support."
+            )
+        even_coefficients = np.linalg.lstsq(
+            weighted_even,
+            centered * sqrt_weights,
             rcond=None,
         )[0]
+        residual = centered - even_design[valid] @ even_coefficients
+        odd_coefficients = np.linalg.lstsq(
+            weighted_odd,
+            residual * sqrt_weights,
+            rcond=None,
+        )[0]
+        channels[:, q_index] = (
+            a0,
+            odd_coefficients[0],
+            odd_coefficients[1],
+            even_coefficients[0],
+            even_coefficients[1],
+            odd_coefficients[2],
+            odd_coefficients[3],
+            even_coefficients[2],
+            even_coefficients[3],
+        )
+        valid_sector_counts.append(valid_count)
+        design_ranks.append(rank)
+        condition_numbers.append(condition_number)
+        angular_gaps.append(angular_gap)
     if not np.isfinite(channels).all():
         raise PolarBasisExperimentError("Polar harmonic coefficients are non-finite.")
-    return channels
+    if not return_qc:
+        return channels
+    return channels, {
+        "harmonic_min_valid_sectors": min(valid_sector_counts),
+        "harmonic_min_rank": min(design_ranks),
+        "harmonic_max_condition_number": max(condition_numbers),
+        "harmonic_max_angular_gap_degrees": max(angular_gaps),
+    }
+
+
+def _maximum_angular_gap_degrees(chi_radians: np.ndarray) -> float:
+    angles = np.mod(np.asarray(chi_radians, dtype=float), 2.0 * np.pi)
+    ordered = np.sort(np.unique(angles))
+    if len(ordered) < 2:
+        return 360.0
+    gaps = np.diff(np.concatenate([ordered, ordered[:1] + 2.0 * np.pi]))
+    return float(np.rad2deg(np.max(gaps)))
 
 
 def evaluate_representations(
@@ -702,9 +788,12 @@ def evaluate_representations(
 ) -> dict[str, Any]:
     """Evaluate every representation on the exact same held-out patients."""
     specifications = [
-        RepresentationSpec(family=family, budget=budget)
-        for family in REPRESENTATIONS
-        for budget in COEFFICIENT_BUDGETS
+        RepresentationSpec(
+            mode_set=mode_set,
+            coefficients_per_channel=coefficients_per_channel,
+        )
+        for mode_set in MODE_SETS
+        for coefficients_per_channel in COEFFICIENTS_PER_CHANNEL
     ]
     fold_metrics: list[dict[str, Any]] = []
     predictions: list[pd.DataFrame] = []
@@ -719,6 +808,7 @@ def evaluate_representations(
     product_threshold = float(model_info["thresholds"]["threshold_target"])
     seed = int(config["evaluation"]["seed"])
     max_examples = int(config["runtime"]["reconstruction_examples_per_variant"])
+    n_chi = int(len(axes.chi))
     raw100 = _evaluate_raw100_baseline(
         dataframe=dataframe,
         context=context,
@@ -773,11 +863,16 @@ def evaluate_representations(
             fold_metrics.append(
                 {
                     "representation": specification.family,
+                    "basis_family": specification.family,
+                    "mode_set": specification.mode_set,
+                    "n_chi": n_chi,
+                    "coefficients_per_channel": specification.coefficients_per_channel,
                     "budget": specification.budget,
                     "split_id": split_id,
                     "repeat_id": split_id // int(config["evaluation"]["folds"]),
                     "fold_id": split_id % int(config["evaluation"]["folds"]),
                     "threshold_policy": threshold_policy,
+                    "threshold_source": fitted["threshold_source"],
                     **metric,
                 }
             )
@@ -785,10 +880,19 @@ def evaluate_representations(
                 [TARGET_CASE_ID, "patientId", "target_side", "label", "label_name"]
             ].copy()
             prediction.insert(0, "representation", specification.family)
-            prediction.insert(1, "budget", specification.budget)
-            prediction.insert(2, "split_id", split_id)
+            prediction.insert(1, "basis_family", specification.family)
+            prediction.insert(2, "mode_set", specification.mode_set)
+            prediction.insert(3, "n_chi", n_chi)
+            prediction.insert(
+                4,
+                "coefficients_per_channel",
+                specification.coefficients_per_channel,
+            )
+            prediction.insert(5, "budget", specification.budget)
+            prediction.insert(6, "split_id", split_id)
             prediction["p_cancer"] = fitted["test_scores"]
             prediction["threshold"] = fitted["threshold"]
+            prediction["threshold_source"] = fitted["threshold_source"]
             prediction["suggested_class"] = np.where(
                 prediction["p_cancer"] >= prediction["threshold"],
                 "CANCER",
@@ -805,6 +909,9 @@ def evaluate_representations(
                 _coefficient_long_table(
                     test_case_coefficients,
                     representation=specification.family,
+                    mode_set=specification.mode_set,
+                    n_chi=n_chi,
+                    coefficients_per_channel=specification.coefficients_per_channel,
                     budget=specification.budget,
                     split_id=split_id,
                 )
@@ -815,26 +922,41 @@ def evaluate_representations(
                     test_rows,
                     test_coefficients,
                     representation=specification.family,
+                    mode_set=specification.mode_set,
+                    n_chi=n_chi,
+                    coefficients_per_channel=specification.coefficients_per_channel,
                     budget=specification.budget,
                     split_id=split_id,
                 )
             )
-            confounders.append(
-                _confounder_analysis(
-                    train_case_coefficients,
-                    test_case_coefficients,
-                    context=context,
-                    representation=specification.family,
-                    budget=specification.budget,
-                    split_id=split_id,
-                )
+            confounder_frame = _confounder_analysis(
+                train_case_coefficients,
+                test_case_coefficients,
+                context=context,
+                representation=specification.family,
+                budget=specification.budget,
+                split_id=split_id,
             )
+            confounder_frame.insert(1, "basis_family", specification.family)
+            confounder_frame.insert(2, "mode_set", specification.mode_set)
+            confounder_frame.insert(3, "n_chi", n_chi)
+            confounder_frame.insert(
+                4,
+                "coefficients_per_channel",
+                specification.coefficients_per_channel,
+            )
+            confounders.append(confounder_frame)
             basis_key = f"{specification.name}/split_{split_id:03d}"
             fitted_bases[basis_key] = encoder
             basis_metadata[basis_key] = {
                 **encoder.metadata(),
+                "n_chi": n_chi,
                 "training_patient_count": len(train_patients),
                 "training_patient_fingerprint": _text_fingerprint(train_patients),
+                "inner_oof_folds": fitted["inner_oof_folds"],
+                "inner_oof_patient_fingerprint": fitted[
+                    "inner_oof_patient_fingerprint"
+                ],
             }
             if split_id == 0:
                 _record_reconstruction_examples(
@@ -929,6 +1051,7 @@ def _evaluate_raw100_baseline(
                 "repeat_id": split_id // folds,
                 "fold_id": split_id % folds,
                 "threshold_policy": threshold_policy,
+                "threshold_source": fitted["threshold_source"],
                 **metric,
             }
         )
@@ -940,6 +1063,7 @@ def _evaluate_raw100_baseline(
         prediction.insert(2, "split_id", split_id)
         prediction["p_cancer"] = fitted["test_scores"]
         prediction["threshold"] = fitted["threshold"]
+        prediction["threshold_source"] = fitted["threshold_source"]
         prediction["suggested_class"] = np.where(
             prediction["p_cancer"] >= prediction["threshold"],
             "CANCER",
@@ -974,40 +1098,27 @@ def _fit_product_fold(
     test = test_rows.copy()
     train["polar_coefficients"] = list(train_coefficients)
     test["polar_coefficients"] = list(test_coefficients)
-    lr1 = Pipeline(
-        [
-            ("scaler", StandardScaler()),
-            (
-                "logreg",
-                LogisticRegression(
-                    C=float(model_definition["lr1_logreg_c"]),
-                    class_weight="balanced",
-                    max_iter=5000,
-                    random_state=seed,
-                    solver="lbfgs",
-                ),
-            ),
-        ]
-    ).fit(
-        profile_matrix(train, "polar_coefficients"),
-        row_labels(train, model_definition["label_column"]),
+    inner_oof_scores, inner_oof_manifest = _inner_oof_lr1_scores(
+        dataframe=dataframe,
+        context=context,
+        train=train,
+        train_patients=train_patients,
+        model_definition=model_definition,
+        seed=seed,
     )
-    train_partition = dataframe[
-        dataframe[model_definition["group_column"]].astype(str).isin(train_patients)
-    ]
+    train_features = _attach_profile_scores(
+        context, inner_oof_scores, train_patients
+    )
+    final_model = GatedSymmetryLogistic(
+        logreg_c=float(model_definition["lr2_logreg_c"]),
+        random_state=seed,
+    ).fit(train_features, train_features["label"].to_numpy(dtype=int))
+    train_final_scores = final_model.predict_proba(train_features)[:, 1]
+
+    lr1 = _fit_lr1(train, model_definition=model_definition, seed=seed)
     test_partition = dataframe[
         dataframe[model_definition["group_column"]].astype(str).isin(test_patients)
     ]
-    train_scores = score_lr1_rows(
-        lr1,
-        train,
-        full_df=train_partition,
-        profile_column="polar_coefficients",
-        group_column=model_definition["group_column"],
-        side_column=model_definition["side_column"],
-        label_column=model_definition["label_column"],
-        biopsy_column=model_definition["biopsy_column"],
-    )
     test_scores = score_lr1_rows(
         lr1,
         test,
@@ -1018,13 +1129,7 @@ def _fit_product_fold(
         label_column=model_definition["label_column"],
         biopsy_column=model_definition["biopsy_column"],
     )
-    train_features = _attach_profile_scores(context, train_scores, train_patients)
     test_features = _attach_profile_scores(context, test_scores, test_patients)
-    final_model = GatedSymmetryLogistic(
-        logreg_c=float(model_definition["lr2_logreg_c"]),
-        random_state=seed,
-    ).fit(train_features, train_features["label"].to_numpy(dtype=int))
-    train_final_scores = final_model.predict_proba(train_features)[:, 1]
     test_final_scores = final_model.predict_proba(test_features)[:, 1]
     if threshold_policy == "training_fold_target_sensitivity":
         threshold = float(
@@ -1047,7 +1152,139 @@ def _fit_product_fold(
         "test_features": test_features,
         "test_scores": test_final_scores,
         "threshold": threshold,
+        "threshold_source": (
+            "outer_train_inner_oof_lr1_scores"
+            if threshold_policy == "training_fold_target_sensitivity"
+            else "frozen_product_threshold"
+        ),
+        "inner_oof_folds": int(inner_oof_manifest["inner_fold_id"].nunique()),
+        "inner_oof_patient_fingerprint": _text_fingerprint(
+            inner_oof_manifest["patientId"].astype(str).unique()
+        ),
+        "inner_oof_manifest": inner_oof_manifest,
     }
+
+
+def _fit_lr1(
+    rows: pd.DataFrame,
+    *,
+    model_definition: dict[str, Any],
+    seed: int,
+) -> Pipeline:
+    labels = row_labels(rows, model_definition["label_column"])
+    if len(np.unique(labels)) != 2:
+        raise PolarBasisExperimentError("LR1 training partition must contain two classes.")
+    return Pipeline(
+        [
+            ("scaler", StandardScaler()),
+            (
+                "logreg",
+                LogisticRegression(
+                    C=float(model_definition["lr1_logreg_c"]),
+                    class_weight="balanced",
+                    max_iter=5000,
+                    random_state=seed,
+                    solver="lbfgs",
+                ),
+            ),
+        ]
+    ).fit(profile_matrix(rows, "polar_coefficients"), labels)
+
+
+def _inner_oof_lr1_scores(
+    *,
+    dataframe: pd.DataFrame,
+    context: pd.DataFrame,
+    train: pd.DataFrame,
+    train_patients: set[str],
+    model_definition: dict[str, Any],
+    seed: int,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    train_context = context[
+        context["patientId"].astype(str).isin(train_patients)
+    ].reset_index(drop=True)
+    patient_labels = train_context.groupby("patientId")["label"].max()
+    class_counts = patient_labels.value_counts().reindex([0, 1], fill_value=0)
+    inner_folds = min(5, int(class_counts.min()))
+    if inner_folds < 2:
+        raise PolarBasisExperimentError(
+            "Outer training partition cannot support patient-safe inner OOF LR1."
+        )
+    split_pairs = _patient_split_pairs(
+        mode="stratified_kfold",
+        base_features=train_context,
+        y_patients=train_context["label"].to_numpy(dtype=int),
+        n_splits=inner_folds,
+        n_repeats=1,
+        random_state=seed,
+    )
+    score_frames: list[pd.DataFrame] = []
+    manifest_rows: list[dict[str, Any]] = []
+    for inner_fold_id, (inner_train_index, inner_test_index) in enumerate(split_pairs):
+        inner_train_patients = set(
+            train_context.iloc[inner_train_index]["patientId"].astype(str)
+        )
+        inner_test_patients = set(
+            train_context.iloc[inner_test_index]["patientId"].astype(str)
+        )
+        if inner_train_patients.intersection(inner_test_patients):
+            raise RuntimeError("Patient leakage detected in inner OOF LR1 split.")
+        inner_train_rows = train[
+            train["patientId"].astype(str).isin(inner_train_patients)
+        ]
+        inner_test_rows = train[
+            train["patientId"].astype(str).isin(inner_test_patients)
+        ]
+        inner_lr1 = _fit_lr1(
+            inner_train_rows,
+            model_definition=model_definition,
+            seed=seed + inner_fold_id + 1,
+        )
+        inner_test_partition = dataframe[
+            dataframe[model_definition["group_column"]]
+            .astype(str)
+            .isin(inner_test_patients)
+        ]
+        score_frames.append(
+            score_lr1_rows(
+                inner_lr1,
+                inner_test_rows,
+                full_df=inner_test_partition,
+                profile_column="polar_coefficients",
+                group_column=model_definition["group_column"],
+                side_column=model_definition["side_column"],
+                label_column=model_definition["label_column"],
+                biopsy_column=model_definition["biopsy_column"],
+            )
+        )
+        for patient_id in sorted(inner_train_patients):
+            manifest_rows.append(
+                {
+                    "inner_fold_id": inner_fold_id,
+                    "partition": "train",
+                    "patientId": patient_id,
+                }
+            )
+        for patient_id in sorted(inner_test_patients):
+            manifest_rows.append(
+                {
+                    "inner_fold_id": inner_fold_id,
+                    "partition": "validation",
+                    "patientId": patient_id,
+                }
+            )
+    scores = pd.concat(score_frames, ignore_index=True)
+    expected_cases = set(train_context[TARGET_CASE_ID].astype(str))
+    observed_cases = set(scores[TARGET_CASE_ID].astype(str))
+    if scores[TARGET_CASE_ID].duplicated().any() or observed_cases != expected_cases:
+        raise RuntimeError("Inner OOF LR1 scores do not cover each target case once.")
+    manifest = pd.DataFrame(manifest_rows)
+    held_out_counts = (
+        manifest[manifest["partition"] == "validation"]["patientId"].value_counts()
+    )
+    if set(held_out_counts.index) != train_patients or not held_out_counts.eq(1).all():
+        raise RuntimeError("Inner OOF manifest does not hold out each patient once.")
+    return scores, manifest
 
 
 def _classification_metrics(
@@ -1077,7 +1314,7 @@ def _summarize_metrics(
 ) -> pd.DataFrame:
     summary = _summarize_classification_metrics(metrics)
     reconstruction_summary = reconstruction.groupby(
-        ["representation", "budget"], as_index=False
+        list(POLAR_VARIANT_COLUMNS), as_index=False
     ).agg(
         reconstruction_relative_rmse_mean=(
             "reconstruction_relative_rmse",
@@ -1098,7 +1335,7 @@ def _summarize_metrics(
     )
     return summary.merge(
         reconstruction_summary,
-        on=["representation", "budget"],
+        on=list(POLAR_VARIANT_COLUMNS),
         how="left",
         validate="one_to_one",
     )
@@ -1115,14 +1352,15 @@ def _summarize_classification_metrics(metrics: pd.DataFrame) -> pd.DataFrame:
         "threshold",
     )
     rows = []
-    for (representation, budget), group in metrics.groupby(
-        ["representation", "budget"], sort=False
-    ):
-        row: dict[str, Any] = {
-            "representation": representation,
-            "budget": int(budget),
-            "splits": int(len(group)),
-        }
+    group_columns = [
+        column for column in POLAR_VARIANT_COLUMNS if column in metrics.columns
+    ]
+    for key, group in metrics.groupby(group_columns, sort=False):
+        values = key if isinstance(key, tuple) else (key,)
+        row: dict[str, Any] = dict(zip(group_columns, values, strict=True))
+        if "budget" in row:
+            row["budget"] = int(row["budget"])
+        row["splits"] = int(len(group))
         for column in columns:
             row[f"{column}_mean"] = float(group[column].mean())
             row[f"{column}_std"] = float(group[column].std(ddof=0))
@@ -1157,16 +1395,23 @@ def _reconstruction_metrics(
     coefficients: np.ndarray,
     *,
     representation: str,
+    mode_set: str,
+    n_chi: int,
+    coefficients_per_channel: int,
     budget: int,
     split_id: int,
 ) -> pd.DataFrame:
-    original = _candidate_tensor(_stack_harmonics(rows))
+    original = _candidate_tensor(_stack_harmonics(rows), mode_set=mode_set)
     reconstructed = encoder.inverse_transform(coefficients)
     records = []
     for index, row in enumerate(rows.itertuples(index=False)):
         records.append(
             {
                 "representation": representation,
+                "basis_family": "fourier_bspline",
+                "mode_set": mode_set,
+                "n_chi": n_chi,
+                "coefficients_per_channel": coefficients_per_channel,
                 "budget": budget,
                 "split_id": split_id,
                 "measurement_key": row.measurement_key,
@@ -1206,6 +1451,9 @@ def _coefficient_long_table(
     cases: pd.DataFrame,
     *,
     representation: str,
+    mode_set: str,
+    n_chi: int,
+    coefficients_per_channel: int,
     budget: int,
     split_id: int,
 ) -> pd.DataFrame:
@@ -1215,6 +1463,10 @@ def _coefficient_long_table(
             rows.append(
                 {
                     "representation": representation,
+                    "basis_family": "fourier_bspline",
+                    "mode_set": mode_set,
+                    "n_chi": n_chi,
+                    "coefficients_per_channel": coefficients_per_channel,
                     "budget": budget,
                     "split_id": split_id,
                     TARGET_CASE_ID: getattr(case, TARGET_CASE_ID),
@@ -1450,7 +1702,9 @@ def _record_reconstruction_examples(
     prefix: str,
     limit: int,
 ) -> None:
-    original = _candidate_tensor(_stack_harmonics(rows))[:limit]
+    original = _candidate_tensor(
+        _stack_harmonics(rows), mode_set=encoder.spec.mode_set
+    )[:limit]
     reconstructed = encoder.inverse_transform(coefficients[:limit])
     destination[f"{prefix}_measurement_keys"] = (
         rows["measurement_key"].astype(str).to_numpy()[:limit]
@@ -1566,12 +1820,14 @@ def _write_artifacts(
             "clinical_stage": "research_only",
             "endpoint": "target_breast_BENIGN_vs_CANCER_decision_support",
             "representations": list(REPRESENTATIONS),
+            "mode_sets": list(MODE_SETS),
             "matched_baseline": "raw100_product_architecture",
-            "coefficient_budgets": list(COEFFICIENT_BUDGETS),
+            "coefficients_per_channel": list(COEFFICIENTS_PER_CHANNEL),
+            "n_chi": int(len(axes.chi)),
             "candidate_modes": list(CANDIDATE_MODES),
             "qc_modes": list(QC_MODES),
             "qc_modes_used_for_cancer_prediction": False,
-            "product_architecture": "LR1_measurement_then_logit_average_then_age_and_gated_SK_Core4_LR2",
+            "product_architecture": "inner_OOF_LR1_then_target_case_logit_average_then_age_and_gated_SK_Core4_LR2",
             "threshold_policy": config["evaluation"]["threshold_policy"],
             "immutable_product_threshold": product_threshold,
             "product_artifact_modified": False,
@@ -1601,6 +1857,7 @@ def _write_artifacts(
                 "polar compression and the common harmonic q-range restriction are not separated",
                 "session/date/thickness analyses depend on recorded metadata availability",
                 "m1 and m3 are QC/confounder channels and are excluded from cancer prediction",
+                "threshold selection uses outer-train features built from patient-safe inner-OOF LR1 scores",
             ],
         },
     )
@@ -1638,9 +1895,10 @@ def _log_mlflow(
         "representations.qc_modes": ",".join(
             str(value) for value in config["representations"]["qc_modes"]
         ),
-        "representations.coefficient_budgets": ",".join(
-            str(value) for value in config["representations"]["coefficient_budgets"]
+        "representations.coefficients_per_channel": ",".join(
+            str(value) for value in COEFFICIENTS_PER_CHANNEL
         ),
+        "representations.mode_sets": ",".join(MODE_SETS),
         "evaluation.method": config["evaluation"]["method"],
         "evaluation.folds": config["evaluation"]["folds"],
         "evaluation.repeats": config["evaluation"]["repeats"],
@@ -1675,7 +1933,10 @@ def _log_mlflow(
     ):
         metrics[f"raw100.{name}"] = float(raw100[name])
     for row in result["summary"].itertuples(index=False):
-        prefix = f"{row.representation}.{row.budget}"
+        mode_key = _mlflow_mode_key(str(row.mode_set))
+        prefix = (
+            f"{mode_key}.chi{row.n_chi}.k{row.coefficients_per_channel}"
+        )
         for name in (
             "sensitivity_mean",
             "specificity_mean",
@@ -1710,6 +1971,10 @@ def _log_mlflow(
         "status": run.status,
         "tracking_uri": uri,
     }
+
+
+def _mlflow_mode_key(mode_set: str) -> str:
+    return mode_set.replace("+", "_plus_")
 
 
 def _shared_patient_folds(
@@ -1910,25 +2175,16 @@ def _model_definition(model_artifact: dict[str, Any]) -> dict[str, Any]:
 
 
 def _radial_basis(
-    family: str,
     *,
     q: np.ndarray,
-    terms_by_channel: dict[str, int],
+    channel_names: tuple[str, ...],
+    coefficients_per_channel: int,
 ) -> dict[str, np.ndarray]:
     q_values = np.asarray(q, dtype=float)
     scaled = (q_values - q_values.min()) / (q_values.max() - q_values.min())
     bases = {}
-    for channel in _candidate_channel_names():
-        mode = int(channel.removeprefix("m").removeprefix("A"))
-        terms = terms_by_channel[channel]
-        if family == "fourier_bspline":
-            basis = _bspline_design(scaled, terms)
-        elif family == "fourier_bessel":
-            zeros = jn_zeros(mode, terms)
-            basis = np.column_stack([jv(mode, zero * scaled) for zero in zeros])
-        else:
-            raise PolarBasisExperimentError(f"Unknown fixed radial basis: {family}")
-        bases[channel] = basis
+    for channel in channel_names:
+        bases[channel] = _bspline_design(scaled, coefficients_per_channel)
     return bases
 
 
@@ -1947,29 +2203,31 @@ def _bspline_design(x: np.ndarray, n_basis: int) -> np.ndarray:
 
 
 def _candidate_channel_names() -> tuple[str, ...]:
-    return ("m0", "A2", "A4")
+    return _mode_set_channel_names("A0+A2+A4")
 
 
-def _budget_allocation(budget: int) -> dict[str, int]:
-    channels = _candidate_channel_names()
-    base, remainder = divmod(int(budget), len(channels))
-    return {
-        channel: base + int(index < remainder) for index, channel in enumerate(channels)
-    }
+def _mode_set_channel_names(mode_set: str) -> tuple[str, ...]:
+    if mode_set not in MODE_SETS:
+        raise PolarBasisExperimentError(f"Unsupported harmonic mode set: {mode_set!r}.")
+    return tuple("A0" if mode == 0 else f"A{mode}" for mode in MODE_SETS[mode_set])
 
 
-def _candidate_tensor(values: np.ndarray) -> np.ndarray:
+def _candidate_tensor(
+    values: np.ndarray,
+    *,
+    mode_set: str = "A0+A2+A4",
+) -> np.ndarray:
     matrix = np.asarray(values, dtype=float)
     if matrix.ndim != 3 or matrix.shape[1] < 9:
         raise PolarBasisExperimentError("Expected m=0..4 harmonic tensor.")
-    return np.stack(
-        [
-            matrix[:, 0, :],
-            np.hypot(matrix[:, 3, :], matrix[:, 4, :]),
-            np.hypot(matrix[:, 7, :], matrix[:, 8, :]),
-        ],
-        axis=1,
-    )
+    channel_by_mode = {
+        0: matrix[:, 0, :],
+        2: np.hypot(matrix[:, 3, :], matrix[:, 4, :]),
+        4: np.hypot(matrix[:, 7, :], matrix[:, 8, :]),
+    }
+    if mode_set not in MODE_SETS:
+        raise PolarBasisExperimentError(f"Unsupported harmonic mode set: {mode_set!r}.")
+    return np.stack([channel_by_mode[mode] for mode in MODE_SETS[mode_set]], axis=1)
 
 
 def _stack_harmonics(rows: pd.DataFrame) -> np.ndarray:
@@ -2071,6 +2329,18 @@ def _axis_contract_fingerprint(
     return hashlib.sha256(
         json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("ascii")
     ).hexdigest()
+
+
+def _polar_cache_namespace(
+    cache_folder: Path,
+    *,
+    n_q: int,
+    n_chi: int,
+    axis_contract: str,
+) -> Path:
+    return cache_folder / "grids" / (
+        f"nq{int(n_q)}_nchi{int(n_chi)}_{axis_contract[:12]}"
+    )
 
 
 def _cake_manifest_record(
@@ -2312,9 +2582,9 @@ def _validate_config(config: Any) -> None:
         },
         "polar_cakes",
     )
-    if int(polar.get("n_q", 0)) != 256 or int(polar.get("n_chi", 0)) != 36:
+    if int(polar.get("n_q", 0)) != 256 or int(polar.get("n_chi", 0)) not in ALLOWED_N_CHI:
         raise PolarBasisExperimentError(
-            "Polar grid must remain fixed at 256 q x 36 chi."
+            f"Polar grid requires 256 q bins and n_chi in {ALLOWED_N_CHI}."
         )
     if polar.get("radial_q_range") != [2.0, 23.0]:
         raise PolarBasisExperimentError(
@@ -2349,9 +2619,13 @@ def _validate_config(config: Any) -> None:
         {"families", "candidate_modes", "qc_modes", "coefficient_budgets"},
         "representations",
     )
-    if tuple(representations.get("families", [])) != REPRESENTATIONS:
+    configured_families = tuple(representations.get("families", []))
+    if configured_families not in {
+        REPRESENTATIONS,
+        LEGACY_CONFIG_REPRESENTATIONS,
+    }:
         raise PolarBasisExperimentError(
-            f"representations.families must be {REPRESENTATIONS}."
+            "representations.families must select the fixed B-spline ablation."
         )
     if (
         tuple(representations.get("candidate_modes", [])) != CANDIDATE_MODES
@@ -2360,9 +2634,13 @@ def _validate_config(config: Any) -> None:
         raise PolarBasisExperimentError(
             "Angular candidate/QC modes are fixed by contract."
         )
-    if tuple(representations.get("coefficient_budgets", [])) != COEFFICIENT_BUDGETS:
+    configured_budgets = tuple(representations.get("coefficient_budgets", []))
+    if configured_budgets not in {
+        COEFFICIENTS_PER_CHANNEL,
+        LEGACY_CONFIG_COEFFICIENT_BUDGETS,
+    }:
         raise PolarBasisExperimentError(
-            f"Coefficient budgets must be {COEFFICIENT_BUDGETS}."
+            f"Coefficients per channel must be {COEFFICIENTS_PER_CHANNEL}."
         )
     evaluation = config["evaluation"]
     _exact_keys(

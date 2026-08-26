@@ -170,7 +170,7 @@ aramina experiment-polar-basis-compression \
 - All variants use one retrospective training archive.
 - Comparing nine variants on the same folds makes these folds development
   evidence, not an untouched blind test.
-- The polar variants use the common harmonic range 2.1-12.7 nm^-1, whereas the
+- The polar variants use the common harmonic range 2.1-12.2 nm^-1, whereas the
   raw-100 baseline retains its frozen product q range. A performance difference
   therefore combines representation compression with loss of the high-q region;
   it cannot be attributed to coefficient count alone.

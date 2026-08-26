@@ -51,6 +51,7 @@ documentation source.
 - [Measurement uncertainty and polar-cake experiment v0.1, historical](experiments/measurement_uncertainty_polar_cake_v0_1.md)
 - [Correlated measurement-uncertainty experiment v0.2](experiments/measurement_uncertainty_covariance_v0_2.md)
 - [Polar-basis compression experiment](experiments/polar_basis_compression_v0_1.md)
+- [Polar harmonic ablation experiment](experiments/polar_harmonic_ablation_v0_1.md)
 - [Patient collection and independent validation plan](development/Aramina_Patient_Collection_and_Independent_Validation_Plan.docx)
 
 ## Documentation Rules

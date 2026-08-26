@@ -11,6 +11,10 @@ from .experiments.measurement_uncertainty import run_measurement_uncertainty_fro
 from .experiments.polar_basis_compression import (
     run_polar_basis_compression_from_config,
 )
+from .experiments.polar_harmonic_ablation import (
+    resume_polar_harmonic_ablation_from_config,
+    run_polar_harmonic_ablation_from_config,
+)
 from .experiments.uncertainty_rank_scan import (
     run_uncertainty_rank_scan_from_config,
 )
@@ -140,6 +144,22 @@ def main(argv: list[str] | None = None) -> int:
         help="Path to experimental polar-basis compression YAML.",
     )
     _add_verbose_argument(polar_basis)
+    polar_harmonic_ablation = subparsers.add_parser(
+        "experiment-polar-harmonic-ablation",
+        help="Run paired A0/A2/A4 polar-harmonic ablation across angular grids.",
+    )
+    polar_harmonic_ablation.add_argument(
+        "--config",
+        required=True,
+        type=Path,
+        help="Path to polar-harmonic ablation YAML.",
+    )
+    polar_harmonic_ablation.add_argument(
+        "--resume-run-folder",
+        type=Path,
+        help="Finalize an interrupted parent run from complete child artifacts.",
+    )
+    _add_verbose_argument(polar_harmonic_ablation)
     promote = subparsers.add_parser(
         "promote",
         help="Copy one reviewed final-fit run into the immutable models directory.",
@@ -252,6 +272,24 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(f"target_cases={result['target_cases']}")
         print(f"variants={result['variants']}")
+        print(f"run_folder={result['run_folder']}")
+        print(f"mlflow_run_id={result['mlflow']['run_id']}")
+        print(f"mlflow_status={result['mlflow']['status']}")
+        return 0
+    if args.command == "experiment-polar-harmonic-ablation":
+        result = (
+            resume_polar_harmonic_ablation_from_config(
+                args.config,
+                args.resume_run_folder,
+            )
+            if args.resume_run_folder is not None
+            else run_polar_harmonic_ablation_from_config(
+                args.config,
+                verbose=args.verbose,
+            )
+        )
+        print(f"target_cases={result['target_cases']}")
+        print(f"child_runs={result['child_runs']}")
         print(f"run_folder={result['run_folder']}")
         print(f"mlflow_run_id={result['mlflow']['run_id']}")
         print(f"mlflow_status={result['mlflow']['status']}")
