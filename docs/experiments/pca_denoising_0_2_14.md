@@ -97,6 +97,31 @@ The reconstructions changed total profile geometry by only `2.1-2.8%` in
 relative L2 norm, but removed `53-92%` of second-difference roughness. No method
 generated negative intensity values.
 
+## Representative profiles
+
+The examples below use BENIGN measurements nearest the 5th and 95th SNR
+percentiles among accepted cohort measurements. Keeping the class fixed avoids
+confounding this visual comparison with a CANCER/BENIGN profile difference.
+
+![High-SNR raw and smoothed profiles](figures/pca_denoising_0_2_14_high_snr_profile.png)
+
+At `36.57 dB`, PC10 and PC30 remain close to the raw profile. Relative L2
+changes are `1.75%` and `1.25%`; retained second-difference roughness is `20.9%`
+and `25.5%`, respectively.
+
+![Low-SNR raw and smoothed profiles](figures/pca_denoising_0_2_14_low_snr_profile.png)
+
+At `24.01 dB`, the raw profile contains visibly stronger point-to-point
+variation. Relative L2 changes increase to `3.91%` for PC10 and `3.32%` for
+PC30. Retained roughness decreases to `5.3%` and `12.8%`. PC10 is therefore the
+more aggressive filter; PC30 preserves more local structure.
+
+These examples are consistent with stronger removal of high-frequency content
+from noisier profiles. The PCA filter does not explicitly use SNR, however, and
+the same cohort-fitted linear filter is applied to every measurement. The
+figures cannot determine whether every removed narrow feature is photon noise
+or useful tissue structure.
+
 Train-on-all ROC AUC was `0.865` for raw profiles and `0.771-0.801` after
 denoising. The gap between train-on-all and patient-safe ROC AUC decreased from
 `0.220` for raw profiles to `0.079` for Smoothed PCA 10 and `0.119` for Smoothed
