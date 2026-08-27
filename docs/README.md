@@ -44,6 +44,7 @@ documentation source.
 
 ## Evidence And Development
 
+- [Aramina 0.2.14 PCA profile-denoising experiment](experiments/pca_denoising_0_2_14.md)
 - [AgBH exclusion rationale](agbh_quality_exclusions.md)
 - [Controlled Human-1 metadata](meta/README.md)
 - [Code structure](development/code_structure.md)

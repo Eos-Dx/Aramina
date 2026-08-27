@@ -19,7 +19,7 @@ dependencies = [
   "pyarrow>=17",
   "pyyaml>=6.0",
   "mlflow>=3.14,<4",
-  "xrd-preprocessing @ git+https://github.com/Eos-Dx/XRD-preprocessing.git@88dcaa277c5a0d4be2ab637bc5827a14bd106bea",
+  "xrd-preprocessing @ git+https://github.com/Eos-Dx/XRD-preprocessing.git@623885bb0122668bafc7ada74912f5e98ff40f32",
 ]
 
 [project.scripts]

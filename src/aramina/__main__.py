@@ -12,6 +12,7 @@ from .promotion import promote_model_run
 from .training import run_training_from_config
 from .training_config import available_product_models, describe_product_model
 from .workflows import run_preprocess_train_from_config
+from .experiments import run_pca_denoising_experiment
 
 
 def _add_verbose_argument(parser: argparse.ArgumentParser) -> None:
@@ -103,6 +104,16 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         help="Optional destination root; defaults to the project models directory.",
     )
+    denoising = subparsers.add_parser(
+        "experiment-pca-denoising",
+        help="Compare raw and PCA-denoised Aramina 0.2.14 profiles.",
+    )
+    denoising.add_argument(
+        "--config",
+        required=True,
+        type=Path,
+        help="Path to the PCA-denoising experiment YAML.",
+    )
 
     args = parser.parse_args(argv)
     _configure_logging(getattr(args, "verbose", False))
@@ -162,6 +173,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"model_id={promoted['model_id']}")
         print(f"artifact_sha256={promoted['artifact_sha256']}")
         print(f"model_folder={promoted['model_folder']}")
+        return 0
+    if args.command == "experiment-pca-denoising":
+        result = run_pca_denoising_experiment(args.config)
+        print(f"run_folder={result['run_folder']}")
+        print(f"patients={result['manifest']['patients']}")
+        print(f"methods={','.join(result['manifest']['methods'])}")
         return 0
     raise ValueError(f"Unknown command: {args.command}")
 

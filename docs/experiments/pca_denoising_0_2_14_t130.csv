@@ -1,0 +1,8 @@
+representation,roc_auc,sensitivity,specificity,balanced_accuracy,false_negatives,false_positives
+raw_100_baseline,0.57851,0.72727,0.45455,0.59091,3,6
+smoothed_pca_10,0.66116,0.81818,0.36364,0.59091,2,7
+smoothed_pca_20,0.61157,0.81818,0.36364,0.59091,2,7
+smoothed_pca_30,0.58678,0.81818,0.45455,0.63636,2,6
+sparse_pca_10,0.62810,0.81818,0.36364,0.59091,2,7
+sparse_pca_20,0.62810,0.81818,0.36364,0.59091,2,7
+sparse_pca_30,0.63636,0.81818,0.36364,0.59091,2,7

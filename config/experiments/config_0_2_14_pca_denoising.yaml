@@ -1,0 +1,72 @@
+contract: aramina_pca_denoising_experiment_v0_1
+model:
+  name: aramina_target_breast_risk
+  version: 0.2.14-beta
+run:
+  train_on_all: true
+input:
+  dataframe_joblib_path: examples/outputs/experiments/0_2_14_pca_denoising/input_dataframe.joblib
+  held_out_artifact_path: examples/outputs/experiments/0_2_14_pca_denoising/aramina_mri_or_biopsy_held_out_t130.joblib
+  dataset_id: aramina_combined_archive_h5
+  dataset_fingerprint: 8ffb7957ca057fe2e3a7b3c149ba118d34bc2d924dbaddaecebb88caadc396e5
+  source_h5_sha256: d2d61e83850b282c3d2479ea436deed821c4488b96983252d294f3d56ee3f1f9
+output:
+  folder: examples/outputs/experiments/0_2_14_pca_denoising
+evaluation:
+  method: repeated_stratified_kfold
+  folds: 5
+  repeats: 20
+  random_seed: 42
+  bootstrap_samples: 2000
+methods:
+  - name: raw_100_baseline
+    type: raw
+    params: {}
+  - name: smoothed_pca_10
+    type: smoothed_pca
+    params:
+      n_components: 10
+      smoothing: 20.0
+      center: false
+  - name: smoothed_pca_20
+    type: smoothed_pca
+    params:
+      n_components: 20
+      smoothing: 20.0
+      center: false
+  - name: smoothed_pca_30
+    type: smoothed_pca
+    params:
+      n_components: 30
+      smoothing: 20.0
+      center: false
+  - name: sparse_pca_10
+    type: sparse_pca
+    params:
+      n_components: 10
+      alpha: 1.0
+      ridge_alpha: 0.01
+      max_iter: 500
+      tol: 1.0e-6
+      method: lars
+      n_jobs: -1
+  - name: sparse_pca_20
+    type: sparse_pca
+    params:
+      n_components: 20
+      alpha: 1.0
+      ridge_alpha: 0.01
+      max_iter: 500
+      tol: 1.0e-6
+      method: lars
+      n_jobs: -1
+  - name: sparse_pca_30
+    type: sparse_pca
+    params:
+      n_components: 30
+      alpha: 1.0
+      ridge_alpha: 0.01
+      max_iter: 500
+      tol: 1.0e-6
+      method: lars
+      n_jobs: -1
