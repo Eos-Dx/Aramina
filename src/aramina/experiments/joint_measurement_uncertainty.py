@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 from time import perf_counter
@@ -46,8 +47,16 @@ from .vectorized_frozen_scorer import score_frozen_aramina_0_2_15_cube
 
 
 CONTRACT = "aramina_joint_measurement_uncertainty_v0_1"
-RESULT_CONTRACT = "aramina_joint_measurement_uncertainty_results_v0_1"
+RESULT_CONTRACT = "aramina_joint_measurement_uncertainty_results_v0_2"
 COMPONENTS = ("photon", "thickness", "beam_center", "detector_distance")
+RESUME_CONTRACT = "aramina_joint_measurement_uncertainty_resume_v0_1"
+RUN_STATE_FILENAME = "run_state.json"
+PROGRESS_FILENAME = "progress.json"
+PROBABILITY_FILENAME = "p_cancer_probability_cube.npy"
+SELECTED_FRAME_CACHE = "selected_detector_frame.joblib"
+SELECTED_CASES_CACHE = "selected_cases_checkpoint.joblib"
+PYFAI_PARITY_CACHE = "pyfai_parity_checkpoint.joblib"
+UNIT_CHECKPOINT_FOLDER = "unit_checkpoints"
 
 
 @dataclass(frozen=True)
@@ -78,6 +87,420 @@ class NuisanceDraws:
     photon_measurement_seeds: np.ndarray
 
 
+@dataclass
+class PatientMetalContext:
+    """One persistent geometry-aware Metal session for one patient."""
+
+    session: Any
+    q_grid: np.ndarray
+    images: np.ndarray
+    poni_distance_m: np.ndarray
+    sample_thickness_mm: np.ndarray
+    calibrant_thickness_mm: np.ndarray
+    poni1_m: np.ndarray
+    poni2_m: np.ndarray
+    pixel1_m: np.ndarray
+    pixel2_m: np.ndarray
+
+    def __enter__(self) -> PatientMetalContext:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.session.close()
+
+
+@dataclass
+class RunCheckpoint:
+    """Atomic patient/scenario completion state over one probability memmap."""
+
+    run_folder: Path
+    state: dict[str, Any]
+    progress: dict[str, Any]
+    probabilities: np.memmap
+
+    @property
+    def run_fingerprint(self) -> str:
+        return str(self.state["run_fingerprint"])
+
+    @staticmethod
+    def unit_id(patient_id: str, scenario_name: str) -> str:
+        return json.dumps([str(patient_id), str(scenario_name)], separators=(",", ":"))
+
+    def completed_unit(
+        self,
+        *,
+        patient_id: str,
+        scenario_name: str,
+        case_ids: list[str],
+        case_indices: list[int],
+        scenario_index: int,
+    ) -> dict[str, Any] | None:
+        unit_id = self.unit_id(patient_id, scenario_name)
+        record = self.progress["completed_units"].get(unit_id)
+        if record is None:
+            return None
+        checkpoint_path = self.run_folder / str(record["checkpoint_file"])
+        if not checkpoint_path.is_file():
+            raise MeasurementUncertaintyError(
+                f"Completed unit checkpoint is missing: {unit_id}."
+            )
+        if file_sha256(checkpoint_path) != str(record["sha256"]):
+            raise MeasurementUncertaintyError(
+                f"Completed unit checkpoint fingerprint mismatch: {unit_id}."
+            )
+        payload = joblib.load(checkpoint_path)
+        expected = {
+            "contract": RESUME_CONTRACT,
+            "run_fingerprint": self.run_fingerprint,
+            "unit_id": unit_id,
+            "patient_id": str(patient_id),
+            "scenario": str(scenario_name),
+            "case_ids": [str(value) for value in case_ids],
+        }
+        if not isinstance(payload, dict) or any(
+            payload.get(key) != value for key, value in expected.items()
+        ):
+            raise MeasurementUncertaintyError(
+                f"Completed unit payload mismatch: {unit_id}."
+            )
+        values = self.probabilities[case_indices, scenario_index, :]
+        if values.shape[0] != len(case_ids) or not np.isfinite(values).all():
+            raise MeasurementUncertaintyError(
+                f"Completed unit probability slice is partial: {unit_id}."
+            )
+        probability_sha256 = hashlib.sha256(
+            np.ascontiguousarray(values, dtype=np.float32).tobytes()
+        ).hexdigest()
+        if payload.get("probability_sha256") != probability_sha256:
+            raise MeasurementUncertaintyError(
+                f"Completed unit probability fingerprint mismatch: {unit_id}."
+            )
+        return payload
+
+    def complete_unit(
+        self,
+        *,
+        patient_id: str,
+        scenario_name: str,
+        scenario_index: int,
+        case_values: dict[str, np.ndarray],
+        case_index: dict[str, int],
+        parity_rows: list[dict[str, Any]],
+        geometry_rows: list[dict[str, Any]],
+    ) -> None:
+        case_ids = [str(value) for value in case_values]
+        if not case_ids or any(value not in case_index for value in case_ids):
+            raise MeasurementUncertaintyError(
+                "Checkpoint unit contains unknown or empty target cases."
+            )
+        expected_draws = self.probabilities.shape[2]
+        for case_id in case_ids:
+            values = np.asarray(case_values[case_id], dtype=np.float32)
+            if values.shape != (expected_draws,) or not np.isfinite(values).all():
+                raise MeasurementUncertaintyError(
+                    "Checkpoint unit probabilities must be complete and finite."
+                )
+            self.probabilities[case_index[case_id], scenario_index] = values
+        self.probabilities.flush()
+
+        unit_id = self.unit_id(patient_id, scenario_name)
+        case_indices = [case_index[value] for value in case_ids]
+        probability_sha256 = hashlib.sha256(
+            np.ascontiguousarray(
+                self.probabilities[case_indices, scenario_index, :],
+                dtype=np.float32,
+            ).tobytes()
+        ).hexdigest()
+        checkpoint_folder = self.run_folder / UNIT_CHECKPOINT_FOLDER
+        checkpoint_folder.mkdir(parents=True, exist_ok=True)
+        checkpoint_name = f"{hashlib.sha256(unit_id.encode()).hexdigest()[:24]}.joblib"
+        checkpoint_path = checkpoint_folder / checkpoint_name
+        payload = {
+            "contract": RESUME_CONTRACT,
+            "run_fingerprint": self.run_fingerprint,
+            "unit_id": unit_id,
+            "patient_id": str(patient_id),
+            "scenario": str(scenario_name),
+            "case_ids": case_ids,
+            "probability_sha256": probability_sha256,
+            "parity_rows": parity_rows,
+            "geometry_rows": geometry_rows,
+        }
+        _atomic_joblib_dump(payload, checkpoint_path, compress=3)
+        completed = dict(self.progress["completed_units"])
+        completed[unit_id] = {
+            "checkpoint_file": str(checkpoint_path.relative_to(self.run_folder)),
+            "sha256": file_sha256(checkpoint_path),
+            "completed_at": datetime.now(UTC).isoformat(),
+        }
+        self.progress = {
+            **self.progress,
+            "status": "running",
+            "completed_units": completed,
+            "updated_at": datetime.now(UTC).isoformat(),
+        }
+        _atomic_write_json(self.run_folder / PROGRESS_FILENAME, self.progress)
+
+    def mark_complete(self) -> None:
+        self.progress = {
+            **self.progress,
+            "status": "complete",
+            "updated_at": datetime.now(UTC).isoformat(),
+        }
+        _atomic_write_json(self.run_folder / PROGRESS_FILENAME, self.progress)
+
+
+def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
+    temporary = path.with_name(f".{path.name}.tmp")
+    with temporary.open("w", encoding="utf-8") as stream:
+        json.dump(payload, stream, indent=2, sort_keys=True)
+        stream.flush()
+        os.fsync(stream.fileno())
+    temporary.replace(path)
+
+
+def _atomic_joblib_dump(value: Any, path: Path, *, compress: int) -> None:
+    temporary = path.with_name(f".{path.name}.tmp")
+    joblib.dump(value, temporary, compress=compress)
+    temporary.replace(path)
+
+
+def _read_json(path: Path) -> dict[str, Any]:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise MeasurementUncertaintyError(
+            f"Resume JSON is missing or invalid: {path}."
+        ) from error
+    if not isinstance(value, dict):
+        raise MeasurementUncertaintyError(f"Resume JSON must be a mapping: {path}.")
+    return value
+
+
+def _json_fingerprint(value: Any) -> str:
+    payload = json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _case_fingerprint(selected_cases: pd.DataFrame) -> str:
+    return hashlib.sha256(
+        selected_cases.to_json(
+            orient="split",
+            date_format="iso",
+            double_precision=15,
+        ).encode("utf-8")
+    ).hexdigest()
+
+
+def _scenario_fingerprint(scenarios: tuple[Scenario, ...]) -> str:
+    return _json_fingerprint(
+        [
+            {
+                "name": value.name,
+                "photon": value.photon,
+                "thickness": value.thickness,
+                "beam_center": value.beam_center,
+                "detector_distance": value.detector_distance,
+                "beam_center_scale": value.beam_center_scale,
+                "detector_distance_scale": value.detector_distance_scale,
+            }
+            for value in scenarios
+        ]
+    )
+
+
+def _computational_config_fingerprint(config: dict[str, Any]) -> str:
+    value = copy.deepcopy(config)
+    value.setdefault("output", {}).pop("resume_run_folder", None)
+    return _json_fingerprint(value)
+
+
+def _base_resume_identity(
+    config: dict[str, Any],
+    *,
+    model_path: Path,
+    data_version: dict[str, Any],
+    scenarios: tuple[Scenario, ...],
+) -> dict[str, str]:
+    return {
+        "config_fingerprint": _computational_config_fingerprint(config),
+        "model_fingerprint": file_sha256(model_path),
+        "data_fingerprint": _json_fingerprint(data_version),
+        "scenario_fingerprint": _scenario_fingerprint(scenarios),
+    }
+
+
+def _cache_record(run_folder: Path, filename: str) -> dict[str, Any]:
+    path = run_folder / filename
+    return {
+        "filename": filename,
+        "sha256": file_sha256(path),
+        "size_bytes": path.stat().st_size,
+    }
+
+
+def _initialize_run_checkpoint(
+    run_folder: Path,
+    *,
+    base_identity: dict[str, str],
+    selected_frame: pd.DataFrame,
+    selected_cases: pd.DataFrame,
+    parity: pd.DataFrame,
+    probability_shape: tuple[int, int, int],
+) -> RunCheckpoint:
+    state_path = run_folder / RUN_STATE_FILENAME
+    if state_path.exists():
+        raise MeasurementUncertaintyError(
+            "New run folder already contains resumable state."
+        )
+    _atomic_joblib_dump(
+        selected_frame, run_folder / SELECTED_FRAME_CACHE, compress=0
+    )
+    _atomic_joblib_dump(
+        selected_cases, run_folder / SELECTED_CASES_CACHE, compress=3
+    )
+    _atomic_joblib_dump(parity, run_folder / PYFAI_PARITY_CACHE, compress=3)
+    caches = {
+        "selected_frame": _cache_record(run_folder, SELECTED_FRAME_CACHE),
+        "selected_cases": _cache_record(run_folder, SELECTED_CASES_CACHE),
+        "pyfai_parity": _cache_record(run_folder, PYFAI_PARITY_CACHE),
+    }
+    identity = {
+        **base_identity,
+        "case_fingerprint": _case_fingerprint(selected_cases),
+        "selected_frame_fingerprint": caches["selected_frame"]["sha256"],
+    }
+    run_fingerprint = _json_fingerprint(
+        {
+            **identity,
+            "probability_shape": list(probability_shape),
+            "probability_dtype": "float32",
+        }
+    )
+    state = {
+        "contract": RESUME_CONTRACT,
+        "run_fingerprint": run_fingerprint,
+        "identity": identity,
+        "probability_shape": list(probability_shape),
+        "probability_dtype": "float32",
+        "caches": caches,
+        "created_at": datetime.now(UTC).isoformat(),
+    }
+    probabilities = np.lib.format.open_memmap(
+        run_folder / PROBABILITY_FILENAME,
+        mode="w+",
+        dtype=np.float32,
+        shape=probability_shape,
+    )
+    probabilities[:] = np.nan
+    probabilities.flush()
+    progress = {
+        "contract": RESUME_CONTRACT,
+        "run_fingerprint": run_fingerprint,
+        "status": "running",
+        "completed_units": {},
+        "updated_at": datetime.now(UTC).isoformat(),
+    }
+    _atomic_write_json(run_folder / PROGRESS_FILENAME, progress)
+    _atomic_write_json(state_path, state)
+    return RunCheckpoint(run_folder, state, progress, probabilities)
+
+
+def _validate_resume_identity(
+    state: dict[str, Any], expected_base_identity: dict[str, str]
+) -> None:
+    if state.get("contract") != RESUME_CONTRACT:
+        raise MeasurementUncertaintyError("Resume state contract mismatch.")
+    identity = state.get("identity")
+    if not isinstance(identity, dict):
+        raise MeasurementUncertaintyError("Resume state identity is missing.")
+    mismatches = [
+        key
+        for key, expected in expected_base_identity.items()
+        if identity.get(key) != expected
+    ]
+    if mismatches:
+        raise MeasurementUncertaintyError(
+            "Resume fingerprint mismatch: " + ", ".join(sorted(mismatches)) + "."
+        )
+
+
+def _load_resume_cache(
+    run_folder: Path,
+    state: dict[str, Any],
+    cache_name: str,
+) -> Any:
+    record = state.get("caches", {}).get(cache_name)
+    if not isinstance(record, dict):
+        raise MeasurementUncertaintyError(f"Resume cache record missing: {cache_name}.")
+    path = run_folder / str(record.get("filename", ""))
+    if not path.is_file() or path.stat().st_size != int(record.get("size_bytes", -1)):
+        raise MeasurementUncertaintyError(f"Resume cache missing: {cache_name}.")
+    if file_sha256(path) != record.get("sha256"):
+        raise MeasurementUncertaintyError(
+            f"Resume cache fingerprint mismatch: {cache_name}."
+        )
+    return joblib.load(path)
+
+
+def _open_run_checkpoint(
+    run_folder: Path,
+    *,
+    expected_base_identity: dict[str, str],
+    probability_shape: tuple[int, int, int] | None = None,
+) -> tuple[RunCheckpoint, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    state = _read_json(run_folder / RUN_STATE_FILENAME)
+    _validate_resume_identity(state, expected_base_identity)
+    selected_frame = _load_resume_cache(run_folder, state, "selected_frame")
+    selected_cases = _load_resume_cache(run_folder, state, "selected_cases")
+    parity = _load_resume_cache(run_folder, state, "pyfai_parity")
+    if not all(isinstance(value, pd.DataFrame) for value in (selected_frame, selected_cases, parity)):
+        raise MeasurementUncertaintyError("Resume caches must contain DataFrames.")
+    identity = state["identity"]
+    if _case_fingerprint(selected_cases) != identity.get("case_fingerprint"):
+        raise MeasurementUncertaintyError("Resume case fingerprint mismatch.")
+    if state["caches"]["selected_frame"]["sha256"] != identity.get(
+        "selected_frame_fingerprint"
+    ):
+        raise MeasurementUncertaintyError("Resume selected-frame fingerprint mismatch.")
+    state_shape = tuple(int(value) for value in state.get("probability_shape", ()))
+    if probability_shape is not None and state_shape != probability_shape:
+        raise MeasurementUncertaintyError("Resume probability shape mismatch.")
+    expected_run_fingerprint = _json_fingerprint(
+        {
+            **identity,
+            "probability_shape": list(state_shape),
+            "probability_dtype": state.get("probability_dtype"),
+        }
+    )
+    if state.get("run_fingerprint") != expected_run_fingerprint:
+        raise MeasurementUncertaintyError("Resume run-state fingerprint mismatch.")
+    probabilities = np.lib.format.open_memmap(
+        run_folder / PROBABILITY_FILENAME,
+        mode="r+",
+    )
+    if probabilities.shape != state_shape or probabilities.dtype != np.dtype(np.float32):
+        raise MeasurementUncertaintyError("Resume probability memmap contract mismatch.")
+    progress = _read_json(run_folder / PROGRESS_FILENAME)
+    if (
+        progress.get("contract") != RESUME_CONTRACT
+        or progress.get("run_fingerprint") != state.get("run_fingerprint")
+        or not isinstance(progress.get("completed_units"), dict)
+    ):
+        raise MeasurementUncertaintyError("Resume progress fingerprint mismatch.")
+    return (
+        RunCheckpoint(run_folder, state, progress, probabilities),
+        selected_frame,
+        selected_cases,
+        parity,
+    )
+
+
 def run_joint_measurement_uncertainty_from_config(
     config_path: str | Path,
     *,
@@ -87,6 +510,9 @@ def run_joint_measurement_uncertainty_from_config(
     started = perf_counter()
     path = Path(config_path).expanduser().resolve()
     config = _load_config(path)
+    profile_max_tolerance, profile_p99_tolerance = _profile_parity_tolerances(
+        config["validation"]
+    )
     input_h5_path = _resolve_path(config["input"]["input_h5_path"], path)
     model_path = _resolve_path(config["input"]["model_joblib_path"], path)
     data_version = verify_dvc_input(
@@ -102,58 +528,83 @@ def run_joint_measurement_uncertainty_from_config(
     )
     _verify_model_data_lineage(model_artifact, data_version)
     model_info = _frozen_model_info(model_artifact)
-    run_folder = _create_run_folder(config, path)
+    scenarios = tuple(_scenario(value) for value in config["scenarios"])
+    draws = int(config["monte_carlo"]["draws"])
+    base_resume_identity = _base_resume_identity(
+        config,
+        model_path=model_path,
+        data_version=data_version,
+        scenarios=scenarios,
+    )
+    resume_value = config.get("output", {}).get("resume_run_folder")
+    resuming = resume_value not in (None, "")
+    if resuming:
+        run_folder = _resolve_path(str(resume_value), path)
+        if not run_folder.is_dir():
+            raise MeasurementUncertaintyError(
+                f"Resume run folder does not exist: {run_folder}."
+            )
+    else:
+        run_folder = _create_run_folder(config, path)
     effective_preprocessing = _experimental_preprocessing_config(
         model_artifact,
         input_h5_path=input_h5_path,
         output_joblib_path=run_folder / "preprocessed_joint_uncertainty.joblib",
         data_version=data_version,
     )
-    cached_frame_value = config["input"].get(
-        "preprocessed_detector_frame_joblib_path"
-    )
-    if cached_frame_value:
-        dataframe = joblib.load(_resolve_path(cached_frame_value, path))
-        if not isinstance(dataframe, pd.DataFrame):
-            raise MeasurementUncertaintyError(
-                "Cached detector frame must be a pandas DataFrame."
-            )
-    else:
-        dataframe = run_preprocessing_pipeline(
-            input_h5_path,
-            effective_preprocessing,
-            verbose=verbose,
+    if resuming:
+        checkpoint, selected_frame, selected_cases, parity = _open_run_checkpoint(
+            run_folder,
+            expected_base_identity=base_resume_identity,
         )
-    selected_cases = _select_cases(dataframe, config["targets"])
-    patient_ids = selected_cases["patient_id"].astype(str).unique().tolist()
-    selected_frame = dataframe[
-        dataframe["patientId"].astype(str).isin(patient_ids)
-    ].reset_index(drop=True)
-    joblib.dump(
-        selected_frame,
-        run_folder / "selected_detector_frame.joblib",
-        compress=0,
-    )
-    parity = detector_integration_parity_check(
-        selected_frame,
-        measurement_count=int(config["validation"]["parity_measurements"]),
-        tolerance=float(config["validation"]["pyfai_parity_tolerance"]),
-    )
-    if not bool(parity["parity_pass"].all()):
-        raise MeasurementUncertaintyError(
-            "Prepared pyFAI integration does not reproduce product profiles."
+        expected_shape = (len(selected_cases), len(scenarios), draws)
+        if checkpoint.probabilities.shape != expected_shape:
+            raise MeasurementUncertaintyError("Resume probability shape mismatch.")
+    else:
+        cached_frame_value = config["input"].get(
+            "preprocessed_detector_frame_joblib_path"
+        )
+        if cached_frame_value:
+            dataframe = joblib.load(_resolve_path(cached_frame_value, path))
+            if not isinstance(dataframe, pd.DataFrame):
+                raise MeasurementUncertaintyError(
+                    "Cached detector frame must be a pandas DataFrame."
+                )
+        else:
+            dataframe = run_preprocessing_pipeline(
+                input_h5_path,
+                effective_preprocessing,
+                verbose=verbose,
+            )
+        selected_cases = _select_cases(dataframe, config["targets"])
+        patient_ids_for_cache = (
+            selected_cases["patient_id"].astype(str).unique().tolist()
+        )
+        selected_frame = dataframe[
+            dataframe["patientId"].astype(str).isin(patient_ids_for_cache)
+        ].reset_index(drop=True)
+        parity = detector_integration_parity_check(
+            selected_frame,
+            measurement_count=int(config["validation"]["parity_measurements"]),
+            tolerance=float(config["validation"]["pyfai_parity_tolerance"]),
+        )
+        if not bool(parity["parity_pass"].all()):
+            raise MeasurementUncertaintyError(
+                "Prepared pyFAI integration does not reproduce product profiles."
+            )
+        checkpoint = _initialize_run_checkpoint(
+            run_folder,
+            base_identity=base_resume_identity,
+            selected_frame=selected_frame,
+            selected_cases=selected_cases,
+            parity=parity,
+            probability_shape=(len(selected_cases), len(scenarios), draws),
         )
 
-    scenarios = tuple(_scenario(value) for value in config["scenarios"])
-    draws = int(config["monte_carlo"]["draws"])
+    patient_ids = selected_cases["patient_id"].astype(str).unique().tolist()
     quantiles = tuple(float(value) for value in config["monte_carlo"]["quantiles"])
-    probability_path = run_folder / "p_cancer_probability_cube.npy"
-    probabilities = np.lib.format.open_memmap(
-        probability_path,
-        mode="w+",
-        dtype=np.float32,
-        shape=(len(selected_cases), len(scenarios), draws),
-    )
+    probability_path = run_folder / PROBABILITY_FILENAME
+    probabilities = checkpoint.probabilities
     case_index = {
         str(case_id): index
         for index, case_id in enumerate(selected_cases["target_case_id"])
@@ -170,14 +621,6 @@ def run_joint_measurement_uncertainty_from_config(
         patient_cases = selected_cases[
             selected_cases["patient_id"].astype(str).eq(patient_id)
         ].reset_index(drop=True)
-        nuisance = sample_nuisance_draws(
-            patient_frame,
-            draws=draws,
-            seed=int(config["monte_carlo"]["seed"]),
-            thickness_config=config["nuisance"]["sample_thickness"],
-            beam_center_config=config["nuisance"]["beam_center"],
-            detector_distance_config=config["nuisance"]["detector_distance"],
-        )
         baseline_scores = _score_cases(
             patient_frame,
             patient_cases,
@@ -188,43 +631,110 @@ def run_joint_measurement_uncertainty_from_config(
             deterministic[index] = score["p_cancer"]
             thresholds[index] = score["threshold"]
 
-        for scenario_index, scenario in enumerate(scenarios):
-            patient_probabilities, patient_parity, patient_geometry = (
-                _run_patient_scenario(
-                    patient_frame,
-                    patient_cases,
-                    model_artifact=model_artifact,
-                    model_info=model_info,
-                    scenario=scenario,
-                    nuisance=nuisance,
-                    draws=draws,
-                    draw_chunk_size=int(config["execution"]["draw_chunk_size"]),
-                    profile_batch_size=int(
-                        config["execution"]["profile_batch_size"]
-                    ),
-                    geometry_audit_draws=int(
-                        config["execution"]["geometry_audit_draws"]
-                    ),
-                    normalization_q_range=tuple(
-                        float(value)
-                        for value in config["integration"]["normalization_q_range"]
-                    ),
-                    metal_parity_tolerance=float(
-                        config["validation"]["metal_parity_tolerance"]
-                    ),
-                    metal_p_cancer_parity_tolerance=float(
-                        config["validation"][
-                            "metal_p_cancer_parity_tolerance"
-                        ]
-                    ),
-                    random_seed=int(config["monte_carlo"]["seed"]),
-                )
+        draw_chunk_size = int(config["execution"]["draw_chunk_size"])
+        profile_batch_size = int(config["execution"]["profile_batch_size"])
+        geometry_audit_draws = int(config["execution"]["geometry_audit_draws"])
+        if geometry_audit_draws < 1:
+            raise MeasurementUncertaintyError(
+                "geometry_audit_draws must be positive for fail-closed parity."
             )
-            metal_parity_rows.extend(patient_parity)
-            geometry_rows.extend(patient_geometry)
-            for case_id, values in patient_probabilities.items():
-                probabilities[case_index[case_id], scenario_index] = values
-        probabilities.flush()
+        normalization_q_range = tuple(
+            float(value)
+            for value in config["integration"]["normalization_q_range"]
+        )
+        patient_case_ids = [
+            str(value) for value in patient_cases["target_case_id"].tolist()
+        ]
+        patient_case_indices = [case_index[value] for value in patient_case_ids]
+        incomplete_scenarios: list[tuple[int, Scenario]] = []
+        for scenario_index, scenario in enumerate(scenarios):
+            completed = checkpoint.completed_unit(
+                patient_id=patient_id,
+                scenario_name=scenario.name,
+                case_ids=patient_case_ids,
+                case_indices=patient_case_indices,
+                scenario_index=scenario_index,
+            )
+            if completed is None:
+                incomplete_scenarios.append((scenario_index, scenario))
+                continue
+            parity_rows = completed.get("parity_rows")
+            completed_geometry = completed.get("geometry_rows")
+            if not isinstance(parity_rows, list) or not isinstance(
+                completed_geometry, list
+            ):
+                raise MeasurementUncertaintyError(
+                    "Completed unit audit payload is invalid."
+                )
+            metal_parity_rows.extend(parity_rows)
+            geometry_rows.extend(completed_geometry)
+        if not incomplete_scenarios:
+            continue
+
+        nuisance = sample_nuisance_draws(
+            patient_frame,
+            draws=draws,
+            seed=int(config["monte_carlo"]["seed"]),
+            thickness_config=config["nuisance"]["sample_thickness"],
+            beam_center_config=config["nuisance"]["beam_center"],
+            detector_distance_config=config["nuisance"]["detector_distance"],
+        )
+        with _prepare_patient_metal_context(
+            patient_frame,
+            nuisance=nuisance,
+            draw_chunk_size=draw_chunk_size,
+            profile_batch_size=profile_batch_size,
+            normalization_q_range=normalization_q_range,
+        ) as metal_context:
+            for scenario_index, scenario in incomplete_scenarios:
+                patient_probabilities, patient_parity, patient_geometry = (
+                    _run_patient_scenario(
+                        patient_frame,
+                        patient_cases,
+                        model_artifact=model_artifact,
+                        model_info=model_info,
+                        metal_context=metal_context,
+                        scenario=scenario,
+                        nuisance=nuisance,
+                        draws=draws,
+                        draw_chunk_size=draw_chunk_size,
+                        geometry_audit_draws=geometry_audit_draws,
+                        normalization_q_range=normalization_q_range,
+                        metal_profile_max_tolerance=profile_max_tolerance,
+                        metal_profile_p99_tolerance=profile_p99_tolerance,
+                        metal_p_cancer_parity_tolerance=float(
+                            config["validation"][
+                                "metal_p_cancer_parity_tolerance"
+                            ]
+                        ),
+                        random_seed=int(config["monte_carlo"]["seed"]),
+                    )
+                )
+                checkpoint.complete_unit(
+                    patient_id=patient_id,
+                    scenario_name=scenario.name,
+                    scenario_index=scenario_index,
+                    case_values=patient_probabilities,
+                    case_index=case_index,
+                    parity_rows=patient_parity,
+                    geometry_rows=patient_geometry,
+                )
+                metal_parity_rows.extend(patient_parity)
+                geometry_rows.extend(patient_geometry)
+
+    expected_unit_ids = {
+        checkpoint.unit_id(patient_id, scenario.name)
+        for patient_id in patient_ids
+        for scenario in scenarios
+    }
+    if set(checkpoint.progress["completed_units"]) != expected_unit_ids:
+        raise MeasurementUncertaintyError(
+            "Run cannot finalize with incomplete patient/scenario units."
+        )
+    if not np.isfinite(probabilities).all():
+        raise MeasurementUncertaintyError(
+            "Run cannot finalize with partial probability values."
+        )
 
     case_table = selected_cases.copy()
     case_table["deterministic_p_cancer"] = deterministic
@@ -235,6 +745,13 @@ def run_joint_measurement_uncertainty_from_config(
         scenarios=scenarios,
         quantiles=quantiles,
     )
+    case_convergence = summarize_case_convergence(
+        probabilities,
+        case_table,
+        scenarios=scenarios,
+        quantiles=quantiles,
+    )
+    cohort_convergence = summarize_cohort_convergence(case_convergence)
     metadata_qc = thickness_metadata_audit(selected_frame)
     artifacts = _write_artifacts(
         run_folder,
@@ -245,6 +762,8 @@ def run_joint_measurement_uncertainty_from_config(
         model_path=model_path,
         selected_cases=case_table,
         summaries=summaries,
+        case_convergence=case_convergence,
+        cohort_convergence=cohort_convergence,
         parity=parity,
         metal_parity=pd.DataFrame(metal_parity_rows),
         geometry_draws=pd.DataFrame(geometry_rows),
@@ -252,6 +771,7 @@ def run_joint_measurement_uncertainty_from_config(
         scenarios=scenarios,
         elapsed_seconds=perf_counter() - started,
     )
+    checkpoint.mark_complete()
     mlflow = _log_mlflow(
         run_folder,
         config=config,
@@ -265,6 +785,7 @@ def run_joint_measurement_uncertainty_from_config(
         "probability_path": str(probability_path),
         "patients": len(patient_ids),
         "target_cases": len(selected_cases),
+        "resumed": resuming,
         "mlflow": mlflow,
         "manifest": artifacts["manifest"],
     }
@@ -335,16 +856,16 @@ def sample_nuisance_draws(
             float(detector_distance_config["half_width_mm"]),
             size=draws,
         )
-    photon_seeds = np.column_stack(
+    photon_seeds = np.asarray(
         [
             _keyed_rng(seed, "photon", _measurement_key(row)).integers(
                 0,
                 np.iinfo(np.uint64).max,
-                size=draws,
                 dtype=np.uint64,
             )
             for _, row in patient_frame.iterrows()
-        ]
+        ],
+        dtype=np.uint64,
     )
     return NuisanceDraws(
         thickness_delta_mm=thickness_delta,
@@ -369,6 +890,298 @@ def effective_detector_distance_m(
         + float(sample_thickness_delta_mm)
         - float(calibrant_thickness_mm)
     ) * 1e-3
+
+
+def _profile_parity_tolerances(validation: dict[str, Any]) -> tuple[float, float]:
+    required = (
+        "metal_profile_max_abs_tolerance",
+        "metal_profile_p99_abs_tolerance",
+    )
+    missing = [key for key in required if key not in validation]
+    if missing:
+        raise MeasurementUncertaintyError(
+            "Profile parity requires explicit max and p99 tolerances: "
+            + ", ".join(missing)
+            + "."
+        )
+    maximum, p99 = (float(validation[key]) for key in required)
+    if not np.isfinite((maximum, p99)).all() or maximum <= 0.0 or p99 <= 0.0:
+        raise MeasurementUncertaintyError(
+            "Profile parity tolerances must be finite and positive."
+        )
+    return maximum, p99
+
+
+def _profile_parity_metrics(
+    actual: np.ndarray,
+    expected: np.ndarray,
+    q_grid: np.ndarray,
+    *,
+    draw_start: int,
+    maximum_tolerance: float,
+    p99_tolerance: float,
+) -> dict[str, Any]:
+    absolute_errors = np.abs(np.asarray(actual) - np.asarray(expected))
+    if absolute_errors.ndim != 3 or absolute_errors.shape[2] != q_grid.size:
+        raise ValueError("Profile parity arrays must have shape (draw, measurement, q).")
+    maximum_error = float(np.max(absolute_errors))
+    p99_error = float(np.quantile(absolute_errors, 0.99))
+    maximum_location = np.unravel_index(
+        int(np.argmax(absolute_errors)), absolute_errors.shape
+    )
+    return {
+        "maximum_absolute_error": maximum_error,
+        "p99_absolute_error": p99_error,
+        "maximum_error_draw_index": draw_start + int(maximum_location[0]),
+        "maximum_error_measurement_index": int(maximum_location[1]),
+        "maximum_error_q_nm_inv": float(q_grid[int(maximum_location[2])]),
+        "profile_max_abs_tolerance": maximum_tolerance,
+        "profile_p99_abs_tolerance": p99_tolerance,
+        "parity_pass": bool(
+            maximum_error <= maximum_tolerance and p99_error <= p99_tolerance
+        ),
+    }
+
+
+def _prepare_patient_metal_context(
+    patient_frame: pd.DataFrame,
+    *,
+    nuisance: NuisanceDraws,
+    draw_chunk_size: int,
+    profile_batch_size: int,
+    normalization_q_range: tuple[float, float],
+) -> PatientMetalContext:
+    try:
+        from xrdanalysis.direct_monte_carlo_geometry_metal import (
+            GeometryAwareMetalMonteCarlo,
+            MetalDetectorGeometry,
+        )
+    except ImportError as error:
+        raise RuntimeError(
+            "Joint uncertainty requires xrd-analysis commit 1e6199cb or later."
+        ) from error
+
+    measurements = len(patient_frame)
+    if nuisance.photon_measurement_seeds.shape != (measurements,):
+        raise MeasurementUncertaintyError(
+            "Photon seeds must contain one stable seed per measurement."
+        )
+    images: list[np.ndarray] = []
+    masks: list[np.ndarray] = []
+    geometries: list[Any] = []
+    q_rows: list[np.ndarray] = []
+    geometry_rows: list[dict[str, float]] = []
+    sample_thickness: list[float] = []
+    calibrant_thickness: list[float] = []
+    for _, row in patient_frame.iterrows():
+        image = _centered_poisson_observation(
+            row[RAW_FRAME_COLUMN], row[MASK_COLUMN]
+        )
+        context, geometry = _perturbed_context(
+            row,
+            thickness_delta_mm=0.0,
+            center_row_delta_px=0.0,
+            center_col_delta_px=0.0,
+            distance_delta_mm=0.0,
+        )
+        q = np.asarray(row["q_range"], dtype=float).ravel()
+        if q.size != context.npt or not np.isfinite(q).all():
+            raise MeasurementUncertaintyError(
+                "Product q grid is missing or incompatible with Metal integration."
+            )
+        images.append(image)
+        masks.append(context.mask)
+        geometries.append(MetalDetectorGeometry.from_pyfai(context.integrator))
+        q_rows.append(q)
+        geometry_rows.append(geometry)
+        sample_thickness.append(float(row["sample_thickness_mm"]))
+        calibrant_thickness.append(float(row["calibrant_thickness_mm"]))
+
+    q_grid = q_rows[0]
+    if any(
+        not np.allclose(q, q_grid, rtol=0.0, atol=1e-12) for q in q_rows[1:]
+    ):
+        raise MeasurementUncertaintyError(
+            "Patient measurements do not share the fixed product q grid."
+        )
+    nominal_distance = np.asarray(
+        [row["effective_detector_distance_m"] for row in geometry_rows],
+        dtype=float,
+    )
+    sample_values = np.asarray(sample_thickness, dtype=float)
+    calibrant_values = np.asarray(calibrant_thickness, dtype=float)
+    poni_distance = nominal_distance + 0.5 * (
+        sample_values - calibrant_values
+    ) * 1e-3
+    session = GeometryAwareMetalMonteCarlo(
+        np.stack(images),
+        np.stack(masks),
+        geometries,
+        q_grid,
+        normalization_q_range,
+        measurement_seeds=nuisance.photon_measurement_seeds,
+        scale_capacity=1,
+        draw_capacity=draw_chunk_size,
+        profile_batch_size=profile_batch_size,
+    )
+    return PatientMetalContext(
+        session=session,
+        q_grid=q_grid.copy(),
+        images=np.stack(images),
+        poni_distance_m=poni_distance,
+        sample_thickness_mm=sample_values,
+        calibrant_thickness_mm=calibrant_values,
+        poni1_m=np.asarray([row["poni1_m"] for row in geometry_rows], dtype=float),
+        poni2_m=np.asarray([row["poni2_m"] for row in geometry_rows], dtype=float),
+        pixel1_m=np.asarray([row["pixel1_m"] for row in geometry_rows], dtype=float),
+        pixel2_m=np.asarray([row["pixel2_m"] for row in geometry_rows], dtype=float),
+    )
+
+
+def _scenario_component_deltas(
+    scenario: Scenario,
+    nuisance: NuisanceDraws,
+    *,
+    start: int,
+    stop: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    shape = (stop - start, nuisance.thickness_delta_mm.shape[1])
+    zeros = np.zeros(shape, dtype=float)
+    thickness = nuisance.thickness_delta_mm[start:stop] if scenario.thickness else zeros
+    row = (
+        nuisance.beam_center_row_delta_px[start:stop]
+        * scenario.beam_center_scale
+        if scenario.beam_center
+        else zeros
+    )
+    column = (
+        nuisance.beam_center_col_delta_px[start:stop]
+        * scenario.beam_center_scale
+        if scenario.beam_center
+        else zeros
+    )
+    distance = (
+        nuisance.detector_distance_delta_mm[start:stop]
+        * scenario.detector_distance_scale
+        if scenario.detector_distance
+        else zeros
+    )
+    return thickness, row, column, distance
+
+
+def _scenario_geometry_arrays(
+    metal_context: PatientMetalContext,
+    scenario: Scenario,
+    nuisance: NuisanceDraws,
+    *,
+    start: int,
+    stop: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    thickness, row, column, distance = _scenario_component_deltas(
+        scenario,
+        nuisance,
+        start=start,
+        stop=stop,
+    )
+    effective_distance = (
+        metal_context.poni_distance_m[np.newaxis, :]
+        + distance * 1e-3
+        - 0.5
+        * (
+            metal_context.sample_thickness_mm[np.newaxis, :]
+            + thickness
+            - metal_context.calibrant_thickness_mm[np.newaxis, :]
+        )
+        * 1e-3
+    )
+    if np.any(effective_distance <= 0.0):
+        raise MeasurementUncertaintyError("Perturbed detector distance is non-positive.")
+    poni1 = (
+        metal_context.poni1_m[np.newaxis, :]
+        + row * metal_context.pixel1_m[np.newaxis, :]
+    )
+    poni2 = (
+        metal_context.poni2_m[np.newaxis, :]
+        + column * metal_context.pixel2_m[np.newaxis, :]
+    )
+    return tuple(
+        np.ascontiguousarray(values, dtype=np.float64)
+        for values in (effective_distance, poni1, poni2)
+    )
+
+
+def _pyfai_oracle_profiles(
+    patient_frame: pd.DataFrame,
+    *,
+    scenario: Scenario,
+    nuisance: NuisanceDraws,
+    start: int,
+    stop: int,
+    q_grid: np.ndarray,
+    normalization_q_range: tuple[float, float],
+) -> tuple[np.ndarray, list[dict[str, Any]]]:
+    thickness, row_delta, column_delta, distance_delta = (
+        _scenario_component_deltas(scenario, nuisance, start=start, stop=stop)
+    )
+    expected = np.empty(
+        (stop - start, len(patient_frame), q_grid.size), dtype=float
+    )
+    geometry_rows: list[dict[str, Any]] = []
+    for local_draw, draw_index in enumerate(range(start, stop)):
+        for measurement_index, (_, row) in enumerate(patient_frame.iterrows()):
+            context, geometry = _perturbed_context(
+                row,
+                thickness_delta_mm=float(thickness[local_draw, measurement_index]),
+                center_row_delta_px=float(row_delta[local_draw, measurement_index]),
+                center_col_delta_px=float(column_delta[local_draw, measurement_index]),
+                distance_delta_mm=float(distance_delta[local_draw, measurement_index]),
+            )
+            result = context.integrator.integrate1d(
+                _centered_poisson_observation(
+                    row[RAW_FRAME_COLUMN], row[MASK_COLUMN]
+                ),
+                context.npt,
+                radial_range=context.radial_range,
+                azimuth_range=context.azimuth_range,
+                mask=context.mask,
+                error_model="poisson",
+            )
+            q = np.asarray(result.radial, dtype=float)
+            intensity = np.asarray(result.intensity, dtype=float)
+            normalization = np.asarray(result.sum_normalization, dtype=float)
+            supported = np.isfinite(normalization) & (normalization > 0.0)
+            normalization_band = (
+                (q >= normalization_q_range[0])
+                & (q <= normalization_q_range[1])
+            )
+            if not np.all(supported):
+                raise MeasurementUncertaintyError(
+                    "Perturbed pyFAI oracle has unsupported product q bins."
+                )
+            if not np.all(supported[normalization_band]):
+                raise MeasurementUncertaintyError(
+                    "Perturbed pyFAI oracle has unsupported normalization bins."
+                )
+            if not np.allclose(q, q_grid, rtol=0.0, atol=1e-12):
+                raise MeasurementUncertaintyError(
+                    "Perturbed pyFAI oracle changed the fixed product q grid."
+                )
+            expected[local_draw, measurement_index] = normalize_profile(
+                q, intensity, q_range=normalization_q_range
+            )
+            geometry_rows.append(
+                {
+                    "patient_id": str(row["patientId"]),
+                    "specimen_id": str(row["specimenId"]),
+                    "scenario": scenario.name,
+                    "draw_index": draw_index,
+                    "measurement_index": measurement_index,
+                    "supported_q_bin_fraction": float(np.mean(supported)),
+                    "normalization_band_supported": True,
+                    **geometry,
+                }
+            )
+    return expected, geometry_rows
 
 
 def summarize_case_uncertainty(
@@ -404,16 +1217,70 @@ def summarize_case_uncertainty(
                     "p_cancer_p50": median,
                     "p_cancer_p975": upper,
                     "interval_width": upper - lower,
-                    "probability_at_or_above_threshold": float(
+                    "scenario_draw_fraction_at_or_above_threshold": float(
                         np.mean(draws >= threshold)
                     ),
-                    "class_flip_probability": float(
+                    "scenario_class_flip_fraction": float(
                         np.mean((draws >= threshold) != baseline_class)
                     ),
                     "threshold_crossing": bool(lower < threshold <= upper),
                 }
             )
     return pd.DataFrame(rows)
+
+
+def convergence_draw_prefixes(draws: int) -> tuple[int, ...]:
+    """Return configured convergence checkpoints plus the final draw count."""
+    if draws < 1:
+        raise ValueError("draws must be positive.")
+    return tuple(
+        sorted({value for value in (250, 500, 1000, 2000, draws) if value <= draws})
+    )
+
+
+def summarize_case_convergence(
+    probabilities: np.ndarray,
+    case_table: pd.DataFrame,
+    *,
+    scenarios: tuple[Scenario, ...],
+    quantiles: tuple[float, float, float],
+) -> pd.DataFrame:
+    """Summarize case-level uncertainty at deterministic draw prefixes."""
+    values = np.asarray(probabilities)
+    prefixes = convergence_draw_prefixes(values.shape[2])
+    rows: list[pd.DataFrame] = []
+    for prefix in prefixes:
+        summary = summarize_case_uncertainty(
+            values[:, :, :prefix],
+            case_table,
+            scenarios=scenarios,
+            quantiles=quantiles,
+        )
+        summary.insert(5, "draw_prefix", prefix)
+        rows.append(summary)
+    return pd.concat(rows, ignore_index=True)
+
+
+def summarize_cohort_convergence(case_convergence: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate convergence by scenario without replacing case-level results."""
+    return (
+        case_convergence.groupby(["scenario", "draw_prefix"], sort=False)
+        .agg(
+            target_cases=("target_case_id", "size"),
+            median_interval_width=("interval_width", "median"),
+            mean_interval_width=("interval_width", "mean"),
+            mean_scenario_draw_fraction_at_or_above_threshold=(
+                "scenario_draw_fraction_at_or_above_threshold",
+                "mean",
+            ),
+            median_scenario_class_flip_fraction=(
+                "scenario_class_flip_fraction",
+                "median",
+            ),
+            threshold_crossing_fraction=("threshold_crossing", "mean"),
+        )
+        .reset_index()
+    )
 
 
 def thickness_metadata_audit(dataframe: pd.DataFrame) -> pd.DataFrame:
@@ -449,14 +1316,15 @@ def _run_patient_scenario(
     *,
     model_artifact: dict[str, Any],
     model_info: dict[str, Any],
+    metal_context: PatientMetalContext,
     scenario: Scenario,
     nuisance: NuisanceDraws,
     draws: int,
     draw_chunk_size: int,
-    profile_batch_size: int,
     geometry_audit_draws: int,
     normalization_q_range: tuple[float, float],
-    metal_parity_tolerance: float,
+    metal_profile_max_tolerance: float,
+    metal_profile_p99_tolerance: float,
     metal_p_cancer_parity_tolerance: float,
     random_seed: int,
 ) -> tuple[dict[str, np.ndarray], list[dict[str, Any]], list[dict[str, Any]]]:
@@ -464,26 +1332,28 @@ def _run_patient_scenario(
         str(case_id): np.empty(draws, dtype=np.float32)
         for case_id in patient_cases["target_case_id"]
     }
-    parity_rows: list[dict[str, Any]] = []
+    metal_audit_chunks: list[np.ndarray] = []
+    expected_audit_chunks: list[np.ndarray] = []
     geometry_rows: list[dict[str, Any]] = []
     for start in range(0, draws, draw_chunk_size):
         stop = min(draws, start + draw_chunk_size)
-        profiles, metal_nominal, expected, q_values, parity, geometry = (
+        profiles, metal_nominal, expected, q_values, geometry = (
             _metal_profile_chunk(
-            patient_frame,
-            scenario=scenario,
-            nuisance=nuisance,
-            start=start,
-            stop=stop,
-            profile_batch_size=profile_batch_size,
-            geometry_audit_draws=geometry_audit_draws,
-            normalization_q_range=normalization_q_range,
-            parity_tolerance=metal_parity_tolerance,
-            random_seed=random_seed,
+                patient_frame,
+                metal_context=metal_context,
+                scenario=scenario,
+                nuisance=nuisance,
+                start=start,
+                stop=stop,
+                geometry_audit_draws=geometry_audit_draws,
+                normalization_q_range=normalization_q_range,
+                random_seed=random_seed,
+            )
         )
-        )
-        parity_rows.extend(parity)
         geometry_rows.extend(geometry)
+        if metal_nominal.shape[0]:
+            metal_audit_chunks.append(metal_nominal)
+            expected_audit_chunks.append(expected)
         score_kwargs = {
             "patient_manifest": patient_frame,
             "q_grid": q_values,
@@ -491,42 +1361,89 @@ def _run_patient_scenario(
             "model_artifact": model_artifact,
         }
         scores = score_frozen_aramina_0_2_15_cube(profiles, **score_kwargs)
-        metal_scores = score_frozen_aramina_0_2_15_cube(
-            metal_nominal, **score_kwargs
-        )
-        expected_scores = score_frozen_aramina_0_2_15_cube(expected, **score_kwargs)
-        maximum_score_error = float(
-            np.max(np.abs(metal_scores.p_cancer - expected_scores.p_cancer))
-        )
         for target_index, case_id in enumerate(scores.target_case_ids):
             case_values[case_id][start:stop] = scores.p_cancer[:, target_index]
-        parity[-1]["maximum_absolute_p_cancer_error"] = maximum_score_error
-        parity[-1]["p_cancer_parity_tolerance"] = (
-            metal_p_cancer_parity_tolerance
+    if not metal_audit_chunks:
+        raise MeasurementUncertaintyError(
+            "No geometry audit draws were produced for fail-closed parity."
         )
-        parity[-1]["p_cancer_parity_pass"] = bool(
-            maximum_score_error <= metal_p_cancer_parity_tolerance
+    metal_audit = np.concatenate(metal_audit_chunks, axis=0)
+    expected_audit = np.concatenate(expected_audit_chunks, axis=0)
+    profile_metrics = _profile_parity_metrics(
+        metal_audit,
+        expected_audit,
+        metal_context.q_grid,
+        draw_start=0,
+        maximum_tolerance=metal_profile_max_tolerance,
+        p99_tolerance=metal_profile_p99_tolerance,
+    )
+    parity = {
+        "patient_id": str(patient_frame["patientId"].iloc[0]),
+        "scenario": scenario.name,
+        "draw_start": 0,
+        "draw_stop": int(metal_audit.shape[0]),
+        "oracle_draws": int(metal_audit.shape[0]),
+        **profile_metrics,
+        "persistent_session_reused": True,
+    }
+    if not profile_metrics["parity_pass"]:
+        raise MeasurementUncertaintyError(
+            "Metal profile parity exceeds configured max/p99 tolerances: "
+            f"max {profile_metrics['maximum_absolute_error']:.8g}, "
+            f"limit {metal_profile_max_tolerance:.8g}; "
+            f"p99 {profile_metrics['p99_absolute_error']:.8g}, "
+            f"limit {metal_profile_p99_tolerance:.8g}."
         )
-        if maximum_score_error > metal_p_cancer_parity_tolerance:
-            raise MeasurementUncertaintyError(
-                "Metal p_cancer parity exceeds configured tolerance: "
-                f"{maximum_score_error:.8g} > "
-                f"{metal_p_cancer_parity_tolerance:.8g}."
-            )
-    return case_values, parity_rows, geometry_rows
+    audit_kwargs = {
+        "patient_manifest": patient_frame,
+        "q_grid": metal_context.q_grid,
+        "target_manifest": patient_cases,
+        "model_artifact": model_artifact,
+    }
+    metal_scores = score_frozen_aramina_0_2_15_cube(
+        metal_audit, **audit_kwargs
+    )
+    expected_scores = score_frozen_aramina_0_2_15_cube(
+        expected_audit, **audit_kwargs
+    )
+    maximum_score_error = float(
+        np.max(np.abs(metal_scores.p_cancer - expected_scores.p_cancer))
+    )
+    decision_class_equal = bool(
+        np.array_equal(
+            metal_scores.p_cancer >= metal_scores.threshold,
+            expected_scores.p_cancer >= expected_scores.threshold,
+        )
+    )
+    parity["maximum_absolute_p_cancer_error"] = maximum_score_error
+    parity["p_cancer_parity_tolerance"] = metal_p_cancer_parity_tolerance
+    parity["p_cancer_parity_pass"] = bool(
+        maximum_score_error <= metal_p_cancer_parity_tolerance
+    )
+    parity["decision_class_equal"] = decision_class_equal
+    if not decision_class_equal:
+        raise MeasurementUncertaintyError(
+            "Metal and pyFAI parity changed the audited decision class."
+        )
+    if maximum_score_error > metal_p_cancer_parity_tolerance:
+        raise MeasurementUncertaintyError(
+            "Metal p_cancer parity exceeds configured tolerance: "
+            f"{maximum_score_error:.8g} > "
+            f"{metal_p_cancer_parity_tolerance:.8g}."
+        )
+    return case_values, [parity], geometry_rows
 
 
 def _metal_profile_chunk(
     patient_frame: pd.DataFrame,
     *,
+    metal_context: PatientMetalContext,
     scenario: Scenario,
     nuisance: NuisanceDraws,
     start: int,
     stop: int,
-    profile_batch_size: int,
     geometry_audit_draws: int,
     normalization_q_range: tuple[float, float],
-    parity_tolerance: float,
     random_seed: int,
 ) -> tuple[
     np.ndarray,
@@ -534,161 +1451,67 @@ def _metal_profile_chunk(
     np.ndarray,
     np.ndarray,
     list[dict[str, Any]],
-    list[dict[str, Any]],
 ]:
-    try:
-        from xrdanalysis.direct_monte_carlo import prepare_native_plan
-        from xrdanalysis.direct_monte_carlo_metal import prepare_metal_plan
-        from xrdanalysis.direct_monte_carlo_metal_session import (
-            GroupedPersistentMetalMonteCarlo,
-        )
-    except ImportError as error:
-        raise RuntimeError(
-            "Joint uncertainty requires xrd-analysis direct-MC sources."
-        ) from error
-
-    images: list[np.ndarray] = []
-    plans: list[Any] = []
-    q_rows: list[np.ndarray] = []
-    expected_rows: list[np.ndarray] = []
-    measurement_seeds: list[int] = []
-    geometry_rows: list[dict[str, Any]] = []
-    measurements = len(patient_frame)
-    for draw_index in range(start, stop):
-        for measurement_index, (_, row) in enumerate(patient_frame.iterrows()):
-            image = _centered_poisson_observation(
-                row[RAW_FRAME_COLUMN], row[MASK_COLUMN]
-            )
-            thickness_delta = (
-                float(nuisance.thickness_delta_mm[draw_index, measurement_index])
-                if scenario.thickness
-                else 0.0
-            )
-            row_delta = (
-                float(
-                    nuisance.beam_center_row_delta_px[
-                        draw_index, measurement_index
-                    ]
-                )
-                * scenario.beam_center_scale
-                if scenario.beam_center
-                else 0.0
-            )
-            col_delta = (
-                float(
-                    nuisance.beam_center_col_delta_px[
-                        draw_index, measurement_index
-                    ]
-                )
-                * scenario.beam_center_scale
-                if scenario.beam_center
-                else 0.0
-            )
-            distance_delta = (
-                float(
-                    nuisance.detector_distance_delta_mm[
-                        draw_index, measurement_index
-                    ]
-                )
-                * scenario.detector_distance_scale
-                if scenario.detector_distance
-                else 0.0
-            )
-            context, geometry = _perturbed_context(
-                row,
-                thickness_delta_mm=thickness_delta,
-                center_row_delta_px=row_delta,
-                center_col_delta_px=col_delta,
-                distance_delta_mm=distance_delta,
-            )
-            baseline = context.integrator.integrate1d(
-                image,
-                context.npt,
-                radial_range=context.radial_range,
-                azimuth_range=context.azimuth_range,
-                mask=context.mask,
-                error_model="poisson",
-            )
-            q = np.asarray(baseline.radial, dtype=float)
-            intensity = np.asarray(baseline.intensity, dtype=float)
-            native_plan = prepare_native_plan(
-                context.integrator,
-                image.shape,
-                normalization_denominators=baseline.sum_normalization,
-                q_grid=q,
-                q_normalization_band=normalization_q_range,
-            )
-            images.append(image)
-            plans.append(prepare_metal_plan(native_plan))
-            q_rows.append(q)
-            expected_rows.append(
-                normalize_profile(q, intensity, q_range=normalization_q_range)
-            )
-            measurement_seeds.append(
-                int(nuisance.photon_measurement_seeds[draw_index, measurement_index])
-            )
-            if draw_index < geometry_audit_draws:
-                geometry_rows.append(
-                    {
-                        "patient_id": str(row["patientId"]),
-                        "specimen_id": str(row["specimenId"]),
-                        "scenario": scenario.name,
-                        "draw_index": draw_index,
-                        "measurement_index": measurement_index,
-                        **geometry,
-                    }
-                )
-
-    with GroupedPersistentMetalMonteCarlo(
-        plans,
-        images,
-        measurement_seeds=measurement_seeds,
-        scale_capacity=1,
-        profile_batch_size=profile_batch_size,
-    ) as session:
-        integrated = session.integrate()
-        metal_nominal = integrated.copy()
-        parity_errors = np.max(
-            np.abs(integrated - np.asarray(expected_rows)), axis=1
-        )
-        if float(np.max(parity_errors)) > parity_tolerance:
-            raise MeasurementUncertaintyError(
-                "Metal integration parity exceeds configured tolerance: "
-                f"{float(np.max(parity_errors)):.8g} > {parity_tolerance:.8g}."
-            )
-        if scenario.photon:
-            integrated = session.run((1.0,), 1, seed=random_seed)[0, 0]
-
-    parity_rows = [
-        {
-            "patient_id": str(patient_frame["patientId"].iloc[0]),
-            "scenario": scenario.name,
-            "draw_start": start,
-            "draw_stop": stop,
-            "maximum_absolute_error": float(np.max(parity_errors)),
-            "parity_tolerance": parity_tolerance,
-            "distinct_integration_plans": int(session.group_count),
-            "parity_pass": bool(float(np.max(parity_errors)) <= parity_tolerance),
-        }
-    ]
-    q_cube = np.asarray(q_rows).reshape(stop - start, measurements, -1)
-    if not np.allclose(q_cube, q_cube[0], rtol=0.0, atol=1e-12):
-        raise MeasurementUncertaintyError(
-            "Perturbed geometry changed the fixed product q grid."
-        )
-    profile_cube = np.asarray(integrated).reshape(stop - start, measurements, -1)
-    metal_nominal_cube = np.asarray(metal_nominal).reshape(
-        stop - start, measurements, -1
+    distance, poni1, poni2 = _scenario_geometry_arrays(
+        metal_context,
+        scenario,
+        nuisance,
+        start=start,
+        stop=stop,
     )
-    expected_cube = np.asarray(expected_rows).reshape(
-        stop - start, measurements, -1
-    )
+    integration_kwargs = {
+        "effective_distance_m": distance,
+        "poni1_m": poni1,
+        "poni2_m": poni2,
+        "draw_offset": start,
+        "draw_chunk_size": stop - start,
+    }
+    if scenario.photon:
+        profile_cube = metal_context.session.run(
+            (1.0,),
+            stop - start,
+            seed=random_seed,
+            **integration_kwargs,
+        )[0]
+    else:
+        profile_cube = metal_context.session.integrate(
+            stop - start,
+            **integration_kwargs,
+        )
+
+    audit_stop = min(stop, geometry_audit_draws)
+    if start < audit_stop:
+        audit_count = audit_stop - start
+        audit_distance = distance[:audit_count]
+        audit_poni1 = poni1[:audit_count]
+        audit_poni2 = poni2[:audit_count]
+        metal_nominal_cube = metal_context.session.integrate(
+            audit_count,
+            effective_distance_m=audit_distance,
+            poni1_m=audit_poni1,
+            poni2_m=audit_poni2,
+            draw_offset=start,
+            draw_chunk_size=audit_count,
+        )
+        expected_cube, geometry_rows = _pyfai_oracle_profiles(
+            patient_frame,
+            scenario=scenario,
+            nuisance=nuisance,
+            start=start,
+            stop=audit_stop,
+            q_grid=metal_context.q_grid,
+            normalization_q_range=normalization_q_range,
+        )
+    else:
+        empty_shape = (0, len(patient_frame), metal_context.q_grid.size)
+        metal_nominal_cube = np.empty(empty_shape, dtype=float)
+        expected_cube = np.empty(empty_shape, dtype=float)
+        geometry_rows = []
     return (
         profile_cube,
         metal_nominal_cube,
         expected_cube,
-        q_cube[0],
-        parity_rows,
+        metal_context.q_grid,
         geometry_rows,
     )
 
@@ -889,6 +1712,8 @@ def _write_artifacts(
     model_path: Path,
     selected_cases: pd.DataFrame,
     summaries: pd.DataFrame,
+    case_convergence: pd.DataFrame,
+    cohort_convergence: pd.DataFrame,
     parity: pd.DataFrame,
     metal_parity: pd.DataFrame,
     geometry_draws: pd.DataFrame,
@@ -904,6 +1729,12 @@ def _write_artifacts(
     shutil.copy2(pointer, run_folder / "dvc_data_pointer.dvc")
     selected_cases.to_csv(run_folder / "selected_cases.csv", index=False)
     summaries.to_csv(run_folder / "case_uncertainty_summary.csv", index=False)
+    case_convergence.to_csv(
+        run_folder / "case_uncertainty_convergence.csv", index=False
+    )
+    cohort_convergence.to_csv(
+        run_folder / "cohort_uncertainty_convergence.csv", index=False
+    )
     parity.to_csv(run_folder / "pyfai_parity.csv", index=False)
     metal_parity.to_csv(run_folder / "metal_parity.csv", index=False)
     geometry_draws.to_csv(run_folder / "geometry_draws.csv", index=False)
@@ -924,6 +1755,9 @@ def _write_artifacts(
         "patients": int(selected_cases["patient_id"].nunique()),
         "target_cases": len(selected_cases),
         "draws": int(config["monte_carlo"]["draws"]),
+        "convergence_draw_prefixes": list(
+            convergence_draw_prefixes(int(config["monte_carlo"]["draws"]))
+        ),
         "scenarios": [value.name for value in scenarios],
         "probability_values": int(
             len(selected_cases)
@@ -979,13 +1813,17 @@ def _log_mlflow(
         "dvc_data_pointer.dvc",
         "selected_cases.csv",
         "case_uncertainty_summary.csv",
+        "case_uncertainty_convergence.csv",
+        "cohort_uncertainty_convergence.csv",
         "pyfai_parity.csv",
         "metal_parity.csv",
         "geometry_draws.csv",
         "thickness_metadata_qc.csv",
         "lineage.json",
         "run_manifest.json",
-        "p_cancer_probability_cube.npy",
+        PROBABILITY_FILENAME,
+        RUN_STATE_FILENAME,
+        PROGRESS_FILENAME,
     ]
     with run:
         for step, scenario in enumerate(manifest["scenarios"]):
@@ -996,8 +1834,8 @@ def _log_mlflow(
                     "threshold_crossing_fraction": float(
                         subset["threshold_crossing"].mean()
                     ),
-                    "median_class_flip_probability": float(
-                        subset["class_flip_probability"].median()
+                    "median_scenario_class_flip_fraction": float(
+                        subset["scenario_class_flip_fraction"].median()
                     ),
                 },
                 step=step,
@@ -1015,9 +1853,12 @@ __all__ = [
     "CONTRACT",
     "NuisanceDraws",
     "Scenario",
+    "convergence_draw_prefixes",
     "effective_detector_distance_m",
     "run_joint_measurement_uncertainty_from_config",
     "sample_nuisance_draws",
+    "summarize_case_convergence",
     "summarize_case_uncertainty",
+    "summarize_cohort_convergence",
     "thickness_metadata_audit",
 ]

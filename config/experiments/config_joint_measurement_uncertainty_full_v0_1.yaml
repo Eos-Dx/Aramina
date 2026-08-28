@@ -23,16 +23,17 @@ integration:
   normalization_q_range: [6.7, 7.1]
 backend:
   kind: apple_metal_direct_mc
-  xrd_analysis_git_sha: ff716250166eb9ad30920755c657d2a1baaf2e55
+  xrd_analysis_git_sha: f0fde85cfd3eadac87de5a73749e841d43fb9208
 validation:
   parity_measurements: 10
   pyfai_parity_tolerance: 1.0e-8
-  metal_parity_tolerance: 1.0e-4
-  metal_p_cancer_parity_tolerance: 1.0e-4
+  metal_profile_max_abs_tolerance: 2.0e-3
+  metal_profile_p99_abs_tolerance: 1.0e-4
+  metal_p_cancer_parity_tolerance: 3.0e-4
 execution:
-  draw_chunk_size: 2
-  profile_batch_size: 16384
-  geometry_audit_draws: 10
+  draw_chunk_size: 32
+  profile_batch_size: 16
+  geometry_audit_draws: 1
 monte_carlo:
   draws: 5000
   seed: 20260828

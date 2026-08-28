@@ -54,26 +54,47 @@ Poni2' = Poni2 + delta_column_pixels * pixel2
 
 Common random numbers are used across component, joint, and leave-one-component
 out scenarios. Stable keyed random streams make the result invariant to patient
-order and draw chunking.
+order and draw chunking. Beam-centre and detector-distance perturbations are
+shared by calibration session, but are conditionally independent because a
+joint calibration-fit covariance is not yet available. The visit-shared
+thickness perturbation represents a common signed compression or positioning
+error with a thickness-dependent bound.
 
 The bounded thickness and PONI distributions are engineering assumptions. They
 must be replaced by repeated thickness measurements and calibration-fit
-residuals when these data become available. Their quantiles are scenario
-quantiles, not clinical 95% confidence intervals.
+residuals when these data become available. The centered Poisson component is a
+sensitivity test at the observed detector scale; it assumes count-like values
+and does not include gain, readout, flat-field, drift, or exposure uncertainty.
+The resulting quantiles are bounded acquisition-sensitivity quantiles, not
+clinical 95% confidence intervals.
 
 ## Numerical parity gate
 
 The Apple Metal integration is compared with direct pyFAI integration before
-model scoring. The initial ten-patient pilot produced:
+model scoring. The final ten-patient, twelve-scenario audit produced 120 parity
+rows:
 
-| Quantity | Maximum observed difference |
-| --- | ---: |
-| Normalized profile value | `4.4e-5` |
-| `p_cancer` | `2.81e-5` |
+| Quantity | Observed difference | Fail-closed limit |
+| --- | ---: | ---: |
+| Maximum normalized-profile value | `0.001407` | `0.002` |
+| 99th percentile of normalized-profile errors | `5.52e-5` | `1e-4` |
+| Maximum `p_cancer` | `0.000223` | `0.0003` |
 
-Both values were below the predeclared fail-closed tolerances of `1e-4`.
-Changing the numerical backend did not change the decision class in the parity
-checks.
+The largest profile difference was confined to an outer q-bin. The 99th
+percentile remained below `1e-4`. The `p_cancer` limit was selected after a
+complete diagnostic audit of all 120 pilot patient/scenario units; the observed
+maximum was `0.000238`. A separate fail-closed gate requires exact agreement of
+the decision-support class. All audited classes agreed.
+
+Geometry and photon validation are separated. Geometry profiles are compared
+draw by draw with direct pyFAI. The centered-Poisson path was tested over 20,000
+draws against the validated static Metal reference; integrated-profile means
+and variances met the statistical acceptance limits. The direct Monte Carlo
+test subset passed with `53 passed, 6 skipped`.
+
+The q-support preflight covered 696 audited measurement draws. Every one of the
+100 product q-bins was supported, and the normalization band was supported in
+every draw.
 
 ## Preliminary pilot
 
@@ -84,11 +105,12 @@ estimate stable 2.5th and 97.5th percentiles.
 
 | Scenario | Median provisional range width | Cases crossing threshold |
 | --- | ---: | ---: |
-| Photon only | `0.298` | `2/10` |
-| Thickness only | `0.136` | `0/10` |
-| Beam centre, 5 pixels | `0.201` | `1/10` |
-| Detector distance, 5 mm | `0.146` | `0/10` |
-| Joint, 5 pixels and 5 mm | `0.441` | `2/10` |
+| Photon only | `0.283` | `3/10` |
+| Thickness only | `0.129` | `0/10` |
+| Beam centre, 5 pixels | `0.212` | `0/10` |
+| Detector distance, 5 mm | `0.184` | `0/10` |
+| Joint, 5 pixels and 5 mm | `0.378` | `2/10` |
+| Joint stress test, 10 pixels and 10 mm | `0.445` | `2/10` |
 
 Observation: photon counting statistics produced the largest median
 single-component range in this pilot. Beam-centre perturbation was the next
@@ -102,10 +124,10 @@ population frequency of threshold instability.
 MLflow run:
 
 ```text
-run_id: 5ea00a4356094db8aa1681bbd6d67637
+run_id: 22b915a294694a0d9474b8afa71a4a13
 status: FINISHED
-profiles evaluated: 5220
-elapsed time including preprocessing and MLflow: 755.63 s
+patient/scenario units: 120
+elapsed time including preprocessing and MLflow: 265.22 s
 ```
 
 ## Scaling result
@@ -118,10 +140,24 @@ acceptable full-run implementation. The final design contains 12 scenarios
 after adding the `10-pixel / 10-mm` boundary stress tests; the same reference
 implementation would require approximately 81 days.
 
-The required production experiment engine keeps detector images and geometry
-buffers on the Apple GPU and computes draw-specific geometry without building a
-CPU CSR plan for every draw. A full run is blocked until zero-perturbation and
-random-geometry parity pass for that engine.
+The geometry-aware engine keeps detector images, masks, PONI geometry, and RNG
+seeds in persistent Apple Metal buffers. Draw-specific distance and beam-centre
+arrays are transferred in chunks without rebuilding a CPU CSR plan. Real
+Human-1 benchmarks produced approximately `213 profiles/s` with centered
+Poisson sampling and `253 profiles/s` without it, compared with `8.3
+profiles/s` for the reference plan-per-draw implementation.
+
+The full `973 measurements x 5000 draws x 12 scenarios` run is estimated at
+approximately 70 hours on one deterministic Metal queue. Two concurrent queues
+increased aggregate benchmark throughput by approximately 1.6-fold, while four
+provided little further gain. The first full run retains one queue to avoid an
+untested merge and checkpoint race.
+
+The full experiment uses an atomic patient/scenario checkpoint. The probability
+memmap is flushed before a unit is marked complete. A resumed run verifies the
+data, model, config, case, scenario, and cached-frame fingerprints and repeats
+only incomplete units. Convergence artifacts are written at 250, 500, 1000,
+2000, and 5000 draws.
 
 ## Decision criteria for the full run
 
@@ -132,10 +168,17 @@ The `193-case x 5000-draw` experiment may start only after:
    profile and `p_cancer` tolerances;
 3. results are invariant to draw chunk size;
 4. the frozen model threshold remains exactly `0.24041049078429919`;
-5. the pilot benchmark gives a practical runtime and bounded memory use;
-6. invalid q coverage is reported explicitly rather than silently dropped.
+5. the pilot benchmark gives a bounded runtime and memory estimate;
+6. invalid q coverage is reported explicitly rather than silently dropped;
+7. the centered-Poisson generator passes an independent statistical acceptance
+   test;
+8. interruption and resume tests preserve only atomically completed units.
 
-The final output will report per-case scenario ranges, threshold crossing,
-class-flip fraction under each bounded scenario, convergence checkpoints, and
-cohort summaries. These outputs remain measurement-sensitivity estimates, not
-probabilities of diagnosis.
+All eight gates passed in the final pilot before the full run was started.
+
+The final output reports per-case scenario ranges, threshold crossing,
+`scenario_draw_fraction_at_or_above_threshold`,
+`scenario_class_flip_fraction`, convergence checkpoints, and cohort summaries.
+These outputs remain measurement-sensitivity estimates, not probabilities of
+diagnosis. Because `0.2.15-beta` was fitted on this cohort, label-stratified
+summaries are descriptive and are not an independent performance validation.

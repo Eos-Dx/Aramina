@@ -1,18 +1,28 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
 import pytest
 
+import aramina.experiments.joint_measurement_uncertainty as joint_uncertainty
 from aramina.experiments.joint_measurement_uncertainty import (
+    NuisanceDraws,
+    PatientMetalContext,
     Scenario,
-    _load_config,
+    _initialize_run_checkpoint,
+    _metal_profile_chunk,
+    _open_run_checkpoint,
+    _profile_parity_metrics,
+    _profile_parity_tolerances,
+    _run_patient_scenario,
+    _scenario_geometry_arrays,
     effective_detector_distance_m,
     sample_nuisance_draws,
-    summarize_case_uncertainty,
 )
+from aramina.experiments.measurement_uncertainty import MeasurementUncertaintyError
 
 
 ROOT = Path(__file__).parents[1]
@@ -43,6 +53,93 @@ def _nuisance_configs(correlation: str = "visit_shared"):
         {"radius_px": 5.0},
         {"half_width_mm": 10.0},
     )
+
+
+def _array_nuisance(draws: int = 5, measurements: int = 2) -> NuisanceDraws:
+    values = np.arange(draws * measurements, dtype=float).reshape(
+        draws, measurements
+    )
+    return NuisanceDraws(
+        thickness_delta_mm=values + 1.0,
+        beam_center_row_delta_px=values + 2.0,
+        beam_center_col_delta_px=values + 3.0,
+        detector_distance_delta_mm=values + 4.0,
+        photon_measurement_seeds=np.arange(
+            101, 101 + measurements, dtype=np.uint64
+        ),
+    )
+
+
+class _FakeGeometrySession:
+    def __init__(self, bins: int):
+        self.bins = bins
+        self.calls: list[tuple[str, int, int]] = []
+        self.closed = False
+
+    def _profiles(
+        self,
+        draws: int,
+        *,
+        effective_distance_m: np.ndarray,
+        poni1_m: np.ndarray,
+        poni2_m: np.ndarray,
+        draw_offset: int,
+        draw_chunk_size: int,
+    ) -> np.ndarray:
+        assert draw_chunk_size == draws
+        draw_key = np.arange(draw_offset, draw_offset + draws)[:, np.newaxis]
+        base = effective_distance_m + poni1_m + poni2_m + draw_key * 1e-6
+        return np.repeat(base[:, :, np.newaxis], self.bins, axis=2)
+
+    def integrate(self, draws: int, **kwargs) -> np.ndarray:
+        self.calls.append(("integrate", int(kwargs["draw_offset"]), draws))
+        return self._profiles(draws, **kwargs)
+
+    def run(self, scales, draws: int, *, seed: int, **kwargs) -> np.ndarray:
+        assert scales == (1.0,)
+        self.calls.append(("run", int(kwargs["draw_offset"]), draws))
+        profiles = self._profiles(draws, **kwargs) + seed * 1e-12
+        return profiles[np.newaxis, ...]
+
+    def close(self) -> None:
+        self.closed = True
+
+
+def _fake_metal_context(session: _FakeGeometrySession) -> PatientMetalContext:
+    return PatientMetalContext(
+        session=session,
+        q_grid=np.array([2.0, 3.0, 4.0]),
+        images=np.zeros((2, 2, 2)),
+        poni_distance_m=np.array([0.7, 0.8]),
+        sample_thickness_mm=np.array([40.0, 60.0]),
+        calibrant_thickness_mm=np.array([20.0, 20.0]),
+        poni1_m=np.array([0.01, 0.02]),
+        poni2_m=np.array([0.03, 0.04]),
+        pixel1_m=np.array([1e-4, 2e-4]),
+        pixel2_m=np.array([3e-4, 4e-4]),
+    )
+
+
+def _resume_inputs():
+    selected_frame = pd.DataFrame(
+        {"patientId": ["P1", "P2"], "value": [1.0, 2.0]}
+    )
+    selected_cases = pd.DataFrame(
+        {
+            "target_case_id": ["P1::LEFT", "P2::RIGHT"],
+            "patient_id": ["P1", "P2"],
+            "target_side": ["left", "right"],
+            "label": [1, 0],
+        }
+    )
+    parity = pd.DataFrame({"parity_pass": [True]})
+    identity = {
+        "config_fingerprint": "config-a",
+        "model_fingerprint": "model-a",
+        "data_fingerprint": "data-a",
+        "scenario_fingerprint": "scenario-a",
+    }
+    return selected_frame, selected_cases, parity, identity
 
 
 def test_effective_distance_uses_half_thickness_correction():
@@ -86,6 +183,397 @@ def test_visit_shared_thickness_and_session_shared_geometry():
     )
     assert float(radius.max()) <= 5.0
     assert float(np.abs(draws.detector_distance_delta_mm).max()) <= 10.0
+    assert draws.photon_measurement_seeds.shape == (3,)
+
+
+def test_photon_seed_is_stable_by_measurement_when_rows_are_reordered():
+    thickness, center, distance = _nuisance_configs()
+    frame = _patient_frame()
+    reordered = frame.iloc[[2, 0, 1]].reset_index(drop=True)
+    first = sample_nuisance_draws(
+        frame,
+        draws=4,
+        seed=29,
+        thickness_config=thickness,
+        beam_center_config=center,
+        detector_distance_config=distance,
+    )
+    second = sample_nuisance_draws(
+        reordered,
+        draws=4,
+        seed=29,
+        thickness_config=thickness,
+        beam_center_config=center,
+        detector_distance_config=distance,
+    )
+
+    first_by_specimen = dict(
+        zip(frame["specimenId"], first.photon_measurement_seeds, strict=True)
+    )
+    second_by_specimen = dict(
+        zip(reordered["specimenId"], second.photon_measurement_seeds, strict=True)
+    )
+    assert first_by_specimen == second_by_specimen
+
+
+def test_scenario_geometry_arrays_apply_exact_nuisance_formula():
+    context = _fake_metal_context(_FakeGeometrySession(3))
+    nuisance = _array_nuisance(draws=2)
+    scenario = Scenario(
+        "joint_scaled",
+        photon=False,
+        thickness=True,
+        beam_center=True,
+        detector_distance=True,
+        beam_center_scale=2.0,
+        detector_distance_scale=3.0,
+    )
+
+    distance, poni1, poni2 = _scenario_geometry_arrays(
+        context, scenario, nuisance, start=0, stop=2
+    )
+
+    expected_distance = (
+        context.poni_distance_m[np.newaxis, :]
+        + 3.0 * nuisance.detector_distance_delta_mm[:2] * 1e-3
+        - 0.5
+        * (
+            context.sample_thickness_mm[np.newaxis, :]
+            + nuisance.thickness_delta_mm[:2]
+            - context.calibrant_thickness_mm[np.newaxis, :]
+        )
+        * 1e-3
+    )
+    np.testing.assert_allclose(distance, expected_distance)
+    np.testing.assert_allclose(
+        poni1,
+        context.poni1_m[np.newaxis, :]
+        + 2.0
+        * nuisance.beam_center_row_delta_px[:2]
+        * context.pixel1_m[np.newaxis, :],
+    )
+    np.testing.assert_allclose(
+        poni2,
+        context.poni2_m[np.newaxis, :]
+        + 2.0
+        * nuisance.beam_center_col_delta_px[:2]
+        * context.pixel2_m[np.newaxis, :],
+    )
+
+
+def test_profile_parity_gate_records_max_and_p99_separately():
+    expected = np.zeros((1, 1, 100), dtype=float)
+    isolated_edge_error = expected.copy()
+    isolated_edge_error[0, 0, -1] = 0.001468
+
+    metrics = _profile_parity_metrics(
+        isolated_edge_error,
+        expected,
+        np.linspace(2.0, 22.895, 100),
+        draw_start=7,
+        maximum_tolerance=0.002,
+        p99_tolerance=0.0001,
+    )
+
+    assert metrics["maximum_absolute_error"] == pytest.approx(0.001468)
+    assert metrics["p99_absolute_error"] < 0.0001
+    assert metrics["maximum_error_q_nm_inv"] == pytest.approx(22.895)
+    assert metrics["maximum_error_draw_index"] == 7
+    assert metrics["parity_pass"] is True
+
+    broad_error = expected.copy()
+    broad_error[0, 0, -5:] = 0.0002
+    broad_metrics = _profile_parity_metrics(
+        broad_error,
+        expected,
+        np.linspace(2.0, 22.895, 100),
+        draw_start=0,
+        maximum_tolerance=0.002,
+        p99_tolerance=0.0001,
+    )
+    assert broad_metrics["parity_pass"] is False
+
+
+def test_profile_parity_tolerances_are_explicit():
+    with pytest.raises(MeasurementUncertaintyError, match="explicit max and p99"):
+        _profile_parity_tolerances({"metal_parity_tolerance": 1e-4})
+
+    assert _profile_parity_tolerances(
+        {
+            "metal_profile_max_abs_tolerance": 0.002,
+            "metal_profile_p99_abs_tolerance": 0.0001,
+        }
+    ) == (0.002, 0.0001)
+
+
+def test_persistent_session_is_reused_and_chunk_output_is_invariant():
+    patient_frame = _patient_frame().iloc[:2].reset_index(drop=True)
+    nuisance = _array_nuisance()
+    scenario = Scenario("joint", True, True, True, True)
+
+    full_session = _FakeGeometrySession(3)
+    full_context = _fake_metal_context(full_session)
+    full = _metal_profile_chunk(
+        patient_frame,
+        metal_context=full_context,
+        scenario=scenario,
+        nuisance=nuisance,
+        start=0,
+        stop=5,
+        geometry_audit_draws=0,
+        normalization_q_range=(2.0, 4.0),
+        random_seed=43,
+    )[0]
+
+    chunked_session = _FakeGeometrySession(3)
+    chunked_context = _fake_metal_context(chunked_session)
+    first = _metal_profile_chunk(
+        patient_frame,
+        metal_context=chunked_context,
+        scenario=scenario,
+        nuisance=nuisance,
+        start=0,
+        stop=2,
+        geometry_audit_draws=0,
+        normalization_q_range=(2.0, 4.0),
+        random_seed=43,
+    )[0]
+    second = _metal_profile_chunk(
+        patient_frame,
+        metal_context=chunked_context,
+        scenario=scenario,
+        nuisance=nuisance,
+        start=2,
+        stop=5,
+        geometry_audit_draws=0,
+        normalization_q_range=(2.0, 4.0),
+        random_seed=43,
+    )[0]
+
+    np.testing.assert_allclose(np.concatenate((first, second)), full)
+    assert chunked_session.calls == [("run", 0, 2), ("run", 2, 3)]
+    assert chunked_context.session is chunked_session
+
+
+def test_p_cancer_parity_is_fail_closed_on_bounded_audit_draws(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    patient_frame = _patient_frame().iloc[:2].reset_index(drop=True)
+    patient_cases = pd.DataFrame(
+        {
+            "target_case_id": ["P1::LEFT"],
+            "patient_id": ["P1"],
+            "target_side": ["left"],
+        }
+    )
+    context = _fake_metal_context(_FakeGeometrySession(3))
+    nuisance = _array_nuisance(draws=5)
+    audit_calls: list[tuple[int, int]] = []
+
+    def fake_profile_chunk(*_args, start: int, stop: int, **_kwargs):
+        profiles = np.zeros((stop - start, 2, 3), dtype=float)
+        audit_stop = min(stop, 2)
+        audit_draws = max(0, audit_stop - start)
+        if audit_draws:
+            audit_calls.append((start, audit_stop))
+        metal = np.zeros((audit_draws, 2, 3), dtype=float)
+        expected = np.full_like(metal, 5e-5)
+        return profiles, metal, expected, context.q_grid, []
+
+    def fake_score(cube, **_kwargs):
+        values = np.mean(cube, axis=(1, 2))[:, np.newaxis] * 3.0
+        return SimpleNamespace(
+            target_case_ids=("P1::LEFT",),
+            p_cancer=values,
+            threshold=0.5,
+        )
+
+    monkeypatch.setattr(
+        joint_uncertainty, "_metal_profile_chunk", fake_profile_chunk
+    )
+    monkeypatch.setattr(
+        joint_uncertainty, "score_frozen_aramina_0_2_15_cube", fake_score
+    )
+
+    with pytest.raises(MeasurementUncertaintyError, match="p_cancer parity"):
+        _run_patient_scenario(
+            patient_frame,
+            patient_cases,
+            model_artifact={},
+            model_info={},
+            metal_context=context,
+            scenario=Scenario("joint", True, True, True, True),
+            nuisance=nuisance,
+            draws=5,
+            draw_chunk_size=2,
+            geometry_audit_draws=2,
+            normalization_q_range=(2.0, 4.0),
+            metal_profile_max_tolerance=0.002,
+            metal_profile_p99_tolerance=0.0001,
+            metal_p_cancer_parity_tolerance=0.0001,
+            random_seed=43,
+        )
+
+    assert audit_calls == [(0, 2)]
+
+
+def test_decision_class_parity_is_fail_closed(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    patient_frame = _patient_frame().iloc[:2].reset_index(drop=True)
+    patient_cases = pd.DataFrame(
+        {
+            "target_case_id": ["P1::LEFT"],
+            "patient_id": ["P1"],
+            "target_side": ["left"],
+        }
+    )
+    context = _fake_metal_context(_FakeGeometrySession(3))
+
+    def fake_profile_chunk(*_args, start: int, stop: int, **_kwargs):
+        profiles = np.zeros((stop - start, 2, 3), dtype=float)
+        metal = np.zeros((1, 2, 3), dtype=float)
+        expected = np.full_like(metal, 5e-5)
+        return profiles, metal, expected, context.q_grid, []
+
+    def fake_score(cube, **_kwargs):
+        values = np.mean(cube, axis=(1, 2))[:, np.newaxis] * 3.0
+        return SimpleNamespace(
+            target_case_ids=("P1::LEFT",),
+            p_cancer=values,
+            threshold=1e-4,
+        )
+
+    monkeypatch.setattr(
+        joint_uncertainty, "_metal_profile_chunk", fake_profile_chunk
+    )
+    monkeypatch.setattr(
+        joint_uncertainty, "score_frozen_aramina_0_2_15_cube", fake_score
+    )
+
+    with pytest.raises(MeasurementUncertaintyError, match="decision class"):
+        _run_patient_scenario(
+            patient_frame,
+            patient_cases,
+            model_artifact={},
+            model_info={},
+            metal_context=context,
+            scenario=Scenario("joint", True, True, True, True),
+            nuisance=_array_nuisance(draws=1),
+            draws=1,
+            draw_chunk_size=1,
+            geometry_audit_draws=1,
+            normalization_q_range=(2.0, 4.0),
+            metal_profile_max_tolerance=0.002,
+            metal_profile_p99_tolerance=0.0001,
+            metal_p_cancer_parity_tolerance=1.0,
+            random_seed=43,
+        )
+
+
+def test_interrupted_partial_probability_slice_is_not_completed(tmp_path: Path):
+    frame, cases, parity, identity = _resume_inputs()
+    checkpoint = _initialize_run_checkpoint(
+        tmp_path,
+        base_identity=identity,
+        selected_frame=frame,
+        selected_cases=cases,
+        parity=parity,
+        probability_shape=(2, 2, 3),
+    )
+    checkpoint.probabilities[0, 0] = np.array([0.1, 0.2, 0.3])
+    checkpoint.probabilities.flush()
+
+    resumed, *_ = _open_run_checkpoint(
+        tmp_path,
+        expected_base_identity=identity,
+        probability_shape=(2, 2, 3),
+    )
+
+    assert (
+        resumed.completed_unit(
+            patient_id="P1",
+            scenario_name="photon_only",
+            case_ids=["P1::LEFT"],
+            case_indices=[0],
+            scenario_index=0,
+        )
+        is None
+    )
+    assert resumed.progress["completed_units"] == {}
+
+
+def test_successful_resume_skips_only_atomic_completed_units(tmp_path: Path):
+    frame, cases, parity, identity = _resume_inputs()
+    checkpoint = _initialize_run_checkpoint(
+        tmp_path,
+        base_identity=identity,
+        selected_frame=frame,
+        selected_cases=cases,
+        parity=parity,
+        probability_shape=(2, 2, 3),
+    )
+    checkpoint.complete_unit(
+        patient_id="P1",
+        scenario_name="photon_only",
+        scenario_index=0,
+        case_values={"P1::LEFT": np.array([0.1, 0.2, 0.3])},
+        case_index={"P1::LEFT": 0, "P2::RIGHT": 1},
+        parity_rows=[{"parity_pass": True}],
+        geometry_rows=[{"draw_index": 0}],
+    )
+
+    resumed, resumed_frame, resumed_cases, resumed_parity = _open_run_checkpoint(
+        tmp_path,
+        expected_base_identity=identity,
+        probability_shape=(2, 2, 3),
+    )
+    payload = resumed.completed_unit(
+        patient_id="P1",
+        scenario_name="photon_only",
+        case_ids=["P1::LEFT"],
+        case_indices=[0],
+        scenario_index=0,
+    )
+
+    assert payload is not None
+    assert payload["parity_rows"] == [{"parity_pass": True}]
+    pd.testing.assert_frame_equal(resumed_frame, frame)
+    pd.testing.assert_frame_equal(resumed_cases, cases)
+    pd.testing.assert_frame_equal(resumed_parity, parity)
+    resumed.complete_unit(
+        patient_id="P1",
+        scenario_name="thickness_only",
+        scenario_index=1,
+        case_values={"P1::LEFT": np.array([0.4, 0.5, 0.6])},
+        case_index={"P1::LEFT": 0, "P2::RIGHT": 1},
+        parity_rows=[],
+        geometry_rows=[],
+    )
+    assert len(resumed.progress["completed_units"]) == 2
+
+
+def test_resume_fingerprint_mismatch_fails_closed(tmp_path: Path):
+    frame, cases, parity, identity = _resume_inputs()
+    _initialize_run_checkpoint(
+        tmp_path,
+        base_identity=identity,
+        selected_frame=frame,
+        selected_cases=cases,
+        parity=parity,
+        probability_shape=(2, 2, 3),
+    )
+    mismatched = {**identity, "model_fingerprint": "model-b"}
+
+    with pytest.raises(
+        MeasurementUncertaintyError,
+        match="Resume fingerprint mismatch: model_fingerprint",
+    ):
+        _open_run_checkpoint(
+            tmp_path,
+            expected_base_identity=mismatched,
+            probability_shape=(2, 2, 3),
+        )
 
 
 def test_measurement_independent_thickness_does_not_share_latent_draw():
@@ -139,38 +627,3 @@ def test_geometry_stream_is_shared_across_patients_in_same_session():
         first_draws.thickness_delta_mm,
         second_draws.thickness_delta_mm,
     )
-
-
-def test_summary_reports_threshold_crossing_and_flip_probability():
-    scenarios = (Scenario("joint", True, True, True, True),)
-    probabilities = np.array([[[0.1, 0.2, 0.3, 0.4]]], dtype=np.float32)
-    cases = pd.DataFrame(
-        {
-            "target_case_id": ["P1::LEFT"],
-            "patient_id": ["P1"],
-            "target_side": ["left"],
-            "label": [1],
-            "deterministic_p_cancer": [0.3],
-            "decision_threshold": [0.25],
-        }
-    )
-
-    summary = summarize_case_uncertainty(
-        probabilities,
-        cases,
-        scenarios=scenarios,
-        quantiles=(0.025, 0.5, 0.975),
-    ).iloc[0]
-
-    assert bool(summary["threshold_crossing"])
-    assert summary["probability_at_or_above_threshold"] == pytest.approx(0.5)
-    assert summary["class_flip_probability"] == pytest.approx(0.5)
-
-
-def test_pilot_and_full_configs_are_valid():
-    for filename in (
-        "config_joint_measurement_uncertainty_pilot_v0_1.yaml",
-        "config_joint_measurement_uncertainty_full_v0_1.yaml",
-    ):
-        config = _load_config(ROOT / "config/experiments" / filename)
-        assert config["experiment"]["model_version"] == "0.2.15-beta"
