@@ -1,0 +1,132 @@
+contract: aramina_joint_measurement_uncertainty_v0_1
+experiment:
+  name: aramina_0_2_15_joint_measurement_uncertainty_pilot
+  model_name: aramina_target_breast_risk
+  model_version: 0.2.15-beta
+input:
+  input_h5_path: data/20260827_combined_archive.h5
+  model_joblib_path: models/aramina_target_breast_risk_0_2_15-beta_43b2865632ea/model.joblib
+data_version:
+  contract: aramina_dvc_input_v0_1
+  system: dvc
+  dataset_id: aramina_20260827_combined_archive_h5
+  dvc_version: 3.67.1
+  pointer_path: data/20260827_combined_archive.h5.dvc
+  hash_algorithm: md5
+  hash: 15244bac1dbea063bc6461385773cf76
+  size_bytes: 5355699719
+  input_h5_sha256: e0034c7e2eb59d9a511e3a55e8af3b39e3ea95c0c14b6ddbe3ee06a70c053e9b
+targets:
+  mode: balanced_unique_patient_pilot
+  patient_count: 10
+  random_state: 42
+integration:
+  npt: 100
+  normalization_q_range: [6.7, 7.1]
+backend:
+  kind: apple_metal_direct_mc
+  xrd_analysis_git_sha: ff716250166eb9ad30920755c657d2a1baaf2e55
+validation:
+  parity_measurements: 10
+  pyfai_parity_tolerance: 1.0e-8
+  metal_parity_tolerance: 1.0e-4
+  metal_p_cancer_parity_tolerance: 1.0e-4
+execution:
+  draw_chunk_size: 2
+  profile_batch_size: 4096
+  geometry_audit_draws: 10
+monte_carlo:
+  draws: 10
+  seed: 20260828
+  quantiles: [0.025, 0.5, 0.975]
+nuisance:
+  sample_thickness:
+    thin_max_mm: 50.0
+    thin_half_width_mm: 5.0
+    thick_half_width_mm: 10.0
+    correlation: visit_shared
+  beam_center:
+    radius_px: 10.0
+    distribution: uniform_area_disk
+    correlation: calibration_session_shared
+  detector_distance:
+    half_width_mm: 10.0
+    distribution: uniform_symmetric
+    correlation: calibration_session_shared
+scenarios:
+  - name: photon_only
+    photon: true
+    thickness: false
+    beam_center: false
+    detector_distance: false
+  - name: thickness_only
+    photon: false
+    thickness: true
+    beam_center: false
+    detector_distance: false
+  - name: beam_center_5px_only
+    photon: false
+    thickness: false
+    beam_center: true
+    detector_distance: false
+    beam_center_scale: 0.5
+  - name: beam_center_10px_only
+    photon: false
+    thickness: false
+    beam_center: true
+    detector_distance: false
+  - name: detector_distance_5mm_only
+    photon: false
+    thickness: false
+    beam_center: false
+    detector_distance: true
+    detector_distance_scale: 0.5
+  - name: detector_distance_10mm_only
+    photon: false
+    thickness: false
+    beam_center: false
+    detector_distance: true
+  - name: joint_5px_5mm
+    photon: true
+    thickness: true
+    beam_center: true
+    detector_distance: true
+    beam_center_scale: 0.5
+    detector_distance_scale: 0.5
+  - name: joint_10px_10mm
+    photon: true
+    thickness: true
+    beam_center: true
+    detector_distance: true
+  - name: joint_without_photon_5px_5mm
+    photon: false
+    thickness: true
+    beam_center: true
+    detector_distance: true
+    beam_center_scale: 0.5
+    detector_distance_scale: 0.5
+  - name: joint_without_thickness_5px_5mm
+    photon: true
+    thickness: false
+    beam_center: true
+    detector_distance: true
+    beam_center_scale: 0.5
+    detector_distance_scale: 0.5
+  - name: joint_without_beam_center_5mm
+    photon: true
+    thickness: true
+    beam_center: false
+    detector_distance: true
+    detector_distance_scale: 0.5
+  - name: joint_without_detector_distance_5px
+    photon: true
+    thickness: true
+    beam_center: true
+    detector_distance: false
+    beam_center_scale: 0.5
+mlflow:
+  enabled: true
+  tracking_uri: sqlite:///examples/outputs/mlflow/aramina_measurement_uncertainty.db
+  experiment_name: aramina_measurement_uncertainty
+output:
+  folder: examples/outputs/experiments/joint_measurement_uncertainty

@@ -81,6 +81,11 @@ and ROC AUC `0.8333`. The corresponding Wilson 95% intervals were wide because
 the class counts were small. This is an exploratory independent-patient check,
 not definitive validation.
 
+The 15 patients entered the eligible product cohort over four acquisition
+months: one in May 2026, two in June, five in July, and seven in August. The
+check therefore represents newly eligible patients relative to the frozen
+training manifest, not one homogeneous prospective August cohort.
+
 ## Limitation
 
 The current archive is not an FDA blind set. `0.2.15-beta` is intended for

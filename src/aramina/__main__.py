@@ -7,6 +7,9 @@ import logging
 from pathlib import Path
 
 from .experiments.detector_noise_scale import run_detector_noise_scale_from_config
+from .experiments.joint_measurement_uncertainty import (
+    run_joint_measurement_uncertainty_from_config,
+)
 from .experiments.measurement_uncertainty import run_measurement_uncertainty_from_config
 from .experiments.uncertainty_rank_scan import (
     run_uncertainty_rank_scan_from_config,
@@ -126,6 +129,17 @@ def main(argv: list[str] | None = None) -> int:
         help="Path to detector-noise scale experiment YAML.",
     )
     _add_verbose_argument(detector_noise_scale)
+    joint_uncertainty = subparsers.add_parser(
+        "experiment-joint-measurement-uncertainty",
+        help="Run direct-MC photon, thickness, and PONI sensitivity scenarios.",
+    )
+    joint_uncertainty.add_argument(
+        "--config",
+        required=True,
+        type=Path,
+        help="Path to joint measurement-uncertainty YAML.",
+    )
+    _add_verbose_argument(joint_uncertainty)
     promote = subparsers.add_parser(
         "promote",
         help="Copy one reviewed final-fit run into the immutable models directory.",
@@ -228,6 +242,18 @@ def main(argv: list[str] | None = None) -> int:
         print(f"patients={result['manifest']['patients']}")
         print(f"measurements={result['manifest']['measurements']}")
         print(f"elapsed_seconds={result['manifest']['elapsed_seconds']:.3f}")
+        print(f"mlflow_run_id={result['mlflow']['run_id']}")
+        print(f"mlflow_status={result['mlflow']['status']}")
+        return 0
+    if args.command == "experiment-joint-measurement-uncertainty":
+        result = run_joint_measurement_uncertainty_from_config(
+            args.config,
+            verbose=args.verbose,
+        )
+        print(f"run_folder={result['run_folder']}")
+        print(f"patients={result['patients']}")
+        print(f"target_cases={result['target_cases']}")
+        print(f"summary_path={result['summary_path']}")
         print(f"mlflow_run_id={result['mlflow']['run_id']}")
         print(f"mlflow_status={result['mlflow']['status']}")
         return 0

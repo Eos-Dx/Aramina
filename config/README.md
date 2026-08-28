@@ -8,6 +8,7 @@ assembled from readable fragments under `preprocessing/`.
 - [Preprocessing](preprocessing/README.md)
 - [Preprocessing and training](preprocessing_and_training/README.md)
 - [Training](training/README.md)
+- [Experiments](experiments/README.md)
 
 Runnable examples live under [`examples/`](../examples/README.md). Filled
 output examples live under [`contracts/`](../contracts/README.md). Canonical
