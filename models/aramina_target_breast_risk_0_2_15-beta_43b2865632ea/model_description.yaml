@@ -1,0 +1,207 @@
+output_type: aramina_model_description
+version: '0.1'
+model:
+  name: aramina_target_breast_risk
+  version: 0.2.15-beta
+  id: aramina_target_breast_risk_0_2_15-beta_43b2865632ea
+  artifact_sha256: 43b2865632ea4dc2387bd5c23b5cb25083a771a9b4b87afcd235989ed5fbcc1d
+model_summary:
+  architecture:
+    stage_1: target_xrd_profile_logistic_regression
+    stage_2: age_and_optional_symmetry_refinement
+    symmetry_behavior: neutralized_unless_2_valid_measurements_per_breast_and_finite_core4_features
+  lr1_profile_model:
+    type: Pipeline
+    steps:
+      scaler:
+        type: StandardScaler
+        feature_count: 100
+      logreg:
+        type: LogisticRegression
+        C: 0.1
+        class_weight: balanced
+        solver: lbfgs
+        max_iter: 5000
+        random_state: 42
+        classes:
+        - BENIGN
+        - CANCER
+        feature_count: 100
+  profile_encoder:
+    type: raw_radial_profile
+    input_q_bins: 100
+    output_dimensions: 100
+    fit_scope: no_dimensionality_reduction
+  thresholds:
+    threshold_youden: 0.41241
+    threshold_target: 0.24041
+    target_sensitivity: 0.95
+    target_reached: true
+  feature_columns:
+  - profile_p_cancer_logit_average
+  - age
+  - age_available
+  - sk_wasserstein_distance_full_q2
+  - sk_weightedrms1
+  - sk_weightedrms2
+  - sk_mean_peak_value_abs_delta
+  - symmetry_available
+  final_model:
+    type: GatedSymmetryLogistic
+    base_feature_columns:
+    - profile_p_cancer_logit_average
+    - age
+    - age_available
+    symmetry_feature_columns:
+    - sk_wasserstein_distance_full_q2
+    - sk_weightedrms1
+    - sk_weightedrms2
+    - sk_mean_peak_value_abs_delta
+    symmetry_gate: symmetry_available
+    logreg:
+      C: 0.3
+      class_weight: balanced
+      solver: lbfgs
+      max_iter: 5000
+      random_state: 42
+      classes:
+      - BENIGN
+      - CANCER
+      feature_count: 7
+  symmetry_policy: single_model_gated_optional_refinement_requires_2_valid_measurements_per_breast_and_finite_core4
+  symmetry_gate: symmetry_available
+  symmetry_feature_contract: aramina_sk_symmetry_v0_2
+  tissue_risk_assessment:
+    contract: aramina_tra_v0_2
+    reference_population: patient_safe_oof_target-breast_cases
+    decision_threshold: 0.24041
+    calibration:
+      method: patient_safe_oof_decision_stability
+      reference_population: patient_safe_oof_target-breast_cases
+      target_cases: 193
+      unstable_target_cases: 86
+      decision_stability_cutoff: 1.0
+      borderline_margin_logit: 0.5
+    logit_margin_boundaries:
+      tra_1_to_2: -0.5
+      tra_2_to_3: 0.0
+      tra_3_to_4: 0.5
+      tra_4_to_5: 1.5
+    probability_boundaries:
+      tra_1_to_2: 0.16105
+      tra_2_to_3: 0.24041
+      tra_3_to_4: 0.34289
+      tra_4_to_5: 0.58651
+    levels:
+    - level: TRA 1
+      decision_support_class: BENIGN
+      biopsy_required: false
+      requires_radiologist_review: false
+      interpretation: below decision threshold
+    - level: TRA 2
+      decision_support_class: BENIGN
+      biopsy_required: false
+      requires_radiologist_review: false
+      interpretation: near decision threshold, below threshold
+    - level: TRA 3
+      decision_support_class: CANCER
+      biopsy_required: true
+      requires_radiologist_review: true
+      interpretation: borderline, above decision threshold
+    - level: TRA 4
+      decision_support_class: CANCER
+      biopsy_required: true
+      requires_radiologist_review: true
+      interpretation: high score above decision threshold
+    - level: TRA 5
+      decision_support_class: CANCER
+      biopsy_required: true
+      requires_radiologist_review: true
+      interpretation: very high score above decision threshold
+model_joblib: model.joblib
+model_performance:
+  evaluation_available: true
+  evaluation_method: repeated_stratified_kfold
+  folds: 5
+  repeats: 20
+  random_seed: 42
+  target_sensitivity: 0.95
+  held_out_metrics:
+    roc_auc:
+      mean: 0.66788
+      std: 0.07502
+    sensitivity:
+      mean: 0.82483
+      std: 0.10327
+    specificity:
+      mean: 0.37598
+      std: 0.1081
+final_fit_training_metrics:
+  evaluation_status: in_sample_not_independent
+  target_cases: 193
+  cancer_target_cases: 82
+  benign_target_cases: 111
+  decision_threshold: 0.24041
+  roc_auc: 0.85871
+  pr_auc: 0.83
+  sensitivity: 0.95122
+  specificity: 0.47748
+  balanced_accuracy: 0.71435
+  ppv: 0.57353
+  npv: 0.92982
+  brier_score: 0.15501
+  log_loss: 0.46773
+  calibration_intercept: -0.31722
+  calibration_slope: 1.22413
+  true_positives: 78
+  true_negatives: 53
+  false_negatives: 4
+  false_positives: 58
+decision_thresholds:
+  threshold_youden: 0.41241
+  threshold_target: 0.24041
+  target_sensitivity: 0.95
+  target_reached: true
+feature_schema:
+  final_model:
+    feature_columns:
+    - profile_p_cancer_logit_average
+    - age
+    - age_available
+    - sk_wasserstein_distance_full_q2
+    - sk_weightedrms1
+    - sk_weightedrms2
+    - sk_mean_peak_value_abs_delta
+    - symmetry_available
+    learned_feature_columns:
+    - profile_p_cancer_logit_average
+    - age
+    - age_available
+    - sk_wasserstein_distance_full_q2
+    - sk_weightedrms1
+    - sk_weightedrms2
+    - sk_mean_peak_value_abs_delta
+    symmetry_gate: symmetry_available
+    symmetry_policy: single_model_gated_optional_refinement_requires_2_valid_measurements_per_breast_and_finite_core4
+    reliability_fields:
+    - profile_p_cancer_n_measurements
+    - target_measurements
+    - contralateral_measurements
+    - symmetry_available
+    unit: target_breast_case
+    label: BENIGN vs CANCER decision-support class
+dataset_summary:
+- measurements: 973
+  patients: 178
+  specimens: 340
+  lr1_measurements: 555
+  lr1_patients: 178
+  final_patients: 178
+  final_target_cases: 193
+  final_cancer_target_cases: 82
+  final_benign_target_cases: 111
+evaluation_artifacts:
+  summary: evaluation.yaml
+  metrics: evaluation_metrics.csv
+  predictions: evaluation_predictions.csv
+clinical_stage: research draft

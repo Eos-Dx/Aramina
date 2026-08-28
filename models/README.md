@@ -31,6 +31,7 @@ Tracked product artifacts:
 aramina_target_breast_risk_0_2_13-beta_f5e4a04cad11/
 aramina_target_breast_risk_0_2_12-beta_9bb911189af6/
 aramina_target_breast_risk_0_2_14-beta_98526329f40d/
+aramina_target_breast_risk_0_2_15-beta_43b2865632ea/
 ```
 
 `0.2.12-beta` remains the frozen legacy product artifact used by existing
@@ -46,6 +47,11 @@ no-DVC candidate. Its historical H5 is verified through DVC and its complete
 preprocessing/evaluation/final-fit lineage is recorded by MLflow. Its model
 record is
 [`docs/modeling/aramina_t100_target_case_model_v0_3.md`](../docs/modeling/aramina_t100_target_case_model_v0_3.md).
+
+`0.2.15-beta` keeps the radial-profile architecture and retrains it on the
+complete `20260827_combined_archive.h5` cohort. It uses the current Human 1.1
+H5 metadata contract from XRD-preprocessing `0.1.10b0`; its model record is
+[`docs/modeling/aramina_t100_target_case_model_v0_4.md`](../docs/modeling/aramina_t100_target_case_model_v0_4.md).
 
 All artifacts carry `aramina_sk_symmetry_v0_2`, the threshold-centred
 `aramina_tra_v0_2` policy, and generated evaluation records. Other historical

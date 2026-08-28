@@ -22,6 +22,12 @@ DVC_CANDIDATE_MODEL = (
     / "aramina_target_breast_risk_0_2_14-beta_98526329f40d"
     / "model.joblib"
 )
+FULL_COHORT_MODEL = (
+    ROOT
+    / "models"
+    / "aramina_target_breast_risk_0_2_15-beta_43b2865632ea"
+    / "model.joblib"
+)
 
 
 def test_retrained_candidate_records_pinned_xrd_release_lineage():
@@ -58,6 +64,36 @@ def test_dvc_candidate_records_complete_source_data_lineage():
         "contract: aramina_preprocessing_and_training_config_v0_3"
         in reproducibility["configs"]["preprocess_train_yaml"]
     )
+
+
+def test_full_cohort_candidate_records_current_h5_and_source_lineage():
+    artifact = joblib.load(FULL_COHORT_MODEL)
+
+    assert artifact["model_identity"]["version"] == "0.2.15-beta"
+    reproducibility = artifact["reproducibility"]
+    assert reproducibility["source_code"] == {
+        "aramina": {
+            "version": "0.2.15b0",
+            "git_sha": "d1c5d5ad8d193f84f3279a92c7a5ca9237dfef7e",
+        },
+        "xrd_preprocessing": {
+            "version": "0.1.10b0",
+            "git_commit": "96c06ea28a88d40ab63ff39845f1748e0bf6a01a",
+            "url": "https://github.com/Eos-Dx/XRD-preprocessing.git",
+            "requested_revision": "96c06ea28a88d40ab63ff39845f1748e0bf6a01a",
+        },
+    }
+    source_h5 = reproducibility["source_h5"]
+    assert source_h5["sha256"] == (
+        "e0034c7e2eb59d9a511e3a55e8af3b39e3ea95c0c14b6ddbe3ee06a70c053e9b"
+    )
+    assert source_h5["data_version"]["hash"] == (
+        "15244bac1dbea063bc6461385773cf76"
+    )
+    summary = artifact["dataset_summary"].iloc[0]
+    assert int(summary["final_target_cases"]) == 193
+    assert int(summary["final_cancer_target_cases"]) == 82
+    assert int(summary["final_benign_target_cases"]) == 111
 
 
 def test_dvc_candidate_scores_external_one_patient_h5(tmp_path: Path):
