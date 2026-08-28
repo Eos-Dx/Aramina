@@ -153,6 +153,11 @@ increased aggregate benchmark throughput by approximately 1.6-fold, while four
 provided little further gain. The first full run retains one queue to avoid an
 untested merge and checkpoint race.
 
+The production full-run configuration submits one complete 250-draw global
+stage chunk with a Metal profile batch size of 128. This reduces Python/Metal
+dispatch overhead relative to the conservative 32-draw/16-profile pilot setup
+without introducing concurrent writers or changing random draws.
+
 The full experiment is divided into global 250-draw stages. Every stage covers
 all target cases and all 12 scenarios before a convergence result is published.
 Each patient/scenario/stage slice is flushed to the probability memmap before

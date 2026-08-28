@@ -31,8 +31,8 @@ validation:
   metal_profile_p99_abs_tolerance: 1.0e-4
   metal_p_cancer_parity_tolerance: 3.0e-4
 execution:
-  draw_chunk_size: 32
-  profile_batch_size: 16
+  draw_chunk_size: 250
+  profile_batch_size: 128
   geometry_audit_draws: 1
   global_stage_draws: 250
 monte_carlo:
