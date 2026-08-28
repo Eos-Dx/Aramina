@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import platform
 from datetime import datetime, timezone
 from hashlib import sha256
@@ -247,6 +248,17 @@ def _distribution_provenance(distribution_name: str) -> dict[str, Any]:
         git_sha = xrd_preprocessing_git_sha()
         if git_sha != "unavailable":
             result["git_commit"] = git_sha
+        if os.environ.get("XRD_PREPROCESSING_GIT_SHA"):
+            result["version"] = os.environ.get(
+                "XRD_PREPROCESSING_VERSION",
+                result["version"],
+            )
+            result["url"] = os.environ.get(
+                "XRD_PREPROCESSING_URL",
+                "https://github.com/Eos-Dx/XRD-preprocessing.git",
+            )
+            result["requested_revision"] = git_sha
+            return result
     try:
         payload = distribution(distribution_name).read_text("direct_url.json")
     except PackageNotFoundError:
