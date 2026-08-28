@@ -1,7 +1,8 @@
 # Product H5 Data
 
-`combined_archive.h5.dvc` is the Git-tracked pointer for the internal Aramina
-training archive. The H5 itself is not stored in Git.
+`combined_archive.h5.dvc` is the frozen `0.2.14-beta` training archive pointer.
+`20260827_combined_archive.h5.dvc` is the `0.2.15-beta` development archive
+pointer. H5 payloads are not stored in Git.
 
 Configure this workstation once:
 

@@ -30,6 +30,7 @@ from .synthetic_aramina_h5 import load_synthetic_config, write_known_synthetic_h
 def test_shipped_product_yaml_contracts_build_or_validate():
     root = Path(__file__).parents[1]
     expected_steps = {
+        "config_preprocessing_biopsy_patients_v0_3.yaml": 19,
         "config_preprocessing_biopsy_patients_v0_2.yaml": 19,
         "config_preprocessing_prediction_patient_v0_2.yaml": 16,
     }
@@ -41,11 +42,20 @@ def test_shipped_product_yaml_contracts_build_or_validate():
     load_training_config(
         root / "config" / "training" / "config_training_target_breast_risk_v0_4.yaml"
     )
+    load_training_config(
+        root / "config" / "training" / "config_training_target_breast_risk_v0_5.yaml"
+    )
     _load_preprocess_train_config(
         root
         / "config"
         / "preprocessing_and_training"
         / "config_preprocess_and_train_target_breast_risk_v0_3.yaml"
+    )
+    _load_preprocess_train_config(
+        root
+        / "config"
+        / "preprocessing_and_training"
+        / "config_preprocess_and_train_target_breast_risk_v0_4.yaml"
     )
     for path in sorted((root / "config" / "prediction").glob("*.yaml")):
         _validate_prediction_config(

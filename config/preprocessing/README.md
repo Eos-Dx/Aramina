@@ -4,6 +4,7 @@ Two fixed product routes are tracked:
 
 | Config | Purpose |
 |---|---|
+| `config_preprocessing_biopsy_patients_v0_3.yaml` | Human-1 archive through 2026-08-27 for model 0.2.15 development. |
 | `config_preprocessing_biopsy_patients_v0_2.yaml` | Current DVC-verified historical training input. |
 | `config_preprocessing_prediction_patient_v0_2.yaml` | Current one-patient prediction input; DVC is not used. |
 | `config_preprocessing_biopsy_patients_v0_1.yaml` | Legacy `0.2.13-beta` training YAML without DVC. |

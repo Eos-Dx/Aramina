@@ -3,6 +3,10 @@
 This command runs preprocessing once and passes the same in-memory DataFrame to
 training.
 
+For `0.2.15-beta`, use
+`config_preprocess_and_train_target_breast_risk_v0_4.yaml`. The earlier v0.3
+workflow and model `0.2.14-beta` remain unchanged.
+
 ```yaml
 contract: aramina_preprocessing_and_training_config_v0_3
 preprocessing_and_training:

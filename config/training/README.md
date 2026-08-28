@@ -4,6 +4,9 @@ Training selects one code-owned product architecture. YAML controls run identity
 input/output paths, and evaluation repetition; it cannot change features,
 regularization, labels, target sensitivity, or prediction preprocessing.
 
+`config_training_target_breast_risk_v0_5.yaml` keeps the same architecture and
+trains version `0.2.15-beta` on the versioned 2026-08-27 Human-1 archive.
+
 ```yaml
 contract: aramina_training_config_v0_4
 model:
