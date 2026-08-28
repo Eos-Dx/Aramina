@@ -10,6 +10,8 @@ in this folder.
 |---|---|
 | `aramina_product_versioning.json` | Human-1 batches, source-line policy, Nova ranges, thickness metadata, and required H5 fields. |
 | `aramina_preprocessing_v0_1_config.json` | Machine-readable AgBH monochromaticity decision evidence. |
+| `aramina_native_eoscan_agbh_kbeta_audit_20260827.csv` | Per-calibration native EOSCAN K-beta QC scores. |
+| `aramina_native_eoscan_agbh_kbeta_audit_20260827.json` | Frozen-reference method, coverage, and retention decision. |
 | `aramina_agbh_kbeta_batch5_6_exclusion_justification_v0_1.py` | Marimo review of AgBH K-beta behavior. |
 | `aramina_agbh_kbeta_helpers.py` | Compatibility import used by the notebook. |
 | `agbh_kbeta/` | H5 integration, metrics, artifacts, and plotting helpers. |

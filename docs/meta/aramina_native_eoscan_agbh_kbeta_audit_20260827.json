@@ -1,0 +1,50 @@
+{
+  "contract": "aramina_agbh_kbeta_audit_v0_1",
+  "clinical_stage": "research draft",
+  "intended_use": "preprocessing quality-control evidence; not for autonomous diagnosis",
+  "input_h5": {
+    "path": "/Users/sad/Downloads/20260827_combined_archive.h5",
+    "size_bytes": 5355699719,
+    "md5": "15244bac1dbea063bc6461385773cf76",
+    "sha256": "e0034c7e2eb59d9a511e3a55e8af3b39e3ea95c0c14b6ddbe3ee06a70c053e9b"
+  },
+  "reference": {
+    "session_uids": [
+      "2608f459-6d44-5584-b69f-5233ba0de694",
+      "2a7b3ab6-4110-555b-8a31-254dd123312a"
+    ],
+    "source": "frozen product Batch 7 reference AgBH"
+  },
+  "method": {
+    "integration_npt": 100,
+    "q_min_nm_inv": 2.0,
+    "q_max_nm_inv": 23.0,
+    "q_points": 1800,
+    "beta_ratio": 0.886,
+    "beta_half_width_nm_inv": 0.12,
+    "max_score": 0.0075,
+    "score_meaning": "QC ranking metric, not physical K-beta fraction"
+  },
+  "results": {
+    "native_eoscan_calibrations": 23,
+    "passed": 23,
+    "rejected": 0,
+    "score_min": 0.0,
+    "score_median": 0.0,
+    "score_max": 0.0012144247152977,
+    "maximum_fraction_of_cutoff": 0.16192329537302666,
+    "sample_thickness_mm_min": 9.0,
+    "sample_thickness_mm_max": 11.0,
+    "poni_q_max_nm_inv_min": 23.650035323903303,
+    "poni_q_max_nm_inv_max": 23.785498517695295,
+    "linked_native_sample_sessions": 109,
+    "linked_native_patients": 55,
+    "sample_sessions_linked_to_passing_calibration": 109,
+    "sample_sessions_linked_to_rejected_or_unscored_calibration": 0
+  },
+  "decision": "retain all audited native EOSCAN sessions under the current T100 threshold; no new K-beta exclusion IDs",
+  "limitations": [
+    "score is relative to frozen AgBH reference and is not a physical K-beta fraction",
+    "research-draft QC audit, not independent clinical validation"
+  ]
+}

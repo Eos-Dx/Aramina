@@ -51,3 +51,40 @@ Clinical_trials/Product/Aramina/Aramina_Preprocessing_v0_1.py
 ```
 
 The JSON is provenance. The YAML files are the runtime preprocessing configs.
+
+## Native EOSCAN Audit: 2026-07-20 To 2026-08-27
+
+The 2026-08-27 combined archive contains 23 native EOSCAN Silver Behenate
+calibration sessions. They were scored against the frozen two-session Batch 7
+reference with the product T100 rule:
+
+```text
+q range: 2-23 nm^-1
+K-beta/K-alpha ratio: 0.886
+window half-width: 0.12 nm^-1
+pass threshold: score <= 0.0075
+```
+
+Results:
+
+```text
+calibrations: 23
+passed: 23
+rejected: 0
+median score: 0.0
+maximum score: 0.0012144
+maximum score / cutoff: 0.162
+native sample sessions linked to passing calibrations: 109/109
+native patients covered: 55
+```
+
+No new K-beta exclusion ID is added. All audited native EOSCAN sessions remain
+eligible under the current monochromaticity rule. This score is a QC ranking
+metric relative to the frozen AgBH reference, not a physical K-beta fraction.
+
+Machine-readable evidence:
+
+```text
+docs/meta/aramina_native_eoscan_agbh_kbeta_audit_20260827.csv
+docs/meta/aramina_native_eoscan_agbh_kbeta_audit_20260827.json
+```
