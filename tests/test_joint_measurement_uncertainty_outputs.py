@@ -50,9 +50,9 @@ def test_summary_reports_threshold_crossing_and_flip_probability():
 
 
 def test_convergence_prefixes_and_case_cohort_artifacts():
-    assert RESULT_CONTRACT == "aramina_joint_measurement_uncertainty_results_v0_2"
+    assert RESULT_CONTRACT == "aramina_joint_measurement_uncertainty_results_v0_3"
     assert convergence_draw_prefixes(10) == (10,)
-    assert convergence_draw_prefixes(5000) == (250, 500, 1000, 2000, 5000)
+    assert convergence_draw_prefixes(5000) == tuple(range(250, 5001, 250))
     probabilities = np.linspace(0.0, 1.0, 500, dtype=np.float32).reshape(1, 1, 500)
     convergence = summarize_case_convergence(
         probabilities,

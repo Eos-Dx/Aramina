@@ -251,8 +251,12 @@ def main(argv: list[str] | None = None) -> int:
             verbose=args.verbose,
         )
         print(f"run_folder={result['run_folder']}")
+        print(f"status={result.get('status', 'complete')}")
         print(f"patients={result['patients']}")
         print(f"target_cases={result['target_cases']}")
+        if "completed_draws" in result:
+            print(f"completed_draws={result['completed_draws']}")
+            print(f"pause_reason={result['pause_reason']}")
         print(f"summary_path={result['summary_path']}")
         print(f"mlflow_run_id={result['mlflow']['run_id']}")
         print(f"mlflow_status={result['mlflow']['status']}")

@@ -35,10 +35,19 @@ execution:
   draw_chunk_size: 32
   profile_batch_size: 16
   geometry_audit_draws: 1
+  global_stage_draws: 5
 monte_carlo:
   draws: 10
   seed: 20260828
   quantiles: [0.025, 0.5, 0.975]
+convergence:
+  auto_stop: false
+  minimum_draws: 10
+  required_stable_checkpoints: 2
+  median_endpoint_change_tolerance: 0.0025
+  p90_endpoint_change_tolerance: 0.01
+  max_threshold_crossing_count_change: 1
+  max_threshold_status_change_count: 1
 nuisance:
   sample_thickness:
     thin_max_mm: 50.0

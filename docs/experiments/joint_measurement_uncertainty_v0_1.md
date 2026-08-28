@@ -153,11 +153,30 @@ increased aggregate benchmark throughput by approximately 1.6-fold, while four
 provided little further gain. The first full run retains one queue to avoid an
 untested merge and checkpoint race.
 
-The full experiment uses an atomic patient/scenario checkpoint. The probability
-memmap is flushed before a unit is marked complete. A resumed run verifies the
-data, model, config, case, scenario, and cached-frame fingerprints and repeats
-only incomplete units. Convergence artifacts are written at 250, 500, 1000,
-2000, and 5000 draws.
+The full experiment is divided into global 250-draw stages. Every stage covers
+all target cases and all 12 scenarios before a convergence result is published.
+Each patient/scenario/stage slice is flushed to the probability memmap before
+its atomic checkpoint is marked complete. Resume verifies data, model, config,
+case, scenario, and cached-frame fingerprints and repeats only incomplete
+slices.
+
+After every 250 draws the run writes case and cohort CSV summaries, a scenario
+dashboard, a convergence-history plot, and plateau metrics under
+`convergence/draws_NNNNN/`. `convergence/latest.json` and
+`convergence/latest.png` always point to the newest completed global stage.
+
+The full configuration enables conservative automatic plateau stopping. It is
+not considered before 2000 draws and requires three consecutive checkpoints in
+which all 12 scenarios satisfy the endpoint-change and threshold-crossing
+criteria. A single stable checkpoint cannot stop the run. This is a Monte Carlo
+convergence rule, not a clinical performance criterion.
+
+To request a safe manual stop, create `STOP_REQUESTED` in the run folder. The
+current patient/scenario/stage slice is completed atomically, then the run is
+marked `paused`. Set `output.resume_run_folder` to that folder and rerun the
+same command; the stale stop request is cleared and calculation continues from
+the first missing slice. `Ctrl+C` also marks the run paused, although the active
+slice is repeated after resume.
 
 ## Decision criteria for the full run
 

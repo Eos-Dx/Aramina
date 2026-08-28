@@ -5,7 +5,9 @@ from __future__ import annotations
 import copy
 from dataclasses import dataclass
 from datetime import UTC, datetime
+import fcntl
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -47,9 +49,9 @@ from .vectorized_frozen_scorer import score_frozen_aramina_0_2_15_cube
 
 
 CONTRACT = "aramina_joint_measurement_uncertainty_v0_1"
-RESULT_CONTRACT = "aramina_joint_measurement_uncertainty_results_v0_2"
+RESULT_CONTRACT = "aramina_joint_measurement_uncertainty_results_v0_3"
 COMPONENTS = ("photon", "thickness", "beam_center", "detector_distance")
-RESUME_CONTRACT = "aramina_joint_measurement_uncertainty_resume_v0_1"
+RESUME_CONTRACT = "aramina_joint_measurement_uncertainty_resume_v0_2"
 RUN_STATE_FILENAME = "run_state.json"
 PROGRESS_FILENAME = "progress.json"
 PROBABILITY_FILENAME = "p_cancer_probability_cube.npy"
@@ -57,6 +59,8 @@ SELECTED_FRAME_CACHE = "selected_detector_frame.joblib"
 SELECTED_CASES_CACHE = "selected_cases_checkpoint.joblib"
 PYFAI_PARITY_CACHE = "pyfai_parity_checkpoint.joblib"
 UNIT_CHECKPOINT_FOLDER = "unit_checkpoints"
+CONVERGENCE_FOLDER = "convergence"
+STOP_REQUEST_FILENAME = "STOP_REQUESTED"
 
 
 @dataclass(frozen=True)
@@ -123,8 +127,18 @@ class RunCheckpoint:
         return str(self.state["run_fingerprint"])
 
     @staticmethod
-    def unit_id(patient_id: str, scenario_name: str) -> str:
-        return json.dumps([str(patient_id), str(scenario_name)], separators=(",", ":"))
+    def unit_id(
+        patient_id: str,
+        scenario_name: str,
+        draw_start: int = 0,
+        draw_stop: int | None = None,
+    ) -> str:
+        if draw_stop is None:
+            draw_stop = -1
+        return json.dumps(
+            [str(patient_id), str(scenario_name), int(draw_start), int(draw_stop)],
+            separators=(",", ":"),
+        )
 
     def completed_unit(
         self,
@@ -134,8 +148,12 @@ class RunCheckpoint:
         case_ids: list[str],
         case_indices: list[int],
         scenario_index: int,
+        draw_start: int = 0,
+        draw_stop: int | None = None,
     ) -> dict[str, Any] | None:
-        unit_id = self.unit_id(patient_id, scenario_name)
+        if draw_stop is None:
+            draw_stop = self.probabilities.shape[2]
+        unit_id = self.unit_id(patient_id, scenario_name, draw_start, draw_stop)
         record = self.progress["completed_units"].get(unit_id)
         if record is None:
             return None
@@ -156,6 +174,8 @@ class RunCheckpoint:
             "patient_id": str(patient_id),
             "scenario": str(scenario_name),
             "case_ids": [str(value) for value in case_ids],
+            "draw_start": int(draw_start),
+            "draw_stop": int(draw_stop),
         }
         if not isinstance(payload, dict) or any(
             payload.get(key) != value for key, value in expected.items()
@@ -163,7 +183,9 @@ class RunCheckpoint:
             raise MeasurementUncertaintyError(
                 f"Completed unit payload mismatch: {unit_id}."
             )
-        values = self.probabilities[case_indices, scenario_index, :]
+        values = self.probabilities[
+            case_indices, scenario_index, draw_start:draw_stop
+        ]
         if values.shape[0] != len(case_ids) or not np.isfinite(values).all():
             raise MeasurementUncertaintyError(
                 f"Completed unit probability slice is partial: {unit_id}."
@@ -187,27 +209,37 @@ class RunCheckpoint:
         case_index: dict[str, int],
         parity_rows: list[dict[str, Any]],
         geometry_rows: list[dict[str, Any]],
+        draw_start: int = 0,
+        draw_stop: int | None = None,
     ) -> None:
         case_ids = [str(value) for value in case_values]
         if not case_ids or any(value not in case_index for value in case_ids):
             raise MeasurementUncertaintyError(
                 "Checkpoint unit contains unknown or empty target cases."
             )
-        expected_draws = self.probabilities.shape[2]
+        if draw_stop is None:
+            draw_stop = self.probabilities.shape[2]
+        if not 0 <= draw_start < draw_stop <= self.probabilities.shape[2]:
+            raise MeasurementUncertaintyError("Invalid checkpoint draw range.")
+        expected_draws = draw_stop - draw_start
         for case_id in case_ids:
             values = np.asarray(case_values[case_id], dtype=np.float32)
             if values.shape != (expected_draws,) or not np.isfinite(values).all():
                 raise MeasurementUncertaintyError(
                     "Checkpoint unit probabilities must be complete and finite."
                 )
-            self.probabilities[case_index[case_id], scenario_index] = values
+            self.probabilities[
+                case_index[case_id], scenario_index, draw_start:draw_stop
+            ] = values
         self.probabilities.flush()
 
-        unit_id = self.unit_id(patient_id, scenario_name)
+        unit_id = self.unit_id(patient_id, scenario_name, draw_start, draw_stop)
         case_indices = [case_index[value] for value in case_ids]
         probability_sha256 = hashlib.sha256(
             np.ascontiguousarray(
-                self.probabilities[case_indices, scenario_index, :],
+                self.probabilities[
+                    case_indices, scenario_index, draw_start:draw_stop
+                ],
                 dtype=np.float32,
             ).tobytes()
         ).hexdigest()
@@ -222,6 +254,8 @@ class RunCheckpoint:
             "patient_id": str(patient_id),
             "scenario": str(scenario_name),
             "case_ids": case_ids,
+            "draw_start": int(draw_start),
+            "draw_stop": int(draw_stop),
             "probability_sha256": probability_sha256,
             "parity_rows": parity_rows,
             "geometry_rows": geometry_rows,
@@ -245,6 +279,33 @@ class RunCheckpoint:
         self.progress = {
             **self.progress,
             "status": "complete",
+            "updated_at": datetime.now(UTC).isoformat(),
+        }
+        _atomic_write_json(self.run_folder / PROGRESS_FILENAME, self.progress)
+
+    def mark_paused(self, *, reason: str, completed_draws: int) -> None:
+        self.progress = {
+            **self.progress,
+            "status": "paused",
+            "pause_reason": reason,
+            "completed_draws": int(completed_draws),
+            "updated_at": datetime.now(UTC).isoformat(),
+        }
+        _atomic_write_json(self.run_folder / PROGRESS_FILENAME, self.progress)
+
+    def mark_stage_complete(
+        self,
+        *,
+        completed_draws: int,
+        convergence: dict[str, Any],
+    ) -> None:
+        stages = dict(self.progress.get("completed_stages", {}))
+        stages[str(completed_draws)] = convergence
+        self.progress = {
+            **self.progress,
+            "status": "running",
+            "completed_draws": int(completed_draws),
+            "completed_stages": stages,
             "updated_at": datetime.now(UTC).isoformat(),
         }
         _atomic_write_json(self.run_folder / PROGRESS_FILENAME, self.progress)
@@ -327,11 +388,24 @@ def _base_resume_identity(
     data_version: dict[str, Any],
     scenarios: tuple[Scenario, ...],
 ) -> dict[str, str]:
+    native_spec = importlib.util.find_spec("xrdanalysis._native")
+    native_library = (
+        Path(next(iter(native_spec.submodule_search_locations)))
+        / "libxrdanalysis_direct_monte_carlo_metal.dylib"
+        if native_spec is not None and native_spec.submodule_search_locations
+        else None
+    )
     return {
         "config_fingerprint": _computational_config_fingerprint(config),
         "model_fingerprint": file_sha256(model_path),
         "data_fingerprint": _json_fingerprint(data_version),
         "scenario_fingerprint": _scenario_fingerprint(scenarios),
+        "runner_fingerprint": file_sha256(Path(__file__)),
+        "metal_library_fingerprint": (
+            file_sha256(native_library)
+            if native_library is not None and native_library.is_file()
+            else "missing"
+        ),
     }
 
 
@@ -546,6 +620,26 @@ def run_joint_measurement_uncertainty_from_config(
             )
     else:
         run_folder = _create_run_folder(config, path)
+    lock_stream = (run_folder / "run.lock").open("a+", encoding="utf-8")
+    try:
+        fcntl.flock(lock_stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError as error:
+        lock_stream.close()
+        raise MeasurementUncertaintyError(
+            f"Run folder is already active: {run_folder}."
+        ) from error
+    lock_stream.seek(0)
+    lock_stream.truncate()
+    lock_stream.write(
+        json.dumps(
+            {
+                "pid": os.getpid(),
+                "started_at": datetime.now(UTC).isoformat(),
+            },
+            sort_keys=True,
+        )
+    )
+    lock_stream.flush()
     effective_preprocessing = _experimental_preprocessing_config(
         model_artifact,
         input_h5_path=input_h5_path,
@@ -613,7 +707,7 @@ def run_joint_measurement_uncertainty_from_config(
     thresholds = np.full(len(selected_cases), np.nan, dtype=float)
     metal_parity_rows: list[dict[str, Any]] = []
     geometry_rows: list[dict[str, Any]] = []
-
+    patient_inputs: dict[str, tuple[pd.DataFrame, pd.DataFrame]] = {}
     for patient_id in patient_ids:
         patient_frame = selected_frame[
             selected_frame["patientId"].astype(str).eq(patient_id)
@@ -630,102 +724,216 @@ def run_joint_measurement_uncertainty_from_config(
             index = case_index[case_id]
             deterministic[index] = score["p_cancer"]
             thresholds[index] = score["threshold"]
+        patient_inputs[patient_id] = (patient_frame, patient_cases)
 
-        draw_chunk_size = int(config["execution"]["draw_chunk_size"])
-        profile_batch_size = int(config["execution"]["profile_batch_size"])
-        geometry_audit_draws = int(config["execution"]["geometry_audit_draws"])
-        if geometry_audit_draws < 1:
-            raise MeasurementUncertaintyError(
-                "geometry_audit_draws must be positive for fail-closed parity."
-            )
-        normalization_q_range = tuple(
-            float(value)
-            for value in config["integration"]["normalization_q_range"]
-        )
-        patient_case_ids = [
-            str(value) for value in patient_cases["target_case_id"].tolist()
-        ]
-        patient_case_indices = [case_index[value] for value in patient_case_ids]
-        incomplete_scenarios: list[tuple[int, Scenario]] = []
-        for scenario_index, scenario in enumerate(scenarios):
-            completed = checkpoint.completed_unit(
-                patient_id=patient_id,
-                scenario_name=scenario.name,
-                case_ids=patient_case_ids,
-                case_indices=patient_case_indices,
-                scenario_index=scenario_index,
-            )
-            if completed is None:
-                incomplete_scenarios.append((scenario_index, scenario))
+    case_table = selected_cases.copy()
+    case_table["deterministic_p_cancer"] = deterministic
+    case_table["decision_threshold"] = thresholds
+    draw_chunk_size = int(config["execution"]["draw_chunk_size"])
+    profile_batch_size = int(config["execution"]["profile_batch_size"])
+    geometry_audit_draws = int(config["execution"]["geometry_audit_draws"])
+    stage_draws = int(config["execution"]["global_stage_draws"])
+    normalization_q_range = tuple(
+        float(value) for value in config["integration"]["normalization_q_range"]
+    )
+    stop_request_path = run_folder / STOP_REQUEST_FILENAME
+    if resuming and stop_request_path.exists():
+        stop_request_path.unlink()
+    completed_stages = checkpoint.progress.get("completed_stages", {})
+    latest_stage = (
+        completed_stages.get(str(max(map(int, completed_stages))))
+        if completed_stages
+        else None
+    )
+    stable_checkpoint_count = int(
+        latest_stage.get("consecutive_stable_checkpoints", 0)
+        if isinstance(latest_stage, dict)
+        else 0
+    )
+    completed_global_draws = int(checkpoint.progress.get("completed_draws", 0))
+
+    try:
+        for draw_start, draw_stop in _stage_ranges(draws, stage_draws):
+            if draw_stop <= completed_global_draws:
                 continue
-            parity_rows = completed.get("parity_rows")
-            completed_geometry = completed.get("geometry_rows")
-            if not isinstance(parity_rows, list) or not isinstance(
-                completed_geometry, list
-            ):
-                raise MeasurementUncertaintyError(
-                    "Completed unit audit payload is invalid."
-                )
-            metal_parity_rows.extend(parity_rows)
-            geometry_rows.extend(completed_geometry)
-        if not incomplete_scenarios:
-            continue
-
-        nuisance = sample_nuisance_draws(
-            patient_frame,
-            draws=draws,
-            seed=int(config["monte_carlo"]["seed"]),
-            thickness_config=config["nuisance"]["sample_thickness"],
-            beam_center_config=config["nuisance"]["beam_center"],
-            detector_distance_config=config["nuisance"]["detector_distance"],
-        )
-        with _prepare_patient_metal_context(
-            patient_frame,
-            nuisance=nuisance,
-            draw_chunk_size=draw_chunk_size,
-            profile_batch_size=profile_batch_size,
-            normalization_q_range=normalization_q_range,
-        ) as metal_context:
-            for scenario_index, scenario in incomplete_scenarios:
-                patient_probabilities, patient_parity, patient_geometry = (
-                    _run_patient_scenario(
-                        patient_frame,
-                        patient_cases,
-                        model_artifact=model_artifact,
-                        model_info=model_info,
-                        metal_context=metal_context,
-                        scenario=scenario,
-                        nuisance=nuisance,
-                        draws=draws,
-                        draw_chunk_size=draw_chunk_size,
-                        geometry_audit_draws=geometry_audit_draws,
-                        normalization_q_range=normalization_q_range,
-                        metal_profile_max_tolerance=profile_max_tolerance,
-                        metal_profile_p99_tolerance=profile_p99_tolerance,
-                        metal_p_cancer_parity_tolerance=float(
-                            config["validation"][
-                                "metal_p_cancer_parity_tolerance"
-                            ]
-                        ),
-                        random_seed=int(config["monte_carlo"]["seed"]),
+            for patient_id in patient_ids:
+                patient_frame, patient_cases = patient_inputs[patient_id]
+                patient_case_ids = [
+                    str(value) for value in patient_cases["target_case_id"].tolist()
+                ]
+                patient_case_indices = [
+                    case_index[value] for value in patient_case_ids
+                ]
+                incomplete_scenarios: list[tuple[int, Scenario]] = []
+                for scenario_index, scenario in enumerate(scenarios):
+                    completed = checkpoint.completed_unit(
+                        patient_id=patient_id,
+                        scenario_name=scenario.name,
+                        case_ids=patient_case_ids,
+                        case_indices=patient_case_indices,
+                        scenario_index=scenario_index,
+                        draw_start=draw_start,
+                        draw_stop=draw_stop,
                     )
+                    if completed is None:
+                        incomplete_scenarios.append((scenario_index, scenario))
+                        continue
+                    parity_rows = completed.get("parity_rows")
+                    completed_geometry = completed.get("geometry_rows")
+                    if not isinstance(parity_rows, list) or not isinstance(
+                        completed_geometry, list
+                    ):
+                        raise MeasurementUncertaintyError(
+                            "Completed stage-unit audit payload is invalid."
+                        )
+                    metal_parity_rows.extend(parity_rows)
+                    geometry_rows.extend(completed_geometry)
+                if not incomplete_scenarios:
+                    continue
+
+                nuisance = sample_nuisance_draws(
+                    patient_frame,
+                    draws=draws,
+                    seed=int(config["monte_carlo"]["seed"]),
+                    thickness_config=config["nuisance"]["sample_thickness"],
+                    beam_center_config=config["nuisance"]["beam_center"],
+                    detector_distance_config=config["nuisance"]["detector_distance"],
                 )
-                checkpoint.complete_unit(
-                    patient_id=patient_id,
-                    scenario_name=scenario.name,
-                    scenario_index=scenario_index,
-                    case_values=patient_probabilities,
-                    case_index=case_index,
-                    parity_rows=patient_parity,
-                    geometry_rows=patient_geometry,
+                with _prepare_patient_metal_context(
+                    patient_frame,
+                    nuisance=nuisance,
+                    draw_chunk_size=draw_chunk_size,
+                    profile_batch_size=profile_batch_size,
+                    normalization_q_range=normalization_q_range,
+                ) as metal_context:
+                    for scenario_index, scenario in incomplete_scenarios:
+                        patient_probabilities, patient_parity, patient_geometry = (
+                            _run_patient_scenario(
+                                patient_frame,
+                                patient_cases,
+                                model_artifact=model_artifact,
+                                model_info=model_info,
+                                metal_context=metal_context,
+                                scenario=scenario,
+                                nuisance=nuisance,
+                                draws=draws,
+                                draw_start=draw_start,
+                                draw_stop=draw_stop,
+                                draw_chunk_size=draw_chunk_size,
+                                geometry_audit_draws=geometry_audit_draws,
+                                normalization_q_range=normalization_q_range,
+                                metal_profile_max_tolerance=profile_max_tolerance,
+                                metal_profile_p99_tolerance=profile_p99_tolerance,
+                                metal_p_cancer_parity_tolerance=float(
+                                    config["validation"][
+                                        "metal_p_cancer_parity_tolerance"
+                                    ]
+                                ),
+                                random_seed=int(config["monte_carlo"]["seed"]),
+                            )
+                        )
+                        checkpoint.complete_unit(
+                            patient_id=patient_id,
+                            scenario_name=scenario.name,
+                            scenario_index=scenario_index,
+                            case_values=patient_probabilities,
+                            case_index=case_index,
+                            parity_rows=patient_parity,
+                            geometry_rows=patient_geometry,
+                            draw_start=draw_start,
+                            draw_stop=draw_stop,
+                        )
+                        metal_parity_rows.extend(patient_parity)
+                        geometry_rows.extend(patient_geometry)
+                        if stop_request_path.exists():
+                            checkpoint.mark_paused(
+                                reason="manual_stop_request",
+                                completed_draws=completed_global_draws,
+                            )
+                            return _paused_result(
+                                run_folder,
+                                patient_ids=patient_ids,
+                                selected_cases=selected_cases,
+                                completed_draws=completed_global_draws,
+                                reason="manual_stop_request",
+                                resuming=resuming,
+                            )
+
+            stage_case_summary = _stage_case_summary(
+                probabilities,
+                case_table,
+                scenarios=scenarios,
+                quantiles=quantiles,
+                completed_draws=draw_stop,
+            )
+            stage_cohort_summary = summarize_cohort_convergence(stage_case_summary)
+            previous_summary = None
+            if completed_global_draws:
+                previous_path = (
+                    run_folder
+                    / CONVERGENCE_FOLDER
+                    / f"draws_{completed_global_draws:05d}"
+                    / "case_summary.csv"
                 )
-                metal_parity_rows.extend(patient_parity)
-                geometry_rows.extend(patient_geometry)
+                if previous_path.is_file():
+                    previous_summary = pd.read_csv(previous_path)
+            plateau_metrics, plateau_status = _stage_plateau_metrics(
+                stage_case_summary,
+                previous_summary,
+                config=config,
+                completed_draws=draw_stop,
+                stable_checkpoint_count=stable_checkpoint_count,
+            )
+            stable_checkpoint_count = int(
+                plateau_status["consecutive_stable_checkpoints"]
+            )
+            stage_status = _write_stage_convergence(
+                run_folder,
+                case_summary=stage_case_summary,
+                cohort_summary=stage_cohort_summary,
+                plateau_metrics=plateau_metrics,
+                plateau_status=plateau_status,
+                completed_draws=draw_stop,
+            )
+            completed_global_draws = draw_stop
+            checkpoint.mark_stage_complete(
+                completed_draws=draw_stop,
+                convergence=stage_status,
+            )
+            if bool(config["convergence"]["auto_stop"]) and bool(
+                plateau_status["plateau"]
+            ):
+                checkpoint.mark_paused(
+                    reason="convergence_plateau",
+                    completed_draws=draw_stop,
+                )
+                return _paused_result(
+                    run_folder,
+                    patient_ids=patient_ids,
+                    selected_cases=selected_cases,
+                    completed_draws=draw_stop,
+                    reason="convergence_plateau",
+                    resuming=resuming,
+                )
+    except KeyboardInterrupt:
+        checkpoint.mark_paused(
+            reason="keyboard_interrupt",
+            completed_draws=completed_global_draws,
+        )
+        return _paused_result(
+            run_folder,
+            patient_ids=patient_ids,
+            selected_cases=selected_cases,
+            completed_draws=completed_global_draws,
+            reason="keyboard_interrupt",
+            resuming=resuming,
+        )
 
     expected_unit_ids = {
-        checkpoint.unit_id(patient_id, scenario.name)
+        checkpoint.unit_id(patient_id, scenario.name, draw_start, draw_stop)
         for patient_id in patient_ids
         for scenario in scenarios
+        for draw_start, draw_stop in _stage_ranges(draws, stage_draws)
     }
     if set(checkpoint.progress["completed_units"]) != expected_unit_ids:
         raise MeasurementUncertaintyError(
@@ -736,9 +944,6 @@ def run_joint_measurement_uncertainty_from_config(
             "Run cannot finalize with partial probability values."
         )
 
-    case_table = selected_cases.copy()
-    case_table["deterministic_p_cancer"] = deterministic
-    case_table["decision_threshold"] = thresholds
     summaries = summarize_case_uncertainty(
         probabilities,
         case_table,
@@ -1229,13 +1434,193 @@ def summarize_case_uncertainty(
     return pd.DataFrame(rows)
 
 
-def convergence_draw_prefixes(draws: int) -> tuple[int, ...]:
-    """Return configured convergence checkpoints plus the final draw count."""
+def convergence_draw_prefixes(
+    draws: int,
+    *,
+    stage_draws: int = 250,
+) -> tuple[int, ...]:
+    """Return every global stage boundary plus the final draw count."""
     if draws < 1:
         raise ValueError("draws must be positive.")
+    if stage_draws < 1:
+        raise ValueError("stage_draws must be positive.")
+    return tuple(range(stage_draws, draws, stage_draws)) + (draws,)
+
+
+def _stage_ranges(draws: int, stage_draws: int) -> tuple[tuple[int, int], ...]:
     return tuple(
-        sorted({value for value in (250, 500, 1000, 2000, draws) if value <= draws})
+        (start, min(start + stage_draws, draws))
+        for start in range(0, draws, stage_draws)
     )
+
+
+def _stage_case_summary(
+    probabilities: np.ndarray,
+    case_table: pd.DataFrame,
+    *,
+    scenarios: tuple[Scenario, ...],
+    quantiles: tuple[float, float, float],
+    completed_draws: int,
+) -> pd.DataFrame:
+    summary = summarize_case_uncertainty(
+        probabilities[:, :, :completed_draws],
+        case_table,
+        scenarios=scenarios,
+        quantiles=quantiles,
+    )
+    summary.insert(5, "draw_prefix", completed_draws)
+    return summary
+
+
+def _stage_plateau_metrics(
+    current: pd.DataFrame,
+    previous: pd.DataFrame | None,
+    *,
+    config: dict[str, Any],
+    completed_draws: int,
+    stable_checkpoint_count: int,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    if previous is not None:
+        keys = ["target_case_id", "scenario"]
+        merged = current.merge(previous, on=keys, suffixes=("", "_previous"))
+        for scenario, frame in merged.groupby("scenario", sort=False):
+            endpoint_change = np.maximum.reduce(
+                [
+                    np.abs(
+                        frame["p_cancer_p025"]
+                        - frame["p_cancer_p025_previous"]
+                    ),
+                    np.abs(
+                        frame["p_cancer_p50"]
+                        - frame["p_cancer_p50_previous"]
+                    ),
+                    np.abs(
+                        frame["p_cancer_p975"]
+                        - frame["p_cancer_p975_previous"]
+                    ),
+                ]
+            )
+            crossing_change = abs(
+                int(frame["threshold_crossing"].sum())
+                - int(frame["threshold_crossing_previous"].sum())
+            )
+            threshold_status_change_count = int(
+                np.sum(
+                    frame["threshold_crossing"].astype(bool).to_numpy()
+                    != frame["threshold_crossing_previous"].astype(bool).to_numpy()
+                )
+            )
+            rows.append(
+                {
+                    "scenario": scenario,
+                    "completed_draws": completed_draws,
+                    "median_endpoint_change": float(np.median(endpoint_change)),
+                    "p90_endpoint_change": float(np.quantile(endpoint_change, 0.9)),
+                    "threshold_crossing_count": int(
+                        frame["threshold_crossing"].sum()
+                    ),
+                    "threshold_crossing_count_change": crossing_change,
+                    "threshold_status_change_count": threshold_status_change_count,
+                }
+            )
+    metrics = pd.DataFrame(rows)
+    convergence = config["convergence"]
+    stable = bool(
+        not metrics.empty
+        and (metrics["median_endpoint_change"] <= float(
+            convergence["median_endpoint_change_tolerance"]
+        )).all()
+        and (metrics["p90_endpoint_change"] <= float(
+            convergence["p90_endpoint_change_tolerance"]
+        )).all()
+        and (metrics["threshold_crossing_count_change"] <= int(
+            convergence["max_threshold_crossing_count_change"]
+        )).all()
+        and (metrics["threshold_status_change_count"] <= int(
+            convergence["max_threshold_status_change_count"]
+        )).all()
+    )
+    consecutive = stable_checkpoint_count + 1 if stable else 0
+    plateau = bool(
+        completed_draws >= int(convergence["minimum_draws"])
+        and consecutive >= int(convergence["required_stable_checkpoints"])
+    )
+    return metrics, {
+        "stable_checkpoint": stable,
+        "consecutive_stable_checkpoints": consecutive,
+        "plateau": plateau,
+    }
+
+
+def _write_stage_convergence(
+    run_folder: Path,
+    *,
+    case_summary: pd.DataFrame,
+    cohort_summary: pd.DataFrame,
+    plateau_metrics: pd.DataFrame,
+    plateau_status: dict[str, Any],
+    completed_draws: int,
+) -> dict[str, Any]:
+    stage_folder = run_folder / CONVERGENCE_FOLDER / f"draws_{completed_draws:05d}"
+    stage_folder.mkdir(parents=True, exist_ok=True)
+    case_summary.to_csv(stage_folder / "case_summary.csv", index=False)
+    cohort_summary.to_csv(stage_folder / "cohort_summary.csv", index=False)
+    plateau_metrics.to_csv(stage_folder / "plateau_metrics.csv", index=False)
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    figure, axes = plt.subplots(1, 2, figsize=(14, 5), constrained_layout=True)
+    scenario_order = cohort_summary["scenario"].astype(str).tolist()
+    axes[0].barh(scenario_order, cohort_summary["median_interval_width"])
+    axes[0].set_xlabel("Median 95% interval width")
+    axes[0].set_title(f"Measurement uncertainty after {completed_draws} draws")
+    axes[1].barh(scenario_order, cohort_summary["threshold_crossing_fraction"])
+    axes[1].set_xlim(0.0, 1.0)
+    axes[1].set_xlabel("Fraction of cases crossing threshold")
+    axes[1].set_title("Decision instability")
+    dashboard_path = stage_folder / "convergence_dashboard.png"
+    figure.savefig(dashboard_path, dpi=160)
+    plt.close(figure)
+
+    history_rows: list[pd.DataFrame] = []
+    for path in sorted((run_folder / CONVERGENCE_FOLDER).glob("draws_*/cohort_summary.csv")):
+        history_rows.append(pd.read_csv(path))
+    history = pd.concat(history_rows, ignore_index=True)
+    figure, axis = plt.subplots(figsize=(11, 6), constrained_layout=True)
+    for scenario, frame in history.groupby("scenario", sort=False):
+        axis.plot(
+            frame["draw_prefix"],
+            frame["median_interval_width"],
+            marker="o",
+            linewidth=1.2,
+            label=scenario,
+        )
+    axis.set_xlabel("Completed draws")
+    axis.set_ylabel("Median 95% interval width")
+    axis.set_title("Convergence by uncertainty scenario")
+    axis.grid(alpha=0.25)
+    axis.legend(fontsize=7, ncol=2)
+    history_path = run_folder / CONVERGENCE_FOLDER / "convergence_history.png"
+    figure.savefig(history_path, dpi=160)
+    plt.close(figure)
+
+    status = {
+        "completed_draws": int(completed_draws),
+        **plateau_status,
+        "case_summary": str(stage_folder / "case_summary.csv"),
+        "cohort_summary": str(stage_folder / "cohort_summary.csv"),
+        "dashboard": str(dashboard_path),
+        "history_plot": str(history_path),
+        "updated_at": datetime.now(UTC).isoformat(),
+    }
+    _atomic_write_json(stage_folder / "stage_summary.json", status)
+    _atomic_write_json(run_folder / CONVERGENCE_FOLDER / "latest.json", status)
+    shutil.copy2(dashboard_path, run_folder / CONVERGENCE_FOLDER / "latest.png")
+    return status
 
 
 def summarize_case_convergence(
@@ -1320,6 +1705,8 @@ def _run_patient_scenario(
     scenario: Scenario,
     nuisance: NuisanceDraws,
     draws: int,
+    draw_start: int = 0,
+    draw_stop: int | None = None,
     draw_chunk_size: int,
     geometry_audit_draws: int,
     normalization_q_range: tuple[float, float],
@@ -1328,15 +1715,20 @@ def _run_patient_scenario(
     metal_p_cancer_parity_tolerance: float,
     random_seed: int,
 ) -> tuple[dict[str, np.ndarray], list[dict[str, Any]], list[dict[str, Any]]]:
+    if draw_stop is None:
+        draw_stop = draws
+    if not 0 <= draw_start < draw_stop <= draws:
+        raise MeasurementUncertaintyError("Invalid patient/scenario draw range.")
+    stage_draws = draw_stop - draw_start
     case_values = {
-        str(case_id): np.empty(draws, dtype=np.float32)
+        str(case_id): np.empty(stage_draws, dtype=np.float32)
         for case_id in patient_cases["target_case_id"]
     }
     metal_audit_chunks: list[np.ndarray] = []
     expected_audit_chunks: list[np.ndarray] = []
     geometry_rows: list[dict[str, Any]] = []
-    for start in range(0, draws, draw_chunk_size):
-        stop = min(draws, start + draw_chunk_size)
+    for start in range(draw_start, draw_stop, draw_chunk_size):
+        stop = min(draw_stop, start + draw_chunk_size)
         profiles, metal_nominal, expected, q_values, geometry = (
             _metal_profile_chunk(
                 patient_frame,
@@ -1345,6 +1737,7 @@ def _run_patient_scenario(
                 nuisance=nuisance,
                 start=start,
                 stop=stop,
+                audit_draw_start=draw_start,
                 geometry_audit_draws=geometry_audit_draws,
                 normalization_q_range=normalization_q_range,
                 random_seed=random_seed,
@@ -1360,9 +1753,20 @@ def _run_patient_scenario(
             "target_manifest": patient_cases,
             "model_artifact": model_artifact,
         }
-        scores = score_frozen_aramina_0_2_15_cube(profiles, **score_kwargs)
+        if not np.isfinite(profiles).all():
+            raise MeasurementUncertaintyError(
+                "Metal integration produced non-finite normalized profiles."
+            )
+        with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+            scores = score_frozen_aramina_0_2_15_cube(profiles, **score_kwargs)
+        if not np.isfinite(scores.p_cancer).all():
+            raise MeasurementUncertaintyError(
+                "Frozen model produced non-finite p_cancer values."
+            )
         for target_index, case_id in enumerate(scores.target_case_ids):
-            case_values[case_id][start:stop] = scores.p_cancer[:, target_index]
+            case_values[case_id][
+                start - draw_start : stop - draw_start
+            ] = scores.p_cancer[:, target_index]
     if not metal_audit_chunks:
         raise MeasurementUncertaintyError(
             "No geometry audit draws were produced for fail-closed parity."
@@ -1373,15 +1777,15 @@ def _run_patient_scenario(
         metal_audit,
         expected_audit,
         metal_context.q_grid,
-        draw_start=0,
+        draw_start=draw_start,
         maximum_tolerance=metal_profile_max_tolerance,
         p99_tolerance=metal_profile_p99_tolerance,
     )
     parity = {
         "patient_id": str(patient_frame["patientId"].iloc[0]),
         "scenario": scenario.name,
-        "draw_start": 0,
-        "draw_stop": int(metal_audit.shape[0]),
+        "draw_start": int(draw_start),
+        "draw_stop": int(draw_start + metal_audit.shape[0]),
         "oracle_draws": int(metal_audit.shape[0]),
         **profile_metrics,
         "persistent_session_reused": True,
@@ -1400,12 +1804,23 @@ def _run_patient_scenario(
         "target_manifest": patient_cases,
         "model_artifact": model_artifact,
     }
-    metal_scores = score_frozen_aramina_0_2_15_cube(
-        metal_audit, **audit_kwargs
-    )
-    expected_scores = score_frozen_aramina_0_2_15_cube(
-        expected_audit, **audit_kwargs
-    )
+    if not np.isfinite(metal_audit).all() or not np.isfinite(expected_audit).all():
+        raise MeasurementUncertaintyError(
+            "Metal/pyFAI parity audit contains non-finite profiles."
+        )
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+        metal_scores = score_frozen_aramina_0_2_15_cube(
+            metal_audit, **audit_kwargs
+        )
+        expected_scores = score_frozen_aramina_0_2_15_cube(
+            expected_audit, **audit_kwargs
+        )
+    if not np.isfinite(metal_scores.p_cancer).all() or not np.isfinite(
+        expected_scores.p_cancer
+    ).all():
+        raise MeasurementUncertaintyError(
+            "Metal/pyFAI parity audit produced non-finite p_cancer values."
+        )
     maximum_score_error = float(
         np.max(np.abs(metal_scores.p_cancer - expected_scores.p_cancer))
     )
@@ -1442,6 +1857,7 @@ def _metal_profile_chunk(
     nuisance: NuisanceDraws,
     start: int,
     stop: int,
+    audit_draw_start: int = 0,
     geometry_audit_draws: int,
     normalization_q_range: tuple[float, float],
     random_seed: int,
@@ -1479,8 +1895,12 @@ def _metal_profile_chunk(
             **integration_kwargs,
         )
 
-    audit_stop = min(stop, geometry_audit_draws)
-    if start < audit_stop:
+    audit_stop = min(stop, audit_draw_start + geometry_audit_draws)
+    if start < audit_stop and stop > audit_draw_start:
+        if start < audit_draw_start:
+            raise MeasurementUncertaintyError(
+                "Metal chunk starts before its audit stage boundary."
+            )
         audit_count = audit_stop - start
         audit_distance = distance[:audit_count]
         audit_poni1 = poni1[:audit_count]
@@ -1684,6 +2104,19 @@ def _load_config(path: Path) -> dict[str, Any]:
     quantiles = config["monte_carlo"]["quantiles"]
     if len(quantiles) != 3 or not 0 < quantiles[0] < quantiles[1] < quantiles[2] < 1:
         raise ValueError("Monte Carlo quantiles must be ordered inside (0, 1).")
+    draws = int(config["monte_carlo"]["draws"])
+    stage_draws = int(config["execution"].get("global_stage_draws", 250))
+    if draws < 1 or stage_draws < 1 or stage_draws > draws:
+        raise ValueError("Monte Carlo draws and global_stage_draws are invalid.")
+    config["execution"]["global_stage_draws"] = stage_draws
+    convergence = config.setdefault("convergence", {})
+    convergence.setdefault("auto_stop", False)
+    convergence.setdefault("minimum_draws", min(2000, draws))
+    convergence.setdefault("required_stable_checkpoints", 3)
+    convergence.setdefault("median_endpoint_change_tolerance", 0.0025)
+    convergence.setdefault("p90_endpoint_change_tolerance", 0.01)
+    convergence.setdefault("max_threshold_crossing_count_change", 1)
+    convergence.setdefault("max_threshold_status_change_count", 1)
     return config
 
 
@@ -1700,6 +2133,30 @@ def _create_run_folder(config: dict[str, Any], config_path: Path) -> Path:
     folder = root / f"joint_measurement_uncertainty_{stamp}"
     folder.mkdir(parents=True, exist_ok=False)
     return folder
+
+
+def _paused_result(
+    run_folder: Path,
+    *,
+    patient_ids: list[str],
+    selected_cases: pd.DataFrame,
+    completed_draws: int,
+    reason: str,
+    resuming: bool,
+) -> dict[str, Any]:
+    return {
+        "status": "paused",
+        "pause_reason": reason,
+        "run_folder": str(run_folder),
+        "summary_path": str(run_folder / CONVERGENCE_FOLDER / "latest.json"),
+        "probability_path": str(run_folder / PROBABILITY_FILENAME),
+        "patients": len(patient_ids),
+        "target_cases": len(selected_cases),
+        "completed_draws": int(completed_draws),
+        "resumed": resuming,
+        "mlflow": {"run_id": None, "status": "not_logged_until_complete"},
+        "manifest": None,
+    }
 
 
 def _write_artifacts(
