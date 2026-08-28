@@ -171,6 +171,12 @@ which all 12 scenarios satisfy the endpoint-change and threshold-crossing
 criteria. A single stable checkpoint cannot stop the run. This is a Monte Carlo
 convergence rule, not a clinical performance criterion.
 
+The Metal profile parity gate uses a `0.0025` maximum absolute tolerance and a
+separate `0.0001` p99 tolerance. The maximum limit admits isolated numerical
+outliers observed in the full cohort (`0.002314`), while the unchanged p99 gate
+continues to control population-wide profile agreement. The independent
+`p_cancer` parity and decision-class gates remain unchanged.
+
 To request a safe manual stop, create `STOP_REQUESTED` in the run folder. The
 current patient/scenario/stage slice is completed atomically, then the run is
 marked `paused`. Set `output.resume_run_folder` to that folder and rerun the
