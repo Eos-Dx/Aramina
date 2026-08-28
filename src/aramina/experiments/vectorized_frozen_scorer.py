@@ -14,18 +14,14 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+from scipy.signal import savgol_filter
 
 from ..patient_features import (
     TARGET_CASE_ID,
-    display_side,
-    has_numeric,
     normalize_side,
-    numeric_median,
 )
-from ..symmetry_features import (
-    SK_FEATURE_CONTRACT_V0_1,
-    target_contralateral_symmetry_features,
-)
+from ..symmetry_features import SK_FEATURE_CONTRACT_V0_2
+from ..target_breast_model import SK_CORE4_FEATURE_COLUMNS
 
 
 FROZEN_MODEL_NAME = "aramina_target_breast_risk"
@@ -94,46 +90,38 @@ def score_frozen_aramina_0_2_15_cube(
     targets = _validated_targets(target_manifest, manifest)
     model_info = _frozen_model_info(model_artifact, model_name=model_name)
     lr1_scores = _vectorized_lr1_scores(cube, model_info["lr1_model"])
-
-    feature_rows: list[dict[str, Any]] = []
-    row_index: list[tuple[int, int]] = []
-    for draw_index, draw_profiles in enumerate(cube):
-        draw_frame = manifest.copy(deep=False)
-        draw_frame["radial_profile_data"] = list(draw_profiles)
-        draw_frame["q_range"] = list(q_values)
-        for target_index, target in enumerate(targets.itertuples(index=False)):
-            feature_rows.append(
-                _feature_row_for_draw_target(
-                    draw_frame,
-                    lr1_scores[draw_index],
-                    patient_id=str(target.patient_id),
-                    target_side=str(target.target_side),
-                    model_info=model_info,
-                )
-            )
-            row_index.append((draw_index, target_index))
-
-    feature_table = pd.DataFrame(feature_rows)
-    probabilities = model_info["final_model"].predict_proba(feature_table)[:, 1]
     draw_count = cube.shape[0]
     target_count = len(targets)
-    p_cancer = np.empty((draw_count, target_count), dtype=float)
-    target_measurements = np.empty((draw_count, target_count), dtype=int)
-    contralateral_measurements = np.empty((draw_count, target_count), dtype=int)
-    symmetry_available = np.empty((draw_count, target_count), dtype=int)
-    for value, (draw_index, target_index), feature_row in zip(
-        probabilities, row_index, feature_rows, strict=True
-    ):
-        p_cancer[draw_index, target_index] = float(value)
-        target_measurements[draw_index, target_index] = int(
-            feature_row["target_measurements"]
+    feature_blocks: list[pd.DataFrame] = []
+    target_counts: list[int] = []
+    contralateral_counts: list[int] = []
+    symmetry_flags: list[np.ndarray] = []
+    for target in targets.itertuples(index=False):
+        block, target_count_value, contralateral_count_value, available = (
+            _vectorized_feature_block(
+                cube,
+                lr1_scores,
+                manifest,
+                q_values,
+                patient_id=str(target.patient_id),
+                target_side=str(target.target_side),
+                model_info=model_info,
+            )
         )
-        contralateral_measurements[draw_index, target_index] = int(
-            feature_row["contralateral_measurements"]
-        )
-        symmetry_available[draw_index, target_index] = int(
-            feature_row["symmetry_available"]
-        )
+        feature_blocks.append(block)
+        target_counts.append(target_count_value)
+        contralateral_counts.append(contralateral_count_value)
+        symmetry_flags.append(available)
+    feature_table = pd.concat(feature_blocks, ignore_index=True)
+    probabilities = model_info["final_model"].predict_proba(feature_table)[:, 1]
+    p_cancer = probabilities.reshape(target_count, draw_count).T
+    target_measurements = np.broadcast_to(
+        np.asarray(target_counts, dtype=int), (draw_count, target_count)
+    ).copy()
+    contralateral_measurements = np.broadcast_to(
+        np.asarray(contralateral_counts, dtype=int), (draw_count, target_count)
+    ).copy()
+    symmetry_available = np.column_stack(symmetry_flags).astype(int, copy=False)
     return FrozenScoreCube(
         p_cancer=p_cancer,
         target_case_ids=tuple(target.target_case_id for target in targets.itertuples()),
@@ -260,21 +248,22 @@ def _vectorized_lr1_scores(profile_cube: np.ndarray, lr1_model: Any) -> np.ndarr
     return scores.reshape(draws, measurements)
 
 
-def _feature_row_for_draw_target(
-    draw_frame: pd.DataFrame,
+def _vectorized_feature_block(
+    profile_cube: np.ndarray,
     lr1_scores: np.ndarray,
+    manifest: pd.DataFrame,
+    q_values: np.ndarray,
     *,
     patient_id: str,
     target_side: str,
     model_info: Mapping[str, Any],
-) -> dict[str, Any]:
+) -> tuple[pd.DataFrame, int, int, np.ndarray]:
     columns = model_info.get("model_columns", {})
     group_column = str(columns.get("group_column", "patientId"))
-    specimen_column = str(columns.get("specimen_column", "specimenId"))
     side_column = str(columns.get("side_column", "side"))
     age_column = str(columns.get("age_column", "age"))
-    patient_mask = draw_frame[group_column].astype(str).eq(patient_id).to_numpy()
-    patient_frame = draw_frame.loc[patient_mask]
+    patient_mask = manifest[group_column].astype(str).eq(patient_id).to_numpy()
+    patient_frame = manifest.loc[patient_mask]
     if patient_frame.empty:
         raise VectorizedFrozenScorerError(f"Patient is absent: {patient_id!r}.")
     side_norms = patient_frame[side_column].map(normalize_side)
@@ -285,37 +274,166 @@ def _feature_row_for_draw_target(
         )
     contralateral = next((side for side in available_sides if side != target_side), None)
     target_mask_local = side_norms.eq(target_side).to_numpy()
-    target_scores = lr1_scores[patient_mask][target_mask_local]
-    if target_scores.size == 0:
+    contralateral_mask_local = side_norms.eq(contralateral).to_numpy()
+    patient_scores = lr1_scores[:, patient_mask]
+    target_scores = patient_scores[:, target_mask_local]
+    if target_scores.shape[1] == 0:
         raise VectorizedFrozenScorerError(
             f"No target measurements for {patient_id!r}/{target_side!r}."
         )
     clipped = np.clip(target_scores, 1e-6, 1.0 - 1e-6)
-    profile_logit_average = float(
-        1.0 / (1.0 + np.exp(-np.mean(np.log(clipped / (1.0 - clipped)))))
+    profile_logit_average = 1.0 / (
+        1.0
+        + np.exp(-np.mean(np.log(clipped / (1.0 - clipped)), axis=1))
     )
-    symmetry = target_contralateral_symmetry_features(
-        patient_frame,
-        profile_column="radial_profile_data",
-        q_column="q_range",
-        side_column=side_column,
-        target_side_norm=target_side,
-        contralateral_side_norm=contralateral,
-        feature_contract=str(
-            model_info.get("symmetry_feature_contract", SK_FEATURE_CONTRACT_V0_1)
+    patient_profiles = profile_cube[:, patient_mask, :]
+    patient_q = q_values[patient_mask]
+    core4, symmetry_available = _vectorized_core4(
+        patient_profiles,
+        patient_q,
+        target_mask=target_mask_local,
+        contralateral_mask=contralateral_mask_local,
+        feature_contract=str(model_info.get("symmetry_feature_contract", "")),
+    )
+    age_values = pd.to_numeric(patient_frame[age_column], errors="coerce")
+    age_available = int(age_values.notna().any())
+    age = float(age_values.median()) if age_available else 0.0
+    block = pd.DataFrame(
+        {
+            "profile_p_cancer_logit_average": profile_logit_average,
+            "age": age,
+            "age_available": age_available,
+            "symmetry_available": symmetry_available.astype(int),
+            **core4,
+        }
+    )
+    return (
+        block,
+        int(target_mask_local.sum()),
+        int(contralateral_mask_local.sum()),
+        symmetry_available,
+    )
+
+
+def _vectorized_core4(
+    profiles: np.ndarray,
+    q_values: np.ndarray,
+    *,
+    target_mask: np.ndarray,
+    contralateral_mask: np.ndarray,
+    feature_contract: str,
+) -> tuple[dict[str, np.ndarray], np.ndarray]:
+    draws = profiles.shape[0]
+    if feature_contract != SK_FEATURE_CONTRACT_V0_2:
+        raise VectorizedFrozenScorerError(
+            "Vectorized scorer requires the frozen v0.2 symmetry contract."
+        )
+    if int(target_mask.sum()) < 2 or int(contralateral_mask.sum()) < 2:
+        return (
+            {column: np.zeros(draws, dtype=float) for column in SK_CORE4_FEATURE_COLUMNS},
+            np.zeros(draws, dtype=bool),
+        )
+    reference_q = q_values[0]
+    if not np.allclose(q_values, reference_q, rtol=0.0, atol=1e-12):
+        raise VectorizedFrozenScorerError(
+            "Vectorized symmetry requires one common q grid per patient."
+        )
+    smoothed = savgol_filter(profiles, window_length=11, polyorder=3, axis=-1)
+    target = smoothed[:, target_mask, :]
+    contralateral = smoothed[:, contralateral_mask, :]
+    target_mean = np.mean(target, axis=1)
+    contralateral_mean = np.mean(contralateral, axis=1)
+    target_std = np.std(target, axis=1, ddof=1)
+    contralateral_std = np.std(contralateral, axis=1, ddof=1)
+    mask1 = (reference_q >= 6.7) & (reference_q <= 15.0)
+    mask2 = (reference_q >= 15.0) & (reference_q <= 23.0)
+    full = (reference_q >= 2.0) & (reference_q <= 23.0)
+    core4 = {
+        "sk_wasserstein_distance_full_q2": _vectorized_wasserstein(
+            reference_q[full], target_mean[:, full], contralateral_mean[:, full]
         ),
-    )
-    return {
-        TARGET_CASE_ID: f"{patient_id}::{target_side}",
-        "patientId": patient_id,
-        "target_side": display_side(target_side),
-        "contralateral_side": display_side(contralateral),
-        "specimens": int(patient_frame[specimen_column].astype(str).nunique()),
-        "measurements": int(len(patient_frame)),
-        "age": numeric_median(patient_frame, age_column, default=0.0),
-        "age_available": int(has_numeric(patient_frame, age_column)),
-        "profile_p_cancer_probability_mean": float(np.mean(target_scores)),
-        "profile_p_cancer_logit_average": profile_logit_average,
-        "profile_p_cancer_n_measurements": int(target_scores.size),
-        **symmetry,
+        "sk_weightedrms1": _vectorized_weighted_rms(
+            target_mean[:, mask1],
+            contralateral_mean[:, mask1],
+            target_std[:, mask1],
+            contralateral_std[:, mask1],
+        ),
+        "sk_weightedrms2": _vectorized_weighted_rms(
+            target_mean[:, mask2],
+            contralateral_mean[:, mask2],
+            target_std[:, mask2],
+            contralateral_std[:, mask2],
+        ),
+        "sk_mean_peak_value_abs_delta": _vectorized_mean_peak_delta(
+            profiles,
+            reference_q,
+            target_mask=target_mask,
+            contralateral_mask=contralateral_mask,
+        ),
     }
+    available = np.logical_and.reduce(
+        [np.isfinite(values) for values in core4.values()]
+    )
+    return (
+        {
+            column: np.where(available, values, 0.0)
+            for column, values in core4.items()
+        },
+        available,
+    )
+
+
+def _vectorized_weighted_rms(
+    target_mean: np.ndarray,
+    contralateral_mean: np.ndarray,
+    target_std: np.ndarray,
+    contralateral_std: np.ndarray,
+) -> np.ndarray:
+    difference = target_mean - contralateral_mean
+    variance = target_std**2 + contralateral_std**2
+    floor = np.percentile(variance, 5.0, axis=1)
+    weight = 1.0 / np.maximum(variance, floor[:, None] + 1e-12)
+    return np.sqrt(
+        np.sum(weight * difference**2, axis=1) / np.sum(weight, axis=1)
+    )
+
+
+def _vectorized_wasserstein(
+    q: np.ndarray,
+    target: np.ndarray,
+    contralateral: np.ndarray,
+) -> np.ndarray:
+    target_positive = np.clip(target, 0.0, None)
+    contralateral_positive = np.clip(contralateral, 0.0, None)
+    target_sum = np.sum(target_positive, axis=1)
+    contralateral_sum = np.sum(contralateral_positive, axis=1)
+    valid = (target_sum > 1e-12) & (contralateral_sum > 1e-12)
+    output = np.full(target.shape[0], np.nan, dtype=float)
+    target_pdf = target_positive[valid] / target_sum[valid, None]
+    contralateral_pdf = (
+        contralateral_positive[valid] / contralateral_sum[valid, None]
+    )
+    output[valid] = np.sum(
+        np.abs(
+            np.cumsum(target_pdf, axis=1)[:, :-1]
+            - np.cumsum(contralateral_pdf, axis=1)[:, :-1]
+        )
+        * np.diff(q),
+        axis=1,
+    )
+    return output
+
+
+def _vectorized_mean_peak_delta(
+    profiles: np.ndarray,
+    q: np.ndarray,
+    *,
+    target_mask: np.ndarray,
+    contralateral_mask: np.ndarray,
+) -> np.ndarray:
+    peak_mask = (q >= 13.0) & (q <= 14.8)
+    target_peak = np.max(profiles[:, target_mask][:, :, peak_mask], axis=2)
+    contralateral_peak = np.max(
+        profiles[:, contralateral_mask][:, :, peak_mask], axis=2
+    )
+    return np.abs(np.mean(target_peak, axis=1) - np.mean(contralateral_peak, axis=1))
