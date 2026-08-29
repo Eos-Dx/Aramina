@@ -311,6 +311,16 @@ class RunCheckpoint:
         }
         _atomic_write_json(self.run_folder / PROGRESS_FILENAME, self.progress)
 
+    def mark_failed(self, *, reason: str, completed_draws: int) -> None:
+        self.progress = {
+            **self.progress,
+            "status": "failed",
+            "failure_reason": reason,
+            "completed_draws": int(completed_draws),
+            "updated_at": datetime.now(UTC).isoformat(),
+        }
+        _atomic_write_json(self.run_folder / PROGRESS_FILENAME, self.progress)
+
     def mark_stage_complete(
         self,
         *,
@@ -966,6 +976,12 @@ def run_joint_measurement_uncertainty_from_config(
             reason="keyboard_interrupt",
             resuming=resuming,
         )
+    except Exception as error:
+        checkpoint.mark_failed(
+            reason=f"{type(error).__name__}: {error}",
+            completed_draws=completed_global_draws,
+        )
+        raise
 
     expected_unit_ids = {
         checkpoint.unit_id(

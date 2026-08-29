@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -249,6 +250,25 @@ def test_stage_checkpoint_preserves_only_completed_draw_range(tmp_path: Path):
         draw_stop=500,
     ) is None
     assert np.isnan(resumed.probabilities[0, 0, 250:]).all()
+
+
+def test_failed_checkpoint_records_reason(tmp_path: Path):
+    frame, cases, parity, identity = _resume_inputs()
+    checkpoint = _initialize_run_checkpoint(
+        tmp_path,
+        base_identity=identity,
+        selected_frame=frame,
+        selected_cases=cases,
+        parity=parity,
+        probability_shape=(1, 1, 10),
+    )
+
+    checkpoint.mark_failed(reason="parity gate", completed_draws=0)
+
+    progress = json.loads((tmp_path / "progress.json").read_text())
+    assert progress["status"] == "failed"
+    assert progress["failure_reason"] == "parity gate"
+    assert progress["completed_draws"] == 0
 
 
 def test_global_stage_schedule_includes_short_final_stage():
