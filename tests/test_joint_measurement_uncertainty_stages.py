@@ -74,10 +74,14 @@ def test_patient_scenario_stage_uses_global_draw_offsets(
         start: int,
         stop: int,
         audit_draw_start: int,
-        **_kwargs,
+        **kwargs,
     ):
         calls.append((start, stop, audit_draw_start))
-        profiles = np.full((stop - start, 2, 3), start / 1000.0)
+        replicates = int(kwargs.get("photon_replicates", 1))
+        profiles = np.full(
+            ((stop - start) * replicates, 2, 3),
+            start / 1000.0,
+        )
         audit_draws = 1 if start == audit_draw_start else 0
         audit = np.zeros((audit_draws, 2, 3), dtype=float)
         return profiles, audit, audit.copy(), context.q_grid, []
@@ -116,6 +120,87 @@ def test_patient_scenario_stage_uses_global_draw_offsets(
     assert calls == [(250, 252, 250), (252, 254, 250), (254, 255, 250)]
     assert values["P1::LEFT"].shape == (5,)
     assert parity[0]["draw_start"] == 250
+
+
+def test_nested_patient_stage_maps_geometry_to_output_draw_offsets(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    patient_frame = pd.DataFrame(
+        {
+            "patientId": ["P1", "P1"],
+            "specimenId": ["S1", "S2"],
+            "side": ["Left", "Right"],
+            "position": ["P1", "P1"],
+        }
+    )
+    patient_cases = pd.DataFrame(
+        {
+            "target_case_id": ["P1::LEFT"],
+            "patient_id": ["P1"],
+            "target_side": ["left"],
+        }
+    )
+    context = SimpleNamespace(q_grid=np.array([2.0, 3.0, 4.0]))
+    calls: list[tuple[int, int, int]] = []
+
+    def fake_profile_chunk(
+        *_args,
+        start: int,
+        stop: int,
+        audit_draw_start: int,
+        photon_replicates: int,
+        **_kwargs,
+    ):
+        calls.append((start, stop, audit_draw_start))
+        profiles = np.full(
+            ((stop - start) * photon_replicates, 2, 3),
+            start / 1000.0,
+        )
+        audit_draws = 1 if start == audit_draw_start else 0
+        audit = np.zeros((audit_draws, 2, 3), dtype=float)
+        return profiles, audit, audit.copy(), context.q_grid, []
+
+    def fake_score(cube, **_kwargs):
+        return SimpleNamespace(
+            target_case_ids=("P1::LEFT",),
+            p_cancer=np.mean(cube, axis=(1, 2))[:, np.newaxis],
+            threshold=0.5,
+        )
+
+    monkeypatch.setattr(joint_uncertainty, "_metal_profile_chunk", fake_profile_chunk)
+    monkeypatch.setattr(
+        joint_uncertainty,
+        "score_frozen_aramina_0_2_15_cube",
+        fake_score,
+    )
+    values, parity, _ = _run_patient_scenario(
+        patient_frame,
+        patient_cases,
+        model_artifact={},
+        model_info={},
+        metal_context=context,
+        scenario=Scenario("joint", True, True, True, True),
+        nuisance=_nuisance(1000),
+        draws=5000,
+        draw_start=250,
+        draw_stop=260,
+        geometry_draw_start=50,
+        geometry_draw_stop=52,
+        photon_replicates=5,
+        draw_chunk_size=1,
+        geometry_audit_draws=1,
+        normalization_q_range=(2.0, 4.0),
+        metal_profile_max_tolerance=0.002,
+        metal_profile_p99_tolerance=0.0001,
+        metal_p_cancer_parity_tolerance=1.0,
+        random_seed=43,
+    )
+
+    assert calls == [(50, 51, 50), (51, 52, 50)]
+    assert values["P1::LEFT"].shape == (10,)
+    assert parity[0]["draw_start"] == 250
+    assert parity[0]["geometry_draw_start"] == 50
+    assert parity[0]["photon_replicates_per_geometry"] == 5
 
 
 def test_stage_checkpoint_preserves_only_completed_draw_range(tmp_path: Path):

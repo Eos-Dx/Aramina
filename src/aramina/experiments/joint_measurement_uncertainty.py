@@ -91,6 +91,24 @@ class NuisanceDraws:
     photon_measurement_seeds: np.ndarray
 
 
+@dataclass(frozen=True)
+class MonteCarloDesign:
+    """Explicit independent-geometry and conditional-photon sample counts."""
+
+    mode: str
+    geometry_draws: int
+    photon_replicates: int
+    geometry_stage_draws: int
+
+    @property
+    def output_draws(self) -> int:
+        return self.geometry_draws * self.photon_replicates
+
+    @property
+    def output_stage_draws(self) -> int:
+        return self.geometry_stage_draws * self.photon_replicates
+
+
 @dataclass
 class PatientMetalContext:
     """One persistent geometry-aware Metal session for one patient."""
@@ -603,7 +621,8 @@ def run_joint_measurement_uncertainty_from_config(
     _verify_model_data_lineage(model_artifact, data_version)
     model_info = _frozen_model_info(model_artifact)
     scenarios = tuple(_scenario(value) for value in config["scenarios"])
-    draws = int(config["monte_carlo"]["draws"])
+    design = _monte_carlo_design(config)
+    draws = design.output_draws
     base_resume_identity = _base_resume_identity(
         config,
         model_path=model_path,
@@ -732,7 +751,7 @@ def run_joint_measurement_uncertainty_from_config(
     draw_chunk_size = int(config["execution"]["draw_chunk_size"])
     profile_batch_size = int(config["execution"]["profile_batch_size"])
     geometry_audit_draws = int(config["execution"]["geometry_audit_draws"])
-    stage_draws = int(config["execution"]["global_stage_draws"])
+    stage_geometry_draws = design.geometry_stage_draws
     normalization_q_range = tuple(
         float(value) for value in config["integration"]["normalization_q_range"]
     )
@@ -753,7 +772,12 @@ def run_joint_measurement_uncertainty_from_config(
     completed_global_draws = int(checkpoint.progress.get("completed_draws", 0))
 
     try:
-        for draw_start, draw_stop in _stage_ranges(draws, stage_draws):
+        for geometry_start, geometry_stop in _stage_ranges(
+            design.geometry_draws,
+            stage_geometry_draws,
+        ):
+            draw_start = geometry_start * design.photon_replicates
+            draw_stop = geometry_stop * design.photon_replicates
             if draw_stop <= completed_global_draws:
                 continue
             for patient_id in patient_ids:
@@ -793,7 +817,7 @@ def run_joint_measurement_uncertainty_from_config(
 
                 nuisance = sample_nuisance_draws(
                     patient_frame,
-                    draws=draws,
+                    draws=design.geometry_draws,
                     seed=int(config["monte_carlo"]["seed"]),
                     thickness_config=config["nuisance"]["sample_thickness"],
                     beam_center_config=config["nuisance"]["beam_center"],
@@ -819,6 +843,9 @@ def run_joint_measurement_uncertainty_from_config(
                                 draws=draws,
                                 draw_start=draw_start,
                                 draw_stop=draw_stop,
+                                geometry_draw_start=geometry_start,
+                                geometry_draw_stop=geometry_stop,
+                                photon_replicates=design.photon_replicates,
                                 draw_chunk_size=draw_chunk_size,
                                 geometry_audit_draws=geometry_audit_draws,
                                 normalization_q_range=normalization_q_range,
@@ -884,6 +911,17 @@ def run_joint_measurement_uncertainty_from_config(
                 completed_draws=draw_stop,
                 stable_checkpoint_count=stable_checkpoint_count,
             )
+            geometry_minimum_reached = geometry_stop >= int(
+                config["convergence"]["minimum_geometry_draws"]
+            )
+            plateau_status["independent_geometry_draws"] = geometry_stop
+            plateau_status["geometry_minimum_reached"] = geometry_minimum_reached
+            plateau_status["photon_replicates_per_geometry"] = (
+                design.photon_replicates
+            )
+            plateau_status["plateau"] = bool(
+                plateau_status["plateau"] and geometry_minimum_reached
+            )
             stable_checkpoint_count = int(
                 plateau_status["consecutive_stable_checkpoints"]
             )
@@ -930,10 +968,18 @@ def run_joint_measurement_uncertainty_from_config(
         )
 
     expected_unit_ids = {
-        checkpoint.unit_id(patient_id, scenario.name, draw_start, draw_stop)
+        checkpoint.unit_id(
+            patient_id,
+            scenario.name,
+            geometry_start * design.photon_replicates,
+            geometry_stop * design.photon_replicates,
+        )
         for patient_id in patient_ids
         for scenario in scenarios
-        for draw_start, draw_stop in _stage_ranges(draws, stage_draws)
+        for geometry_start, geometry_stop in _stage_ranges(
+            design.geometry_draws,
+            design.geometry_stage_draws,
+        )
     }
     if set(checkpoint.progress["completed_units"]) != expected_unit_ids:
         raise MeasurementUncertaintyError(
@@ -1707,6 +1753,9 @@ def _run_patient_scenario(
     draws: int,
     draw_start: int = 0,
     draw_stop: int | None = None,
+    geometry_draw_start: int | None = None,
+    geometry_draw_stop: int | None = None,
+    photon_replicates: int = 1,
     draw_chunk_size: int,
     geometry_audit_draws: int,
     normalization_q_range: tuple[float, float],
@@ -1719,6 +1768,23 @@ def _run_patient_scenario(
         draw_stop = draws
     if not 0 <= draw_start < draw_stop <= draws:
         raise MeasurementUncertaintyError("Invalid patient/scenario draw range.")
+    if geometry_draw_start is None:
+        geometry_draw_start = draw_start
+    if geometry_draw_stop is None:
+        geometry_draw_stop = draw_stop
+    if photon_replicates < 1 or (
+        geometry_draw_stop - geometry_draw_start
+    ) * photon_replicates != draw_stop - draw_start:
+        raise MeasurementUncertaintyError(
+            "Geometry draw range and photon replicates do not match output range."
+        )
+    if (
+        draw_start != geometry_draw_start * photon_replicates
+        or draw_stop != geometry_draw_stop * photon_replicates
+    ):
+        raise MeasurementUncertaintyError(
+            "Nested output draw range must be geometry range times replicates."
+        )
     stage_draws = draw_stop - draw_start
     case_values = {
         str(case_id): np.empty(stage_draws, dtype=np.float32)
@@ -1727,8 +1793,8 @@ def _run_patient_scenario(
     metal_audit_chunks: list[np.ndarray] = []
     expected_audit_chunks: list[np.ndarray] = []
     geometry_rows: list[dict[str, Any]] = []
-    for start in range(draw_start, draw_stop, draw_chunk_size):
-        stop = min(draw_stop, start + draw_chunk_size)
+    for start in range(geometry_draw_start, geometry_draw_stop, draw_chunk_size):
+        stop = min(geometry_draw_stop, start + draw_chunk_size)
         profiles, metal_nominal, expected, q_values, geometry = (
             _metal_profile_chunk(
                 patient_frame,
@@ -1737,10 +1803,11 @@ def _run_patient_scenario(
                 nuisance=nuisance,
                 start=start,
                 stop=stop,
-                audit_draw_start=draw_start,
+                audit_draw_start=geometry_draw_start,
                 geometry_audit_draws=geometry_audit_draws,
                 normalization_q_range=normalization_q_range,
                 random_seed=random_seed,
+                photon_replicates=photon_replicates,
             )
         )
         geometry_rows.extend(geometry)
@@ -1764,8 +1831,10 @@ def _run_patient_scenario(
                 "Frozen model produced non-finite p_cancer values."
             )
         for target_index, case_id in enumerate(scores.target_case_ids):
+            output_start = (start - geometry_draw_start) * photon_replicates
+            output_stop = (stop - geometry_draw_start) * photon_replicates
             case_values[case_id][
-                start - draw_start : stop - draw_start
+                output_start:output_stop
             ] = scores.p_cancer[:, target_index]
     if not metal_audit_chunks:
         raise MeasurementUncertaintyError(
@@ -1777,7 +1846,7 @@ def _run_patient_scenario(
         metal_audit,
         expected_audit,
         metal_context.q_grid,
-        draw_start=draw_start,
+        draw_start=geometry_draw_start,
         maximum_tolerance=metal_profile_max_tolerance,
         p99_tolerance=metal_profile_p99_tolerance,
     )
@@ -1785,7 +1854,10 @@ def _run_patient_scenario(
         "patient_id": str(patient_frame["patientId"].iloc[0]),
         "scenario": scenario.name,
         "draw_start": int(draw_start),
-        "draw_stop": int(draw_start + metal_audit.shape[0]),
+        "draw_stop": int(draw_stop),
+        "geometry_draw_start": int(geometry_draw_start),
+        "geometry_draw_stop": int(geometry_draw_stop),
+        "photon_replicates_per_geometry": int(photon_replicates),
         "oracle_draws": int(metal_audit.shape[0]),
         **profile_metrics,
         "persistent_session_reused": True,
@@ -1861,6 +1933,7 @@ def _metal_profile_chunk(
     geometry_audit_draws: int,
     normalization_q_range: tuple[float, float],
     random_seed: int,
+    photon_replicates: int = 1,
 ) -> tuple[
     np.ndarray,
     np.ndarray,
@@ -1879,21 +1952,42 @@ def _metal_profile_chunk(
         "effective_distance_m": distance,
         "poni1_m": poni1,
         "poni2_m": poni2,
-        "draw_offset": start,
-        "draw_chunk_size": stop - start,
     }
     if scenario.photon:
-        profile_cube = metal_context.session.run(
-            (1.0,),
-            stop - start,
-            seed=random_seed,
-            **integration_kwargs,
-        )[0]
+        if photon_replicates == 1:
+            profile_cube = metal_context.session.run(
+                (1.0,),
+                stop - start,
+                seed=random_seed,
+                draw_offset=start,
+                draw_chunk_size=stop - start,
+                **integration_kwargs,
+            )[0]
+        else:
+            nested = metal_context.session.run_nested(
+                (1.0,),
+                stop - start,
+                photon_replicates,
+                seed=random_seed,
+                geometry_draw_offset=start,
+                photon_draw_offset=start * photon_replicates,
+                geometry_chunk_size=stop - start,
+                **integration_kwargs,
+            )[0]
+            profile_cube = nested.reshape(
+                (stop - start) * photon_replicates,
+                len(patient_frame),
+                metal_context.q_grid.size,
+            )
     else:
         profile_cube = metal_context.session.integrate(
             stop - start,
+            draw_offset=start,
+            draw_chunk_size=stop - start,
             **integration_kwargs,
         )
+        if photon_replicates > 1:
+            profile_cube = np.repeat(profile_cube, photon_replicates, axis=0)
 
     audit_stop = min(stop, audit_draw_start + geometry_audit_draws)
     if start < audit_stop and stop > audit_draw_start:
@@ -2091,6 +2185,38 @@ def _measurement_key(row: pd.Series) -> str:
     return "\x1f".join("" if pd.isna(value) else str(value) for value in values)
 
 
+def _monte_carlo_design(config: dict[str, Any]) -> MonteCarloDesign:
+    monte_carlo = config["monte_carlo"]
+    execution = config["execution"]
+    mode = str(monte_carlo.get("design", "direct_joint"))
+    if mode == "direct_joint":
+        draws = int(monte_carlo["draws"])
+        stage = int(execution.get("global_stage_draws", 250))
+        design = MonteCarloDesign(mode, draws, 1, stage)
+    elif mode == "nested_geometry_photon":
+        geometry_draws = int(monte_carlo["geometry_draws"])
+        photon_replicates = int(monte_carlo["photon_replicates_per_geometry"])
+        geometry_stage = int(execution["global_stage_geometry_draws"])
+        design = MonteCarloDesign(
+            mode,
+            geometry_draws,
+            photon_replicates,
+            geometry_stage,
+        )
+    else:
+        raise ValueError(
+            "Monte Carlo design must be direct_joint or nested_geometry_photon."
+        )
+    if (
+        design.geometry_draws < 1
+        or design.photon_replicates < 1
+        or design.geometry_stage_draws < 1
+        or design.geometry_stage_draws > design.geometry_draws
+    ):
+        raise ValueError("Monte Carlo design counts are invalid.")
+    return design
+
+
 def _load_config(path: Path) -> dict[str, Any]:
     config = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(config, dict) or config.get("contract") != CONTRACT:
@@ -2104,14 +2230,16 @@ def _load_config(path: Path) -> dict[str, Any]:
     quantiles = config["monte_carlo"]["quantiles"]
     if len(quantiles) != 3 or not 0 < quantiles[0] < quantiles[1] < quantiles[2] < 1:
         raise ValueError("Monte Carlo quantiles must be ordered inside (0, 1).")
-    draws = int(config["monte_carlo"]["draws"])
-    stage_draws = int(config["execution"].get("global_stage_draws", 250))
-    if draws < 1 or stage_draws < 1 or stage_draws > draws:
-        raise ValueError("Monte Carlo draws and global_stage_draws are invalid.")
-    config["execution"]["global_stage_draws"] = stage_draws
+    design = _monte_carlo_design(config)
+    if design.mode == "direct_joint":
+        config["execution"]["global_stage_draws"] = design.geometry_stage_draws
     convergence = config.setdefault("convergence", {})
     convergence.setdefault("auto_stop", False)
-    convergence.setdefault("minimum_draws", min(2000, draws))
+    convergence.setdefault("minimum_draws", min(2000, design.output_draws))
+    convergence.setdefault(
+        "minimum_geometry_draws",
+        min(400, design.geometry_draws),
+    )
     convergence.setdefault("required_stable_checkpoints", 3)
     convergence.setdefault("median_endpoint_change_tolerance", 0.0025)
     convergence.setdefault("p90_endpoint_change_tolerance", 0.01)
@@ -2178,6 +2306,7 @@ def _write_artifacts(
     scenarios: tuple[Scenario, ...],
     elapsed_seconds: float,
 ) -> dict[str, Any]:
+    design = _monte_carlo_design(config)
     shutil.copy2(config_path, run_folder / "effective_experiment_config.yaml")
     (run_folder / "effective_training_preprocessing.yaml").write_text(
         yaml.safe_dump(effective_preprocessing, sort_keys=False), encoding="utf-8"
@@ -2211,15 +2340,21 @@ def _write_artifacts(
         "status": "complete",
         "patients": int(selected_cases["patient_id"].nunique()),
         "target_cases": len(selected_cases),
-        "draws": int(config["monte_carlo"]["draws"]),
+        "monte_carlo_design": design.mode,
+        "draws": design.output_draws,
+        "independent_geometry_draws": design.geometry_draws,
+        "photon_replicates_per_geometry": design.photon_replicates,
         "convergence_draw_prefixes": list(
-            convergence_draw_prefixes(int(config["monte_carlo"]["draws"]))
+            convergence_draw_prefixes(
+                design.output_draws,
+                stage_draws=design.output_stage_draws,
+            )
         ),
         "scenarios": [value.name for value in scenarios],
         "probability_values": int(
             len(selected_cases)
             * len(scenarios)
-            * int(config["monte_carlo"]["draws"])
+            * design.output_draws
         ),
         "interval_interpretation": "bounded_scenario_quantiles_not_clinical_ci",
         "elapsed_seconds": elapsed_seconds,

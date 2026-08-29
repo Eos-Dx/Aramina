@@ -1,0 +1,143 @@
+contract: aramina_joint_measurement_uncertainty_v0_1
+experiment:
+  name: aramina_0_2_15_nested_joint_measurement_uncertainty
+  model_name: aramina_target_breast_risk
+  model_version: 0.2.15-beta
+input:
+  input_h5_path: data/20260827_combined_archive.h5
+  model_joblib_path: models/aramina_target_breast_risk_0_2_15-beta_43b2865632ea/model.joblib
+data_version:
+  contract: aramina_dvc_input_v0_1
+  system: dvc
+  dataset_id: aramina_20260827_combined_archive_h5
+  dvc_version: 3.67.1
+  pointer_path: data/20260827_combined_archive.h5.dvc
+  hash_algorithm: md5
+  hash: 15244bac1dbea063bc6461385773cf76
+  size_bytes: 5355699719
+  input_h5_sha256: e0034c7e2eb59d9a511e3a55e8af3b39e3ea95c0c14b6ddbe3ee06a70c053e9b
+targets:
+  mode: all_training_target_cases
+integration:
+  npt: 100
+  normalization_q_range: [6.7, 7.1]
+backend:
+  kind: apple_metal_direct_mc
+  xrd_analysis_git_sha: 7eff0a2782d786c0bf9246651c3e79b65ed850fd
+validation:
+  parity_measurements: 10
+  pyfai_parity_tolerance: 1.0e-8
+  metal_profile_max_abs_tolerance: 5.0e-3
+  metal_profile_p99_abs_tolerance: 1.0e-4
+  metal_p_cancer_parity_tolerance: 3.0e-4
+execution:
+  draw_chunk_size: 50
+  profile_batch_size: 128
+  geometry_audit_draws: 1
+  global_stage_geometry_draws: 50
+monte_carlo:
+  design: nested_geometry_photon
+  geometry_draws: 1000
+  photon_replicates_per_geometry: 5
+  seed: 20260828
+  quantiles: [0.025, 0.5, 0.975]
+convergence:
+  auto_stop: true
+  minimum_draws: 2000
+  minimum_geometry_draws: 400
+  required_stable_checkpoints: 3
+  median_endpoint_change_tolerance: 0.0025
+  p90_endpoint_change_tolerance: 0.01
+  max_threshold_crossing_count_change: 1
+  max_threshold_status_change_count: 1
+nuisance:
+  sample_thickness:
+    thin_max_mm: 50.0
+    thin_half_width_mm: 5.0
+    thick_half_width_mm: 10.0
+    correlation: visit_shared
+  beam_center:
+    radius_px: 10.0
+    distribution: uniform_area_disk
+    correlation: calibration_session_shared
+  detector_distance:
+    half_width_mm: 10.0
+    distribution: uniform_symmetric
+    correlation: calibration_session_shared
+scenarios:
+  - name: photon_only
+    photon: true
+    thickness: false
+    beam_center: false
+    detector_distance: false
+  - name: thickness_only
+    photon: false
+    thickness: true
+    beam_center: false
+    detector_distance: false
+  - name: beam_center_5px_only
+    photon: false
+    thickness: false
+    beam_center: true
+    detector_distance: false
+    beam_center_scale: 0.5
+  - name: beam_center_10px_only
+    photon: false
+    thickness: false
+    beam_center: true
+    detector_distance: false
+  - name: detector_distance_5mm_only
+    photon: false
+    thickness: false
+    beam_center: false
+    detector_distance: true
+    detector_distance_scale: 0.5
+  - name: detector_distance_10mm_only
+    photon: false
+    thickness: false
+    beam_center: false
+    detector_distance: true
+  - name: joint_5px_5mm
+    photon: true
+    thickness: true
+    beam_center: true
+    detector_distance: true
+    beam_center_scale: 0.5
+    detector_distance_scale: 0.5
+  - name: joint_10px_10mm
+    photon: true
+    thickness: true
+    beam_center: true
+    detector_distance: true
+  - name: joint_without_photon_5px_5mm
+    photon: false
+    thickness: true
+    beam_center: true
+    detector_distance: true
+    beam_center_scale: 0.5
+    detector_distance_scale: 0.5
+  - name: joint_without_thickness_5px_5mm
+    photon: true
+    thickness: false
+    beam_center: true
+    detector_distance: true
+    beam_center_scale: 0.5
+    detector_distance_scale: 0.5
+  - name: joint_without_beam_center_5mm
+    photon: true
+    thickness: true
+    beam_center: false
+    detector_distance: true
+    detector_distance_scale: 0.5
+  - name: joint_without_detector_distance_5px
+    photon: true
+    thickness: true
+    beam_center: true
+    detector_distance: false
+    beam_center_scale: 0.5
+mlflow:
+  enabled: true
+  tracking_uri: sqlite:///examples/outputs/mlflow/aramina_measurement_uncertainty.db
+  experiment_name: aramina_measurement_uncertainty
+output:
+  folder: examples/outputs/experiments/joint_measurement_uncertainty

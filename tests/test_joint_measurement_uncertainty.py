@@ -14,6 +14,7 @@ from aramina.experiments.joint_measurement_uncertainty import (
     Scenario,
     _initialize_run_checkpoint,
     _metal_profile_chunk,
+    _monte_carlo_design,
     _open_run_checkpoint,
     _profile_parity_metrics,
     _profile_parity_tolerances,
@@ -100,6 +101,29 @@ class _FakeGeometrySession:
         self.calls.append(("run", int(kwargs["draw_offset"]), draws))
         profiles = self._profiles(draws, **kwargs) + seed * 1e-12
         return profiles[np.newaxis, ...]
+
+    def run_nested(
+        self,
+        scales,
+        geometry_draws: int,
+        photon_replicates: int,
+        *,
+        seed: int,
+        **kwargs,
+    ) -> np.ndarray:
+        assert scales == (1.0,)
+        geometry_offset = int(kwargs["geometry_draw_offset"])
+        self.calls.append(("run_nested", geometry_offset, geometry_draws))
+        profiles = self._profiles(
+            geometry_draws,
+            effective_distance_m=kwargs["effective_distance_m"],
+            poni1_m=kwargs["poni1_m"],
+            poni2_m=kwargs["poni2_m"],
+            draw_offset=geometry_offset,
+            draw_chunk_size=int(kwargs["geometry_chunk_size"]),
+        )
+        repeated = np.repeat(profiles[:, np.newaxis], photon_replicates, axis=1)
+        return (repeated + seed * 1e-12)[np.newaxis, ...]
 
     def close(self) -> None:
         self.closed = True
@@ -353,6 +377,46 @@ def test_persistent_session_is_reused_and_chunk_output_is_invariant():
     np.testing.assert_allclose(np.concatenate((first, second)), full)
     assert chunked_session.calls == [("run", 0, 2), ("run", 2, 3)]
     assert chunked_context.session is chunked_session
+
+
+def test_nested_profile_chunk_reuses_geometry_for_photon_replicates():
+    patient_frame = _patient_frame().iloc[:2].reset_index(drop=True)
+    nuisance = _array_nuisance()
+    session = _FakeGeometrySession(3)
+    profiles = _metal_profile_chunk(
+        patient_frame,
+        metal_context=_fake_metal_context(session),
+        scenario=Scenario("joint", True, True, True, True),
+        nuisance=nuisance,
+        start=1,
+        stop=3,
+        geometry_audit_draws=0,
+        normalization_q_range=(2.0, 4.0),
+        random_seed=43,
+        photon_replicates=5,
+    )[0]
+
+    assert profiles.shape == (10, 2, 3)
+    assert session.calls == [("run_nested", 1, 2)]
+    np.testing.assert_allclose(profiles[0], profiles[1])
+
+
+def test_nested_monte_carlo_design_separates_geometry_and_output_counts():
+    design = _monte_carlo_design(
+        {
+            "monte_carlo": {
+                "design": "nested_geometry_photon",
+                "geometry_draws": 1000,
+                "photon_replicates_per_geometry": 5,
+            },
+            "execution": {"global_stage_geometry_draws": 50},
+        }
+    )
+
+    assert design.geometry_draws == 1000
+    assert design.photon_replicates == 5
+    assert design.output_draws == 5000
+    assert design.output_stage_draws == 250
 
 
 def test_p_cancer_parity_is_fail_closed_on_bounded_audit_draws(

@@ -147,26 +147,88 @@ Human-1 benchmarks produced approximately `213 profiles/s` with centered
 Poisson sampling and `253 profiles/s` without it, compared with `8.3
 profiles/s` for the reference plan-per-draw implementation.
 
-The full `973 measurements x 5000 draws x 12 scenarios` run is estimated at
-approximately 70 hours on one deterministic Metal queue. Two concurrent queues
-increased aggregate benchmark throughput by approximately 1.6-fold, while four
-provided little further gain. The first full run retains one queue to avoid an
-untested merge and checkpoint race.
+The original full `973 measurements x 5000 draws x 12 scenarios` run was
+estimated at approximately 70 hours on one deterministic Metal queue. The
+first execution confirmed that geometry reconstruction dominated runtime:
+after approximately 2.75 hours, only 1347 of 2136 patient/scenario units in the
+first 250-draw stage were complete. The run was stopped atomically before any
+complete global stage was reported. Its detector-frame cache and unit
+checkpoints were preserved, but this direct-design run must not be resumed with
+the nested configuration.
 
-The production full-run configuration submits one complete 250-draw global
-stage chunk with a Metal profile batch size of 128. This reduces Python/Metal
-dispatch overhead relative to the conservative 32-draw/16-profile pilot setup
-without introducing concurrent writers or changing random draws.
+### Nested geometry-photon design
 
-The full experiment is divided into global 250-draw stages. Every stage covers
-all target cases and all 12 scenarios before a convergence result is published.
+The accelerated design separates independent acquisition geometry from
+conditional photon statistics:
+
+```text
+1000 independent geometry draws
+  x 5 conditional photon realizations per geometry
+  = 5000 p_cancer realizations per scenario
+```
+
+For one geometry draw, the Metal kernel calculates effective distance, beam
+centre, q coordinates, bin assignment, and normalization membership once. It
+then generates five independent centered-Poisson detector realizations inside
+the same GPU kernel. Persistent detector images, masks, q-bin edges, and output
+buffers remain on the GPU across calls. This removes four of five repeated
+geometry calculations and most Python/Metal dispatch overhead.
+
+The five photon replicates sharing one geometry are conditionally independent,
+but they are not five independent geometry observations. Output artifacts
+therefore report both counts explicitly:
+
+```text
+draws: 5000
+independent_geometry_draws: 1000
+photon_replicates_per_geometry: 5
+```
+
+This is a nested Monte Carlo estimate of the total acquisition distribution,
+not an increase in effective geometry sample size. Convergence requires at
+least 400 independent geometry draws in addition to the existing minimum of
+2000 output realizations. Non-photon scenarios contain 1000 unique geometry
+results; repeating them along the output axis preserves a common artifact shape
+without claiming additional independent information.
+
+The reproducible Human-1 acceptance benchmark used 10 real patients, 12 target
+cases, the `joint_10px_10mm` scenario, 50 geometry draws, and five photon
+replicates. Flattened and nested execution used identical geometry values,
+photon seeds, and model artifact:
+
+| Quantity | Flattened | Nested |
+| --- | ---: | ---: |
+| Metal integration time | `71.85 s` | `8.77 s` |
+| Speedup | `1.00x` | `8.20x` |
+| Maximum normalized-profile difference |  | `2.00e-5` |
+| 99th percentile profile difference |  | `7.39e-6` |
+| Maximum `p_cancer` difference |  | `3.98e-5` |
+| Maximum 2.5/50/97.5% endpoint difference |  | `1.39e-5` |
+| Draw-level decision agreement |  | `100%` |
+
+The benchmark is written by
+`scripts/benchmark_nested_joint_uncertainty.py`. The measured integration
+speedup projects the complete nested experiment to approximately 11--15 hours,
+subject to scenario mix, model-scoring overhead, and thermal conditions. This
+estimate must be checked with the first complete 250-output checkpoint before a
+long run is allowed to continue.
+
+The nested configuration submits 50 geometry draws with five conditional
+photon replicates as one 250-output global stage. Metal profile batch size 128
+keeps the five conditional outputs within one fused dispatch. This reduces
+Python/Metal dispatch overhead without concurrent writers.
+
+The full experiment remains divided into global 250-output stages. Each stage
+contains 50 independent geometry draws and covers all target cases and all 12
+scenarios before a convergence result is published.
 Each patient/scenario/stage slice is flushed to the probability memmap before
 its atomic checkpoint is marked complete. Resume verifies data, model, config,
 case, scenario, and cached-frame fingerprints and repeats only incomplete
 slices.
 
-After every 250 draws the run writes case and cohort CSV summaries, a scenario
-dashboard, a convergence-history plot, and plateau metrics under
+After every 250 output realizations the run writes case and cohort CSV
+summaries, a scenario dashboard, a convergence-history plot, and plateau
+metrics under
 `convergence/draws_NNNNN/`. `convergence/latest.json` and
 `convergence/latest.png` always point to the newest completed global stage.
 
@@ -204,7 +266,11 @@ The `193-case x 5000-draw` experiment may start only after:
    test;
 8. interruption and resume tests preserve only atomically completed units.
 
-All eight gates passed in the final pilot before the full run was started.
+All eight gates passed before the direct full run was started. The nested
+replacement additionally passed exact paired flattened-versus-nested tests,
+chunk-invariance tests, stage-offset and checkpoint tests, and the real
+10-patient model-level benchmark above. A replacement full run has not been
+started.
 
 The final output reports per-case scenario ranges, threshold crossing,
 `scenario_draw_fraction_at_or_above_threshold`,
