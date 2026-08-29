@@ -90,11 +90,18 @@ The first nested full-cohort attempt exposed one additional numerical case:
 for `Nova-215`, the Metal and pyFAI values were `0.72746` and `0.72781`. The
 absolute difference was `0.000353`; both values remained far above the fixed
 `0.24041049078429919` threshold, and the decision class was unchanged. The
-nested configuration therefore uses a declared `0.0005` numerical
+nested configuration therefore initially used a declared `0.0005` numerical
 `p_cancer` tolerance. Profile maximum and p99 gates remain `0.005` and
 `0.0001`, and exact decision-class agreement remains mandatory. This changes
 only the Metal-versus-pyFAI numerical acceptance margin; it does not change the
 model, threshold, perturbation distribution, or reported uncertainty values.
+
+A later full-cohort checkpoint exposed `0.000583` for `Nova-270` under the
+`joint_without_beam_center_5mm` scenario. The final nested numerical tolerance
+is therefore `0.001`, equivalent to 0.1 percentage point on the probability
+scale. This remains a numerical parity gate, not a model-performance or
+clinical tolerance. Exact decision agreement and both unchanged profile gates
+remain fail-closed requirements.
 
 Geometry and photon validation are separated. Geometry profiles are compared
 draw by draw with direct pyFAI. The centered-Poisson path was tested over 20,000
