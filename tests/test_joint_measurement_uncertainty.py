@@ -14,19 +14,16 @@ from aramina.experiments.joint_measurement_uncertainty import (
     Scenario,
     _initialize_run_checkpoint,
     _metal_profile_chunk,
-    _monte_carlo_design,
     _open_run_checkpoint,
     _profile_parity_metrics,
     _profile_parity_tolerances,
+    _prepared_geometry_seed,
     _run_patient_scenario,
-    _scenario_geometry_arrays,
     effective_detector_distance_m,
+    sample_cohort_nuisance_draws,
     sample_nuisance_draws,
 )
 from aramina.experiments.measurement_uncertainty import MeasurementUncertaintyError
-
-
-ROOT = Path(__file__).parents[1]
 
 
 def _patient_frame() -> pd.DataFrame:
@@ -39,6 +36,7 @@ def _patient_frame() -> pd.DataFrame:
             "started_at": ["T1", "T2", "T3"],
             "sample_thickness_mm": [40.0, 60.0, 60.0],
             "calibration_session_uid": ["A", "A", "B"],
+            "ponifile": ["PONI-A", "PONI-A", "PONI-B"],
         }
     )
 
@@ -51,8 +49,8 @@ def _nuisance_configs(correlation: str = "visit_shared"):
             "thick_half_width_mm": 10.0,
             "correlation": correlation,
         },
-        {"radius_px": 5.0},
-        {"half_width_mm": 10.0},
+        {"radius_px": 5.0, "correlation": "poni_file_shared"},
+        {"half_width_mm": 10.0, "correlation": "poni_file_shared"},
     )
 
 
@@ -128,20 +126,47 @@ class _FakeGeometrySession:
     def close(self) -> None:
         self.closed = True
 
+    def run_geometry(
+        self,
+        plans,
+        photon_replicates: int,
+        *,
+        seed: int,
+        include_deterministic: bool,
+    ):
+        draw_index = int(plans[0].draw_index)
+        self.calls.append(("run_geometry", draw_index, photon_replicates))
+        base = np.arange(len(plans), dtype=float) + draw_index / 1000.0
+        deterministic = np.repeat(base[:, np.newaxis], self.bins, axis=1)
+        profiles = np.repeat(
+            deterministic[np.newaxis, ...], photon_replicates, axis=0
+        )
+        return SimpleNamespace(
+            profiles=profiles + (seed % 997) * 1e-12,
+            deterministic_profiles=deterministic if include_deterministic else None,
+            unique_plan_count=len(plans),
+        )
+
 
 def _fake_metal_context(session: _FakeGeometrySession) -> PatientMetalContext:
     return PatientMetalContext(
         session=session,
         q_grid=np.array([2.0, 3.0, 4.0]),
         images=np.zeros((2, 2, 2)),
-        poni_distance_m=np.array([0.7, 0.8]),
-        sample_thickness_mm=np.array([40.0, 60.0]),
-        calibrant_thickness_mm=np.array([20.0, 20.0]),
-        poni1_m=np.array([0.01, 0.02]),
-        poni2_m=np.array([0.03, 0.04]),
-        pixel1_m=np.array([1e-4, 2e-4]),
-        pixel2_m=np.array([3e-4, 4e-4]),
     )
+
+
+def _fake_prepare_geometry_draw(
+    patient_frame,
+    *,
+    draw_index: int,
+    q_grid,
+    **_kwargs,
+):
+    base = np.arange(len(patient_frame), dtype=float) + draw_index / 1000.0
+    expected = np.repeat(base[:, np.newaxis], len(q_grid), axis=1)
+    plans = [SimpleNamespace(draw_index=draw_index) for _ in range(len(patient_frame))]
+    return expected, plans, []
 
 
 def _resume_inputs():
@@ -178,7 +203,7 @@ def test_effective_distance_uses_half_thickness_correction():
     assert actual == pytest.approx(0.675)
 
 
-def test_visit_shared_thickness_and_session_shared_geometry():
+def test_visit_shared_thickness_and_poni_shared_geometry():
     thickness, center, distance = _nuisance_configs()
     draws = sample_nuisance_draws(
         _patient_frame(),
@@ -240,49 +265,48 @@ def test_photon_seed_is_stable_by_measurement_when_rows_are_reordered():
     assert first_by_specimen == second_by_specimen
 
 
-def test_scenario_geometry_arrays_apply_exact_nuisance_formula():
-    context = _fake_metal_context(_FakeGeometrySession(3))
-    nuisance = _array_nuisance(draws=2)
-    scenario = Scenario(
-        "joint_scaled",
-        photon=False,
-        thickness=True,
-        beam_center=True,
-        detector_distance=True,
-        beam_center_scale=2.0,
-        detector_distance_scale=3.0,
+def test_cohort_geometry_is_shared_by_poni_not_patient_or_session():
+    thickness, center, distance = _nuisance_configs()
+    first = _patient_frame().iloc[[0]].copy()
+    second = _patient_frame().iloc[[1]].copy()
+    second["patientId"] = "P2"
+    second["specimenId"] = "S4"
+    second["calibration_session_uid"] = "DIFFERENT-SESSION"
+    cohort = pd.concat((first, second), ignore_index=True)
+
+    field = sample_cohort_nuisance_draws(
+        cohort,
+        draws=20,
+        seed=29,
+        thickness_config=thickness,
+        beam_center_config=center,
+        detector_distance_config=distance,
+    )
+    first_draws = field.for_frame(first)
+    second_draws = field.for_frame(second)
+
+    np.testing.assert_array_equal(
+        first_draws.beam_center_row_delta_px,
+        second_draws.beam_center_row_delta_px,
+    )
+    np.testing.assert_array_equal(
+        first_draws.beam_center_col_delta_px,
+        second_draws.beam_center_col_delta_px,
+    )
+    np.testing.assert_array_equal(
+        first_draws.detector_distance_delta_mm,
+        second_draws.detector_distance_delta_mm,
+    )
+    assert not np.array_equal(
+        first_draws.thickness_delta_mm,
+        second_draws.thickness_delta_mm,
     )
 
-    distance, poni1, poni2 = _scenario_geometry_arrays(
-        context, scenario, nuisance, start=0, stop=2
-    )
 
-    expected_distance = (
-        context.poni_distance_m[np.newaxis, :]
-        + 3.0 * nuisance.detector_distance_delta_mm[:2] * 1e-3
-        - 0.5
-        * (
-            context.sample_thickness_mm[np.newaxis, :]
-            + nuisance.thickness_delta_mm[:2]
-            - context.calibrant_thickness_mm[np.newaxis, :]
-        )
-        * 1e-3
-    )
-    np.testing.assert_allclose(distance, expected_distance)
-    np.testing.assert_allclose(
-        poni1,
-        context.poni1_m[np.newaxis, :]
-        + 2.0
-        * nuisance.beam_center_row_delta_px[:2]
-        * context.pixel1_m[np.newaxis, :],
-    )
-    np.testing.assert_allclose(
-        poni2,
-        context.poni2_m[np.newaxis, :]
-        + 2.0
-        * nuisance.beam_center_col_delta_px[:2]
-        * context.pixel2_m[np.newaxis, :],
-    )
+def test_prepared_geometry_seed_is_reproducible_and_draw_specific():
+    assert _prepared_geometry_seed(43, 7) == _prepared_geometry_seed(43, 7)
+    assert _prepared_geometry_seed(43, 7) != _prepared_geometry_seed(43, 8)
+    assert _prepared_geometry_seed(43, 7) != _prepared_geometry_seed(44, 7)
 
 
 def test_profile_parity_gate_records_max_and_p99_separately():
@@ -330,7 +354,14 @@ def test_profile_parity_tolerances_are_explicit():
     ) == (0.002, 0.0001)
 
 
-def test_persistent_session_is_reused_and_chunk_output_is_invariant():
+def test_prepared_geometry_chunk_output_is_resume_invariant(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(
+        joint_uncertainty,
+        "_prepare_pyfai_geometry_draw",
+        _fake_prepare_geometry_draw,
+    )
     patient_frame = _patient_frame().iloc[:2].reset_index(drop=True)
     nuisance = _array_nuisance()
     scenario = Scenario("joint", True, True, True, True)
@@ -375,11 +406,24 @@ def test_persistent_session_is_reused_and_chunk_output_is_invariant():
     )[0]
 
     np.testing.assert_allclose(np.concatenate((first, second)), full)
-    assert chunked_session.calls == [("run", 0, 2), ("run", 2, 3)]
+    assert chunked_session.calls == [
+        ("run_geometry", 0, 1),
+        ("run_geometry", 1, 1),
+        ("run_geometry", 2, 1),
+        ("run_geometry", 3, 1),
+        ("run_geometry", 4, 1),
+    ]
     assert chunked_context.session is chunked_session
 
 
-def test_nested_profile_chunk_reuses_geometry_for_photon_replicates():
+def test_nested_profile_chunk_reuses_prepared_plan_for_photon_replicates(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(
+        joint_uncertainty,
+        "_prepare_pyfai_geometry_draw",
+        _fake_prepare_geometry_draw,
+    )
     patient_frame = _patient_frame().iloc[:2].reset_index(drop=True)
     nuisance = _array_nuisance()
     session = _FakeGeometrySession(3)
@@ -397,26 +441,11 @@ def test_nested_profile_chunk_reuses_geometry_for_photon_replicates():
     )[0]
 
     assert profiles.shape == (10, 2, 3)
-    assert session.calls == [("run_nested", 1, 2)]
+    assert session.calls == [
+        ("run_geometry", 1, 5),
+        ("run_geometry", 2, 5),
+    ]
     np.testing.assert_allclose(profiles[0], profiles[1])
-
-
-def test_nested_monte_carlo_design_separates_geometry_and_output_counts():
-    design = _monte_carlo_design(
-        {
-            "monte_carlo": {
-                "design": "nested_geometry_photon",
-                "geometry_draws": 1000,
-                "photon_replicates_per_geometry": 5,
-            },
-            "execution": {"global_stage_geometry_draws": 50},
-        }
-    )
-
-    assert design.geometry_draws == 1000
-    assert design.photon_replicates == 5
-    assert design.output_draws == 5000
-    assert design.output_stage_draws == 250
 
 
 def test_p_cancer_parity_is_fail_closed_on_bounded_audit_draws(
@@ -654,40 +683,4 @@ def test_measurement_independent_thickness_does_not_share_latent_draw():
     assert not np.array_equal(
         draws.thickness_delta_mm[:, 0] / 5.0,
         draws.thickness_delta_mm[:, 1] / 10.0,
-    )
-
-
-def test_geometry_stream_is_shared_across_patients_in_same_session():
-    thickness, center, distance = _nuisance_configs()
-    first = _patient_frame().iloc[[0]].copy()
-    second = _patient_frame().iloc[[1]].copy()
-    second["patientId"] = "P2"
-    first_draws = sample_nuisance_draws(
-        first,
-        draws=20,
-        seed=23,
-        thickness_config=thickness,
-        beam_center_config=center,
-        detector_distance_config=distance,
-    )
-    second_draws = sample_nuisance_draws(
-        second,
-        draws=20,
-        seed=23,
-        thickness_config=thickness,
-        beam_center_config=center,
-        detector_distance_config=distance,
-    )
-
-    np.testing.assert_array_equal(
-        first_draws.beam_center_row_delta_px,
-        second_draws.beam_center_row_delta_px,
-    )
-    np.testing.assert_array_equal(
-        first_draws.detector_distance_delta_mm,
-        second_draws.detector_distance_delta_mm,
-    )
-    assert not np.array_equal(
-        first_draws.thickness_delta_mm,
-        second_draws.thickness_delta_mm,
     )

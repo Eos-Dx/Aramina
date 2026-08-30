@@ -49,14 +49,14 @@ Poni2' = Poni2 + delta_column_pixels * pixel2
 | --- | --- | --- |
 | Photon statistics | centered Poisson draw at the observed positive count scale | independent by detector pixel and measurement |
 | Sample thickness | uniform `+/-5 mm` at thickness `<=50 mm`; uniform `+/-10 mm` above `50 mm` | shared within one patient visit |
-| Beam centre | area-uniform disk with radius `5 pixels`; `10 pixels` is a boundary stress test | shared by calibration session, including different patients |
-| Detector distance | uniform `+/-5 mm`; `+/-10 mm` is a boundary stress test | shared by calibration session, including different patients |
+| Beam centre | area-uniform disk with radius `5 pixels`; `10 pixels` is a boundary stress test | shared by exact PONI-file geometry, including different patients |
+| Detector distance | uniform `+/-5 mm`; `+/-10 mm` is a boundary stress test | shared by exact PONI-file geometry, including different patients |
 
 Common random numbers are used across component, joint, and leave-one-component
 out scenarios. Stable keyed random streams make the result invariant to patient
 order and draw chunking. Beam-centre and detector-distance perturbations are
-shared by calibration session, but are conditionally independent because a
-joint calibration-fit covariance is not yet available. The visit-shared
+shared by PONI-file hash, but are conditionally independent because a joint
+calibration-fit covariance is not yet available. The visit-shared
 thickness perturbation represents a common signed compression or positioning
 error with a thickness-dependent bound.
 
@@ -70,209 +70,117 @@ clinical 95% confidence intervals.
 
 ## Numerical parity gate
 
-The Apple Metal integration is compared with direct pyFAI integration before
-model scoring. The final ten-patient, twelve-scenario audit produced 120 parity
-rows:
+Geometry is now calculated only by pyFAI. For every perturbed PONI state, pyFAI
+builds and warms the exact bbox/CSR engine with the measurement-specific mask.
+Metal receives these immutable weights and performs only centered-Poisson
+sampling and repeated integration. It does not recalculate q, PONI, mask
+membership, or pixel splitting.
 
-| Quantity | Observed difference | Fail-closed limit |
-| --- | ---: | ---: |
-| Maximum normalized-profile value | `0.001407` | `0.002` |
-| 99th percentile of normalized-profile errors | `5.52e-5` | `1e-4` |
-| Maximum `p_cancer`, pilot | `0.000223` | `0.0003` |
+This separation removed the geometry-dependent discrepancy observed with the
+superseded dynamic-geometry Metal kernel. For the previously limiting
+`Nova-254` draw 300, the maximum normalized-profile difference decreased from
+approximately `6.11e-4` to `2.83e-5`; the corresponding `p_cancer` difference
+was `4.91e-6`, and the decision-support class was unchanged. A ten-patient
+smoke audit of the `joint_10px_10mm` scenario gave a maximum profile difference
+of `3.65e-5`, maximum p99 profile difference of `2.96e-5`, and maximum
+`p_cancer` difference of `1.96e-5`. All audited decision classes agreed.
 
-The largest profile difference was confined to an outer q-bin. The 99th
-percentile remained below `1e-4`. The `p_cancer` limit was selected after a
-complete diagnostic audit of all 120 pilot patient/scenario units; the observed
-maximum was `0.000238`. A separate fail-closed gate requires exact agreement of
-the decision-support class. All audited classes agreed.
+These residual differences arise from deterministic float32 accumulation in
+the static Metal kernel. They are numerical implementation differences, not
+measurement uncertainty. Profile, `p_cancer`, and exact decision-class gates
+remain fail closed. Final numerical limits will be fixed after the complete
+ten-patient, twelve-scenario audit.
 
-The first nested full-cohort attempt exposed one additional numerical case:
-for `Nova-215`, the Metal and pyFAI values were `0.72746` and `0.72781`. The
-absolute difference was `0.000353`; both values remained far above the fixed
-`0.24041049078429919` threshold, and the decision class was unchanged. The
-nested configuration therefore initially used a declared `0.0005` numerical
-`p_cancer` tolerance. Profile maximum and p99 gates remain `0.005` and
-`0.0001`, and exact decision-class agreement remains mandatory. This changes
-only the Metal-versus-pyFAI numerical acceptance margin; it does not change the
-model, threshold, perturbation distribution, or reported uncertainty values.
+## Cohort geometry contract
 
-A later full-cohort checkpoint exposed `0.000583` for `Nova-270` under the
-`joint_without_beam_center_5mm` scenario. The final nested numerical tolerance
-was initially increased to `0.001`. At 13,055 completed patient-scenario-stage
-units, a later checkpoint exposed `0.001090808`. The final numerical parity
-limit is therefore `0.002`, equivalent to 0.2 percentage point on the
-probability scale. This remains a numerical parity gate, not a
-model-performance or clinical tolerance. Exact decision agreement and both
-unchanged profile gates remain fail-closed requirements.
+The current cohort contains 178 patients, 973 measurements, and 76 distinct
+PONI-file geometries. One PONI file can be shared by several patients measured
+on the same day. Of the 178 patients, 177 are linked to one PONI geometry and
+one patient is linked to two.
 
-Geometry and photon validation are separated. Geometry profiles are compared
-draw by draw with direct pyFAI. The centered-Poisson path was tested over 20,000
-draws against the validated static Metal reference; integrated-profile means
-and variances met the statistical acceptance limits. The direct Monte Carlo
-test subset passed with `53 passed, 6 skipped`.
+One outer geometry draw is therefore a complete cohort realization, not one
+scalar perturbation applied to every patient. The draw contains one beam-centre
+and detector-distance perturbation for each of the 76 PONI hashes. All
+measurements linked to the same hash receive the same perturbation, including
+measurements from different patients. Thickness remains a patient-level or
+measurement-level term according to the declared sensitivity scenario, and
+photon statistics remain measurement specific.
 
-The q-support preflight covered 696 audited measurement draws. Every one of the
-100 product q-bins was supported, and the normalization band was supported in
-every draw.
+The runner creates this cohort field before the patient loop. Patient batches
+are used only to bound memory; draw index `g` retains the same physical meaning
+for the complete probability matrix. `nuisance_scope_manifest.csv` records the
+PONI, thickness, and photon group assigned to every measurement.
 
-## Preliminary pilot
+The 973 masks are all distinct, so a single CSR integration plan cannot be
+shared by all measurements acquired with one PONI file. A representative
+100-bin plan occupies approximately 5.13 MB in host arrays. Computational
+batches should therefore follow connected PONI-patient groups while preserving
+one plan per measurement.
 
-The software pilot used ten patient-safe target cases, ten draws, and the
-baseline `5-pixel / 5-mm` geometry bounds. The draw count was selected to test
-lineage, parity, memory use, and the complete scoring path; it is too small to
-estimate stable 2.5th and 97.5th percentiles.
+## Nested allocation and convergence
 
-| Scenario | Median provisional range width | Cases crossing threshold |
-| --- | ---: | ---: |
-| Photon only | `0.283` | `3/10` |
-| Thickness only | `0.129` | `0/10` |
-| Beam centre, 5 pixels | `0.212` | `0/10` |
-| Detector distance, 5 mm | `0.184` | `0/10` |
-| Joint, 5 pixels and 5 mm | `0.378` | `2/10` |
-| Joint stress test, 10 pixels and 10 mm | `0.445` | `2/10` |
-
-Observation: photon counting statistics produced the largest median
-single-component range in this pilot. Beam-centre perturbation was the next
-largest component. The joint range was wider than every component-only range.
-
-Interpretation: the model is sensitive to detector-level perturbations, but the
-relative contributions are patient dependent and nonlinear. Component widths
-must not be combined by quadrature. The ten-draw pilot does not establish the
-population frequency of threshold instability.
-
-MLflow run:
+The Monte Carlo design contains two independent sample counts:
 
 ```text
-run_id: 22b915a294694a0d9474b8afa71a4a13
-status: FINISHED
-patient/scenario units: 120
-elapsed time including preprocessing and MLflow: 265.22 s
+G cohort geometry draws
+  x P conditional photon realizations per geometry
+  = G x P p_cancer realizations per scenario
 ```
 
-## Scaling result
+Increasing `P` does not increase the number of independent geometry states.
+Conversely, increasing `G` does not establish convergence of the conditional
+photon distribution. The frozen allocation therefore uses at least `P = 50`
+measurement-specific photon realizations for every outer geometry state. One
+outer state is a complete cohort field: it contains one independently sampled
+perturbation for each PONI geometry, shared by all patients linked to that PONI,
+plus the declared thickness field. It is not one scalar geometry applied to the
+complete cohort and it is not one independent PONI error per patient.
 
-The reference implementation rebuilt a pyFAI integration plan for every
-geometry draw. This gave approximately `8.3` measurement-profile evaluations
-per second after preprocessing. Extrapolation to `973 measurements x 5000
-draws x 9 scenarios` is approximately 61 days and is therefore not an
-acceptable full-run implementation. The final design contains 12 scenarios
-after adding the `10-pixel / 10-mm` boundary stress tests; the same reference
-implementation would require approximately 81 days.
+The replacement run has a maximum of `G = 5000` cohort geometry states and
+`P = 50` photon replicates. Geometry is evaluated in stages of 250 states and
+may stop only after at least 2000 independent geometry states and three stable
+checkpoints. Configured geometry summaries are written at `100, 250, 500, 1000,
+2000, 3000, 4000, 5000`; photon summaries are written separately at `10, 20,
+30, 40, 50`. `nested_axis_case_convergence.csv` and
+`nested_axis_changes.csv` prevent the two sample counts from being interpreted
+as one undifferentiated draw count.
 
-The geometry-aware engine keeps detector images, masks, PONI geometry, and RNG
-seeds in persistent Apple Metal buffers. Draw-specific distance and beam-centre
-arrays are transferred in chunks without rebuilding a CPU CSR plan. Real
-Human-1 benchmarks produced approximately `213 profiles/s` with centered
-Poisson sampling and `253 profiles/s` without it, compared with `8.3
-profiles/s` for the reference plan-per-draw implementation.
+At the maximum allocation, the probability cube contains 579 million float32
+values, approximately 2.32 GB. It represents 250,000 `p_cancer` values per
+case and scenario but only 5000 independent geometry states. Auto-stop is
+therefore required; 5000 is a bounded upper limit, not a mandatory target.
 
-The original full `973 measurements x 5000 draws x 12 scenarios` run was
-estimated at approximately 70 hours on one deterministic Metal queue. The
-first execution confirmed that geometry reconstruction dominated runtime:
-after approximately 2.75 hours, only 1347 of 2136 patient/scenario units in the
-first 250-draw stage were complete. The run was stopped atomically before any
-complete global stage was reported. Its detector-frame cache and unit
-checkpoints were preserved, but this direct-design run must not be resumed with
-the nested configuration.
+The revised benchmark uses the same pyFAI-prepared CSR path as the experiment.
+For one patient with five measurements, one geometry draw required 0.79 s with
+two photon replicates and 1.92 s with 2000 replicates. A ten-patient,
+58-measurement audit with one cohort geometry and 50 photon replicates required
+8.64 s. Metal generated 2900 perturbed profiles at 336 profiles/s. Maximum
+profile error against the pyFAI-prepared reference was `3.65e-5`, maximum p99
+error was `2.96e-5`, maximum `p_cancer` error was `1.96e-5`, and all decision
+classes agreed.
 
-### Nested geometry-photon design
+The same bounded audit was extended to 500 photon replicates. Threshold-crossing
+status was unchanged from 100 through 500 replicates. Between 450 and 500, the
+median interval-endpoint change was 0.00168 and p90 change was 0.00865. This
+shows that 50 is a minimum per-geometry allocation rather than a stand-alone
+conditional-photon convergence claim. The complete run pools 50 photon draws
+over each successive geometry field and evaluates both axes at every stage.
+These observations also confirm that pyFAI plan construction dominates runtime,
+whereas additional Metal photon replicates are comparatively inexpensive.
 
-The accelerated design separates independent acquisition geometry from
-conditional photon statistics:
+The superseded dynamic-geometry run remains preserved for audit. It contains
+13,259 completed atomic units and 1,500 completed output draws, but it must not
+be resumed because Metal recalculated geometry in float32. The replacement run
+will use a new folder and a new runner fingerprint.
 
-```text
-1000 independent geometry draws
-  x 5 conditional photon realizations per geometry
-  = 5000 p_cancer realizations per scenario
-```
-
-For one geometry draw, the Metal kernel calculates effective distance, beam
-centre, q coordinates, bin assignment, and normalization membership once. It
-then generates five independent centered-Poisson detector realizations inside
-the same GPU kernel. Persistent detector images, masks, q-bin edges, and output
-buffers remain on the GPU across calls. This removes four of five repeated
-geometry calculations and most Python/Metal dispatch overhead.
-
-The five photon replicates sharing one geometry are conditionally independent,
-but they are not five independent geometry observations. Output artifacts
-therefore report both counts explicitly:
-
-```text
-draws: 5000
-independent_geometry_draws: 1000
-photon_replicates_per_geometry: 5
-```
-
-This is a nested Monte Carlo estimate of the total acquisition distribution,
-not an increase in effective geometry sample size. Convergence requires at
-least 400 independent geometry draws in addition to the existing minimum of
-2000 output realizations. Non-photon scenarios contain 1000 unique geometry
-results; repeating them along the output axis preserves a common artifact shape
-without claiming additional independent information.
-
-The reproducible Human-1 acceptance benchmark used 10 real patients, 12 target
-cases, the `joint_10px_10mm` scenario, 50 geometry draws, and five photon
-replicates. Flattened and nested execution used identical geometry values,
-photon seeds, and model artifact:
-
-| Quantity | Flattened | Nested |
-| --- | ---: | ---: |
-| Metal integration time | `71.85 s` | `8.77 s` |
-| Speedup | `1.00x` | `8.20x` |
-| Maximum normalized-profile difference |  | `2.00e-5` |
-| 99th percentile profile difference |  | `7.39e-6` |
-| Maximum `p_cancer` difference |  | `3.98e-5` |
-| Maximum 2.5/50/97.5% endpoint difference |  | `1.39e-5` |
-| Draw-level decision agreement |  | `100%` |
-
-The benchmark is written by
-`scripts/benchmark_nested_joint_uncertainty.py`. The measured integration
-speedup projects the complete nested experiment to approximately 11--15 hours,
-subject to scenario mix, model-scoring overhead, and thermal conditions. This
-estimate must be checked with the first complete 250-output checkpoint before a
-long run is allowed to continue.
-
-The nested configuration submits 50 geometry draws with five conditional
-photon replicates as one 250-output global stage. Metal profile batch size 128
-keeps the five conditional outputs within one fused dispatch. This reduces
-Python/Metal dispatch overhead without concurrent writers.
-
-The full experiment remains divided into global 250-output stages. Each stage
-contains 50 independent geometry draws and covers all target cases and all 12
-scenarios before a convergence result is published.
-Each patient/scenario/stage slice is flushed to the probability memmap before
-its atomic checkpoint is marked complete. Resume verifies data, model, config,
-case, scenario, and cached-frame fingerprints and repeats only incomplete
-slices.
-
-After every 250 output realizations the run writes case and cohort CSV
-summaries, a scenario dashboard, a convergence-history plot, and plateau
-metrics under
-`convergence/draws_NNNNN/`. `convergence/latest.json` and
-`convergence/latest.png` always point to the newest completed global stage.
-
-The full configuration enables conservative automatic plateau stopping. It is
-not considered before 2000 draws and requires three consecutive checkpoints in
-which all 12 scenarios satisfy the endpoint-change and threshold-crossing
-criteria. A single stable checkpoint cannot stop the run. This is a Monte Carlo
-convergence rule, not a clinical performance criterion.
-
-The Metal profile parity gate uses a `0.005` maximum absolute tolerance and a
-separate `0.0001` p99 tolerance. The maximum limit admits isolated numerical
-outliers observed in the full cohort (`0.002314`), while the unchanged p99 gate
-continues to control population-wide profile agreement. The independent
-`p_cancer` parity and decision-class gates remain unchanged.
-
-To request a safe manual stop, create `STOP_REQUESTED` in the run folder. The
-current patient/scenario/stage slice is completed atomically, then the run is
-marked `paused`. Set `output.resume_run_folder` to that folder and rerun the
-same command; the stale stop request is cleared and calculation continues from
-the first missing slice. `Ctrl+C` also marks the run paused, although the active
-slice is repeated after resume.
+To request a safe manual stop, create `STOP_REQUESTED` in the new run folder.
+The active cohort stage is completed atomically, after which the run is marked
+paused. Resume verifies data, model, config, case, scenario, PONI-scope, runner,
+and Metal-library fingerprints before continuing.
 
 ## Decision criteria for the full run
 
-The `193-case x 5000-draw` experiment may start only after:
+The `193-case x up-to-5000-geometry x 50-photon` experiment may start only after:
 
 1. zero perturbation reproduces the static product path;
 2. random perturbed geometry agrees with direct pyFAI within the declared

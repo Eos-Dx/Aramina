@@ -61,6 +61,7 @@ PYFAI_PARITY_CACHE = "pyfai_parity_checkpoint.joblib"
 UNIT_CHECKPOINT_FOLDER = "unit_checkpoints"
 CONVERGENCE_FOLDER = "convergence"
 STOP_REQUEST_FILENAME = "STOP_REQUESTED"
+NUISANCE_SCOPE_FILENAME = "nuisance_scope_manifest.csv"
 
 
 @dataclass(frozen=True)
@@ -92,6 +93,38 @@ class NuisanceDraws:
 
 
 @dataclass(frozen=True)
+class CohortNuisanceDraws:
+    """One cohort-level outer random field indexed by stable measurements."""
+
+    measurement_keys: tuple[str, ...]
+    thickness_delta_mm: np.ndarray
+    beam_center_row_delta_px: np.ndarray
+    beam_center_col_delta_px: np.ndarray
+    detector_distance_delta_mm: np.ndarray
+    photon_measurement_seeds: np.ndarray
+
+    def for_frame(self, frame: pd.DataFrame) -> NuisanceDraws:
+        """Select one patient without changing cohort draw alignment."""
+        index_by_key = {key: index for index, key in enumerate(self.measurement_keys)}
+        keys = tuple(_measurement_key(row) for _, row in frame.iterrows())
+        if len(set(keys)) != len(keys):
+            raise ValueError("Patient frame contains duplicate measurement keys.")
+        try:
+            indices = np.asarray([index_by_key[key] for key in keys], dtype=int)
+        except KeyError as error:
+            raise ValueError(
+                "Patient frame contains a measurement outside the cohort field."
+            ) from error
+        return NuisanceDraws(
+            thickness_delta_mm=self.thickness_delta_mm[:, indices],
+            beam_center_row_delta_px=self.beam_center_row_delta_px[:, indices],
+            beam_center_col_delta_px=self.beam_center_col_delta_px[:, indices],
+            detector_distance_delta_mm=self.detector_distance_delta_mm[:, indices],
+            photon_measurement_seeds=self.photon_measurement_seeds[indices],
+        )
+
+
+@dataclass(frozen=True)
 class MonteCarloDesign:
     """Explicit independent-geometry and conditional-photon sample counts."""
 
@@ -111,24 +144,19 @@ class MonteCarloDesign:
 
 @dataclass
 class PatientMetalContext:
-    """One persistent geometry-aware Metal session for one patient."""
+    """Patient detector frames and prepared-geometry Metal executor."""
 
     session: Any
     q_grid: np.ndarray
     images: np.ndarray
-    poni_distance_m: np.ndarray
-    sample_thickness_mm: np.ndarray
-    calibrant_thickness_mm: np.ndarray
-    poni1_m: np.ndarray
-    poni2_m: np.ndarray
-    pixel1_m: np.ndarray
-    pixel2_m: np.ndarray
 
     def __enter__(self) -> PatientMetalContext:
         return self
 
     def __exit__(self, *_: object) -> None:
-        self.session.close()
+        close = getattr(self.session, "close", None)
+        if close is not None:
+            close()
 
 
 @dataclass
@@ -724,6 +752,22 @@ def run_joint_measurement_uncertainty_from_config(
             probability_shape=(len(selected_cases), len(scenarios), draws),
         )
 
+    nuisance_scope = _nuisance_scope_manifest(
+        selected_frame,
+        thickness_correlation=str(
+            config["nuisance"]["sample_thickness"]["correlation"]
+        ),
+    )
+    nuisance_scope_path = run_folder / NUISANCE_SCOPE_FILENAME
+    if nuisance_scope_path.exists():
+        existing_scope = pd.read_csv(nuisance_scope_path, dtype=str)
+        if not existing_scope.equals(nuisance_scope.astype(str)):
+            raise MeasurementUncertaintyError(
+                "Resume nuisance scope differs from the stored cohort contract."
+            )
+    else:
+        nuisance_scope.to_csv(nuisance_scope_path, index=False)
+
     patient_ids = selected_cases["patient_id"].astype(str).unique().tolist()
     quantiles = tuple(float(value) for value in config["monte_carlo"]["quantiles"])
     probability_path = run_folder / PROBABILITY_FILENAME
@@ -780,6 +824,14 @@ def run_joint_measurement_uncertainty_from_config(
         else 0
     )
     completed_global_draws = int(checkpoint.progress.get("completed_draws", 0))
+    cohort_nuisance = sample_cohort_nuisance_draws(
+        selected_frame,
+        draws=design.geometry_draws,
+        seed=int(config["monte_carlo"]["seed"]),
+        thickness_config=config["nuisance"]["sample_thickness"],
+        beam_center_config=config["nuisance"]["beam_center"],
+        detector_distance_config=config["nuisance"]["detector_distance"],
+    )
 
     try:
         for geometry_start, geometry_stop in _stage_ranges(
@@ -825,14 +877,7 @@ def run_joint_measurement_uncertainty_from_config(
                 if not incomplete_scenarios:
                     continue
 
-                nuisance = sample_nuisance_draws(
-                    patient_frame,
-                    draws=design.geometry_draws,
-                    seed=int(config["monte_carlo"]["seed"]),
-                    thickness_config=config["nuisance"]["sample_thickness"],
-                    beam_center_config=config["nuisance"]["beam_center"],
-                    detector_distance_config=config["nuisance"]["detector_distance"],
-                )
+                nuisance = cohort_nuisance.for_frame(patient_frame)
                 with _prepare_patient_metal_context(
                     patient_frame,
                     nuisance=nuisance,
@@ -904,6 +949,28 @@ def run_joint_measurement_uncertainty_from_config(
                 completed_draws=draw_stop,
             )
             stage_cohort_summary = summarize_cohort_convergence(stage_case_summary)
+            nested_axis_summary = None
+            nested_axis_changes = None
+            if design.mode == "nested_geometry_photon":
+                nested_axis_summary = summarize_nested_axis_convergence(
+                    probabilities[:, :, :draw_stop],
+                    case_table,
+                    scenarios=scenarios,
+                    quantiles=quantiles,
+                    geometry_draws=geometry_stop,
+                    photon_replicates=design.photon_replicates,
+                    geometry_prefixes=tuple(
+                        int(value)
+                        for value in config["convergence"]["geometry_prefixes"]
+                    ),
+                    photon_prefixes=tuple(
+                        int(value)
+                        for value in config["convergence"]["photon_prefixes"]
+                    ),
+                )
+                nested_axis_changes = summarize_nested_axis_changes(
+                    nested_axis_summary
+                )
             previous_summary = None
             if completed_global_draws:
                 previous_path = (
@@ -942,6 +1009,8 @@ def run_joint_measurement_uncertainty_from_config(
                 plateau_metrics=plateau_metrics,
                 plateau_status=plateau_status,
                 completed_draws=draw_stop,
+                nested_axis_summary=nested_axis_summary,
+                nested_axis_changes=nested_axis_changes,
             )
             completed_global_draws = draw_stop
             checkpoint.mark_stage_complete(
@@ -1012,12 +1081,35 @@ def run_joint_measurement_uncertainty_from_config(
         scenarios=scenarios,
         quantiles=quantiles,
     )
-    case_convergence = summarize_case_convergence(
-        probabilities,
-        case_table,
-        scenarios=scenarios,
-        quantiles=quantiles,
-    )
+    nested_axis_summary = None
+    nested_axis_changes = None
+    if design.mode == "nested_geometry_photon":
+        nested_axis_summary = summarize_nested_axis_convergence(
+            probabilities,
+            case_table,
+            scenarios=scenarios,
+            quantiles=quantiles,
+            geometry_draws=design.geometry_draws,
+            photon_replicates=design.photon_replicates,
+            geometry_prefixes=tuple(
+                int(value) for value in config["convergence"]["geometry_prefixes"]
+            ),
+            photon_prefixes=tuple(
+                int(value) for value in config["convergence"]["photon_prefixes"]
+            ),
+        )
+        nested_axis_changes = summarize_nested_axis_changes(nested_axis_summary)
+        case_convergence = nested_axis_summary[
+            nested_axis_summary["convergence_axis"].eq("geometry")
+        ].copy()
+        case_convergence["draw_prefix"] = case_convergence["geometry_draws"]
+    else:
+        case_convergence = summarize_case_convergence(
+            probabilities,
+            case_table,
+            scenarios=scenarios,
+            quantiles=quantiles,
+        )
     cohort_convergence = summarize_cohort_convergence(case_convergence)
     metadata_qc = thickness_metadata_audit(selected_frame)
     artifacts = _write_artifacts(
@@ -1031,6 +1123,8 @@ def run_joint_measurement_uncertainty_from_config(
         summaries=summaries,
         case_convergence=case_convergence,
         cohort_convergence=cohort_convergence,
+        nested_axis_summary=nested_axis_summary,
+        nested_axis_changes=nested_axis_changes,
         parity=parity,
         metal_parity=pd.DataFrame(metal_parity_rows),
         geometry_draws=pd.DataFrame(geometry_rows),
@@ -1067,16 +1161,71 @@ def sample_nuisance_draws(
     beam_center_config: dict[str, Any],
     detector_distance_config: dict[str, Any],
 ) -> NuisanceDraws:
-    """Sample bounded effects while preserving visit and calibration scopes."""
-    measurements = len(patient_frame)
-    if draws < 1 or measurements < 1:
-        raise ValueError("draws and measurements must be positive.")
+    """Compatibility wrapper for one patient slice of the cohort field."""
     patient_ids = patient_frame["patientId"].astype(str).unique()
     if len(patient_ids) != 1:
         raise ValueError("Nuisance sampling requires exactly one patient.")
-    patient_id = str(patient_ids[0])
+    return sample_cohort_nuisance_draws(
+        patient_frame,
+        draws=draws,
+        seed=seed,
+        thickness_config=thickness_config,
+        beam_center_config=beam_center_config,
+        detector_distance_config=detector_distance_config,
+    ).for_frame(patient_frame)
+
+
+def _nuisance_scope_manifest(
+    cohort_frame: pd.DataFrame,
+    *,
+    thickness_correlation: str,
+) -> pd.DataFrame:
+    rows: list[dict[str, str]] = []
+    for _, row in cohort_frame.iterrows():
+        measurement_key = _measurement_key(row)
+        if thickness_correlation == "visit_shared":
+            thickness_group = f"patient:{row['patientId']}"
+        elif thickness_correlation == "measurement_independent":
+            thickness_group = f"measurement:{measurement_key}"
+        else:
+            raise ValueError("Unsupported thickness correlation scope.")
+        rows.append(
+            {
+                "measurement_key_sha256": hashlib.sha256(
+                    measurement_key.encode("utf-8")
+                ).hexdigest(),
+                "patient_id": str(row["patientId"]),
+                "specimen_id": str(row["specimenId"]),
+                "side": str(row["side"]),
+                "poni_geometry_sha256": _poni_geometry_key(row),
+                "thickness_group": thickness_group,
+                "photon_group": f"measurement:{measurement_key}",
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def sample_cohort_nuisance_draws(
+    cohort_frame: pd.DataFrame,
+    *,
+    draws: int,
+    seed: int,
+    thickness_config: dict[str, Any],
+    beam_center_config: dict[str, Any],
+    detector_distance_config: dict[str, Any],
+) -> CohortNuisanceDraws:
+    """Sample one aligned geometry field for the complete cohort."""
+    measurements = len(cohort_frame)
+    if draws < 1 or measurements < 1:
+        raise ValueError("draws and measurements must be positive.")
+    measurement_keys = tuple(
+        _measurement_key(row) for _, row in cohort_frame.iterrows()
+    )
+    if len(set(measurement_keys)) != measurements:
+        raise ValueError("Cohort frame contains duplicate measurement keys.")
+    patient_ids = cohort_frame["patientId"].astype(str).to_numpy()
     thickness = pd.to_numeric(
-        patient_frame["sample_thickness_mm"], errors="coerce"
+        cohort_frame["sample_thickness_mm"], errors="coerce"
     ).to_numpy(dtype=float)
     if not np.isfinite(thickness).all() or np.any(thickness <= 0.0):
         raise ValueError("Sample thickness must be finite and positive.")
@@ -1087,16 +1236,26 @@ def sample_nuisance_draws(
         float(thickness_config["thick_half_width_mm"]),
     )
     correlation = str(thickness_config["correlation"])
-    thickness_rng = _keyed_rng(seed, "thickness", patient_id)
     if correlation == "visit_shared":
-        thickness_unit = thickness_rng.uniform(-1.0, 1.0, size=(draws, 1))
+        patients, patient_index = np.unique(patient_ids, return_inverse=True)
+        thickness_by_patient = np.column_stack(
+            [
+                _keyed_rng(seed, "thickness", patient_id).uniform(
+                    -1.0, 1.0, size=draws
+                )
+                for patient_id in patients
+            ]
+        )
+        thickness_unit = thickness_by_patient[:, patient_index]
     elif correlation == "measurement_independent":
         thickness_unit = np.column_stack(
             [
-                _keyed_rng(seed, "thickness", patient_id, _measurement_key(row)).uniform(
-                    -1.0, 1.0, size=draws
+                _keyed_rng(seed, "thickness", measurement_key).uniform(
+                    -1.0,
+                    1.0,
+                    size=draws,
                 )
-                for _, row in patient_frame.iterrows()
+                for measurement_key in measurement_keys
             ]
         )
     else:
@@ -1105,20 +1264,26 @@ def sample_nuisance_draws(
         thickness_unit, (draws, measurements)
     ).copy() * bounds
 
-    session_ids = patient_frame["calibration_session_uid"].astype(str).to_numpy()
-    sessions, session_index = np.unique(session_ids, return_inverse=True)
-    session_count = len(sessions)
+    if str(beam_center_config.get("correlation")) != "poni_file_shared":
+        raise ValueError("Beam-center correlation must be poni_file_shared.")
+    if str(detector_distance_config.get("correlation")) != "poni_file_shared":
+        raise ValueError("Detector-distance correlation must be poni_file_shared.")
+    geometry_keys = np.asarray(
+        [_poni_geometry_key(row) for _, row in cohort_frame.iterrows()]
+    )
+    geometries, geometry_index = np.unique(geometry_keys, return_inverse=True)
+    geometry_count = len(geometries)
     radius = float(beam_center_config["radius_px"])
-    row_by_session = np.empty((draws, session_count), dtype=float)
-    col_by_session = np.empty((draws, session_count), dtype=float)
-    distance_by_session = np.empty((draws, session_count), dtype=float)
-    for index, session_id in enumerate(sessions):
-        geometry_rng = _keyed_rng(seed, "geometry", str(session_id))
+    row_by_geometry = np.empty((draws, geometry_count), dtype=float)
+    col_by_geometry = np.empty((draws, geometry_count), dtype=float)
+    distance_by_geometry = np.empty((draws, geometry_count), dtype=float)
+    for index, geometry_key in enumerate(geometries):
+        geometry_rng = _keyed_rng(seed, "geometry", str(geometry_key))
         radial = radius * np.sqrt(geometry_rng.uniform(size=draws))
         angle = geometry_rng.uniform(0.0, 2.0 * np.pi, size=draws)
-        row_by_session[:, index] = radial * np.sin(angle)
-        col_by_session[:, index] = radial * np.cos(angle)
-        distance_by_session[:, index] = geometry_rng.uniform(
+        row_by_geometry[:, index] = radial * np.sin(angle)
+        col_by_geometry[:, index] = radial * np.cos(angle)
+        distance_by_geometry[:, index] = geometry_rng.uniform(
             -float(detector_distance_config["half_width_mm"]),
             float(detector_distance_config["half_width_mm"]),
             size=draws,
@@ -1130,15 +1295,16 @@ def sample_nuisance_draws(
                 np.iinfo(np.uint64).max,
                 dtype=np.uint64,
             )
-            for _, row in patient_frame.iterrows()
+            for _, row in cohort_frame.iterrows()
         ],
         dtype=np.uint64,
     )
-    return NuisanceDraws(
+    return CohortNuisanceDraws(
+        measurement_keys=measurement_keys,
         thickness_delta_mm=thickness_delta,
-        beam_center_row_delta_px=row_by_session[:, session_index],
-        beam_center_col_delta_px=col_by_session[:, session_index],
-        detector_distance_delta_mm=distance_by_session[:, session_index],
+        beam_center_row_delta_px=row_by_geometry[:, geometry_index],
+        beam_center_col_delta_px=col_by_geometry[:, geometry_index],
+        detector_distance_delta_mm=distance_by_geometry[:, geometry_index],
         photon_measurement_seeds=photon_seeds,
     )
 
@@ -1218,14 +1384,14 @@ def _prepare_patient_metal_context(
     profile_batch_size: int,
     normalization_q_range: tuple[float, float],
 ) -> PatientMetalContext:
+    del draw_chunk_size, normalization_q_range
     try:
-        from xrdanalysis.direct_monte_carlo_geometry_metal import (
-            GeometryAwareMetalMonteCarlo,
-            MetalDetectorGeometry,
+        from xrdanalysis.direct_monte_carlo_metal_session import (
+            PreparedGeometryMetalMonteCarlo,
         )
     except ImportError as error:
         raise RuntimeError(
-            "Joint uncertainty requires xrd-analysis commit 1e6199cb or later."
+            "Joint uncertainty requires prepared-geometry Metal support."
         ) from error
 
     measurements = len(patient_frame)
@@ -1234,17 +1400,12 @@ def _prepare_patient_metal_context(
             "Photon seeds must contain one stable seed per measurement."
         )
     images: list[np.ndarray] = []
-    masks: list[np.ndarray] = []
-    geometries: list[Any] = []
     q_rows: list[np.ndarray] = []
-    geometry_rows: list[dict[str, float]] = []
-    sample_thickness: list[float] = []
-    calibrant_thickness: list[float] = []
     for _, row in patient_frame.iterrows():
         image = _centered_poisson_observation(
             row[RAW_FRAME_COLUMN], row[MASK_COLUMN]
         )
-        context, geometry = _perturbed_context(
+        context, _ = _perturbed_context(
             row,
             thickness_delta_mm=0.0,
             center_row_delta_px=0.0,
@@ -1257,12 +1418,7 @@ def _prepare_patient_metal_context(
                 "Product q grid is missing or incompatible with Metal integration."
             )
         images.append(image)
-        masks.append(context.mask)
-        geometries.append(MetalDetectorGeometry.from_pyfai(context.integrator))
         q_rows.append(q)
-        geometry_rows.append(geometry)
-        sample_thickness.append(float(row["sample_thickness_mm"]))
-        calibrant_thickness.append(float(row["calibrant_thickness_mm"]))
 
     q_grid = q_rows[0]
     if any(
@@ -1271,37 +1427,15 @@ def _prepare_patient_metal_context(
         raise MeasurementUncertaintyError(
             "Patient measurements do not share the fixed product q grid."
         )
-    nominal_distance = np.asarray(
-        [row["effective_detector_distance_m"] for row in geometry_rows],
-        dtype=float,
-    )
-    sample_values = np.asarray(sample_thickness, dtype=float)
-    calibrant_values = np.asarray(calibrant_thickness, dtype=float)
-    poni_distance = nominal_distance + 0.5 * (
-        sample_values - calibrant_values
-    ) * 1e-3
-    session = GeometryAwareMetalMonteCarlo(
-        np.stack(images),
-        np.stack(masks),
-        geometries,
-        q_grid,
-        normalization_q_range,
+    session = PreparedGeometryMetalMonteCarlo(
+        images,
         measurement_seeds=nuisance.photon_measurement_seeds,
-        scale_capacity=1,
-        draw_capacity=draw_chunk_size,
         profile_batch_size=profile_batch_size,
     )
     return PatientMetalContext(
         session=session,
         q_grid=q_grid.copy(),
         images=np.stack(images),
-        poni_distance_m=poni_distance,
-        sample_thickness_mm=sample_values,
-        calibrant_thickness_mm=calibrant_values,
-        poni1_m=np.asarray([row["poni1_m"] for row in geometry_rows], dtype=float),
-        poni2_m=np.asarray([row["poni2_m"] for row in geometry_rows], dtype=float),
-        pixel1_m=np.asarray([row["pixel1_m"] for row in geometry_rows], dtype=float),
-        pixel2_m=np.asarray([row["pixel2_m"] for row in geometry_rows], dtype=float),
     )
 
 
@@ -1336,45 +1470,104 @@ def _scenario_component_deltas(
     return thickness, row, column, distance
 
 
-def _scenario_geometry_arrays(
-    metal_context: PatientMetalContext,
+def _prepared_geometry_seed(base_seed: int, draw_index: int) -> int:
+    """Derive a resumable independent photon stream for one geometry draw."""
+    payload = f"{base_seed}:{draw_index}".encode("ascii")
+    return int.from_bytes(hashlib.sha256(payload).digest()[:8], "little")
+
+
+def _prepare_pyfai_geometry_draw(
+    patient_frame: pd.DataFrame,
+    *,
     scenario: Scenario,
     nuisance: NuisanceDraws,
-    *,
-    start: int,
-    stop: int,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    thickness, row, column, distance = _scenario_component_deltas(
-        scenario,
-        nuisance,
-        start=start,
-        stop=stop,
-    )
-    effective_distance = (
-        metal_context.poni_distance_m[np.newaxis, :]
-        + distance * 1e-3
-        - 0.5
-        * (
-            metal_context.sample_thickness_mm[np.newaxis, :]
-            + thickness
-            - metal_context.calibrant_thickness_mm[np.newaxis, :]
+    draw_index: int,
+    q_grid: np.ndarray,
+    normalization_q_range: tuple[float, float],
+    prepare_metal_plans: bool = True,
+) -> tuple[np.ndarray, list[Any], list[dict[str, Any]]]:
+    if prepare_metal_plans:
+        from xrdanalysis.direct_monte_carlo import prepare_native_plan
+        from xrdanalysis.direct_monte_carlo_metal import prepare_metal_plan
+
+    thickness, row_delta, column_delta, distance_delta = (
+        _scenario_component_deltas(
+            scenario,
+            nuisance,
+            start=draw_index,
+            stop=draw_index + 1,
         )
-        * 1e-3
     )
-    if np.any(effective_distance <= 0.0):
-        raise MeasurementUncertaintyError("Perturbed detector distance is non-positive.")
-    poni1 = (
-        metal_context.poni1_m[np.newaxis, :]
-        + row * metal_context.pixel1_m[np.newaxis, :]
-    )
-    poni2 = (
-        metal_context.poni2_m[np.newaxis, :]
-        + column * metal_context.pixel2_m[np.newaxis, :]
-    )
-    return tuple(
-        np.ascontiguousarray(values, dtype=np.float64)
-        for values in (effective_distance, poni1, poni2)
-    )
+    expected = np.empty((len(patient_frame), q_grid.size), dtype=float)
+    plans: list[Any] = []
+    geometry_rows: list[dict[str, Any]] = []
+    for measurement_index, (_, row) in enumerate(patient_frame.iterrows()):
+        context, geometry = _perturbed_context(
+            row,
+            thickness_delta_mm=float(thickness[0, measurement_index]),
+            center_row_delta_px=float(row_delta[0, measurement_index]),
+            center_col_delta_px=float(column_delta[0, measurement_index]),
+            distance_delta_mm=float(distance_delta[0, measurement_index]),
+        )
+        image = _centered_poisson_observation(
+            row[RAW_FRAME_COLUMN], row[MASK_COLUMN]
+        )
+        result = context.integrator.integrate1d(
+            image,
+            context.npt,
+            radial_range=context.radial_range,
+            azimuth_range=context.azimuth_range,
+            mask=context.mask,
+            error_model="poisson",
+        )
+        q = np.asarray(result.radial, dtype=float)
+        intensity = np.asarray(result.intensity, dtype=float)
+        normalization = np.asarray(result.sum_normalization, dtype=float)
+        supported = np.isfinite(normalization) & (normalization > 0.0)
+        normalization_band = (
+            (q >= normalization_q_range[0])
+            & (q <= normalization_q_range[1])
+        )
+        if not np.all(supported):
+            raise MeasurementUncertaintyError(
+                "Perturbed pyFAI geometry has unsupported product q bins."
+            )
+        if not np.all(supported[normalization_band]):
+            raise MeasurementUncertaintyError(
+                "Perturbed pyFAI geometry has unsupported normalization bins."
+            )
+        if not np.allclose(q, q_grid, rtol=0.0, atol=1e-12):
+            raise MeasurementUncertaintyError(
+                "Perturbed pyFAI geometry changed the fixed product q grid."
+            )
+        expected[measurement_index] = normalize_profile(
+            q, intensity, q_range=normalization_q_range
+        )
+        if prepare_metal_plans:
+            plans.append(
+                prepare_metal_plan(
+                    prepare_native_plan(
+                        context.integrator,
+                        image.shape,
+                        normalization_denominators=normalization,
+                        q_grid=q,
+                        q_normalization_band=normalization_q_range,
+                    )
+                )
+            )
+        geometry_rows.append(
+            {
+                "patient_id": str(row["patientId"]),
+                "specimen_id": str(row["specimenId"]),
+                "scenario": scenario.name,
+                "draw_index": draw_index,
+                "measurement_index": measurement_index,
+                "supported_q_bin_fraction": float(np.mean(supported)),
+                "normalization_band_supported": True,
+                **geometry,
+            }
+        )
+    return expected, plans, geometry_rows
 
 
 def _pyfai_oracle_profiles(
@@ -1387,68 +1580,21 @@ def _pyfai_oracle_profiles(
     q_grid: np.ndarray,
     normalization_q_range: tuple[float, float],
 ) -> tuple[np.ndarray, list[dict[str, Any]]]:
-    thickness, row_delta, column_delta, distance_delta = (
-        _scenario_component_deltas(scenario, nuisance, start=start, stop=stop)
-    )
-    expected = np.empty(
-        (stop - start, len(patient_frame), q_grid.size), dtype=float
-    )
+    expected: list[np.ndarray] = []
     geometry_rows: list[dict[str, Any]] = []
-    for local_draw, draw_index in enumerate(range(start, stop)):
-        for measurement_index, (_, row) in enumerate(patient_frame.iterrows()):
-            context, geometry = _perturbed_context(
-                row,
-                thickness_delta_mm=float(thickness[local_draw, measurement_index]),
-                center_row_delta_px=float(row_delta[local_draw, measurement_index]),
-                center_col_delta_px=float(column_delta[local_draw, measurement_index]),
-                distance_delta_mm=float(distance_delta[local_draw, measurement_index]),
-            )
-            result = context.integrator.integrate1d(
-                _centered_poisson_observation(
-                    row[RAW_FRAME_COLUMN], row[MASK_COLUMN]
-                ),
-                context.npt,
-                radial_range=context.radial_range,
-                azimuth_range=context.azimuth_range,
-                mask=context.mask,
-                error_model="poisson",
-            )
-            q = np.asarray(result.radial, dtype=float)
-            intensity = np.asarray(result.intensity, dtype=float)
-            normalization = np.asarray(result.sum_normalization, dtype=float)
-            supported = np.isfinite(normalization) & (normalization > 0.0)
-            normalization_band = (
-                (q >= normalization_q_range[0])
-                & (q <= normalization_q_range[1])
-            )
-            if not np.all(supported):
-                raise MeasurementUncertaintyError(
-                    "Perturbed pyFAI oracle has unsupported product q bins."
-                )
-            if not np.all(supported[normalization_band]):
-                raise MeasurementUncertaintyError(
-                    "Perturbed pyFAI oracle has unsupported normalization bins."
-                )
-            if not np.allclose(q, q_grid, rtol=0.0, atol=1e-12):
-                raise MeasurementUncertaintyError(
-                    "Perturbed pyFAI oracle changed the fixed product q grid."
-                )
-            expected[local_draw, measurement_index] = normalize_profile(
-                q, intensity, q_range=normalization_q_range
-            )
-            geometry_rows.append(
-                {
-                    "patient_id": str(row["patientId"]),
-                    "specimen_id": str(row["specimenId"]),
-                    "scenario": scenario.name,
-                    "draw_index": draw_index,
-                    "measurement_index": measurement_index,
-                    "supported_q_bin_fraction": float(np.mean(supported)),
-                    "normalization_band_supported": True,
-                    **geometry,
-                }
-            )
-    return expected, geometry_rows
+    for draw_index in range(start, stop):
+        profiles, _, rows = _prepare_pyfai_geometry_draw(
+            patient_frame,
+            scenario=scenario,
+            nuisance=nuisance,
+            draw_index=draw_index,
+            q_grid=q_grid,
+            normalization_q_range=normalization_q_range,
+            prepare_metal_plans=False,
+        )
+        expected.append(profiles)
+        geometry_rows.extend(rows)
+    return np.stack(expected), geometry_rows
 
 
 def summarize_case_uncertainty(
@@ -1623,12 +1769,22 @@ def _write_stage_convergence(
     plateau_metrics: pd.DataFrame,
     plateau_status: dict[str, Any],
     completed_draws: int,
+    nested_axis_summary: pd.DataFrame | None = None,
+    nested_axis_changes: pd.DataFrame | None = None,
 ) -> dict[str, Any]:
     stage_folder = run_folder / CONVERGENCE_FOLDER / f"draws_{completed_draws:05d}"
     stage_folder.mkdir(parents=True, exist_ok=True)
     case_summary.to_csv(stage_folder / "case_summary.csv", index=False)
     cohort_summary.to_csv(stage_folder / "cohort_summary.csv", index=False)
     plateau_metrics.to_csv(stage_folder / "plateau_metrics.csv", index=False)
+    nested_axis_summary_path = None
+    nested_axis_changes_path = None
+    if nested_axis_summary is not None:
+        nested_axis_summary_path = stage_folder / "nested_axis_case_summary.csv"
+        nested_axis_summary.to_csv(nested_axis_summary_path, index=False)
+    if nested_axis_changes is not None:
+        nested_axis_changes_path = stage_folder / "nested_axis_changes.csv"
+        nested_axis_changes.to_csv(nested_axis_changes_path, index=False)
 
     import matplotlib
 
@@ -1677,6 +1833,16 @@ def _write_stage_convergence(
         "cohort_summary": str(stage_folder / "cohort_summary.csv"),
         "dashboard": str(dashboard_path),
         "history_plot": str(history_path),
+        "nested_axis_case_summary": (
+            str(nested_axis_summary_path)
+            if nested_axis_summary_path is not None
+            else None
+        ),
+        "nested_axis_changes": (
+            str(nested_axis_changes_path)
+            if nested_axis_changes_path is not None
+            else None
+        ),
         "updated_at": datetime.now(UTC).isoformat(),
     }
     _atomic_write_json(stage_folder / "stage_summary.json", status)
@@ -1706,6 +1872,146 @@ def summarize_case_convergence(
         summary.insert(5, "draw_prefix", prefix)
         rows.append(summary)
     return pd.concat(rows, ignore_index=True)
+
+
+def summarize_nested_axis_convergence(
+    probabilities: np.ndarray,
+    case_table: pd.DataFrame,
+    *,
+    scenarios: tuple[Scenario, ...],
+    quantiles: tuple[float, float, float],
+    geometry_draws: int,
+    photon_replicates: int,
+    geometry_prefixes: tuple[int, ...] = (),
+    photon_prefixes: tuple[int, ...] = (),
+) -> pd.DataFrame:
+    """Summarize geometry and photon convergence without mixing their counts."""
+    values = np.asarray(probabilities)
+    expected_draws = geometry_draws * photon_replicates
+    if values.ndim != 3 or values.shape[2] != expected_draws:
+        raise ValueError("Probability cube does not match the nested design.")
+    nested = values.reshape(
+        values.shape[0],
+        values.shape[1],
+        geometry_draws,
+        photon_replicates,
+    )
+    geometry_prefixes = _axis_prefixes(geometry_prefixes, geometry_draws)
+    photon_prefixes = _axis_prefixes(photon_prefixes, photon_replicates)
+    rows: list[pd.DataFrame] = []
+    for axis, prefixes in (
+        ("geometry", geometry_prefixes),
+        ("photon", photon_prefixes),
+    ):
+        for prefix in prefixes:
+            if axis == "geometry":
+                used_geometry = prefix
+                used_photon = photon_replicates
+                selected = nested[:, :, :prefix, :]
+            else:
+                used_geometry = geometry_draws
+                used_photon = prefix
+                selected = nested[:, :, :, :prefix]
+            flattened = selected.reshape(
+                values.shape[0],
+                values.shape[1],
+                used_geometry * used_photon,
+            )
+            summary = summarize_case_uncertainty(
+                flattened,
+                case_table,
+                scenarios=scenarios,
+                quantiles=quantiles,
+            )
+            summary.insert(5, "convergence_axis", axis)
+            summary.insert(6, "axis_prefix", prefix)
+            summary.insert(7, "geometry_draws", used_geometry)
+            summary.insert(8, "photon_replicates_per_geometry", used_photon)
+            summary.insert(9, "effective_draws", used_geometry * used_photon)
+            rows.append(summary)
+    return pd.concat(rows, ignore_index=True)
+
+
+def summarize_nested_axis_changes(case_convergence: pd.DataFrame) -> pd.DataFrame:
+    """Compare interval endpoints at consecutive geometry or photon prefixes."""
+    required = {
+        "target_case_id",
+        "scenario",
+        "convergence_axis",
+        "axis_prefix",
+        "p_cancer_p025",
+        "p_cancer_p50",
+        "p_cancer_p975",
+        "threshold_crossing",
+    }
+    missing = required.difference(case_convergence.columns)
+    if missing:
+        raise ValueError(f"Nested convergence columns are missing: {sorted(missing)}")
+    rows: list[dict[str, Any]] = []
+    keys = ["target_case_id", "scenario"]
+    for axis, axis_frame in case_convergence.groupby(
+        "convergence_axis", sort=False
+    ):
+        prefixes = sorted(axis_frame["axis_prefix"].astype(int).unique())
+        for previous_prefix, current_prefix in zip(prefixes, prefixes[1:]):
+            previous = axis_frame[
+                axis_frame["axis_prefix"].astype(int).eq(previous_prefix)
+            ]
+            current = axis_frame[
+                axis_frame["axis_prefix"].astype(int).eq(current_prefix)
+            ]
+            merged = current.merge(previous, on=keys, suffixes=("", "_previous"))
+            for scenario, frame in merged.groupby("scenario", sort=False):
+                endpoint_change = np.maximum.reduce(
+                    [
+                        np.abs(
+                            frame["p_cancer_p025"]
+                            - frame["p_cancer_p025_previous"]
+                        ),
+                        np.abs(
+                            frame["p_cancer_p50"]
+                            - frame["p_cancer_p50_previous"]
+                        ),
+                        np.abs(
+                            frame["p_cancer_p975"]
+                            - frame["p_cancer_p975_previous"]
+                        ),
+                    ]
+                )
+                rows.append(
+                    {
+                        "convergence_axis": axis,
+                        "scenario": scenario,
+                        "previous_prefix": previous_prefix,
+                        "current_prefix": current_prefix,
+                        "median_endpoint_change": float(
+                            np.median(endpoint_change)
+                        ),
+                        "p90_endpoint_change": float(
+                            np.quantile(endpoint_change, 0.9)
+                        ),
+                        "threshold_crossing_count": int(
+                            frame["threshold_crossing"].astype(bool).sum()
+                        ),
+                        "threshold_status_change_count": int(
+                            np.sum(
+                                frame["threshold_crossing"].astype(bool).to_numpy()
+                                != frame["threshold_crossing_previous"]
+                                .astype(bool)
+                                .to_numpy()
+                            )
+                        ),
+                    }
+                )
+    return pd.DataFrame(rows)
+
+
+def _axis_prefixes(prefixes: tuple[int, ...], maximum: int) -> tuple[int, ...]:
+    if maximum < 1:
+        raise ValueError("Nested convergence maximum must be positive.")
+    selected = {int(value) for value in prefixes if 0 < int(value) <= maximum}
+    selected.add(maximum)
+    return tuple(sorted(selected))
 
 
 def summarize_cohort_convergence(case_convergence: pd.DataFrame) -> pd.DataFrame:
@@ -1876,7 +2182,9 @@ def _run_patient_scenario(
         "photon_replicates_per_geometry": int(photon_replicates),
         "oracle_draws": int(metal_audit.shape[0]),
         **profile_metrics,
-        "persistent_session_reused": True,
+        "geometry_backend": "pyfai_bbox_csr",
+        "photon_backend": "metal_prepared_csr" if scenario.photon else "none",
+        "gpu_geometry_recalculation": False,
     }
     if not profile_metrics["parity_pass"]:
         raise MeasurementUncertaintyError(
@@ -1957,86 +2265,60 @@ def _metal_profile_chunk(
     np.ndarray,
     list[dict[str, Any]],
 ]:
-    distance, poni1, poni2 = _scenario_geometry_arrays(
-        metal_context,
-        scenario,
-        nuisance,
-        start=start,
-        stop=stop,
-    )
-    integration_kwargs = {
-        "effective_distance_m": distance,
-        "poni1_m": poni1,
-        "poni2_m": poni2,
-    }
-    if scenario.photon:
-        if photon_replicates == 1:
-            profile_cube = metal_context.session.run(
-                (1.0,),
-                stop - start,
-                seed=random_seed,
-                draw_offset=start,
-                draw_chunk_size=stop - start,
-                **integration_kwargs,
-            )[0]
-        else:
-            nested = metal_context.session.run_nested(
-                (1.0,),
-                stop - start,
-                photon_replicates,
-                seed=random_seed,
-                geometry_draw_offset=start,
-                photon_draw_offset=start * photon_replicates,
-                geometry_chunk_size=stop - start,
-                **integration_kwargs,
-            )[0]
-            profile_cube = nested.reshape(
-                (stop - start) * photon_replicates,
-                len(patient_frame),
-                metal_context.q_grid.size,
-            )
-    else:
-        profile_cube = metal_context.session.integrate(
-            stop - start,
-            draw_offset=start,
-            draw_chunk_size=stop - start,
-            **integration_kwargs,
-        )
-        if photon_replicates > 1:
-            profile_cube = np.repeat(profile_cube, photon_replicates, axis=0)
-
     audit_stop = min(stop, audit_draw_start + geometry_audit_draws)
-    if start < audit_stop and stop > audit_draw_start:
-        if start < audit_draw_start:
-            raise MeasurementUncertaintyError(
-                "Metal chunk starts before its audit stage boundary."
-            )
-        audit_count = audit_stop - start
-        audit_distance = distance[:audit_count]
-        audit_poni1 = poni1[:audit_count]
-        audit_poni2 = poni2[:audit_count]
-        metal_nominal_cube = metal_context.session.integrate(
-            audit_count,
-            effective_distance_m=audit_distance,
-            poni1_m=audit_poni1,
-            poni2_m=audit_poni2,
-            draw_offset=start,
-            draw_chunk_size=audit_count,
+    if start < audit_draw_start < stop:
+        raise MeasurementUncertaintyError(
+            "Metal chunk starts before its audit stage boundary."
         )
-        expected_cube, geometry_rows = _pyfai_oracle_profiles(
+    profile_chunks: list[np.ndarray] = []
+    metal_audit_chunks: list[np.ndarray] = []
+    expected_audit_chunks: list[np.ndarray] = []
+    geometry_rows: list[dict[str, Any]] = []
+    for draw_index in range(start, stop):
+        expected, plans, rows = _prepare_pyfai_geometry_draw(
             patient_frame,
             scenario=scenario,
             nuisance=nuisance,
-            start=start,
-            stop=audit_stop,
+            draw_index=draw_index,
             q_grid=metal_context.q_grid,
             normalization_q_range=normalization_q_range,
+            prepare_metal_plans=scenario.photon,
         )
+        audited = audit_draw_start <= draw_index < audit_stop
+        if scenario.photon:
+            result = metal_context.session.run_geometry(
+                plans,
+                photon_replicates,
+                seed=_prepared_geometry_seed(random_seed, draw_index),
+                include_deterministic=audited,
+            )
+            profile_chunks.append(result.profiles)
+            if audited:
+                if result.deterministic_profiles is None:
+                    raise MeasurementUncertaintyError(
+                        "Prepared Metal audit omitted deterministic profiles."
+                    )
+                metal_audit_chunks.append(
+                    result.deterministic_profiles[np.newaxis, ...]
+                )
+        else:
+            profile_chunks.append(
+                np.repeat(expected[np.newaxis, ...], photon_replicates, axis=0)
+            )
+            if audited:
+                metal_audit_chunks.append(expected[np.newaxis, ...])
+        if audited:
+            expected_audit_chunks.append(expected[np.newaxis, ...])
+            geometry_rows.extend(rows)
+
+    profile_cube = np.concatenate(profile_chunks, axis=0)
+    if metal_audit_chunks:
+        metal_nominal_cube = np.concatenate(metal_audit_chunks, axis=0)
+        expected_cube = np.concatenate(expected_audit_chunks, axis=0)
     else:
         empty_shape = (0, len(patient_frame), metal_context.q_grid.size)
         metal_nominal_cube = np.empty(empty_shape, dtype=float)
         expected_cube = np.empty(empty_shape, dtype=float)
-        geometry_rows = []
     return (
         profile_cube,
         metal_nominal_cube,
@@ -2201,6 +2483,13 @@ def _measurement_key(row: pd.Series) -> str:
     return "\x1f".join("" if pd.isna(value) else str(value) for value in values)
 
 
+def _poni_geometry_key(row: pd.Series) -> str:
+    value = row.get("ponifile")
+    if pd.isna(value) or not str(value).strip():
+        raise ValueError("Every measurement requires a non-empty PONI file.")
+    return hashlib.sha256(str(value).encode("utf-8")).hexdigest()
+
+
 def _monte_carlo_design(config: dict[str, Any]) -> MonteCarloDesign:
     monte_carlo = config["monte_carlo"]
     execution = config["execution"]
@@ -2243,6 +2532,22 @@ def _load_config(path: Path) -> dict[str, Any]:
     parsed = [_scenario(value) for value in scenarios]
     if len({value.name for value in parsed}) != len(parsed):
         raise ValueError("Scenario names must be unique.")
+    if config.get("backend", {}).get("kind") != (
+        "pyfai_prepared_csr_metal_photon_mc"
+    ):
+        raise ValueError(
+            "Joint uncertainty requires pyFAI-prepared CSR geometry and "
+            "Metal photon Monte Carlo."
+        )
+    if int(config.get("integration", {}).get("npt", 0)) != 100:
+        raise ValueError("Frozen Aramina 0.2.15 requires 100-bin integration.")
+    nuisance = config.get("nuisance", {})
+    if nuisance.get("beam_center", {}).get("correlation") != "poni_file_shared":
+        raise ValueError("Beam-centre uncertainty must be shared by PONI file.")
+    if nuisance.get("detector_distance", {}).get("correlation") != (
+        "poni_file_shared"
+    ):
+        raise ValueError("Detector-distance uncertainty must be shared by PONI file.")
     quantiles = config["monte_carlo"]["quantiles"]
     if len(quantiles) != 3 or not 0 < quantiles[0] < quantiles[1] < quantiles[2] < 1:
         raise ValueError("Monte Carlo quantiles must be ordered inside (0, 1).")
@@ -2261,6 +2566,21 @@ def _load_config(path: Path) -> dict[str, Any]:
     convergence.setdefault("p90_endpoint_change_tolerance", 0.01)
     convergence.setdefault("max_threshold_crossing_count_change", 1)
     convergence.setdefault("max_threshold_status_change_count", 1)
+    convergence.setdefault("geometry_prefixes", [100, 250, 500, 1000, 2000])
+    convergence.setdefault("photon_prefixes", [10, 20, 30, 40, 50])
+    convergence.setdefault("minimum_photon_replicates_per_geometry", 1)
+    minimum_photon_replicates = int(
+        convergence["minimum_photon_replicates_per_geometry"]
+    )
+    if minimum_photon_replicates < 1:
+        raise ValueError("Minimum photon replicates must be positive.")
+    if (
+        design.mode == "nested_geometry_photon"
+        and design.photon_replicates < minimum_photon_replicates
+    ):
+        raise ValueError(
+            "Nested design has fewer photon replicates than the declared minimum."
+        )
     return config
 
 
@@ -2315,6 +2635,8 @@ def _write_artifacts(
     summaries: pd.DataFrame,
     case_convergence: pd.DataFrame,
     cohort_convergence: pd.DataFrame,
+    nested_axis_summary: pd.DataFrame | None,
+    nested_axis_changes: pd.DataFrame | None,
     parity: pd.DataFrame,
     metal_parity: pd.DataFrame,
     geometry_draws: pd.DataFrame,
@@ -2337,6 +2659,14 @@ def _write_artifacts(
     cohort_convergence.to_csv(
         run_folder / "cohort_uncertainty_convergence.csv", index=False
     )
+    if nested_axis_summary is not None:
+        nested_axis_summary.to_csv(
+            run_folder / "nested_axis_case_convergence.csv", index=False
+        )
+    if nested_axis_changes is not None:
+        nested_axis_changes.to_csv(
+            run_folder / "nested_axis_changes.csv", index=False
+        )
     parity.to_csv(run_folder / "pyfai_parity.csv", index=False)
     metal_parity.to_csv(run_folder / "metal_parity.csv", index=False)
     geometry_draws.to_csv(run_folder / "geometry_draws.csv", index=False)
@@ -2351,6 +2681,7 @@ def _write_artifacts(
     (run_folder / "lineage.json").write_text(
         json.dumps(lineage, indent=2, sort_keys=True), encoding="utf-8"
     )
+    nuisance_scope = pd.read_csv(run_folder / NUISANCE_SCOPE_FILENAME)
     manifest = {
         "contract": RESULT_CONTRACT,
         "status": "complete",
@@ -2360,11 +2691,22 @@ def _write_artifacts(
         "draws": design.output_draws,
         "independent_geometry_draws": design.geometry_draws,
         "photon_replicates_per_geometry": design.photon_replicates,
+        "poni_geometry_groups": int(
+            nuisance_scope["poni_geometry_sha256"].nunique()
+        ),
+        "thickness_groups": int(nuisance_scope["thickness_group"].nunique()),
+        "outer_draw_scope": "cohort_aligned_by_poni_geometry_group",
         "convergence_draw_prefixes": list(
             convergence_draw_prefixes(
                 design.output_draws,
                 stage_draws=design.output_stage_draws,
             )
+        ),
+        "geometry_convergence_prefixes": list(
+            config["convergence"]["geometry_prefixes"]
+        ),
+        "photon_convergence_prefixes": list(
+            config["convergence"]["photon_prefixes"]
         ),
         "scenarios": [value.name for value in scenarios],
         "probability_values": int(
@@ -2427,12 +2769,20 @@ def _log_mlflow(
         "metal_parity.csv",
         "geometry_draws.csv",
         "thickness_metadata_qc.csv",
+        NUISANCE_SCOPE_FILENAME,
         "lineage.json",
         "run_manifest.json",
         PROBABILITY_FILENAME,
         RUN_STATE_FILENAME,
         PROGRESS_FILENAME,
     ]
+    if manifest["monte_carlo_design"] == "nested_geometry_photon":
+        required.extend(
+            [
+                "nested_axis_case_convergence.csv",
+                "nested_axis_changes.csv",
+            ]
+        )
     with run:
         for step, scenario in enumerate(manifest["scenarios"]):
             subset = summaries[summaries["scenario"].eq(scenario)]
@@ -2459,14 +2809,18 @@ def _log_mlflow(
 
 __all__ = [
     "CONTRACT",
+    "CohortNuisanceDraws",
     "NuisanceDraws",
     "Scenario",
     "convergence_draw_prefixes",
     "effective_detector_distance_m",
     "run_joint_measurement_uncertainty_from_config",
+    "sample_cohort_nuisance_draws",
     "sample_nuisance_draws",
     "summarize_case_convergence",
     "summarize_case_uncertainty",
     "summarize_cohort_convergence",
+    "summarize_nested_axis_changes",
+    "summarize_nested_axis_convergence",
     "thickness_metadata_audit",
 ]

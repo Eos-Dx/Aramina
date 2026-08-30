@@ -23,8 +23,8 @@ integration:
   npt: 100
   normalization_q_range: [6.7, 7.1]
 backend:
-  kind: apple_metal_direct_mc
-  xrd_analysis_git_sha: f0fde85cfd3eadac87de5a73749e841d43fb9208
+  kind: pyfai_prepared_csr_metal_photon_mc
+  xrd_analysis_git_sha: 9adf7ef4eb9487ccdddde6f95a1a844a5666b15c
 validation:
   parity_measurements: 10
   pyfai_parity_tolerance: 1.0e-8
@@ -57,11 +57,11 @@ nuisance:
   beam_center:
     radius_px: 10.0
     distribution: uniform_area_disk
-    correlation: calibration_session_shared
+    correlation: poni_file_shared
   detector_distance:
     half_width_mm: 10.0
     distribution: uniform_symmetric
-    correlation: calibration_session_shared
+    correlation: poni_file_shared
 scenarios:
   - name: photon_only
     photon: true
