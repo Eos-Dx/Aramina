@@ -23,7 +23,7 @@ integration:
   normalization_q_range: [6.7, 7.1]
 backend:
   kind: metal_geometry_aware_nested
-  xrd_analysis_git_sha: 9adf7ef4eb9487ccdddde6f95a1a844a5666b15c
+  xrd_analysis_git_sha: a68350eda1140f85f4ea9ef6c88f94194490a56c
 validation:
   parity_measurements: 10
   pyfai_parity_tolerance: 1.0e-8

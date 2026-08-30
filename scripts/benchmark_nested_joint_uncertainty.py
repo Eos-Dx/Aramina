@@ -1,4 +1,4 @@
-"""Benchmark pyFAI-prepared geometry with nested Metal photon sampling."""
+"""Benchmark geometry-aware nested Metal photon sampling."""
 
 from __future__ import annotations
 
@@ -54,6 +54,7 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--patients", type=int, default=10)
     parser.add_argument("--geometry-draws", type=int, default=1)
     parser.add_argument("--photon-replicates", type=int, default=50)
+    parser.add_argument("--geometry-audit-draws", type=int, default=1)
     parser.add_argument("--scenario", default="joint_10px_10mm")
     parser.add_argument("--seed", type=int, default=20260828)
     parser.add_argument("--output", type=Path)
@@ -69,7 +70,12 @@ def _resolve(value: str, config_path: Path) -> Path:
 
 def main() -> None:
     args = _arguments()
-    if args.patients < 1 or args.geometry_draws < 1 or args.photon_replicates < 1:
+    if (
+        args.patients < 1
+        or args.geometry_draws < 1
+        or args.photon_replicates < 1
+        or not 1 <= args.geometry_audit_draws <= args.geometry_draws
+    ):
         raise ValueError("Patient and Monte Carlo counts must be positive.")
     config_path = args.config.expanduser().resolve()
     config = _load_config(config_path)
@@ -159,7 +165,7 @@ def main() -> None:
                 start=0,
                 stop=args.geometry_draws,
                 audit_draw_start=0,
-                geometry_audit_draws=args.geometry_draws,
+                geometry_audit_draws=args.geometry_audit_draws,
                 normalization_q_range=normalization_q_range,
                 random_seed=args.seed,
                 photon_replicates=args.photon_replicates,
@@ -258,13 +264,14 @@ def main() -> None:
     )
     nested_changes = summarize_nested_axis_changes(nested_convergence)
     result = {
-        "contract": "aramina_prepared_geometry_metal_benchmark_v0_3",
+        "contract": "aramina_geometry_aware_metal_benchmark_v0_4",
         "patients": len(patient_ids),
         "target_cases": target_cases,
         "detector_measurements": detector_measurements,
         "scenario": scenario.name,
         "geometry_scope": "cohort_aligned_by_poni_file",
         "geometry_draws": args.geometry_draws,
+        "geometry_audit_draws": args.geometry_audit_draws,
         "photon_replicates_per_geometry": args.photon_replicates,
         "photon_profiles": photon_profiles,
         "elapsed_seconds": elapsed,
