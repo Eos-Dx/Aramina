@@ -148,11 +148,21 @@ class _FakeGeometrySession:
         )
 
 
-def _fake_metal_context(session: _FakeGeometrySession) -> PatientMetalContext:
+def _fake_metal_context(
+    session: _FakeGeometrySession,
+    *,
+    backend_kind: str = "pyfai_prepared_csr_metal_photon_mc",
+) -> PatientMetalContext:
     return PatientMetalContext(
         session=session,
         q_grid=np.array([2.0, 3.0, 4.0]),
         images=np.zeros((2, 2, 2)),
+        backend_kind=backend_kind,
+        nominal_effective_distance_m=np.array([0.7, 0.8]),
+        nominal_poni1_m=np.array([0.01, 0.02]),
+        nominal_poni2_m=np.array([0.03, 0.04]),
+        pixel1_m=np.array([1e-4, 1e-4]),
+        pixel2_m=np.array([1e-4, 1e-4]),
     )
 
 

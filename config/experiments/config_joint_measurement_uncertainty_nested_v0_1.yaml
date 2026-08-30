@@ -22,7 +22,7 @@ integration:
   npt: 100
   normalization_q_range: [6.7, 7.1]
 backend:
-  kind: pyfai_prepared_csr_metal_photon_mc
+  kind: metal_geometry_aware_nested
   xrd_analysis_git_sha: 9adf7ef4eb9487ccdddde6f95a1a844a5666b15c
 validation:
   parity_measurements: 10

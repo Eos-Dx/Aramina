@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import UTC, datetime
 import fcntl
@@ -149,6 +150,13 @@ class PatientMetalContext:
     session: Any
     q_grid: np.ndarray
     images: np.ndarray
+    geometry_plan_cache: GeometryPlanCache | None = None
+    backend_kind: str = "pyfai_prepared_csr_metal_photon_mc"
+    nominal_effective_distance_m: np.ndarray | None = None
+    nominal_poni1_m: np.ndarray | None = None
+    nominal_poni2_m: np.ndarray | None = None
+    pixel1_m: np.ndarray | None = None
+    pixel2_m: np.ndarray | None = None
 
     def __enter__(self) -> PatientMetalContext:
         return self
@@ -157,6 +165,152 @@ class PatientMetalContext:
         close = getattr(self.session, "close", None)
         if close is not None:
             close()
+
+
+@dataclass(frozen=True)
+class PreparedGeometryDraw:
+    """Exact pyFAI result and Metal plans for one immutable geometry state."""
+
+    expected: np.ndarray
+    plans: tuple[Any, ...]
+    geometry_rows: tuple[dict[str, Any], ...]
+
+
+class GeometryPlanCache:
+    """Bounded runner cache for exact pyFAI geometry-plus-mask plans.
+
+    A cache entry is valid only when every geometry input, frame-local mask,
+    q-grid, and normalization denominator is identical.  It deliberately does
+    not merge masks across frames or approximate nearby geometries.
+    """
+
+    def __init__(self, max_entries: int = 2) -> None:
+        if max_entries < 1:
+            raise ValueError("Geometry plan cache must retain at least one entry.")
+        self._max_entries = int(max_entries)
+        self._entries: OrderedDict[str, PreparedGeometryDraw] = OrderedDict()
+        self.hits = 0
+        self.misses = 0
+
+    def get(self, key: str) -> PreparedGeometryDraw | None:
+        value = self._entries.get(key)
+        if value is None:
+            self.misses += 1
+            return None
+        self._entries.move_to_end(key)
+        self.hits += 1
+        return value
+
+    def put(self, key: str, value: PreparedGeometryDraw) -> None:
+        self._entries[key] = value
+        self._entries.move_to_end(key)
+        while len(self._entries) > self._max_entries:
+            self._entries.popitem(last=False)
+
+
+class RunnerPreparedMetalSession:
+    """Aramina adapter for the existing xrd-analysis prepared-plan interface.
+
+    xrd-analysis owns the GPU implementation.  This runner keeps one grouped
+    Metal session alive while an exact plan set is reused, which avoids repeated
+    image uploads and session creation for ``photon_only`` geometry states.
+    """
+
+    def __init__(
+        self,
+        images: list[np.ndarray],
+        *,
+        measurement_seeds: np.ndarray,
+        profile_batch_size: int,
+        max_entries: int = 2,
+    ) -> None:
+        if max_entries < 1:
+            raise ValueError("Metal session cache must retain at least one entry.")
+        self._images = tuple(np.asarray(image, dtype=np.float64) for image in images)
+        self._measurement_seeds = np.asarray(measurement_seeds, dtype=np.uint64)
+        self._profile_batch_size = int(profile_batch_size)
+        self._max_entries = int(max_entries)
+        self._sessions: OrderedDict[str, Any] = OrderedDict()
+        self.hits = 0
+        self.misses = 0
+
+    def __enter__(self) -> RunnerPreparedMetalSession:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.close()
+
+    def close(self) -> None:
+        for session in self._sessions.values():
+            session.close()
+        self._sessions.clear()
+
+    @staticmethod
+    def _plan_set_key(plans: list[Any] | tuple[Any, ...]) -> str:
+        """Fingerprint exact ordered plans, including masks and denominators."""
+        try:
+            from xrdanalysis.direct_monte_carlo_metal_session import (
+                metal_plan_fingerprint,
+            )
+        except ImportError as error:
+            raise RuntimeError(
+                "Joint uncertainty requires grouped prepared Metal support."
+            ) from error
+        digest = hashlib.sha256()
+        for plan in plans:
+            digest.update(metal_plan_fingerprint(plan).encode("ascii"))
+        return digest.hexdigest()
+
+    def _session_for_plans(self, plans: list[Any] | tuple[Any, ...]) -> Any:
+        key = self._plan_set_key(plans)
+        session = self._sessions.get(key)
+        if session is not None:
+            self._sessions.move_to_end(key)
+            self.hits += 1
+            return session
+        try:
+            from xrdanalysis.direct_monte_carlo_metal_session import (
+                GroupedPersistentMetalMonteCarlo,
+            )
+        except ImportError as error:
+            raise RuntimeError(
+                "Joint uncertainty requires grouped prepared Metal support."
+            ) from error
+        self.misses += 1
+        session = GroupedPersistentMetalMonteCarlo(
+            plans,
+            self._images,
+            measurement_seeds=self._measurement_seeds,
+            profile_batch_size=self._profile_batch_size,
+        )
+        self._sessions[key] = session
+        while len(self._sessions) > self._max_entries:
+            _, old_session = self._sessions.popitem(last=False)
+            old_session.close()
+        return session
+
+    def run_geometry(
+        self,
+        plans: list[Any] | tuple[Any, ...],
+        photon_replicates: int,
+        *,
+        seed: int,
+        include_deterministic: bool,
+    ) -> Any:
+        if photon_replicates < 1:
+            raise ValueError("photon_replicates must be positive.")
+        session = self._session_for_plans(plans)
+        profiles = session.run((1.0,), photon_replicates, seed=seed)[0]
+        deterministic = session.integrate() if include_deterministic else None
+        return type(
+            "PreparedGeometryMetalResult",
+            (),
+            {
+                "profiles": profiles,
+                "deterministic_profiles": deterministic,
+                "unique_plan_count": session.group_count,
+            },
+        )()
 
 
 @dataclass
@@ -804,6 +958,7 @@ def run_joint_measurement_uncertainty_from_config(
     case_table["decision_threshold"] = thresholds
     draw_chunk_size = int(config["execution"]["draw_chunk_size"])
     profile_batch_size = int(config["execution"]["profile_batch_size"])
+    backend_kind = str(config["backend"]["kind"])
     geometry_audit_draws = int(config["execution"]["geometry_audit_draws"])
     stage_geometry_draws = design.geometry_stage_draws
     normalization_q_range = tuple(
@@ -884,6 +1039,7 @@ def run_joint_measurement_uncertainty_from_config(
                     draw_chunk_size=draw_chunk_size,
                     profile_batch_size=profile_batch_size,
                     normalization_q_range=normalization_q_range,
+                    backend_kind=backend_kind,
                 ) as metal_context:
                     for scenario_index, scenario in incomplete_scenarios:
                         patient_probabilities, patient_parity, patient_geometry = (
@@ -1383,24 +1539,22 @@ def _prepare_patient_metal_context(
     draw_chunk_size: int,
     profile_batch_size: int,
     normalization_q_range: tuple[float, float],
+    backend_kind: str = "pyfai_prepared_csr_metal_photon_mc",
 ) -> PatientMetalContext:
-    del draw_chunk_size, normalization_q_range
-    try:
-        from xrdanalysis.direct_monte_carlo_metal_session import (
-            PreparedGeometryMetalMonteCarlo,
-        )
-    except ImportError as error:
-        raise RuntimeError(
-            "Joint uncertainty requires prepared-geometry Metal support."
-        ) from error
-
     measurements = len(patient_frame)
     if nuisance.photon_measurement_seeds.shape != (measurements,):
         raise MeasurementUncertaintyError(
             "Photon seeds must contain one stable seed per measurement."
         )
     images: list[np.ndarray] = []
+    masks: list[np.ndarray] = []
     q_rows: list[np.ndarray] = []
+    nominal_distance: list[float] = []
+    nominal_poni1: list[float] = []
+    nominal_poni2: list[float] = []
+    pixel1: list[float] = []
+    pixel2: list[float] = []
+    geometries: list[Any] = []
     for _, row in patient_frame.iterrows():
         image = _centered_poisson_observation(
             row[RAW_FRAME_COLUMN], row[MASK_COLUMN]
@@ -1419,6 +1573,22 @@ def _prepare_patient_metal_context(
             )
         images.append(image)
         q_rows.append(q)
+        masks.append(np.asarray(context.mask, dtype=np.uint8))
+        nominal_distance.append(float(context.integrator.dist))
+        nominal_poni1.append(float(context.integrator.poni1))
+        nominal_poni2.append(float(context.integrator.poni2))
+        pixel1.append(float(context.integrator.detector.pixel1))
+        pixel2.append(float(context.integrator.detector.pixel2))
+        if backend_kind == "metal_geometry_aware_nested":
+            try:
+                from xrdanalysis.direct_monte_carlo_geometry_metal import (
+                    MetalDetectorGeometry,
+                )
+            except ImportError as error:
+                raise RuntimeError(
+                    "Joint uncertainty requires geometry-aware Metal support."
+                ) from error
+            geometries.append(MetalDetectorGeometry.from_pyfai(context.integrator))
 
     q_grid = q_rows[0]
     if any(
@@ -1427,15 +1597,48 @@ def _prepare_patient_metal_context(
         raise MeasurementUncertaintyError(
             "Patient measurements do not share the fixed product q grid."
         )
-    session = PreparedGeometryMetalMonteCarlo(
-        images,
-        measurement_seeds=nuisance.photon_measurement_seeds,
-        profile_batch_size=profile_batch_size,
-    )
+    if backend_kind == "pyfai_prepared_csr_metal_photon_mc":
+        session: Any = RunnerPreparedMetalSession(
+            images,
+            measurement_seeds=nuisance.photon_measurement_seeds,
+            profile_batch_size=profile_batch_size,
+        )
+        geometry_plan_cache: GeometryPlanCache | None = GeometryPlanCache()
+    elif backend_kind == "metal_geometry_aware_nested":
+        try:
+            from xrdanalysis.direct_monte_carlo_geometry_metal import (
+                GeometryAwareMetalMonteCarlo,
+            )
+        except ImportError as error:
+            raise RuntimeError(
+                "Joint uncertainty requires geometry-aware Metal support."
+            ) from error
+        session = GeometryAwareMetalMonteCarlo(
+            np.stack(images),
+            np.stack(masks),
+            geometries,
+            q_grid,
+            normalization_q_range,
+            measurement_seeds=nuisance.photon_measurement_seeds,
+            draw_capacity=max(1, int(draw_chunk_size)),
+            profile_batch_size=max(int(profile_batch_size), 50),
+        )
+        geometry_plan_cache = None
+    else:
+        raise MeasurementUncertaintyError(
+            f"Unsupported joint uncertainty backend: {backend_kind}."
+        )
     return PatientMetalContext(
         session=session,
         q_grid=q_grid.copy(),
         images=np.stack(images),
+        geometry_plan_cache=geometry_plan_cache,
+        backend_kind=backend_kind,
+        nominal_effective_distance_m=np.asarray(nominal_distance, dtype=float),
+        nominal_poni1_m=np.asarray(nominal_poni1, dtype=float),
+        nominal_poni2_m=np.asarray(nominal_poni2, dtype=float),
+        pixel1_m=np.asarray(pixel1, dtype=float),
+        pixel2_m=np.asarray(pixel2, dtype=float),
     )
 
 
@@ -1476,6 +1679,65 @@ def _prepared_geometry_seed(base_seed: int, draw_index: int) -> int:
     return int.from_bytes(hashlib.sha256(payload).digest()[:8], "little")
 
 
+def _cache_array_digest(digest: Any, values: Any, *, dtype: np.dtype) -> None:
+    array = np.ascontiguousarray(values, dtype=dtype)
+    digest.update(array.shape.__repr__().encode("ascii"))
+    digest.update(array.tobytes())
+
+
+def _geometry_plan_cache_key(
+    patient_frame: pd.DataFrame,
+    *,
+    thickness: np.ndarray,
+    row_delta: np.ndarray,
+    column_delta: np.ndarray,
+    distance_delta: np.ndarray,
+    q_grid: np.ndarray,
+    normalization_q_range: tuple[float, float],
+) -> str:
+    """Fingerprint every input which can alter a prepared pyFAI plan.
+
+    The key includes each frame-local mask and the fixed normalization context.
+    Thus a hit means exactly the same integration plan, rather than merely a
+    matching PONI file or a nearby perturbation.
+    """
+    digest = hashlib.sha256()
+    digest.update(b"aramina-prepared-geometry-cache-v1")
+    _cache_array_digest(digest, q_grid, dtype=np.dtype(np.float64))
+    _cache_array_digest(digest, normalization_q_range, dtype=np.dtype(np.float64))
+    for values in (thickness, row_delta, column_delta, distance_delta):
+        _cache_array_digest(digest, values, dtype=np.dtype(np.float64))
+    for _, measurement in patient_frame.iterrows():
+        image_shape = np.asarray(measurement[RAW_FRAME_COLUMN]).shape
+        digest.update(repr(tuple(int(value) for value in image_shape)).encode("ascii"))
+        digest.update(str(measurement["ponifile"]).encode("utf-8"))
+        for column in (
+            "sample_thickness_mm",
+            "calibrant_thickness_mm",
+            "interpolation_q_range",
+            "azimuthal_range",
+        ):
+            digest.update(repr(measurement.get(column)).encode("utf-8"))
+        _cache_array_digest(
+            digest,
+            measurement[MASK_COLUMN],
+            dtype=np.dtype(np.int64),
+        )
+    return digest.hexdigest()
+
+
+def _retag_geometry_rows(
+    rows: tuple[dict[str, Any], ...],
+    *,
+    scenario: Scenario,
+    draw_index: int,
+) -> list[dict[str, Any]]:
+    return [
+        {**row, "scenario": scenario.name, "draw_index": int(draw_index)}
+        for row in rows
+    ]
+
+
 def _prepare_pyfai_geometry_draw(
     patient_frame: pd.DataFrame,
     *,
@@ -1485,6 +1747,7 @@ def _prepare_pyfai_geometry_draw(
     q_grid: np.ndarray,
     normalization_q_range: tuple[float, float],
     prepare_metal_plans: bool = True,
+    geometry_plan_cache: GeometryPlanCache | None = None,
 ) -> tuple[np.ndarray, list[Any], list[dict[str, Any]]]:
     if prepare_metal_plans:
         from xrdanalysis.direct_monte_carlo import prepare_native_plan
@@ -1498,6 +1761,31 @@ def _prepare_pyfai_geometry_draw(
             stop=draw_index + 1,
         )
     )
+    cache_key = _geometry_plan_cache_key(
+        patient_frame,
+        thickness=thickness,
+        row_delta=row_delta,
+        column_delta=column_delta,
+        distance_delta=distance_delta,
+        q_grid=q_grid,
+        normalization_q_range=normalization_q_range,
+    )
+    if geometry_plan_cache is not None:
+        cached = geometry_plan_cache.get(cache_key)
+        if cached is not None:
+            if prepare_metal_plans and not cached.plans:
+                raise MeasurementUncertaintyError(
+                    "Cached geometry result has no required Metal plans."
+                )
+            return (
+                cached.expected,
+                list(cached.plans) if prepare_metal_plans else [],
+                _retag_geometry_rows(
+                    cached.geometry_rows,
+                    scenario=scenario,
+                    draw_index=draw_index,
+                ),
+            )
     expected = np.empty((len(patient_frame), q_grid.size), dtype=float)
     plans: list[Any] = []
     geometry_rows: list[dict[str, Any]] = []
@@ -1567,6 +1855,16 @@ def _prepare_pyfai_geometry_draw(
                 **geometry,
             }
         )
+    if geometry_plan_cache is not None:
+        expected.setflags(write=False)
+        geometry_plan_cache.put(
+            cache_key,
+            PreparedGeometryDraw(
+                expected=expected,
+                plans=tuple(plans),
+                geometry_rows=tuple(geometry_rows),
+            ),
+        )
     return expected, plans, geometry_rows
 
 
@@ -1595,6 +1893,50 @@ def _pyfai_oracle_profiles(
         expected.append(profiles)
         geometry_rows.extend(rows)
     return np.stack(expected), geometry_rows
+
+
+def _geometry_aware_draw_arrays(
+    metal_context: PatientMetalContext,
+    *,
+    scenario: Scenario,
+    nuisance: NuisanceDraws,
+    start: int,
+    stop: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Build exact draw-specific geometry vectors for the persistent Metal session."""
+    static = (
+        metal_context.nominal_effective_distance_m,
+        metal_context.nominal_poni1_m,
+        metal_context.nominal_poni2_m,
+        metal_context.pixel1_m,
+        metal_context.pixel2_m,
+    )
+    if any(value is None for value in static):
+        raise MeasurementUncertaintyError(
+            "Geometry-aware Metal context is missing nominal geometry vectors."
+        )
+    thickness, row_delta, column_delta, distance_delta = _scenario_component_deltas(
+        scenario,
+        nuisance,
+        start=start,
+        stop=stop,
+    )
+    nominal_distance, nominal_poni1, nominal_poni2, pixel1, pixel2 = static
+    return (
+        np.ascontiguousarray(
+            nominal_distance[np.newaxis, :]
+            + 1e-3 * (distance_delta - 0.5 * thickness),
+            dtype=np.float64,
+        ),
+        np.ascontiguousarray(
+            nominal_poni1[np.newaxis, :] + row_delta * pixel1[np.newaxis, :],
+            dtype=np.float64,
+        ),
+        np.ascontiguousarray(
+            nominal_poni2[np.newaxis, :] + column_delta * pixel2[np.newaxis, :],
+            dtype=np.float64,
+        ),
+    )
 
 
 def summarize_case_uncertainty(
@@ -2172,6 +2514,10 @@ def _run_patient_scenario(
         maximum_tolerance=metal_profile_max_tolerance,
         p99_tolerance=metal_profile_p99_tolerance,
     )
+    geometry_aware_backend = (
+        getattr(metal_context, "backend_kind", None)
+        == "metal_geometry_aware_nested"
+    )
     parity = {
         "patient_id": str(patient_frame["patientId"].iloc[0]),
         "scenario": scenario.name,
@@ -2182,9 +2528,19 @@ def _run_patient_scenario(
         "photon_replicates_per_geometry": int(photon_replicates),
         "oracle_draws": int(metal_audit.shape[0]),
         **profile_metrics,
-        "geometry_backend": "pyfai_bbox_csr",
-        "photon_backend": "metal_prepared_csr" if scenario.photon else "none",
-        "gpu_geometry_recalculation": False,
+        "geometry_backend": (
+            "metal_dynamic_bbox"
+            if geometry_aware_backend
+            else "pyfai_bbox_csr"
+        ),
+        "photon_backend": (
+            "metal_geometry_aware_nested"
+            if geometry_aware_backend and scenario.photon
+            else "metal_prepared_csr"
+            if scenario.photon
+            else "none"
+        ),
+        "gpu_geometry_recalculation": geometry_aware_backend,
     }
     if not profile_metrics["parity_pass"]:
         raise MeasurementUncertaintyError(
@@ -2265,6 +2621,20 @@ def _metal_profile_chunk(
     np.ndarray,
     list[dict[str, Any]],
 ]:
+    if getattr(metal_context, "backend_kind", None) == "metal_geometry_aware_nested":
+        return _geometry_aware_metal_profile_chunk(
+            patient_frame,
+            metal_context=metal_context,
+            scenario=scenario,
+            nuisance=nuisance,
+            start=start,
+            stop=stop,
+            audit_draw_start=audit_draw_start,
+            geometry_audit_draws=geometry_audit_draws,
+            normalization_q_range=normalization_q_range,
+            random_seed=random_seed,
+            photon_replicates=photon_replicates,
+        )
     audit_stop = min(stop, audit_draw_start + geometry_audit_draws)
     if start < audit_draw_start < stop:
         raise MeasurementUncertaintyError(
@@ -2283,6 +2653,7 @@ def _metal_profile_chunk(
             q_grid=metal_context.q_grid,
             normalization_q_range=normalization_q_range,
             prepare_metal_plans=scenario.photon,
+            geometry_plan_cache=getattr(metal_context, "geometry_plan_cache", None),
         )
         audited = audit_draw_start <= draw_index < audit_stop
         if scenario.photon:
@@ -2323,6 +2694,110 @@ def _metal_profile_chunk(
         profile_cube,
         metal_nominal_cube,
         expected_cube,
+        metal_context.q_grid,
+        geometry_rows,
+    )
+
+
+def _geometry_aware_metal_profile_chunk(
+    patient_frame: pd.DataFrame,
+    *,
+    metal_context: PatientMetalContext,
+    scenario: Scenario,
+    nuisance: NuisanceDraws,
+    start: int,
+    stop: int,
+    audit_draw_start: int,
+    geometry_audit_draws: int,
+    normalization_q_range: tuple[float, float],
+    random_seed: int,
+    photon_replicates: int,
+) -> tuple[
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    list[dict[str, Any]],
+]:
+    """Run dynamic geometry in Metal and reserve pyFAI for bounded oracle audits."""
+    if start < audit_draw_start < stop:
+        raise MeasurementUncertaintyError(
+            "Metal chunk starts before its audit stage boundary."
+        )
+    geometry_draws = stop - start
+    distances, poni1, poni2 = _geometry_aware_draw_arrays(
+        metal_context,
+        scenario=scenario,
+        nuisance=nuisance,
+        start=start,
+        stop=stop,
+    )
+    if scenario.photon:
+        nested = metal_context.session.run_nested(
+            (1.0,),
+            geometry_draws,
+            photon_replicates,
+            effective_distance_m=distances,
+            poni1_m=poni1,
+            poni2_m=poni2,
+            seed=random_seed,
+            geometry_draw_offset=start,
+            photon_draw_offset=start * photon_replicates,
+            geometry_chunk_size=geometry_draws,
+        )
+        profile_cube = np.ascontiguousarray(
+            nested[0].reshape(
+                geometry_draws * photon_replicates,
+                len(patient_frame),
+                metal_context.q_grid.size,
+            )
+        )
+    else:
+        deterministic = metal_context.session.integrate(
+            geometry_draws,
+            effective_distance_m=distances,
+            poni1_m=poni1,
+            poni2_m=poni2,
+            draw_offset=start,
+            draw_chunk_size=geometry_draws,
+        )
+        profile_cube = np.repeat(deterministic, photon_replicates, axis=0)
+
+    audit_stop = min(stop, audit_draw_start + geometry_audit_draws)
+    if not audit_draw_start <= start < audit_stop:
+        empty_shape = (0, len(patient_frame), metal_context.q_grid.size)
+        return (
+            profile_cube,
+            np.empty(empty_shape, dtype=float),
+            np.empty(empty_shape, dtype=float),
+            metal_context.q_grid,
+            [],
+        )
+    audited_count = audit_stop - start
+    audit_distances = distances[:audited_count]
+    audit_poni1 = poni1[:audited_count]
+    audit_poni2 = poni2[:audited_count]
+    metal_nominal = metal_context.session.integrate(
+        audited_count,
+        effective_distance_m=audit_distances,
+        poni1_m=audit_poni1,
+        poni2_m=audit_poni2,
+        draw_offset=start,
+        draw_chunk_size=audited_count,
+    )
+    expected, geometry_rows = _pyfai_oracle_profiles(
+        patient_frame,
+        scenario=scenario,
+        nuisance=nuisance,
+        start=start,
+        stop=audit_stop,
+        q_grid=metal_context.q_grid,
+        normalization_q_range=normalization_q_range,
+    )
+    return (
+        profile_cube,
+        metal_nominal,
+        expected,
         metal_context.q_grid,
         geometry_rows,
     )
@@ -2532,12 +3007,14 @@ def _load_config(path: Path) -> dict[str, Any]:
     parsed = [_scenario(value) for value in scenarios]
     if len({value.name for value in parsed}) != len(parsed):
         raise ValueError("Scenario names must be unique.")
-    if config.get("backend", {}).get("kind") != (
-        "pyfai_prepared_csr_metal_photon_mc"
-    ):
+    backend_kind = config.get("backend", {}).get("kind")
+    if backend_kind not in {
+        "pyfai_prepared_csr_metal_photon_mc",
+        "metal_geometry_aware_nested",
+    }:
         raise ValueError(
-            "Joint uncertainty requires pyFAI-prepared CSR geometry and "
-            "Metal photon Monte Carlo."
+            "Joint uncertainty requires a supported prepared-plan or "
+            "geometry-aware Metal backend."
         )
     if int(config.get("integration", {}).get("npt", 0)) != 100:
         raise ValueError("Frozen Aramina 0.2.15 requires 100-bin integration.")
