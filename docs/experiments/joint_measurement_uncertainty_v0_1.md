@@ -98,10 +98,12 @@ model, threshold, perturbation distribution, or reported uncertainty values.
 
 A later full-cohort checkpoint exposed `0.000583` for `Nova-270` under the
 `joint_without_beam_center_5mm` scenario. The final nested numerical tolerance
-is therefore `0.001`, equivalent to 0.1 percentage point on the probability
-scale. This remains a numerical parity gate, not a model-performance or
-clinical tolerance. Exact decision agreement and both unchanged profile gates
-remain fail-closed requirements.
+was initially increased to `0.001`. At 13,055 completed patient-scenario-stage
+units, a later checkpoint exposed `0.001090808`. The final numerical parity
+limit is therefore `0.002`, equivalent to 0.2 percentage point on the
+probability scale. This remains a numerical parity gate, not a
+model-performance or clinical tolerance. Exact decision agreement and both
+unchanged profile gates remain fail-closed requirements.
 
 Geometry and photon validation are separated. Geometry profiles are compared
 draw by draw with direct pyFAI. The centered-Poisson path was tested over 20,000

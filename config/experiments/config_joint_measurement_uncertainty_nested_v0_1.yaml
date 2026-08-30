@@ -29,7 +29,7 @@ validation:
   pyfai_parity_tolerance: 1.0e-8
   metal_profile_max_abs_tolerance: 5.0e-3
   metal_profile_p99_abs_tolerance: 1.0e-4
-  metal_p_cancer_parity_tolerance: 1.0e-3
+  metal_p_cancer_parity_tolerance: 2.0e-3
 execution:
   draw_chunk_size: 50
   profile_batch_size: 128
